@@ -5,12 +5,7 @@ export const YearRouter = Router();
 
 YearRouter.get('/', (req, res) => {
 
-  const { active, order } = req.query
-
-  yearController.getAllWhere({
-    // where: { active: active === 'true' },
-    // order: { name: order === 'desc' ? 'DESC' : 'ASC' }
-  })
+  yearController.getAllWhere({})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 })

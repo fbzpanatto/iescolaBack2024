@@ -10,6 +10,20 @@ class YearController extends GenericController<EntityTarget<Year>> {
     super(Year);
   }
 
+  override async getAllWhere(options: any) {
+    try {
+
+      const result = await this.repository.find({ relations: ['periods.bimester'] });
+
+      return { status: 200, data: result };
+
+    } catch (error: any) {
+
+      return { status: 500, data: error.message }
+
+    }
+  }
+
   override async saveData(body: Year, options: SaveOptions | undefined) {
     try {
 

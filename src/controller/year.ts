@@ -13,7 +13,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
   override async getAllWhere(options: any) {
     try {
 
-      const result = await this.repository.find({ relations: ['periods.bimester'] });
+      const result = await this.repository.find({
+        order: { name: 'DESC' },
+        relations: ['periods.bimester']
+      });
 
       return { status: 200, data: result };
 

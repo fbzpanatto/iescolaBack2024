@@ -13,8 +13,9 @@ class YearController extends GenericController<EntityTarget<Year>> {
   override async saveData(body: Year, options: SaveOptions | undefined) {
     try {
 
-      // TODO: set active to false for all years
       // TODO: set studentClassroom active to false for all studentClassrooms
+
+      await this.endCurrentYear();
 
       const newYear = new Year();
       newYear.name = body.name;
@@ -39,6 +40,18 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
       return { status: 500, data: error.message }
     }
+  }
+
+  async currentYear() {
+    const result = await this.getOneWhere({ where: { active: true }});
+    return result.data
+  }
+
+  async endCurrentYear() {
+    const currentYear = await this.currentYear();
+    if (!currentYear.id) { return }
+    currentYear.active = false;
+    await this.repository.save(currentYear);
   }
 }
 

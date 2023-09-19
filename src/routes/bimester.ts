@@ -5,12 +5,7 @@ export const BimesterRouter = Router();
 
 BimesterRouter.get('/', (req, res) => {
 
-  const { active, order } = req.query
-
-  bimesterController.getAllWhere({
-    // where: { active: active === 'true' },
-    // order: { name: order === 'desc' ? 'DESC' : 'ASC' }
-  })
+  bimesterController.getAllWhere({})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 })

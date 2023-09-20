@@ -39,7 +39,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       const currentYear = await this.currentYear()
 
       if(currentYear.id && body.active) {
-        return { status: 200, data: `O ano ${currentYear.name} está ativo. Encerre o ano de ${currentYear.name} antes de criar o ano de ${body.name}.` }
+        return { status: 200, data: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` }
       }
 
       const newYear = new Year();

@@ -15,6 +15,12 @@ export class Year {
   @Column({ default: false })
   active: boolean
 
+  @Column( { nullable: false } )
+  createdAt: Date
+
+  @Column({ nullable: true })
+  endedAt: Date
+
   @OneToMany(() => Period, p => p.year)
   periods: Period[]
 }

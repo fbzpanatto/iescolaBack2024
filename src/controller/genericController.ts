@@ -88,7 +88,7 @@ export class GenericController<T> {
     }
   }
 
-  private async findOneById(id: any) {
+  async findOneById(id: any) {
     return await this.repository.findOneBy({id: Number(id)});
   }
 

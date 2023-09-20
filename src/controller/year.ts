@@ -1,8 +1,10 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, SaveOptions } from "typeorm";
+import { EntityTarget, IsNull, SaveOptions } from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
+
+// TODO: send endedAt date for the year on the front end before sending body post
 
 import { AppDataSource } from "../data-source";
 
@@ -16,8 +18,8 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
 
       const result = await this.repository.find({
-        order: { name: 'DESC' },
-        relations: ['periods.bimester']
+        relations: ['periods.bimester'],
+        order: { name: 'DESC', periods: { bimester: { id: 'ASC' } } },
       });
 
       return { status: 200, data: result };
@@ -34,11 +36,16 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
       // TODO: set studentClassroom active to false for all studentClassrooms
 
-      if(body.active) { await this.endCurrentYear() }
+      const currentYear = await this.currentYear()
+
+      if(currentYear.id && body.active) {
+        return { status: 200, data: `O ano ${currentYear.name} está ativo. Encerre o ano de ${currentYear.name} antes de criar o ano de ${body.name}.` }
+      }
 
       const newYear = new Year();
       newYear.name = body.name;
       newYear.active = body.active;
+      newYear.createdAt = body.createdAt ?? new Date()
 
       const bimesters = await AppDataSource.getRepository(Bimester).find() as Bimester[]
 
@@ -60,15 +67,8 @@ class YearController extends GenericController<EntityTarget<Year>> {
   }
 
   async currentYear() {
-    const result = await this.getOneWhere({ where: { active: true }});
+    const result = await this.getOneWhere({ where: { active: true, endedAt: IsNull() }});
     return result.data
-  }
-
-  async endCurrentYear() {
-    const currentYear = await this.currentYear();
-    if (!currentYear.id) { return }
-    currentYear.active = false;
-    await this.repository.save(currentYear);
   }
 }
 

@@ -12,7 +12,7 @@ export class Year {
   @Column({ unique: true})
   name: number
 
-  @Column({ default: true })
+  @Column({ default: false })
   active: boolean
 
   @OneToMany(() => Period, p => p.year)

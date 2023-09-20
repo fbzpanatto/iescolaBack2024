@@ -8,7 +8,7 @@ export class Period {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => Year, y => y.periods)
+  @ManyToOne(() => Year, y => y.periods, { cascade: true })
   year: Year
 
   @ManyToOne(() => Bimester, b => b.periods)

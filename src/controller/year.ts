@@ -32,25 +32,23 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
       // TODO: set studentClassroom active to false for all studentClassrooms
 
-      await this.endCurrentYear();
+      if(body.active) { await this.endCurrentYear() }
 
       const newYear = new Year();
       newYear.name = body.name;
       newYear.active = body.active;
 
-      const year = await this.repository.save(newYear)
-
       const bimesters = await (await this.getOtherRepository(Bimester)).find() as Bimester[];
 
       for(let bimester of bimesters) {
         const period = new Period();
-        period.year = year  as Year;
+        period.year = newYear  as Year;
         period.bimester = bimester;
 
         await (await this.getOtherRepository(Period)).save(period);
       }
 
-      return { status: 201, data: year };
+      return { status: 201, data: newYear };
 
 
     } catch (error: any) {

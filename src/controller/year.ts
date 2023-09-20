@@ -4,6 +4,8 @@ import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 
+import { AppDataSource } from "../data-source";
+
 class YearController extends GenericController<EntityTarget<Year>> {
 
   constructor() {
@@ -38,14 +40,14 @@ class YearController extends GenericController<EntityTarget<Year>> {
       newYear.name = body.name;
       newYear.active = body.active;
 
-      const bimesters = await (await this.getOtherRepository(Bimester)).find() as Bimester[];
+      const bimesters = await AppDataSource.getRepository(Bimester).find() as Bimester[]
 
       for(let bimester of bimesters) {
         const period = new Period();
         period.year = newYear  as Year;
         period.bimester = bimester;
 
-        await (await this.getOtherRepository(Period)).save(period);
+        await AppDataSource.getRepository(Period).save(period)
       }
 
       return { status: 201, data: newYear };

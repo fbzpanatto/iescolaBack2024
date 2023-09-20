@@ -88,10 +88,6 @@ export class GenericController<T> {
     }
   }
 
-  async getOtherRepository(entity: EntityTarget<ObjectLiteral>) {
-    return AppDataSource.getRepository(entity);
-  }
-
   private async findOneById(id: any) {
     return await this.repository.findOneBy({id: Number(id)});
   }

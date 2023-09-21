@@ -10,7 +10,7 @@ export class Year {
 
   @Length(4, 4)
   @Column({ unique: true})
-  name: number
+  name: string
 
   @Column({ default: false })
   active: boolean

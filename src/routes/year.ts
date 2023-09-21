@@ -29,13 +29,13 @@ YearRouter.post('/', (req, res) => {
 YearRouter.put('/:id', (req, res) => {
 
   yearController.updateOneById(req.params.id, req.body)
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
+    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 });
 
 YearRouter.delete('/:id', (req, res) => {
 
   yearController.deleteOneById(req.params.id)
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
+    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 });

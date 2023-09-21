@@ -66,17 +66,20 @@ class YearController extends GenericController<EntityTarget<Year>> {
     }
   }
 
-  async updateOneById(id: any, body: { [x: string]: any; }) {
+  async updateOneById(id: any, body: Year) {
     try {
 
       const dataInDataBase = await this.findOneById(id);
 
       if (!dataInDataBase) { return { status: 404, data: 'Data not found' } }
 
+      const nameExists = await this.checkIfExists(body)
+      if (nameExists) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }
+
       const currentYear = await this.currentYear() as Year
       if(currentYear.id && body.active) { return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} já está ativo.` } }}
 
-      for (const key in body) { dataInDataBase[key] = body[key] }
+      for (const key in body) { dataInDataBase[key] = body[key as keyof Year] }
 
       const result = await this.repository.save(dataInDataBase);
 

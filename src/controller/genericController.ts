@@ -13,7 +13,7 @@ export class GenericController<T> {
 
     } catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
 
     }
   }
@@ -30,7 +30,7 @@ export class GenericController<T> {
 
     catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
 
     }
   }
@@ -45,7 +45,7 @@ export class GenericController<T> {
     }
     catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
 
     }
   }
@@ -65,7 +65,7 @@ export class GenericController<T> {
 
     } catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
 
     }
   }
@@ -75,7 +75,7 @@ export class GenericController<T> {
 
       const dataToDelete = await this.findOneById(id);
 
-      if (!dataToDelete) { return { status: 404, data: 'Data not found' } }
+      if (!dataToDelete) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
 
       const result = await this.repository.delete(dataToDelete);
 
@@ -83,7 +83,7 @@ export class GenericController<T> {
 
     } catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
 
     }
   }

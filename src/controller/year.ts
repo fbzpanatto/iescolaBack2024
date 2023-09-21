@@ -36,10 +36,14 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
       // TODO: set studentClassroom active to false for all studentClassrooms
 
-      const currentYear = await this.currentYear()
+      const nameExists = await this.checkIfExists(body)
+      if (nameExists) {
+        return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } }
+      }
 
+      const currentYear = await this.currentYear() as Year
       if(currentYear.id && body.active) {
-        return { status: 200, data: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` }
+        return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
       }
 
       const newYear = new Year();
@@ -62,13 +66,19 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
     } catch (error: any) {
 
-      return { status: 500, data: error.message }
+      return { status: 500, data: { error: true, errorMessage: error.message } }
     }
   }
 
   async currentYear() {
     const result = await this.getOneWhere({ where: { active: true, endedAt: IsNull() }});
     return result.data
+  }
+
+  async checkIfExists(body: Year) {
+    const result = await this.getOneWhere({ where: { name: body.name }});
+    const year = result.data as Year
+    return !!year.id
   }
 }
 

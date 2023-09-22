@@ -7,7 +7,7 @@ YearRouter.get('/', (req, res) => {
 
   yearController.getAllWhere({})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 })
 
 YearRouter.get('/:id', (req, res) => {
@@ -16,26 +16,26 @@ YearRouter.get('/:id', (req, res) => {
     where: { id: Number(req.params.id) }
   })
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 })
 
 YearRouter.post('/', (req, res) => {
 
   yearController.saveData(req.body, {})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });
 
 YearRouter.put('/:id', (req, res) => {
 
   yearController.updateOneById(req.params.id, req.body)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });
 
 YearRouter.delete('/:id', (req, res) => {
 
   yearController.deleteOneById(req.params.id)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });

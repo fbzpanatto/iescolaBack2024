@@ -11,11 +11,7 @@ export class GenericController<T> {
 
       return { status: 200, data: result };
 
-    } catch (error: any) {
-
-      return { status: 500, data: { error: true, errorMessage: error.message } }
-
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getOneWhere(options: FindOneOptions<ObjectLiteral>) {
@@ -23,16 +19,10 @@ export class GenericController<T> {
 
       const result = await this.repository.findOne(options);
 
-      if (!result) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
+      if (!result) { return { status: 404, message: 'Data not found' } }
 
       return { status: 200, data: result };
-    }
-
-    catch (error: any) {
-
-      return { status: 500, data: { error: true, errorMessage: error.message } }
-
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async saveData(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
@@ -42,12 +32,7 @@ export class GenericController<T> {
 
       return { status: 201, data: result };
 
-    }
-    catch (error: any) {
-
-      return { status: 500, data: { error: true, errorMessage: error.message } }
-
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateOneById(id: any, body: any) {
@@ -55,7 +40,7 @@ export class GenericController<T> {
 
       const dataInDataBase = await this.findOneById(id);
 
-      if (!dataInDataBase) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
+      if (!dataInDataBase) { return { status: 404, message: 'Data not found' } }
 
       for (const key in body) { dataInDataBase[key] = body[key] }
 
@@ -63,11 +48,7 @@ export class GenericController<T> {
 
       return { status: 200, data: result };
 
-    } catch (error: any) {
-
-      return { status: 500, data: { error: true, errorMessage: error.message } }
-
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async deleteOneById(id: any) {
@@ -75,17 +56,13 @@ export class GenericController<T> {
 
       const dataToDelete = await this.findOneById(id);
 
-      if (!dataToDelete) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
+      if (!dataToDelete) { return { status: 404, message: 'Data not found' } }
 
       const result = await this.repository.delete(dataToDelete);
 
       return { status: 200, data: result };
 
-    } catch (error: any) {
-
-      return { status: 500, data: { error: true, errorMessage: error.message } }
-
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async findOneById(id: any) {

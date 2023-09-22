@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import {EntityTarget, IsNull, SaveOptions} from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";

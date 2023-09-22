@@ -28,10 +28,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
 
       const nameExists = await this.checkIfExists(body)
-      if (nameExists.name === body.name) { return { status: 400, message: `O ano ${body.name} já existe.` } }
+      if (nameExists && nameExists.name === body.name) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
+      if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
 
       const newYear = new Year();
       newYear.name = body.name;
@@ -61,10 +61,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
       if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
 
       const yearByName = await this.checkIfExists(body)
-      if(yearByName.name === body.name && yearByName.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
+      if(yearByName && yearByName.name === body.name && yearByName.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear.active && body.active) { return { status: 400, message: 'O ano atual está ativo. Encerre-o antes de criar um novo.' } }
+      if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
 
       for (const key in body) { yearToUpdate[key] = body[key as keyof Year] }
 

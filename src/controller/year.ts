@@ -1,12 +1,11 @@
-import { GenericController } from "./genericController";
+import {GenericController} from "./genericController";
 import {EntityTarget, IsNull, SaveOptions} from "typeorm";
-import { Year } from "../model/Year";
-import { Bimester } from "../model/Bimester";
-import { Period } from "../model/Period";
+import {Year} from "../model/Year";
+import {Bimester} from "../model/Bimester";
+import {Period} from "../model/Period";
 
 // TODO: send endedAt date for the year on the front end before sending body post
-
-import { AppDataSource } from "../data-source";
+import {AppDataSource} from "../data-source";
 
 class YearController extends GenericController<EntityTarget<Year>> {
 
@@ -37,10 +36,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
       // TODO: set studentClassroom active to false for all studentClassrooms
 
       const nameExists = await this.checkIfExists(body)
-      if (nameExists) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }
+      if (nameExists.name === body.name) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear.id && body.active) { return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }}
+      if(currentYear.active && body.active) { return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }}
 
       const newYear = new Year();
       newYear.name = body.name;
@@ -69,19 +68,20 @@ class YearController extends GenericController<EntityTarget<Year>> {
   async updateOneById(id: any, body: Year) {
     try {
 
-      const dataInDataBase = await this.findOneById(id);
+      const yearToUpdate = await this.findOneById(id);
 
-      if (!dataInDataBase) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
+      if (!yearToUpdate) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
 
-      const nameExists = await this.checkIfExists(body)
-      if (nameExists) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }
+      const yearByName = await this.checkIfExists(body)
+      if(yearByName.name === body.name && yearByName.id !== yearToUpdate.id) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear.id && body.active) { return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} já está ativo.` } }}
+      if(currentYear.active && body.active) { return { status: 200, data: { error: true, errorMessage: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }}
 
-      for (const key in body) { dataInDataBase[key] = body[key as keyof Year] }
 
-      const result = await this.repository.save(dataInDataBase);
+      for (const key in body) { yearToUpdate[key] = body[key as keyof Year] }
+
+      const result = await this.repository.save(yearToUpdate);
 
       return { status: 200, data: result };
 
@@ -99,8 +99,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
   async checkIfExists(body: Year) {
     const result = await this.getOneWhere({ where: { name: body.name }});
-    const year = result.data as Year
-    return !!year.id
+    return result.data as Year
   }
 }
 

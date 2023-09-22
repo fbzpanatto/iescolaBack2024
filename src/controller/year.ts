@@ -1,17 +1,15 @@
-import {GenericController} from "./genericController";
-import {EntityTarget, IsNull, SaveOptions} from "typeorm";
-import {Year} from "../model/Year";
-import {Bimester} from "../model/Bimester";
-import {Period} from "../model/Period";
+import { GenericController } from "./genericController";
+import { EntityTarget, IsNull, SaveOptions } from "typeorm";
+import { Year } from "../model/Year";
+import { Bimester } from "../model/Bimester";
+import { Period } from "../model/Period";
+import { AppDataSource } from "../data-source";
 
 // TODO: send endedAt date for the year on the front end before sending body post
-import {AppDataSource} from "../data-source";
+// TODO: set studentClassroom active to false for all studentClassrooms
 
 class YearController extends GenericController<EntityTarget<Year>> {
-
-  constructor() {
-    super(Year);
-  }
+  constructor() { super(Year) }
 
   override async getAllWhere(options: any) {
     try {
@@ -26,10 +24,8 @@ class YearController extends GenericController<EntityTarget<Year>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async saveData(body: Year, options: SaveOptions | undefined) {
+  override async save(body: Year, options: SaveOptions | undefined) {
     try {
-
-      // TODO: set studentClassroom active to false for all studentClassrooms
 
       const nameExists = await this.checkIfExists(body)
       if (nameExists.name === body.name) { return { status: 400, message: `O ano ${body.name} já existe.` } }
@@ -57,10 +53,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateOneById(id: any, body: Year) {
+  async updateId(id: any, body: Year) {
     try {
 
-      const yearToUpdate = await this.findOneById(id);
+      const yearToUpdate = await this.findId(id);
 
       if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
 

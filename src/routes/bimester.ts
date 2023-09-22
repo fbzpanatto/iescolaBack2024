@@ -21,21 +21,21 @@ BimesterRouter.get('/:id', (req, res) => {
 
 BimesterRouter.post('/', (req, res) => {
 
-  bimesterController.saveData(req.body, {})
+  bimesterController.save(req.body, {})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 });
 
 BimesterRouter.put('/:id', (req, res) => {
 
-  bimesterController.updateOneById(req.params.id, req.body)
+  bimesterController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 });
 
 BimesterRouter.delete('/:id', (req, res) => {
 
-  bimesterController.deleteOneById(req.params.id)
+  bimesterController.deleteId(req.params.id)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
 });

@@ -21,21 +21,21 @@ YearRouter.get('/:id', (req, res) => {
 
 YearRouter.post('/', (req, res) => {
 
-  yearController.saveData(req.body, {})
+  yearController.save(req.body, {})
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });
 
 YearRouter.put('/:id', (req, res) => {
 
-  yearController.updateOneById(req.params.id, req.body)
+  yearController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });
 
 YearRouter.delete('/:id', (req, res) => {
 
-  yearController.deleteOneById(req.params.id)
+  yearController.deleteId(req.params.id)
     .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
     .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.message }))
 });

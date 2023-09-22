@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, IsNull, SaveOptions } from "typeorm";
+import {EntityTarget, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
@@ -71,7 +71,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
       const dataInDataBase = await this.findOneById(id);
 
-      if (!dataInDataBase) { return { status: 404, data: 'Data not found' } }
+      if (!dataInDataBase) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
 
       const nameExists = await this.checkIfExists(body)
       if (nameExists) { return { status: 200, data: { error: true, errorMessage: `O ano ${body.name} já existe.` } } }

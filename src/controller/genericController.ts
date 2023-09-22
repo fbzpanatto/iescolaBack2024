@@ -23,7 +23,7 @@ export class GenericController<T> {
 
       const result = await this.repository.findOne(options);
 
-      if (!result) { return { status: 404, data: 'Data not found' } }
+      if (!result) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
 
       return { status: 200, data: result };
     }
@@ -50,12 +50,12 @@ export class GenericController<T> {
     }
   }
 
-  async updateOneById(id: any, body: { [x: string]: any; }) {
+  async updateOneById(id: any, body: any) {
     try {
 
       const dataInDataBase = await this.findOneById(id);
 
-      if (!dataInDataBase) { return { status: 404, data: 'Data not found' } }
+      if (!dataInDataBase) { return { status: 404, data: { error: true, errorMessage: 'Data not found' } } }
 
       for (const key in body) { dataInDataBase[key] = body[key] }
 

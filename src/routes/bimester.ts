@@ -5,9 +5,9 @@ export const BimesterRouter = Router();
 
 BimesterRouter.get('/', (req, res) => {
 
-  bimesterController.getAllWhere({})
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+  bimesterController.findAllWhere({})
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
 })
 
 BimesterRouter.get('/:id', (req, res) => {
@@ -15,27 +15,27 @@ BimesterRouter.get('/:id', (req, res) => {
   bimesterController.getOneWhere({
     where: { id: Number(req.params.id) }
   })
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
 })
 
 BimesterRouter.post('/', (req, res) => {
 
   bimesterController.save(req.body, {})
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r.data }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
 });
 
 BimesterRouter.put('/:id', (req, res) => {
 
   bimesterController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
 });
 
 BimesterRouter.delete('/:id', (req, res) => {
 
   bimesterController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json({ method: req.method, resource: req.baseUrl, payload: r }))
-    .catch(e => res.status(e.status).json({ method: req.method, resource: req.baseUrl, payload: e.data }))
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
 });

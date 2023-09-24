@@ -5,16 +5,14 @@ export const YearRouter = Router();
 
 YearRouter.get('/', (req, res) => {
 
-  yearController.getAllWhere({})
+  yearController.findAllWhere({})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
 YearRouter.get('/:id', (req, res) => {
 
-  yearController.getOneWhere({
-    where: { id: Number(req.params.id) }
-  })
+  yearController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

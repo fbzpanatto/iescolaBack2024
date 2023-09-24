@@ -11,7 +11,7 @@ import { AppDataSource } from "../data-source";
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
 
-  override async getAllWhere(options: any) {
+  override async findAllWhere(options: any) {
     try {
 
       const result = await this.repository.find({
@@ -27,8 +27,8 @@ class YearController extends GenericController<EntityTarget<Year>> {
   override async save(body: Year, options: SaveOptions | undefined) {
     try {
 
-      const nameExists = await this.checkIfExists(body)
-      if (nameExists && nameExists.name === body.name) { return { status: 400, message: `O ano ${body.name} já existe.` } }
+      const yearExists = await this.checkIfExists(body)
+      if (yearExists && yearExists.name === body.name) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
       if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
@@ -56,17 +56,18 @@ class YearController extends GenericController<EntityTarget<Year>> {
   async updateId(id: any, body: Year) {
     try {
 
-      const yearToUpdate = await this.findId(id);
+      const { data} = await this.findOneById(id);
+      const yearToUpdate = data
 
       if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
 
-      const yearByName = await this.checkIfExists(body)
-      if(yearByName && yearByName.name === body.name && yearByName.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
+      const yearExists = await this.checkIfExists(body)
+      if(yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
       if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
 
-      for (const key in body) { yearToUpdate[key] = body[key as keyof Year] }
+      for (const prop in body) { yearToUpdate[prop] = body[prop as keyof Year] }
 
       const result = await this.repository.save(yearToUpdate);
 
@@ -76,13 +77,13 @@ class YearController extends GenericController<EntityTarget<Year>> {
   }
 
   async currentYear() {
-    const result = await this.getOneWhere({ where: { active: true, endedAt: IsNull() }});
-    return result.data
+    const result = await this.findOneByWhere({ where: { active: true, endedAt: IsNull() } });
+    return result.data as Year;
   }
 
   async checkIfExists(body: Year) {
-    const result = await this.getOneWhere({ where: { name: body.name }});
-    return result.data as Year
+    const result = await this.findOneByWhere({ where: { name: body.name }})
+    return result.data as Year;
   }
 }
 

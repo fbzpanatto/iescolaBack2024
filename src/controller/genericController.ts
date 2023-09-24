@@ -4,16 +4,24 @@ import { AppDataSource } from "../data-source";
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
-  async getAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
+  async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
     try {
       const result = await this.repository.find(options);
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getOneWhere(options: FindOneOptions<ObjectLiteral>) {
+  async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
     try {
       const result = await this.repository.findOne(options);
+      if (!result) { return { status: 404, message: 'Data not found' } }
+      return { status: 200, data: result };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async findOneById(id: string) {
+    try {
+      const result = await this.repository.findOneBy({ id: id });
       if (!result) { return { status: 404, message: 'Data not found' } }
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -26,9 +34,9 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: any, body: any) {
+  async updateId(id: string, body: ObjectLiteral) {
     try {
-      const dataInDataBase = await this.findId(id);
+      const dataInDataBase = await this.repository.findOneBy({ id: id });
       if (!dataInDataBase) { return { status: 404, message: 'Data not found' } }
       for (const key in body) { dataInDataBase[key] = body[key] }
       const result = await this.repository.save(dataInDataBase);
@@ -38,14 +46,12 @@ export class GenericController<T> {
 
   async deleteId(id: any) {
     try {
-      const dataToDelete = await this.findId(id);
+      const dataToDelete = await this.repository.findOneBy({ id: id });
       if (!dataToDelete) { return { status: 404, message: 'Data not found' } }
       const result = await this.repository.delete(dataToDelete);
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  async findId(id: any) { return await this.repository.findOneBy({id: Number(id)})}
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 }

@@ -12,9 +12,7 @@ BimesterRouter.get('/', (req, res) => {
 
 BimesterRouter.get('/:id', (req, res) => {
 
-  bimesterController.getOneWhere({
-    where: { id: Number(req.params.id) }
-  })
+  bimesterController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

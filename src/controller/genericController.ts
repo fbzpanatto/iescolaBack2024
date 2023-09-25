@@ -34,6 +34,13 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
+  async createMany(body: DeepPartial<ObjectLiteral>[], options: SaveOptions | undefined) {
+    try {
+      const result = await this.repository.save(body, options);
+      return { status: 201, data: result };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   async updateId(id: string, body: ObjectLiteral) {
     try {
       const dataInDataBase = await this.repository.findOneBy({ id: id });

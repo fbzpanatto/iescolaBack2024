@@ -9,6 +9,9 @@ import { YearRouter } from "./routes/year";
 import { BimesterRouter } from "./routes/bimester";
 import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
+import { PersonRouter } from "./routes/person";
+import { PersonCategoryRouter } from "./routes/personCategory";
+import { StudentRouter } from "./routes/student";
 
 import { InitialConfigsRouter } from "./routes/initialConfigs";
 
@@ -21,10 +24,14 @@ app.use(bodyParser.json());
 app.use(cors({origin: true}));
 
 route.use('/year', YearRouter)
+route.use('/person-category', PersonCategoryRouter)
+route.use('/person', PersonRouter)
 route.use('/classroom', ClassroomRouter)
 route.use('/classroom-category', CassroomCategoryRouter)
 route.use('/bimester', BimesterRouter)
 route.use('/school', SchoolRouter)
+route.use('/student', StudentRouter)
+
 route.use('/initial-configs', InitialConfigsRouter)
 
 app.use(route)

@@ -10,6 +10,10 @@ import { BIMESTER } from "../mock/bimester";
 import { CLASSROOM_CATEGORY } from "../mock/classroomCategory";
 import { SCHOOLS } from "../mock/school";
 import { CLASSROOM } from "../mock/classroom";
+import {DISCIPLINE} from "../mock/discipline";
+import {Discipline} from "../model/Discipline";
+import {PersonCategory} from "../model/PersonCategory";
+import {PERSON_CATEGORY} from "../mock/personCategory";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -29,10 +33,12 @@ async function createClassroom(school: School, classroom: {name: string, shortNa
 
 InitialConfigsRouter.get('/', async (req, res) => {
   try {
+    const personCategorySource = new dataSourceController(PersonCategory).entity
     const bimesterSource = new dataSourceController(Bimester).entity
     const schoolSource = new dataSourceController(School).entity
     const periodSource = new dataSourceController(Period).entity
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
+    const disciplineSource = new dataSourceController(Discipline).entity
 
     const newYear = new Year()
     newYear.name = '2023'
@@ -82,6 +88,22 @@ InitialConfigsRouter.get('/', async (req, res) => {
         }
       }
     }
+
+    for(let discipline of DISCIPLINE) {
+      const newDiscipline = new Discipline()
+      newDiscipline.name = discipline.name
+      newDiscipline.active = discipline.active
+      newDiscipline.shortName = discipline.shortName
+      await disciplineSource.save(newDiscipline)
+    }
+
+    for(let personCAtegory of PERSON_CATEGORY) {
+      const newPersonCategory = new PersonCategory()
+      newPersonCategory.name = personCAtegory.name
+      newPersonCategory.active = personCAtegory.active
+      await personCategorySource.save(newPersonCategory)
+    }
+
     return res.status(200).json({ message: 'Configurações iniciais criadas com sucesso!' })
   } catch (e) {
     console.log(e)

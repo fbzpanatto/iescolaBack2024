@@ -9,6 +9,9 @@ export class Discipline {
   @Column({ unique: true })
   name: string
 
+  @Column()
+  shortName: string
+
   @Column({default: true})
   active: boolean
 }

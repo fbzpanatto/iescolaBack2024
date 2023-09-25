@@ -7,6 +7,8 @@ import { AppDataSource } from "./data-source";
 import { SchoolRouter } from "./routes/school";
 import { YearRouter } from "./routes/year";
 import { BimesterRouter } from "./routes/bimester";
+import { CassroomCategoryRouter } from "./routes/classroomCategory";
+import { ClassroomRouter } from "./routes/classroom";
 
 const bodyParser = require('body-parser');
 const app: Application = express();
@@ -17,6 +19,8 @@ app.use(bodyParser.json());
 app.use(cors({origin: true}));
 
 route.use('/year', YearRouter)
+route.use('/classroom', ClassroomRouter)
+route.use('/classroom-category', CassroomCategoryRouter)
 route.use('/bimester', BimesterRouter)
 route.use('/school', SchoolRouter)
 

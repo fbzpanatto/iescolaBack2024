@@ -2,7 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
 import { Classroom } from "./Classroom";
 
 @Entity()
-export class School {
+export class ClassroomCategory {
 
   @PrimaryGeneratedColumn()
   id: number
@@ -10,12 +10,6 @@ export class School {
   @Column({ unique: true })
   name: string
 
-  @Column({ nullable: true })
-  shortName: string
-
-  @Column({nullable: true})
-  inep: string
-
-  @OneToMany(() => Classroom, classroom => classroom.school)
+  @OneToMany(() => Classroom, classroom => classroom.category)
   classrooms: Classroom[]
 }

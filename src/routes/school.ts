@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { schoolController } from "../controller/school";
-import { SCHOOLS } from "../mock/school";
 
 export const SchoolRouter = Router();
 
@@ -35,13 +34,6 @@ SchoolRouter.put('/:id', (req, res) => {
 SchoolRouter.delete('/:id', (req, res) => {
 
   schoolController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-SchoolRouter.post('/createMany', (req, res) => {
-
-  schoolController.createMany(SCHOOLS, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });

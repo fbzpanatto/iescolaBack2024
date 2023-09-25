@@ -65,7 +65,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       if(yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
+      if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo.` } }
 
       for (const prop in body) { yearToUpdate[prop] = body[prop as keyof Year] }
 

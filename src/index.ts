@@ -10,6 +10,8 @@ import { BimesterRouter } from "./routes/bimester";
 import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
 
+import { InitialConfigsRouter } from "./routes/initialConfigs";
+
 const bodyParser = require('body-parser');
 const app: Application = express();
 const cors = require('cors');
@@ -23,6 +25,7 @@ route.use('/classroom', ClassroomRouter)
 route.use('/classroom-category', CassroomCategoryRouter)
 route.use('/bimester', BimesterRouter)
 route.use('/school', SchoolRouter)
+route.use('/initial-configs', InitialConfigsRouter)
 
 app.use(route)
 

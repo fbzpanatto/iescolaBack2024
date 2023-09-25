@@ -1,4 +1,4 @@
-export const Bimester = [
+export const BIMESTER = [
   { name: "1º BIM" },
   { name: "2º BIM" },
   { name: "3º BIM" },

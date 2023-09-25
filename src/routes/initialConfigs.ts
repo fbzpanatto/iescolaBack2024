@@ -14,7 +14,6 @@ export const InitialConfigsRouter = Router();
 
 InitialConfigsRouter.get('/', async (req, res) => {
   try {
-    const yearSource = new dataSourceController(Year).entity
     const bimesterSource = new dataSourceController(Bimester).entity
     const schoolSource = new dataSourceController(School).entity
     const periodSource = new dataSourceController(Period).entity

@@ -10,6 +10,9 @@ export class ClassroomCategory {
   @Column({ unique: true })
   name: string
 
+  @Column({default: true})
+  active: boolean
+
   @OneToMany(() => Classroom, classroom => classroom.category)
   classrooms: Classroom[]
 }

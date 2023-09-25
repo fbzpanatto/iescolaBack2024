@@ -16,6 +16,9 @@ export class School {
   @Column({nullable: true})
   inep: string
 
+  @Column({ default: true })
+  active: boolean
+
   @OneToMany(() => Classroom, classroom => classroom.school)
   classrooms: Classroom[]
 }

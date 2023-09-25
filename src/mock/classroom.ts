@@ -35,4 +35,5 @@ export const CLASSROOM= [
   { name: "9º ANO B", shortName: "9B", active: false, category: 2 },
   { name: "9º ANO C", shortName: "9C", active: false, category: 2 },
   { name: "9º ANO D", shortName: "9D", active: false, category: 2 },
-].sort((a, b) => a.name.localeCompare(b.name))
+  { name: "OUTROS", shortName: "OUTROS", active: false, category: 3 },
+];

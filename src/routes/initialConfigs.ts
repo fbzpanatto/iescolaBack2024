@@ -12,13 +12,27 @@ import { SCHOOLS } from "../mock/school";
 import { CLASSROOM } from "../mock/classroom";
 export const InitialConfigsRouter = Router();
 
+async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
+
+  const classCategorySource = new dataSourceController(ClassroomCategory).entity
+  const classSource = new dataSourceController(Classroom).entity
+
+  const classCategory = await classCategorySource.findOneBy({ id: classroom.category }) as ClassroomCategory
+  const newClass = new Classroom()
+  newClass.name = classroom.name
+  newClass.category = classCategory
+  newClass.school = school
+  newClass.active = classroom.active
+  newClass.shortName = classroom.shortName
+  await classSource.save(newClass)
+}
+
 InitialConfigsRouter.get('/', async (req, res) => {
   try {
     const bimesterSource = new dataSourceController(Bimester).entity
     const schoolSource = new dataSourceController(School).entity
     const periodSource = new dataSourceController(Period).entity
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
-    const classSource = new dataSourceController(Classroom).entity
 
     const newYear = new Year()
     newYear.name = '2023'
@@ -44,6 +58,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     for(let classroomCategory of CLASSROOM_CATEGORY) {
       const newClassCategory = new ClassroomCategory()
       newClassCategory.name = classroomCategory.name
+      newClassCategory.active = classroomCategory.active
       await classCategorySource.save(newClassCategory)
     }
 
@@ -51,6 +66,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newSchool = new School()
       newSchool.name = school.name
       newSchool.shortName = school.shortName
+      newSchool.active = school.active
       await schoolSource.save(newSchool)
     }
 
@@ -58,16 +74,12 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     for(let school of schools) {
       for(let classroom of CLASSROOM) {
-
-        const classCategory = await classCategorySource.findOneBy({ id: classroom.category }) as ClassroomCategory
-
-        const newClass = new Classroom()
-        newClass.name = classroom.name
-        newClass.category = classCategory
-        newClass.school = school
-        newClass.active = false
-        newClass.shortName = classroom.shortName
-        await classSource.save(newClass)
+        if(school.active && classroom.category !== 3) {
+          await createClassroom(school, classroom)
+        }
+        if(!school.active && classroom.category === 3 && !classroom.active) {
+          await createClassroom(school, classroom)
+        }
       }
     }
     return res.status(200).json({ message: 'Configurações iniciais criadas com sucesso!' })

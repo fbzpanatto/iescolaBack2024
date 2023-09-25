@@ -7,6 +7,7 @@ import {Classroom} from "./Classroom";
 import {Person} from "./Person";
 import {PersonCategory} from "./PersonCategory";
 import {Student} from "./Student";
+import {Teacher} from "./Teacher";
 
 export const entities = [
   Classroom,
@@ -17,5 +18,6 @@ export const entities = [
   Bimester,
   School,
   Period,
-  Year
+  Year,
+  Teacher
 ]

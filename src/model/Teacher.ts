@@ -8,7 +8,7 @@ export class Teacher {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToOne(() => Person)
+  @OneToOne(() => Person, person => person.teacher, { cascade: true })
   @JoinColumn()
   person: Person
 

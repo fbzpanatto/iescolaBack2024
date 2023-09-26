@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from "typeorm"
+import {Entity, Column, PrimaryGeneratedColumn, OneToMany} from "typeorm"
+import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
 
 @Entity()
 export class Discipline {
@@ -14,4 +15,7 @@ export class Discipline {
 
   @Column({default: true})
   active: boolean
+
+  @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.discipline)
+  teacherClassDiscipline: TeacherClassDiscipline[]
 }

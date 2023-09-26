@@ -1,6 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm"
+import {Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany} from "typeorm"
 import { School } from "./School";
 import { ClassroomCategory } from "./ClassroomCategory";
+import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
 
 @Entity()
 export class Classroom {
@@ -22,4 +23,7 @@ export class Classroom {
 
   @ManyToOne(() => ClassroomCategory, category => category.classrooms)
   category: ClassroomCategory
+
+  @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.classroom)
+  teacherClassDiscipline: TeacherClassDiscipline[]
 }

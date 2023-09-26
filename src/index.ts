@@ -14,6 +14,7 @@ import { PersonCategoryRouter } from "./routes/personCategory";
 import { StudentRouter } from "./routes/student";
 import { TeacherRouter } from "./routes/teacher";
 import { DisciplineRouter } from "./routes/discipline";
+import { TeacherClassDisciplineRouter } from "./routes/teacherClassDiscipline";
 
 import { InitialConfigsRouter } from "./routes/initialConfigs";
 
@@ -35,6 +36,7 @@ route.use('/school', SchoolRouter)
 route.use('/student', StudentRouter)
 route.use('/teacher', TeacherRouter)
 route.use('/discipline', DisciplineRouter)
+route.use('/teacher-class-discipline', TeacherClassDisciplineRouter)
 
 route.use('/initial-configs', InitialConfigsRouter)
 

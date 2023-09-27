@@ -19,7 +19,7 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneById(id: string) {
+  async findOneById(id: string | number) {
     try {
       const result = await this.repository.findOneBy({ id: id });
       if (!result) { return { status: 404, message: 'Data not found' } }

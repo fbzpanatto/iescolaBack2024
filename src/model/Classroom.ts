@@ -15,7 +15,7 @@ export class Classroom {
   @Column()
   shortName: string
 
-  @Column()
+  @Column({select: false})
   active: boolean
 
   @ManyToOne(() => School, school => school.classrooms)

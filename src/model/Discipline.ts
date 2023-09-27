@@ -10,10 +10,10 @@ export class Discipline {
   @Column({ unique: true })
   name: string
 
-  @Column()
+  @Column({select: false})
   shortName: string
 
-  @Column({default: true})
+  @Column({default: true, select: false})
   active: boolean
 
   @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.discipline)

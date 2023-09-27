@@ -1,14 +1,13 @@
-import {GenericController} from "./genericController";
-import {EntityTarget, SaveOptions} from "typeorm";
-import {Teacher} from "../model/Teacher";
-import {Person} from "../model/Person";
-import {teacherClassDisciplineController} from "./teacherClassDiscipline";
-import {TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
-import {classroomController} from "./classroom";
-import {Classroom} from "../model/Classroom";
-import {disciplineController} from "./discipline";
-import {Discipline} from "../model/Discipline";
-import {AppDataSource} from "../data-source";
+import { GenericController } from "./genericController";
+import { EntityTarget, SaveOptions } from "typeorm";
+import { Teacher } from "../model/Teacher";
+import { Person } from "../model/Person";
+import { teacherClassDisciplineController } from "./teacherClassDiscipline";
+import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
+import { classroomController } from "./classroom";
+import { Classroom } from "../model/Classroom";
+import { disciplineController } from "./discipline";
+import { Discipline } from "../model/Discipline";
 
 interface TeacherBody {
   name: string,
@@ -55,7 +54,18 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if (!result) { return { status: 404, message: 'Data not found' } }
 
-      return { status: 200, data: result }
+      let newResult = {
+        id: result.teacher_id,
+        person: {
+          id: result.person_id,
+          name: result.person_name,
+          birth: result.person_birth
+        },
+        teacherClasses: result.classroom_ids.split(',').map((item: string) => parseInt(item)),
+        teacherDisciplines: result.discipline_ids.split(',').map((item: string) => parseInt(item))
+      }
+
+      return { status: 200, data: newResult }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

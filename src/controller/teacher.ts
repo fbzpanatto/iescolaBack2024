@@ -38,9 +38,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   override async findOneById(id: string | number) {
     try {
 
-      const result = await AppDataSource
-        .getRepository(TeacherClassDiscipline)
-        .query(this.myQuery.replace(':teacherId', id.toString()))
+      const result = await this.repository
+        .createQueryBuilder('teacher')
+        .select('teacher.id', 'teacher_id')
+        .addSelect('person.id', 'person_id')
+        .addSelect('person.name', 'person_name')
+        .addSelect('person.birth', 'person_birth')
+        .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classroom_ids')
+        .addSelect('GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)', 'discipline_ids')
+        .leftJoin('teacher.person', 'person')
+        .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
+        .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+        .leftJoin('teacherClassDiscipline.discipline', 'discipline')
+        .where('teacher.id = :teacherId', { teacherId: id })
+        .getRawOne();
 
       if (!result) { return { status: 404, message: 'Data not found' } }
 
@@ -85,10 +96,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const teacher = new Teacher()
     teacher.person = person
     return teacher
-  }
-
-  get myQuery() {
-    return "SELECT teacher.id AS teacher_id, person.id AS person_id,person.name AS person_name, person.birth AS person_birth, GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classroom_ids, GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC) AS discipline_ids FROM teacher LEFT JOIN person ON teacher.personId = person.id LEFT JOIN teacher_class_discipline ON teacher.id = teacher_class_discipline.teacherId LEFT JOIN classroom ON teacher_class_discipline.classroomId = classroom.id LEFT JOIN discipline ON teacher_class_discipline.disciplineId = discipline.id WHERE teacher.id = :teacherId"
   }
 }
 

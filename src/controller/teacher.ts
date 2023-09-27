@@ -40,7 +40,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const result = await AppDataSource
         .getRepository(TeacherClassDiscipline)
-        .query(this.myQuery.replace('1', id.toString()))
+        .query(this.myQuery.replace(':teacherId', id.toString()))
 
 
       if (!result) { return { status: 404, message: 'Data not found' } }
@@ -91,7 +91,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   get myQuery() {
-    return "SELECT teacher.id AS teacher_id, person.id AS person_id,person.name AS person_name, person.birth AS person_birth, GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classroom_ids, GROUP_CONCAT(DISTINCT classroom.name ORDER BY classroom.id ASC) AS classroom_names, GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC) AS discipline_ids, GROUP_CONCAT(DISTINCT discipline.name ORDER BY discipline.id ASC) AS discipline_names FROM teacher LEFT JOIN person ON teacher.personId = person.id LEFT JOIN teacher_class_discipline ON teacher.id = teacher_class_discipline.teacherId LEFT JOIN classroom ON teacher_class_discipline.classroomId = classroom.id LEFT JOIN discipline ON teacher_class_discipline.disciplineId = discipline.id WHERE teacher.id = 1"
+    return "SELECT teacher.id AS teacher_id, person.id AS person_id,person.name AS person_name, person.birth AS person_birth, GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classroom_ids, GROUP_CONCAT(DISTINCT classroom.name ORDER BY classroom.id ASC) AS classroom_names, GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC) AS discipline_ids, GROUP_CONCAT(DISTINCT discipline.name ORDER BY discipline.id ASC) AS discipline_names FROM teacher LEFT JOIN person ON teacher.personId = person.id LEFT JOIN teacher_class_discipline ON teacher.id = teacher_class_discipline.teacherId LEFT JOIN classroom ON teacher_class_discipline.classroomId = classroom.id LEFT JOIN discipline ON teacher_class_discipline.disciplineId = discipline.id WHERE teacher.id = :teacherId"
   }
 }
 

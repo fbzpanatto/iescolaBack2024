@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import { EntityTarget, IsNull, SaveOptions} from "typeorm";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";

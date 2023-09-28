@@ -24,4 +24,5 @@ export class TeacherClassDiscipline {
 
   @Column({ nullable: true })
   endedAt: Date
+  newTeacherRelations: { id: any; person: { id: any; name: any; birth: any; }; teacherClasses: any; teacherDisciplines: any; };
 }

@@ -9,23 +9,16 @@ import { Classroom } from "../model/Classroom";
 import { disciplineController } from "./discipline";
 import { Discipline } from "../model/Discipline";
 import { personController } from "./person";
+import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { AppDataSource } from "../data-source";
+import { PersonCategory } from "../model/PersonCategory";
 
-interface TeacherBody {
-  name: string,
-  birth: Date,
-  teacherClasses: number[],
-  teacherDisciplines: number[],
-  classesName?: string[],
-  disciplinesName?: string[]
-}
-
+interface TeacherBody { name: string, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[] }
 interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
-  constructor() {
-    super(Teacher);
-  }
+  constructor() { super(Teacher) }
 
   override async findAllWhere(options: any) {
     try {
@@ -38,7 +31,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   override async findOneById(id: string | number) {
     try {
 
@@ -74,10 +66,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   override async save(body: TeacherBody, options: SaveOptions | undefined) {
     try {
-      const person = this.newPerson(body)
+      const category = await this.getTeacherCategory()
+      const person = this.newPerson(body, category)
       const teacher = await this.repository.save(this.newTeacher(person))
 
       for(let classId of body.teacherClasses) {
@@ -100,44 +92,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 201, data: teacher }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  override async updateId(id: string, body: TeacherBody) {
-    try {
-
-      const teacher = (await this.findOneByWhere({
-        relations: ['person'],
-        where: { id: id }
-      })).data as Teacher
-
-      if (!teacher) { return { status: 404, message: 'Data not found' } }
-
-      if (body.teacherClasses) { await this.updateClassroomsRelations(teacher, body) }
-      if (body.teacherDisciplines) { await this.updateDisciplinesRelations(teacher, body) }
-
-      teacher.person.name = body.name
-      teacher.person.birth = body.birth
-      await personController.save(teacher.person, {})
-
-      const result = (await this.findOneById(id)).data as TeacherResponse
-
-      return { status: 200, data: result }
-    } catch (error: any) {
-      return { status: 500, message: error.message }
-    }
+  async getTeacherCategory() {
+    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.PROFESSOR}}) as PersonCategory
   }
-
-  newPerson(body: TeacherBody) {
-    const person = new Person()
-    person.name = body.name;
-    person.birth = body.birth;
-    return person
-  }
-  newTeacher(person: Person) {
-    const teacher = new Teacher()
-    teacher.person = person
-    return teacher
-  }
-
   async updateClassroomsRelations(teacher: Teacher, body: TeacherBody) {
 
     await this.createRelationIfNotExists(teacher, body)
@@ -191,6 +148,42 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
     }
+  }
+  override async updateId(id: string, body: TeacherBody) {
+    try {
+
+      const teacher = (await this.findOneByWhere({
+        relations: ['person'],
+        where: { id: id }
+      })).data as Teacher
+
+      if (!teacher) { return { status: 404, message: 'Data not found' } }
+
+      if (body.teacherClasses) { await this.updateClassroomsRelations(teacher, body) }
+      if (body.teacherDisciplines) { await this.updateDisciplinesRelations(teacher, body) }
+
+      teacher.person.name = body.name
+      teacher.person.birth = body.birth
+      await personController.save(teacher.person, {})
+
+      const result = (await this.findOneById(id)).data as TeacherResponse
+
+      return { status: 200, data: result }
+    } catch (error: any) {
+      return { status: 500, message: error.message }
+    }
+  }
+  newPerson(body: TeacherBody, category: PersonCategory) {
+    const person = new Person()
+    person.name = body.name;
+    person.birth = body.birth;
+    person.category = category
+    return person
+  }
+  newTeacher(person: Person) {
+    const teacher = new Teacher()
+    teacher.person = person
+    return teacher
   }
 }
 

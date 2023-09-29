@@ -37,6 +37,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       newYear.name = body.name;
       newYear.active = body.active;
       newYear.createdAt = body.createdAt ?? new Date()
+      newYear.endedAt = body.endedAt ?? null
 
       const bimesters = await AppDataSource.getRepository(Bimester).find() as Bimester[]
 

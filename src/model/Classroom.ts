@@ -2,6 +2,8 @@ import {Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany} from "type
 import { School } from "./School";
 import { ClassroomCategory } from "./ClassroomCategory";
 import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
+import {StudentDisability} from "./StudentDisability";
+import {StudentClassroom} from "./StudentClassroom";
 
 @Entity()
 export class Classroom {
@@ -26,4 +28,7 @@ export class Classroom {
 
   @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.classroom)
   teacherClassDiscipline: TeacherClassDiscipline[]
+
+  @OneToMany(() => StudentClassroom, studentClassroom => studentClassroom.classroom)
+  studentClassrooms: StudentClassroom[]
 }

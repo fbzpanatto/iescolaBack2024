@@ -1,27 +1,32 @@
-import { Year } from "./Year";
 import { Bimester } from "./Bimester";
-import { Period } from "./Period";
-import { School } from "./School";
+import { Classroom } from "./Classroom";
 import { ClassroomCategory } from "./ClassroomCategory";
-import {Classroom} from "./Classroom";
-import {Person} from "./Person";
-import {PersonCategory} from "./PersonCategory";
-import {Student} from "./Student";
-import {Teacher} from "./Teacher";
-import {Discipline} from "./Discipline";
-import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
-
+import { Discipline } from "./Discipline";
+import { Disability } from "./Disability";
+import { Period } from "./Period";
+import { Person } from "./Person";
+import { PersonCategory } from "./PersonCategory";
+import { School } from "./School";
+import { Student } from "./Student";
+import { StudentClassroom } from "./StudentClassroom";
+import { StudentDisability } from "./StudentDisability";
+import { Teacher } from "./Teacher";
+import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
+import { Year } from "./Year";
 export const entities = [
-  TeacherClassDiscipline,
+  Bimester,
   Classroom,
+  ClassroomCategory,
+  Discipline,
+  Disability,
   Person,
   PersonCategory,
-  Student,
-  ClassroomCategory,
-  Bimester,
-  School,
   Period,
-  Year,
+  School,
+  Student,
+  StudentClassroom,
+  StudentDisability,
   Teacher,
-  Discipline,
-]
+  TeacherClassDiscipline,
+  Year,
+];

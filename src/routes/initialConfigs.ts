@@ -10,12 +10,12 @@ import { BIMESTER } from "../mock/bimester";
 import { CLASSROOM_CATEGORY } from "../mock/classroomCategory";
 import { SCHOOLS } from "../mock/school";
 import { CLASSROOM } from "../mock/classroom";
-import {DISCIPLINE} from "../mock/discipline";
-import {Discipline} from "../model/Discipline";
-import {PersonCategory} from "../model/PersonCategory";
-import {PERSON_CATEGORY} from "../mock/personCategory";
-import {STATES} from "../mock/state";
-import {State} from "../model/State";
+import { DISCIPLINE } from "../mock/discipline";
+import { Discipline } from "../model/Discipline";
+import { PersonCategory } from "../model/PersonCategory";
+import { PERSON_CATEGORY } from "../mock/personCategory";
+import { STATES } from "../mock/state";
+import { State } from "../model/State";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -107,10 +107,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
       await disciplineSource.save(newDiscipline)
     }
 
-    for(let personCAtegory of PERSON_CATEGORY) {
+    for(let personCategory of PERSON_CATEGORY) {
       const newPersonCategory = new PersonCategory()
-      newPersonCategory.name = personCAtegory.name
-      newPersonCategory.active = personCAtegory.active
+      newPersonCategory.name = personCategory.name
+      newPersonCategory.active = personCategory.active
       await personCategorySource.save(newPersonCategory)
     }
 

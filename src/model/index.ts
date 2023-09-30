@@ -7,6 +7,7 @@ import { Period } from "./Period";
 import { Person } from "./Person";
 import { PersonCategory } from "./PersonCategory";
 import { School } from "./School";
+import { State } from "./State";
 import { Student } from "./Student";
 import { StudentClassroom } from "./StudentClassroom";
 import { StudentDisability } from "./StudentDisability";
@@ -23,6 +24,7 @@ export const entities = [
   PersonCategory,
   Period,
   School,
+  State,
   Student,
   StudentClassroom,
   StudentDisability,

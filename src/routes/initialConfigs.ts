@@ -41,7 +41,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const periodSource = new dataSourceController(Period).entity
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
     const disciplineSource = new dataSourceController(Discipline).entity
-    const stateSource = new dataSourceController(Year).entity
+    const stateSource = new dataSourceController(State).entity
 
     const newYear = new Year()
     newYear.name = '2023'

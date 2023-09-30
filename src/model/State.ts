@@ -1,5 +1,5 @@
-import {Column, Entity, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import {Student} from "./Student";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Student } from "./Student";
 
 @Entity()
 export class State {

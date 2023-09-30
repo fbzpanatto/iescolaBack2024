@@ -1,9 +1,8 @@
-import {Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany} from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from "typeorm"
 import { School } from "./School";
 import { ClassroomCategory } from "./ClassroomCategory";
-import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
-import {StudentDisability} from "./StudentDisability";
-import {StudentClassroom} from "./StudentClassroom";
+import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
+import { StudentClassroom } from "./StudentClassroom";
 
 @Entity()
 export class Classroom {

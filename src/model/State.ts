@@ -11,7 +11,7 @@ export class State {
   name: string
 
   @Column({ unique: true, length: 2 })
-  uf: string
+  acronym: string
 
   @OneToMany(() => Student, s => s.state)
   students: Student[]

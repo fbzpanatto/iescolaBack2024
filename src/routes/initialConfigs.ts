@@ -14,6 +14,8 @@ import {DISCIPLINE} from "../mock/discipline";
 import {Discipline} from "../model/Discipline";
 import {PersonCategory} from "../model/PersonCategory";
 import {PERSON_CATEGORY} from "../mock/personCategory";
+import {STATES} from "../mock/state";
+import {State} from "../model/State";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -39,6 +41,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const periodSource = new dataSourceController(Period).entity
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
     const disciplineSource = new dataSourceController(Discipline).entity
+    const stateSource = new dataSourceController(Year).entity
 
     const newYear = new Year()
     newYear.name = '2023'
@@ -49,6 +52,13 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newBimester = new Bimester()
       newBimester.name = bimester.name
       await bimesterSource.save(newBimester)
+    }
+
+    for(let state of STATES) {
+      const newState = new State()
+      newState.name = state.name
+      newState.acronym = state.acronym
+      await stateSource.save(newState)
     }
 
     const bimesters = await bimesterSource.find() as Bimester[]

@@ -7,6 +7,7 @@ import { Classroom } from "../model/Classroom";
 import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Period } from "../model/Period";
 import { BIMESTER } from "../mock/bimester";
+import { DISABILITY } from "../mock/disability";
 import { CLASSROOM_CATEGORY } from "../mock/classroomCategory";
 import { SCHOOLS } from "../mock/school";
 import { CLASSROOM } from "../mock/classroom";
@@ -16,6 +17,7 @@ import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORY } from "../mock/personCategory";
 import { STATES } from "../mock/state";
 import { State } from "../model/State";
+import { Disability } from "../model/Disability";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -42,11 +44,18 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
     const disciplineSource = new dataSourceController(Discipline).entity
     const stateSource = new dataSourceController(State).entity
+    const disabilitieSource = new dataSourceController(Disability).entity
 
     const newYear = new Year()
     newYear.name = '2023'
     newYear.active = true
     newYear.createdAt = new Date()
+
+    for(let disability of DISABILITY) {
+      const newDisability = new Disability()
+      newDisability.name = disability.name
+      await disabilitieSource.save(newDisability)
+    }
 
     for(let bimester of BIMESTER) {
       const newBimester = new Bimester()

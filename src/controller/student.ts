@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {DeepPartial, EntityTarget, ObjectLiteral, SaveOptions} from "typeorm";
+import {DeepPartial, EntityTarget, In, ObjectLiteral, SaveOptions} from "typeorm";
 import { Student } from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -39,13 +39,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const person = this.newPerson(body, category);
       const student = await this.repository.save(this.newStudent(body, person, state));
 
-      if(body.disabilitiesName.length) {
-        let disabilities: Disability[] = []
-        for(let id of body.disabilities) {
-          disabilities.push((await disabilityController.findOneById(id)).data as Disability)
-        }
-        await AppDataSource.getRepository(StudentDisability).save(disabilities.map((disability) => {
-          return { student: student, disability: disability, startedAt: new Date() }
+      const disabilities = await AppDataSource.getRepository(Disability).findBy({id: In(body.disabilities)})
+
+      if(!!disabilities.length) {
+        await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
+          return { disability: disability, student: student, startedAt: new Date() }
         }))
       }
 

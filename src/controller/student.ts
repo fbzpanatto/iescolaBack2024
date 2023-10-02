@@ -40,12 +40,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const student = await this.repository.save(this.newStudent(body, person, state));
 
       const disabilities = await AppDataSource.getRepository(Disability).findBy({id: In(body.disabilities)})
-
       if(!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
           return { disability: disability, student: student, startedAt: new Date() }
         }))
       }
+
+      // TODO: SAVE STUDENT_CLASSROOM
 
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }

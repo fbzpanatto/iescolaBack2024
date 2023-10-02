@@ -4,17 +4,18 @@ import { Router } from 'express';
 import { Application } from "express";
 import { AppDataSource } from "./data-source";
 
-import { SchoolRouter } from "./routes/school";
-import { YearRouter } from "./routes/year";
 import { BimesterRouter } from "./routes/bimester";
 import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
-import { PersonRouter } from "./routes/person";
-import { PersonCategoryRouter } from "./routes/personCategory";
-import { StudentRouter } from "./routes/student";
-import { TeacherRouter } from "./routes/teacher";
 import { DisciplineRouter } from "./routes/discipline";
+import { PersonCategoryRouter } from "./routes/personCategory";
+import { PersonRouter } from "./routes/person";
+import { SchoolRouter } from "./routes/school";
+import { StateRouter } from "./routes/state";
+import { StudentRouter } from "./routes/student";
 import { TeacherClassDisciplineRouter } from "./routes/teacherClassDiscipline";
+import { TeacherRouter } from "./routes/teacher";
+import { YearRouter } from "./routes/year";
 
 import { InitialConfigsRouter } from "./routes/initialConfigs";
 
@@ -26,17 +27,18 @@ const route = Router()
 app.use(bodyParser.json());
 app.use(cors({origin: true}));
 
-route.use('/year', YearRouter)
-route.use('/person-category', PersonCategoryRouter)
-route.use('/person', PersonRouter)
-route.use('/classroom', ClassroomRouter)
-route.use('/classroom-category', CassroomCategoryRouter)
-route.use('/bimester', BimesterRouter)
-route.use('/school', SchoolRouter)
-route.use('/student', StudentRouter)
-route.use('/teacher', TeacherRouter)
-route.use('/discipline', DisciplineRouter)
-route.use('/teacher-class-discipline', TeacherClassDisciplineRouter)
+route.use('/bimester', BimesterRouter);
+route.use('/classroom', ClassroomRouter);
+route.use('/classroom-category', CassroomCategoryRouter);
+route.use('/discipline', DisciplineRouter);
+route.use('/person', PersonRouter);
+route.use('/person-category', PersonCategoryRouter);
+route.use('/school', SchoolRouter);
+route.use('/state', StateRouter);
+route.use('/student', StudentRouter);
+route.use('/teacher', TeacherRouter);
+route.use('/teacher-class-discipline', TeacherClassDisciplineRouter);
+route.use('/year', YearRouter);
 
 route.use('/initial-configs', InitialConfigsRouter)
 

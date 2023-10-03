@@ -1,6 +1,6 @@
-import { GenericController } from "./genericController";
-import {DeepPartial, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
-import { Student } from "../model/Student";
+import {GenericController} from "./genericController";
+import {EntityTarget, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import {Student} from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
 import {PersonCategory} from "../model/PersonCategory";
@@ -11,6 +11,36 @@ import {State} from "../model/State";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {Classroom} from "../model/Classroom";
 import {Year} from "../model/Year";
+
+interface StudentClassroomReturn {
+  id: number,
+  rosterNumber: number | string,
+  startedAt: Date,
+  endedAt: Date,
+  student: {
+    id: number,
+    ra: string,
+    dv: string,
+    state: {
+      id: number,
+      acronym: string,
+    },
+    person: {
+      id: number,
+      name: string,
+      birth: Date,
+    },
+    disabilities: number[],
+  },
+  classroom: {
+    id: number,
+    shortName: string,
+    school: {
+      id: number,
+      shortName: string,
+    }
+  }
+}
 
 interface BodyStudent {
   name: string,
@@ -32,15 +62,29 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     super(Student);
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
+  override async findAllWhere() {
     try {
 
-      const result = await this.repository.find({
-        relations: ['person', 'studentClassrooms.classroom', 'studentDisabilities.disability' ]
-      }) as Student[]
+      const studentsClassrooms = await this.getStudentsClassrooms({}) as StudentClassroomReturn[]
+
+      return { status: 200, data: studentsClassrooms };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  override async findOneById(id: string | number) {
+    try {
+      const result = await this.getOneStudentClassroom(Number(id));
+      if (!result) { return { status: 404, message: 'Data not found' } }
+
+
 
       return { status: 200, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+
+      console.log(error)
+
+      return { status: 500, message: error.message }
+    }
   }
 
   override async save(body: BodyStudent, options: SaveOptions | undefined) {
@@ -81,6 +125,151 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async getDisabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
+  }
+
+  async getOneStudentClassroom(id: number) {
+
+    const studentId = 7
+
+    console.log('studentId', studentId)
+
+    const preResult = await AppDataSource
+      .createQueryBuilder()
+      .select([
+        'studentClassroom.id',
+        'studentClassroom.rosterNumber',
+        'studentClassroom.startedAt',
+        'studentClassroom.endedAt',
+        'student.id',
+        'student.ra',
+        'student.dv',
+        'state.id',
+        'state.acronym',
+        'person.id',
+        'person.name',
+        'person.birth',
+        'classroom.id',
+        'classroom.shortName',
+        'school.id',
+        'school.shortName',
+        'GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities',
+      ])
+      .from(StudentClassroom, 'studentClassroom')
+      .leftJoin('studentClassroom.student', 'student')
+      .leftJoin('student.person', 'person')
+      .leftJoin('student.studentDisabilities', 'studentDisabilities')
+      .leftJoin('studentDisabilities.disability', 'disability')
+      .leftJoin('student.state', 'state')
+      .leftJoin('studentClassroom.classroom', 'classroom')
+      .leftJoin('classroom.school', 'school')
+      .leftJoin('studentClassroom.year', 'year')
+      .where('student.id = :studentId', { studentId })
+      .groupBy('studentClassroom.id')
+      .getRawOne();
+
+    console.log('preResult', preResult)
+
+    return {
+      id: preResult.studentClassroom_id,
+      rosterNumber: preResult.studentClassroom_rosterNumber,
+      startedAt: preResult.studentClassroom_startedAt,
+      endedAt: preResult.studentClassroom_endedAt,
+      student: {
+        id: preResult.student_id,
+        ra: preResult.student_ra,
+        dv: preResult.student_dv,
+        state: {
+          id: preResult.state_id,
+          acronym: preResult.state_acronym,
+        },
+        person: {
+          id: preResult.person_id,
+          name: preResult.person_name,
+          birth: preResult.person_birth,
+        },
+        disabilities: preResult.disabilities.split(',').map((disabilityId: string) => Number(disabilityId)),
+      },
+      classroom: {
+        id: preResult.classroom_id,
+        shortName: preResult.classroom_shortName,
+        school: {
+          id: preResult.school_id,
+          shortName: preResult.school_shortName,
+        }
+      }
+    }
+  }
+
+  async getStudentsClassrooms(options: ObjectLiteral) {
+
+    // TODO: get yearId from request
+    const yearId = 1
+
+    const preResult = await AppDataSource
+      .createQueryBuilder()
+      .select([
+        'studentClassroom.id',
+        'studentClassroom.rosterNumber',
+        'studentClassroom.startedAt',
+        'studentClassroom.endedAt',
+        'student.id',
+        'student.ra',
+        'student.dv',
+        'state.id',
+        'state.acronym',
+        'person.id',
+        'person.name',
+        'person.birth',
+        'classroom.id',
+        'classroom.shortName',
+        'school.id',
+        'school.shortName',
+        'GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities',
+      ])
+      .from(StudentClassroom, 'studentClassroom')
+      .leftJoin('studentClassroom.student', 'student')
+      .leftJoin('student.person', 'person')
+      .leftJoin('student.studentDisabilities', 'studentDisabilities')
+      .leftJoin('studentDisabilities.disability', 'disability')
+      .leftJoin('student.state', 'state')
+      .leftJoin('studentClassroom.classroom', 'classroom')
+      .leftJoin('classroom.school', 'school')
+      .leftJoin('studentClassroom.year', 'year')
+      .where('year.id = :yearId', { yearId })
+      .groupBy('studentClassroom.id')
+      .getRawMany();
+
+    return preResult.map((item) => {
+      return {
+        id: item.studentClassroom_id,
+        rosterNumber: item.studentClassroom_rosterNumber,
+        startedAt: item.studentClassroom_startedAt,
+        endedAt: item.studentClassroom_endedAt,
+        student: {
+          id: item.student_id,
+          ra: item.student_ra,
+          dv: item.student_dv,
+          state: {
+            id: item.state_id,
+            acronym: item.state_acronym,
+          },
+          person: {
+            id: item.person_id,
+            name: item.person_name,
+            birth: item.person_birth,
+          },
+          disabilities: item.disabilities.split(',').map((disabilityId: string) => Number(disabilityId)),
+        },
+        classroom: {
+          id: item.classroom_id,
+          shortName: item.classroom_shortName,
+          school: {
+            id: item.school_id,
+            shortName: item.school_shortName,
+          },
+        },
+      }
+    })
   }
   newPerson(body: BodyStudent, category: PersonCategory) {
     const person = new Person()

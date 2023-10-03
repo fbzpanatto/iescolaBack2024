@@ -1,16 +1,16 @@
-import {GenericController} from "./genericController";
-import {EntityTarget, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
-import {Student} from "../model/Student";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {PersonCategory} from "../model/PersonCategory";
-import {enumOfPersonCategory} from "../utils/enumOfPersonCategory";
-import {StudentDisability} from "../model/StudentDisability";
-import {Disability} from "../model/Disability";
-import {State} from "../model/State";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {Classroom} from "../model/Classroom";
-import {Year} from "../model/Year";
+import { GenericController } from "./genericController";
+import { EntityTarget, In, IsNull, ObjectLiteral } from "typeorm";
+import { Student } from "../model/Student";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { PersonCategory } from "../model/PersonCategory";
+import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { StudentDisability } from "../model/StudentDisability";
+import { Disability } from "../model/Disability";
+import { State } from "../model/State";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { Classroom } from "../model/Classroom";
+import { Year } from "../model/Year";
 
 interface StudentClassroomReturn {
   id: number,
@@ -103,21 +103,21 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async getStudentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
   }
+  // TODO: move to utils
   async getState(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
+  }
+  // TODO: move to utils
+  async getCurrentYear() {
+    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
   async getClassroom(id: number) {
     return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
   }
-  async getCurrentYear() {
-    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
-  }
   async getDisabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
-  async getOneStudentClassroom(id: number) {
-
-    const studentId = 7
+  async getOneStudentClassroom(studentId: number) {
 
     const preResult = await AppDataSource
       .createQueryBuilder()
@@ -183,7 +183,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-
   async getStudentsClassrooms(options: ObjectLiteral) {
 
     // TODO: get yearId from request
@@ -255,6 +254,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     })
   }
+  // TODO: move to utils
   newPerson(body: BodyStudent, category: PersonCategory) {
     const person = new Person()
     person.name = body.name;

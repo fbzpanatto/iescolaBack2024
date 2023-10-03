@@ -19,7 +19,7 @@ StudentRouter.get('/:id', (req, res) => {
 
 StudentRouter.post('/', (req, res) => {
 
-  studentController.save(req.body, {})
+  studentController.save(req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });

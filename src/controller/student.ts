@@ -64,9 +64,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async findAllWhere() {
     try {
-
       const studentsClassrooms = await this.getStudentsClassrooms({}) as StudentClassroomReturn[]
-
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -75,19 +73,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       const result = await this.getOneStudentClassroom(Number(id));
       if (!result) { return { status: 404, message: 'Data not found' } }
-
-
-
       return { status: 200, data: result };
-    } catch (error: any) {
-
-      console.log(error)
-
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async save(body: BodyStudent, options: SaveOptions | undefined) {
+  override async save(body: BodyStudent) {
     try {
 
       const year = await this.getCurrentYear();
@@ -110,7 +100,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async getStudentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
   }
@@ -126,12 +115,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async getDisabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
-
   async getOneStudentClassroom(id: number) {
 
     const studentId = 7
-
-    console.log('studentId', studentId)
 
     const preResult = await AppDataSource
       .createQueryBuilder()
@@ -166,8 +152,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .where('student.id = :studentId', { studentId })
       .groupBy('studentClassroom.id')
       .getRawOne();
-
-    console.log('preResult', preResult)
 
     return {
       id: preResult.studentClassroom_id,

@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, IsNull, SaveOptions} from "typeorm";
+import {EntityTarget, In, IsNull, SaveOptions} from "typeorm";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
@@ -71,21 +71,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const category = await this.getTeacherCategory()
       const person = this.newPerson(body, category)
       const teacher = await this.repository.save(this.newTeacher(person))
+      const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
+      const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
 
-      for(let classId of body.teacherClasses) {
-        const classroom = (await classroomController.findOneById(classId)).data as Classroom
-
-        for(let disciplineId of body.teacherDisciplines) {
-          const discipline = (await disciplineController.findOneById(disciplineId)).data as Discipline
-
-          const newTeacherRelations = new TeacherClassDiscipline()
-
-          newTeacherRelations.teacher = teacher
-          newTeacherRelations.classroom = classroom
-          newTeacherRelations.discipline = discipline
-          newTeacherRelations.startedAt = new Date()
-
-          await teacherClassDisciplineController.save(newTeacherRelations, options)
+      for(let classroom of classrooms) {
+        for(let discipline of disciplines) {
+          const teacherClassDiscipline = new TeacherClassDiscipline()
+          teacherClassDiscipline.teacher = teacher
+          teacherClassDiscipline.classroom = classroom
+          teacherClassDiscipline.discipline = discipline
+          teacherClassDiscipline.startedAt = new Date()
+          await teacherClassDisciplineController.save(teacherClassDiscipline, options)
         }
       }
 
@@ -129,10 +125,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
   async createRelationIfNotExists(teacher: Teacher, body: TeacherBody, forClassroom: boolean) {
 
-    if(forClassroom) {
-      for(let classId of body.teacherClasses) {
+    const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
+    const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
 
-        const classroom = (await classroomController.findOneById(classId)).data as Classroom
+    if(forClassroom) {
+
+      for(let classroom of classrooms) {
 
         const relationExists = (await teacherClassDisciplineController.findOneByWhere({
           where: { teacher: teacher, classroom: classroom, endedAt: IsNull() }
@@ -140,11 +138,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         if(!relationExists) {
 
-          for(let disciplineId of body.teacherDisciplines) {
-            const discipline = (await disciplineController.findOneById(disciplineId)).data as Discipline
+          for(let discipline of disciplines) {
+
             const newTeacherRelations = new TeacherClassDiscipline()
-
-
             newTeacherRelations.teacher = teacher
             newTeacherRelations.classroom = classroom
             newTeacherRelations.discipline = discipline
@@ -157,26 +153,19 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return
     }
 
-    for(let disciplineId of body.teacherDisciplines) {
-
-      const discipline = (await disciplineController.findOneById(disciplineId)).data as Discipline
+    for(let discipline of disciplines) {
 
       const relationExists = (await teacherClassDisciplineController.findOneByWhere({
         where: { teacher: teacher, discipline: discipline, endedAt: IsNull() }
       })).data as TeacherClassDiscipline
 
       if(!relationExists) {
-
-        for(let classroomId of body.teacherClasses) {
-          const classroom = (await classroomController.findOneById(classroomId)).data as Classroom
+        for(let classroom of classrooms) {
           const newTeacherRelations = new TeacherClassDiscipline()
-
-
           newTeacherRelations.teacher = teacher
           newTeacherRelations.classroom = classroom
           newTeacherRelations.discipline = discipline
           newTeacherRelations.startedAt = new Date()
-
           await teacherClassDisciplineController.save(newTeacherRelations, {})
         }
       }

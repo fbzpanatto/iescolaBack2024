@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {DeepPartial, EntityTarget, In, ObjectLiteral, SaveOptions} from "typeorm";
+import {DeepPartial, EntityTarget, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Student } from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -10,6 +10,9 @@ import {disabilityController} from "./disability";
 import {StudentDisability} from "../model/StudentDisability";
 import {Disability} from "../model/Disability";
 import {State} from "../model/State";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {Classroom} from "../model/Classroom";
+import {Year} from "../model/Year";
 
 interface BodyStudent {
   name: string,
@@ -34,19 +37,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   override async save(body: BodyStudent, options: SaveOptions | undefined) {
     try {
 
+      const year = await this.getCurrentYear();
       const state = await this.getState(body.state);
+      const classroom = await this.getClassroom(body.classroom);
       const category = await this.getStudentCategory();
       const person = this.newPerson(body, category);
+      const disabilities = await this.getDisabilities(body.disabilities);
+
       const student = await this.repository.save(this.newStudent(body, person, state));
 
-      const disabilities = await AppDataSource.getRepository(Disability).findBy({id: In(body.disabilities)})
       if(!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
-          return { disability: disability, student: student, startedAt: new Date() }
+          return { student, startedAt: new Date(), disability }
         }))
       }
 
-      // TODO: SAVE STUDENT_CLASSROOM
+      await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() })
 
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -57,6 +63,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async getState(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
+  }
+
+  async getClassroom(id: number) {
+    return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
+  }
+
+  async getCurrentYear() {
+    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
+  }
+
+  async getDisabilities(ids: number[]) {
+    return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
 
   newPerson(body: BodyStudent, category: PersonCategory) {

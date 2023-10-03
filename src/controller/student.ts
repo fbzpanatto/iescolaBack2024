@@ -1,12 +1,10 @@
 import { GenericController } from "./genericController";
-import {DeepPartial, EntityTarget, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import {DeepPartial, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Student } from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
 import {PersonCategory} from "../model/PersonCategory";
 import {enumOfPersonCategory} from "../utils/enumOfPersonCategory";
-import {Teacher} from "../model/Teacher";
-import {disabilityController} from "./disability";
 import {StudentDisability} from "../model/StudentDisability";
 import {Disability} from "../model/Disability";
 import {State} from "../model/State";
@@ -32,6 +30,17 @@ interface BodyStudent {
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() {
     super(Student);
+  }
+
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
+    try {
+
+      const result = await this.repository.find({
+        relations: ['person', 'studentClassrooms.classroom', 'studentDisabilities.disability' ]
+      }) as Student[]
+
+      return { status: 200, data: result };
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async save(body: BodyStudent, options: SaveOptions | undefined) {
@@ -64,19 +73,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async getState(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
   }
-
   async getClassroom(id: number) {
     return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
   }
-
   async getCurrentYear() {
     return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
-
   async getDisabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
-
   newPerson(body: BodyStudent, category: PersonCategory) {
     const person = new Person()
     person.name = body.name;

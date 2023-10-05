@@ -65,7 +65,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
   override async findOneById(id: string | number) {
     try {
@@ -156,6 +159,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         id: preResult.student_id,
         ra: preResult.student_ra,
         dv: preResult.student_dv,
+        observationOne: preResult.student_observationOne,
+        observationTwo: preResult.student_observationTwo,
         state: {
           id: preResult.state_id,
           acronym: preResult.state_acronym,
@@ -201,13 +206,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'classroom.shortName',
         'school.id',
         'school.shortName',
-        'GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities',
       ])
       .from(StudentClassroom, 'studentClassroom')
       .leftJoin('studentClassroom.student', 'student')
       .leftJoin('student.person', 'person')
-      .leftJoin('student.studentDisabilities', 'studentDisabilities')
-      .leftJoin('studentDisabilities.disability', 'disability')
       .leftJoin('student.state', 'state')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
@@ -235,7 +237,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             name: item.person_name,
             birth: item.person_birth,
           },
-          disabilities: item.disabilities.split(',').map((disabilityId: string) => Number(disabilityId)),
         },
         classroom: {
           id: item.classroom_id,

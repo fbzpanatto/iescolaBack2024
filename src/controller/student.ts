@@ -41,8 +41,7 @@ interface StudentClassroomReturn {
     }
   }
 }
-
-interface BodyStudent {
+interface SaveStudent {
   name: string,
   birth: Date,
   disabilities: number[],
@@ -64,60 +63,53 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async findAllWhere() {
     try {
-      const studentsClassrooms = await this.getStudentsClassrooms({}) as StudentClassroomReturn[]
+      const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   override async findOneById(id: string | number) {
     try {
-      const result = await this.getOneStudentClassroom(Number(id));
+      const result = await this.studentClassroom(Number(id));
       if (!result) { return { status: 404, message: 'Data not found' } }
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  override async save(body: BodyStudent) {
+  override async save(body: SaveStudent) {
     try {
-
-      const year = await this.getCurrentYear();
-      const state = await this.getState(body.state);
-      const classroom = await this.getClassroom(body.classroom);
-      const category = await this.getStudentCategory();
+      const year = await this.currentYear();
+      const state = await this.state(body.state);
+      const classroom = await this.classroom(body.classroom);
+      const category = await this.studentCategory();
       const person = this.newPerson(body, category);
-      const disabilities = await this.getDisabilities(body.disabilities);
-
+      const disabilities = await this.disabilities(body.disabilities);
       const student = await this.repository.save(this.newStudent(body, person, state));
-
       if(!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
           return { student, startedAt: new Date(), disability }
         }))
       }
-
       await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() })
-
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  async getStudentCategory() {
+  async studentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
   }
   // TODO: move to utils
-  async getState(id: number) {
+  async state(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
   }
   // TODO: move to utils
-  async getCurrentYear() {
+  async currentYear() {
     return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
-  async getClassroom(id: number) {
+  async classroom(id: number) {
     return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
   }
-  async getDisabilities(ids: number[]) {
+  async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
-  async getOneStudentClassroom(studentId: number) {
+  async studentClassroom(studentId: number) {
 
     const preResult = await AppDataSource
       .createQueryBuilder()
@@ -129,6 +121,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'student.id',
         'student.ra',
         'student.dv',
+        'student.observationOne',
+        'student.observationTwo',
         'state.id',
         'state.acronym',
         'person.id',
@@ -183,7 +177,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async getStudentsClassrooms(options: ObjectLiteral) {
+  async studentsClassrooms(options: ObjectLiteral) {
 
     // TODO: get yearId from request
     const yearId = 1
@@ -255,20 +249,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     })
   }
   // TODO: move to utils
-  newPerson(body: BodyStudent, category: PersonCategory) {
+  newPerson(body: SaveStudent, category: PersonCategory) {
     const person = new Person()
     person.name = body.name;
     person.birth = body.birth;
     person.category = category
     return person
   }
-  newStudent(body: BodyStudent, person: Person, state: State) {
+  newStudent(body: SaveStudent, person: Person, state: State) {
 
     const student = new Student()
     student.person = person
     student.ra = body.ra
     student.dv = body.dv
     student.state = state
+    student.observationOne = body.observationOne
+    student.observationTwo = body.observationTwo
     return student
   }
 }

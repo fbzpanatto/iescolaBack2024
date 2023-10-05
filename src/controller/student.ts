@@ -1,17 +1,16 @@
-import { GenericController } from "./genericController";
-import { EntityTarget, In, IsNull, ObjectLiteral } from "typeorm";
-import { Student } from "../model/Student";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
-import { PersonCategory } from "../model/PersonCategory";
-import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
-import { StudentDisability } from "../model/StudentDisability";
-import { Disability } from "../model/Disability";
-import { State } from "../model/State";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { Classroom } from "../model/Classroom";
-import { Year } from "../model/Year";
-import {studentDisabilitiesController} from "./studentDisabilities";
+import {GenericController} from "./genericController";
+import {EntityTarget, In, IsNull, ObjectLiteral} from "typeorm";
+import {Student} from "../model/Student";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
+import {PersonCategory} from "../model/PersonCategory";
+import {enumOfPersonCategory} from "../utils/enumOfPersonCategory";
+import {StudentDisability} from "../model/StudentDisability";
+import {Disability} from "../model/Disability";
+import {State} from "../model/State";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {Classroom} from "../model/Classroom";
+import {Year} from "../model/Year";
 
 interface StudentClassroomReturn {
   id: number,
@@ -64,13 +63,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async findAllWhere() {
     try {
+      // TODO: filter by endedAt
       const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async findOneById(id: string | number) {
     try {
-      const result = await this.studentClassroom(Number(id));
+      const result = await this.student(Number(id));
       if (!result) { return { status: 404, message: 'Data not found' } }
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -96,7 +96,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   override async updateId(studentId: string, body: SaveStudent) {
     try {
 
-      const student = await this.repository.findOne({ where: { id: studentId }, relations: ['person', 'studentDisabilities.disability', 'state'] }) as Student;
+      const student = await this.repository
+        .findOne({
+          where: { id: studentId }, relations: ['person', 'studentDisabilities.disability', 'state']
+        }) as Student;
 
       student.ra = body.ra;
       student.dv = body.dv;
@@ -107,23 +110,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       student.person.birth = body.birth;
       const response = await this.repository.save(student) as Student;
 
-      const stDisabilities = student.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
+      const stDisabilities = student.studentDisabilities
+        .filter((studentDisability) => !studentDisability.endedAt);
 
       await this.setDisabilities(response, stDisabilities, body.disabilities);
 
-      return { status: 200, data: response };
+      const result = await this.student(Number(studentId));
+
+      return { status: 200, data: result };
     } catch (error: any) {return { status: 500, message: error.message }}
-  }
-  async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
-  }
-  // TODO: move to utils
-  async state(id: number) {
-    return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
-  }
-  // TODO: move to utils
-  async currentYear() {
-    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
   async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {
     const currentDisabilities = studentDisabilities.map((studentDisability) => studentDisability.disability.id)
@@ -148,21 +143,28 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
+  async studentCategory() {
+    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
+  }
+  // TODO: move to utils
+  async state(id: number) {
+    return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
+  }
+  // TODO: move to utils
+  async currentYear() {
+    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
+  }
   async classroom(id: number) {
     return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
   }
   async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
   }
-  async studentClassroom(studentId: number) {
+  async student(studentId: number) {
 
-    const preResult = await AppDataSource
+    const student = await AppDataSource
       .createQueryBuilder()
       .select([
-        'studentClassroom.id',
-        'studentClassroom.rosterNumber',
-        'studentClassroom.startedAt',
-        'studentClassroom.endedAt',
         'student.id',
         'student.ra',
         'student.dv',
@@ -173,53 +175,56 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'person.id',
         'person.name',
         'person.birth',
+        'studentClassroom.id',
+        'studentClassroom.rosterNumber',
+        'studentClassroom.startedAt',
+        'studentClassroom.endedAt',
         'classroom.id',
         'classroom.shortName',
         'school.id',
         'school.shortName',
         'GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities',
       ])
-      .from(StudentClassroom, 'studentClassroom')
-      .leftJoin('studentClassroom.student', 'student')
+      .from(Student, 'student')
       .leftJoin('student.person', 'person')
       .leftJoin('student.studentDisabilities', 'studentDisabilities', 'studentDisabilities.endedAt IS NULL')
       .leftJoin('studentDisabilities.disability', 'disability')
       .leftJoin('student.state', 'state')
+      .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
-      .leftJoin('studentClassroom.year', 'year')
       .where('student.id = :studentId', { studentId })
       .groupBy('studentClassroom.id')
       .getRawOne();
 
     return {
-      id: preResult.studentClassroom_id,
-      rosterNumber: preResult.studentClassroom_rosterNumber,
-      startedAt: preResult.studentClassroom_startedAt,
-      endedAt: preResult.studentClassroom_endedAt,
+      id: student.studentClassroom_id,
+      rosterNumber: student.studentClassroom_rosterNumber,
+      startedAt: student.studentClassroom_startedAt,
+      endedAt: student.studentClassroom_endedAt,
       student: {
-        id: preResult.student_id,
-        ra: preResult.student_ra,
-        dv: preResult.student_dv,
-        observationOne: preResult.student_observationOne,
-        observationTwo: preResult.student_observationTwo,
+        id: student.student_id,
+        ra: student.student_ra,
+        dv: student.student_dv,
+        observationOne: student.student_observationOne,
+        observationTwo: student.student_observationTwo,
         state: {
-          id: preResult.state_id,
-          acronym: preResult.state_acronym,
+          id: student.state_id,
+          acronym: student.state_acronym
         },
         person: {
-          id: preResult.person_id,
-          name: preResult.person_name,
-          birth: preResult.person_birth,
+          id: student.person_id,
+          name: student.person_name,
+          birth: student.person_birth,
         },
-        disabilities: preResult.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
+        disabilities: student.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
       },
       classroom: {
-        id: preResult.classroom_id,
-        shortName: preResult.classroom_shortName,
+        id: student.classroom_id,
+        shortName: student.classroom_shortName,
         school: {
-          id: preResult.school_id,
-          shortName: preResult.school_shortName,
+          id: student.school_id,
+          shortName: student.school_shortName,
         }
       }
     }
@@ -291,13 +296,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     })
   }
-  async student(id: number) {
-    return await AppDataSource.getRepository(Student).findOne({
-      relations: ['person', 'studentDisabilities.disability', 'state'],
-      where: { id: id, studentDisabilities: { endedAt: IsNull() } }
-    }) as Student
-  }
-  // TODO: move to utils
   newPerson(body: SaveStudent, category: PersonCategory) {
     const person = new Person()
     person.name = body.name;
@@ -306,7 +304,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return person
   }
   newStudent(body: SaveStudent, person: Person, state: State) {
-
     const student = new Student()
     student.person = person
     student.ra = body.ra

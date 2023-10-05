@@ -3,7 +3,6 @@ import { Student } from "./Student";
 import { Disability } from "./Disability";
 
 @Entity()
-@Index(["student", "disability"], { unique: true })
 export class StudentDisability {
 
   @PrimaryGeneratedColumn()
@@ -15,9 +14,9 @@ export class StudentDisability {
   @ManyToOne(() => Disability, disability => disability.studentDisabilities, { nullable: false })
   disability: Disability
 
-  @Column({ nullable: false})
+  @Column()
   startedAt: Date
 
-  @Column({ nullable: true })
+  @Column( { nullable: true })
   endedAt: Date
 }

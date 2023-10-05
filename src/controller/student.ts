@@ -66,10 +66,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async findOneById(id: string | number) {
     try {
@@ -96,15 +93,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-
-  override async updateId(id: string, body: SaveStudent) {
+  override async updateId(studentId: string, body: SaveStudent) {
     try {
 
-      const studentClassroom = await AppDataSource
-        .getRepository(StudentClassroom)
-        .findOne({ relations: ['student.person', 'student.state', 'student.studentDisabilities.disability'], where: { id: Number(id) } }) as StudentClassroom
-      const student = studentClassroom.student;
+      const student = await this.repository.findOne({ where: { id: studentId }, relations: ['person', 'studentDisabilities.disability', 'state'] }) as Student;
 
       student.ra = body.ra;
       student.dv = body.dv;
@@ -115,15 +107,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       student.person.birth = body.birth;
       const response = await this.repository.save(student) as Student;
 
-      await this.setDisabilities(student, body);
+      const stDisabilities = student.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
+
+      await this.setDisabilities(response, stDisabilities, body.disabilities);
 
       return { status: 200, data: response };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) {return { status: 500, message: error.message }}
   }
-
   async studentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
   }
@@ -135,12 +125,27 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async currentYear() {
     return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
-  async setDisabilities(student: Student, body: SaveStudent) {
-    for(let register of student.studentDisabilities) { if(!body.disabilities.includes(register.disability.id)) { await studentDisabilitiesController.save({ ...register, endedAt: new Date() }, {})}}
-    const newStudentDisabilities = body.disabilities.filter((studentDisability: number) => { return !student.studentDisabilities.map((studentDisability: StudentDisability) => studentDisability.disability.id).includes(studentDisability)})
-    if(newStudentDisabilities.length > 0) {
-      const disabilities = await this.disabilities(newStudentDisabilities);
-      await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => { return { student, startedAt: new Date(), disability }}))
+  async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {
+    const currentDisabilities = studentDisabilities.map((studentDisability) => studentDisability.disability.id)
+
+    const create = body.filter((disabilityId) => !currentDisabilities.includes(disabilityId))
+
+    if(create.length) {
+      await AppDataSource.getRepository(StudentDisability).save(create.map(disabilityId => {
+        return { student, disability: { id: disabilityId }, startedAt: new Date() }
+      }))
+    }
+
+    const remove = currentDisabilities.filter((disabilityId) => !body.includes(disabilityId))
+
+    if(remove.length) {
+      for(let item of remove) {
+        const studentDisability = studentDisabilities.find((studentDisability) => studentDisability.disability.id === item)
+        if(studentDisability) {
+          studentDisability.endedAt = new Date()
+          await AppDataSource.getRepository(StudentDisability).save(studentDisability)
+        }
+      }
     }
   }
   async classroom(id: number) {

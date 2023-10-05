@@ -29,9 +29,9 @@ export class Student {
   @Column({ nullable: true })
   observationTwo: string;
 
-  @OneToMany(() => StudentDisability, sd => sd.student, { cascade: true })
+  @OneToMany(() => StudentDisability, sd => sd.student)
   studentDisabilities: StudentDisability[]
 
-  @OneToMany(() => StudentClassroom, sc => sc.student, { cascade: true })
+  @OneToMany(() => StudentClassroom, sc => sc.student)
   studentClassrooms: StudentClassroom[]
 }

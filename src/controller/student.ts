@@ -11,6 +11,7 @@ import { State } from "../model/State";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Classroom } from "../model/Classroom";
 import { Year } from "../model/Year";
+import {studentDisabilitiesController} from "./studentDisabilities";
 
 interface StudentClassroomReturn {
   id: number,
@@ -95,6 +96,34 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+
+  override async updateId(id: string, body: SaveStudent) {
+    try {
+
+      const studentClassroom = await AppDataSource
+        .getRepository(StudentClassroom)
+        .findOne({ relations: ['student.person', 'student.state', 'student.studentDisabilities.disability'], where: { id: Number(id) } }) as StudentClassroom
+      const student = studentClassroom.student;
+
+      student.ra = body.ra;
+      student.dv = body.dv;
+      student.state = await this.state(body.state);
+      student.observationOne = body.observationOne;
+      student.observationTwo = body.observationTwo;
+      student.person.name = body.name;
+      student.person.birth = body.birth;
+      const response = await this.repository.save(student) as Student;
+
+      await this.setDisabilities(student, body);
+
+      return { status: 200, data: response };
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
+  }
+
   async studentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
   }
@@ -105,6 +134,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   // TODO: move to utils
   async currentYear() {
     return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
+  }
+  async setDisabilities(student: Student, body: SaveStudent) {
+    for(let register of student.studentDisabilities) { if(!body.disabilities.includes(register.disability.id)) { await studentDisabilitiesController.save({ ...register, endedAt: new Date() }, {})}}
+    const newStudentDisabilities = body.disabilities.filter((studentDisability: number) => { return !student.studentDisabilities.map((studentDisability: StudentDisability) => studentDisability.disability.id).includes(studentDisability)})
+    if(newStudentDisabilities.length > 0) {
+      const disabilities = await this.disabilities(newStudentDisabilities);
+      await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => { return { student, startedAt: new Date(), disability }}))
+    }
   }
   async classroom(id: number) {
     return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
@@ -140,7 +177,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .from(StudentClassroom, 'studentClassroom')
       .leftJoin('studentClassroom.student', 'student')
       .leftJoin('student.person', 'person')
-      .leftJoin('student.studentDisabilities', 'studentDisabilities')
+      .leftJoin('student.studentDisabilities', 'studentDisabilities', 'studentDisabilities.endedAt IS NULL')
       .leftJoin('studentDisabilities.disability', 'disability')
       .leftJoin('student.state', 'state')
       .leftJoin('studentClassroom.classroom', 'classroom')
@@ -170,7 +207,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           name: preResult.person_name,
           birth: preResult.person_birth,
         },
-        disabilities: preResult.disabilities.split(',').map((disabilityId: string) => Number(disabilityId)),
+        disabilities: preResult.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
       },
       classroom: {
         id: preResult.classroom_id,
@@ -248,6 +285,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         },
       }
     })
+  }
+  async student(id: number) {
+    return await AppDataSource.getRepository(Student).findOne({
+      relations: ['person', 'studentDisabilities.disability', 'state'],
+      where: { id: id, studentDisabilities: { endedAt: IsNull() } }
+    }) as Student
   }
   // TODO: move to utils
   newPerson(body: SaveStudent, category: PersonCategory) {

@@ -6,7 +6,7 @@ export class GenericController<T> {
 
   async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
     try {
-      const result = await this.repository.find(options);
+      const result = await this.repository.find();
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -41,7 +41,7 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: string, body: ObjectLiteral) {
+  async updateId(id: number | string, body: ObjectLiteral) {
     try {
       const dataInDataBase = await this.repository.findOneBy({ id: id });
       if (!dataInDataBase) { return { status: 404, message: 'Data not found' } }

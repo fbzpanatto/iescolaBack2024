@@ -54,8 +54,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           name: result.person_name,
           birth: result.person_birth
         },
-        teacherClasses: result.classroom_ids.split(',').map((item: string) => parseInt(item)),
-        teacherDisciplines: result.discipline_ids.split(',').map((item: string) => parseInt(item))
+        teacherClasses: result.classroom_ids?.split(',').map((item: string) => parseInt(item)) ?? [],
+        teacherDisciplines: result.discipline_ids?.split(',').map((item: string) => parseInt(item)) ?? []
       } as TeacherResponse
 
       return { status: 200, data: newResult }
@@ -104,9 +104,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const result = (await this.findOneById(id)).data as TeacherResponse
 
       return { status: 200, data: result }
-    } catch (error: any) {
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   async teacherCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.PROFESSOR}}) as PersonCategory
@@ -115,10 +113,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     await this.createRelation(teacher, body, true)
 
-    const teacherClassDisciplines = (await teacherClassDisciplineController.findAllWhere({
+    const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
       relations: ['classroom', 'teacher'],
       where: { teacher: teacher, endedAt: IsNull() }
-    })).data as TeacherClassDiscipline[]
+    })
 
     for(let relation of teacherClassDisciplines) {
       if(!body.teacherClasses.includes(relation.classroom.id)) {
@@ -131,10 +129,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     await this.createRelation(teacher, body, false)
 
-    const teacherClassDisciplines = (await teacherClassDisciplineController.findAllWhere({
+    const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
       relations: ['discipline', 'teacher'],
       where: { teacher: teacher, endedAt: IsNull() }
-    })).data as TeacherClassDiscipline[]
+    })
 
     for(let relation of teacherClassDisciplines) {
       if(!body.teacherDisciplines.includes(relation.discipline.id)) {

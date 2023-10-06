@@ -4,7 +4,6 @@ import { Teacher } from "./Teacher";
 import { Classroom } from "./Classroom";
 
 @Entity()
-@Index(["discipline", "teacher", "classroom"], { unique: true })
 export class TeacherClassDiscipline {
 
   @PrimaryGeneratedColumn()

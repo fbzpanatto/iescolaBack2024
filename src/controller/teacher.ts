@@ -1,20 +1,16 @@
+import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import {EntityTarget, In, IsNull, SaveOptions} from "typeorm";
+import { EntityTarget, In, IsNull, SaveOptions } from "typeorm";
+import { PersonCategory } from "../model/PersonCategory";
+import { Classroom } from "../model/Classroom";
+import { Discipline } from "../model/Discipline";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
-import { teacherClassDisciplineController } from "./teacherClassDiscipline";
+import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
-import { classroomController } from "./classroom";
-import { Classroom } from "../model/Classroom";
-import { disciplineController } from "./discipline";
-import { Discipline } from "../model/Discipline";
+import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { personController } from "./person";
 import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
-import { AppDataSource } from "../data-source";
-import { PersonCategory } from "../model/PersonCategory";
-
-interface TeacherBody { name: string, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[] }
-interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -68,9 +64,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
   override async save(body: TeacherBody, options: SaveOptions | undefined) {
     try {
-      const category = await this.getTeacherCategory()
-      const person = this.newPerson(body, category)
-      const teacher = await this.repository.save(this.newTeacher(person))
+      const category = await this.teacherCategory()
+      const person = this.createPerson({ name: body.name, birth: body.birth, category })
+      const teacher = await this.repository.save(this.createTeacher(person))
       const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
       const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
 
@@ -88,12 +84,36 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 201, data: teacher }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  async getTeacherCategory() {
+  override async updateId(id: string, body: TeacherBody) {
+    try {
+
+      const teacher = (await this.findOneByWhere({
+        relations: ['person'],
+        where: { id: id }
+      })).data as Teacher
+
+      if (!teacher) { return { status: 404, message: 'Data not found' } }
+
+      if (body.teacherClasses) { await this.updateClassRel(teacher, body) }
+      if (body.teacherDisciplines) { await this.updateDisciRel(teacher, body) }
+
+      teacher.person.name = body.name
+      teacher.person.birth = body.birth
+      await personController.save(teacher.person, {})
+
+      const result = (await this.findOneById(id)).data as TeacherResponse
+
+      return { status: 200, data: result }
+    } catch (error: any) {
+      return { status: 500, message: error.message }
+    }
+  }
+  async teacherCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.PROFESSOR}}) as PersonCategory
   }
-  async updateClassroomsRelations(teacher: Teacher, body: TeacherBody) {
+  async updateClassRel(teacher: Teacher, body: TeacherBody) {
 
-    await this.createRelationIfNotExists(teacher, body, true)
+    await this.createRelation(teacher, body, true)
 
     const teacherClassDisciplines = (await teacherClassDisciplineController.findAllWhere({
       relations: ['classroom', 'teacher'],
@@ -107,9 +127,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-  async updateDisciplinesRelations(teacher: Teacher, body: TeacherBody){
+  async updateDisciRel(teacher: Teacher, body: TeacherBody){
 
-    await this.createRelationIfNotExists(teacher, body, false)
+    await this.createRelation(teacher, body, false)
 
     const teacherClassDisciplines = (await teacherClassDisciplineController.findAllWhere({
       relations: ['discipline', 'teacher'],
@@ -123,7 +143,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-  async createRelationIfNotExists(teacher: Teacher, body: TeacherBody, forClassroom: boolean) {
+  async createRelation(teacher: Teacher, body: TeacherBody, forClassroom: boolean) {
 
     const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
     const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
@@ -171,38 +191,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-  override async updateId(id: string, body: TeacherBody) {
-    try {
-
-      const teacher = (await this.findOneByWhere({
-        relations: ['person'],
-        where: { id: id }
-      })).data as Teacher
-
-      if (!teacher) { return { status: 404, message: 'Data not found' } }
-
-      if (body.teacherClasses) { await this.updateClassroomsRelations(teacher, body) }
-      if (body.teacherDisciplines) { await this.updateDisciplinesRelations(teacher, body) }
-
-      teacher.person.name = body.name
-      teacher.person.birth = body.birth
-      await personController.save(teacher.person, {})
-
-      const result = (await this.findOneById(id)).data as TeacherResponse
-
-      return { status: 200, data: result }
-    } catch (error: any) {
-      return { status: 500, message: error.message }
-    }
-  }
-  newPerson(body: TeacherBody, category: PersonCategory) {
-    const person = new Person()
-    person.name = body.name;
-    person.birth = body.birth;
-    person.category = category
-    return person
-  }
-  newTeacher(person: Person) {
+  createTeacher(person: Person) {
     const teacher = new Teacher()
     teacher.person = person
     return teacher

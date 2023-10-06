@@ -1,5 +1,10 @@
-import { ObjectLiteral, EntityTarget, FindOneOptions, DeepPartial, SaveOptions, FindManyOptions } from "typeorm";
+import { ObjectLiteral, EntityTarget, FindOneOptions, DeepPartial, SaveOptions, FindManyOptions, IsNull} from "typeorm";
 import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { SavePerson } from "../interfaces/interfaces";
+import { Year } from "../model/Year";
+import { Classroom } from "../model/Classroom";
+import { State } from "../model/State";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -10,7 +15,6 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
     try {
       const result = await this.repository.findOne(options);
@@ -18,7 +22,6 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async findOneById(id: string | number) {
     try {
       const result = await this.repository.findOneBy({ id: id });
@@ -26,21 +29,12 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
     try {
       const result = await this.repository.save(body, options);
       return { status: 201, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  async createMany(body: DeepPartial<ObjectLiteral>[], options: SaveOptions | undefined) {
-    try {
-      const result = await this.repository.save(body, options);
-      return { status: 201, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
   async updateId(id: number | string, body: ObjectLiteral) {
     try {
       const dataInDataBase = await this.repository.findOneBy({ id: id });
@@ -50,7 +44,6 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async deleteId(id: any) {
     try {
       const dataToDelete = await this.repository.findOneBy({ id: id });
@@ -59,6 +52,23 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
   get repository() { return AppDataSource.getRepository(this.entity) }
+
+
+  createPerson(body: SavePerson) {
+    const person = new Person()
+    person.name = body.name
+    person.birth = body.birth
+    person.category = body.category
+    return person
+  }
+  async currentYear() {
+    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
+  }
+  async classroom(id: number) {
+    return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
+  }
+  async state(id: number) {
+    return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
+  }
 }

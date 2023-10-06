@@ -1,65 +1,18 @@
-import {GenericController} from "./genericController";
-import {EntityTarget, In, IsNull, ObjectLiteral} from "typeorm";
-import {Student} from "../model/Student";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {PersonCategory} from "../model/PersonCategory";
-import {enumOfPersonCategory} from "../utils/enumOfPersonCategory";
-import {StudentDisability} from "../model/StudentDisability";
-import {Disability} from "../model/Disability";
-import {State} from "../model/State";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {Classroom} from "../model/Classroom";
-import {Year} from "../model/Year";
-
-interface StudentClassroomReturn {
-  id: number,
-  rosterNumber: number | string,
-  startedAt: Date,
-  endedAt: Date,
-  student: {
-    id: number,
-    ra: string,
-    dv: string,
-    state: {
-      id: number,
-      acronym: string,
-    },
-    person: {
-      id: number,
-      name: string,
-      birth: Date,
-    },
-    disabilities: number[],
-  },
-  classroom: {
-    id: number,
-    shortName: string,
-    school: {
-      id: number,
-      shortName: string,
-    }
-  }
-}
-interface SaveStudent {
-  name: string,
-  birth: Date,
-  disabilities: number[],
-  disabilitiesName: string[],
-  ra: string,
-  dv: string,
-  state: number,
-  rosterNumber: string,
-  classroom: number,
-  classroomName: string,
-  observationOne: string,
-  observationTwo: string,
-}
+import { GenericController } from "./genericController";
+import { EntityTarget, In, ObjectLiteral } from "typeorm";
+import { Student } from "../model/Student";
+import { AppDataSource } from "../data-source";
+import { PersonCategory } from "../model/PersonCategory";
+import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { StudentDisability } from "../model/StudentDisability";
+import { Disability } from "../model/Disability";
+import { State } from "../model/State";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
+import { Person } from "../model/Person";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
-  constructor() {
-    super(Student);
-  }
+  constructor() { super(Student) }
 
   override async findAllWhere() {
     try {
@@ -81,9 +34,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);
       const category = await this.studentCategory();
-      const person = this.newPerson(body, category);
       const disabilities = await this.disabilities(body.disabilities);
-      const student = await this.repository.save(this.newStudent(body, person, state));
+      const person = this.createPerson({ name: body.name, birth: body.birth, category });
+      const student = await this.repository.save(this.createStudent(body, person, state));
       if(!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
           return { student, startedAt: new Date(), disability }
@@ -145,17 +98,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async studentCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
-  }
-  // TODO: move to utils
-  async state(id: number) {
-    return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
-  }
-  // TODO: move to utils
-  async currentYear() {
-    return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
-  }
-  async classroom(id: number) {
-    return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
   }
   async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
@@ -296,14 +238,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     })
   }
-  newPerson(body: SaveStudent, category: PersonCategory) {
-    const person = new Person()
-    person.name = body.name;
-    person.birth = body.birth;
-    person.category = category
-    return person
-  }
-  newStudent(body: SaveStudent, person: Person, state: State) {
+  createStudent(body: SaveStudent, person: Person, state: State) {
     const student = new Student()
     student.person = person
     student.ra = body.ra

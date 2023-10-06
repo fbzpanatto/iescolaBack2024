@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, In, ObjectLiteral } from "typeorm";
+import {EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -10,11 +10,12 @@ import { State } from "../model/State";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
+import { Request } from "express";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
-  override async findAllWhere() {
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     try {
       // TODO: filter by endedAt
       const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]

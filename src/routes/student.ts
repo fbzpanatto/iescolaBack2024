@@ -5,7 +5,7 @@ export const StudentRouter = Router();
 
 StudentRouter.get('/', (req, res) => {
 
-  studentController.findAllWhere()
+  studentController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

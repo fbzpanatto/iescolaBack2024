@@ -5,11 +5,12 @@ import { SavePerson } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
+import { Request } from "express";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
-  async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined) {
+  async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     try {
       const result = await this.repository.find();
       return { status: 200, data: result };

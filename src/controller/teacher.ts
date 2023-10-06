@@ -1,6 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { EntityTarget, In, IsNull, SaveOptions } from "typeorm";
+import { EntityTarget, FindManyOptions, ILike, In, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
@@ -11,20 +11,22 @@ import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { personController } from "./person";
 import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { Request } from "express";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   constructor() { super(Teacher) }
 
-  override async findAllWhere(options: any) {
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const search = request?.query.search as string
+
     try {
-
       const result = await this.repository.find({
-        relations: ['person', 'teacherClassDiscipline.classroom', 'teacherClassDiscipline.discipline']
+        relations: ['person', 'teacherClassDiscipline.classroom', 'teacherClassDiscipline.discipline'],
+        where: { person: { name: ILike(`%${search}%`) } }
       }) as Teacher[]
-
       return { status: 200, data: result }
-
     } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async findOneById(id: string | number) {

@@ -16,9 +16,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
-
-    console.log(request?.query)
-
     try {
       // TODO: filter by endedAt
       const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]

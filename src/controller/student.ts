@@ -18,11 +18,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const search = request?.query.search as string
-    const yearId = request?.query.yearId as string
+    const year = request?.query.year as string
 
     try {
       // TODO: filter by endedAt se eu permitir no front mandar um ativos e inativos
-      const studentsClassrooms = await this.studentsClassrooms({ search, yearId }) as StudentClassroomReturn[]
+      const studentsClassrooms = await this.studentsClassrooms({ search, year }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -176,9 +176,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async studentsClassrooms(options: { search?: string, yearId?: string }) {
+  async studentsClassrooms(options: { search?: string, year?: string }) {
 
-    const yearId = options.yearId ?? (await this.currentYear()).id
+    const yearId = options.year ?? (await this.currentYear()).id
 
     const preResult = await AppDataSource
       .createQueryBuilder()

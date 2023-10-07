@@ -5,7 +5,7 @@ export const YearRouter = Router();
 
 YearRouter.get('/', (req, res) => {
 
-  yearController.findAllWhere({})
+  yearController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

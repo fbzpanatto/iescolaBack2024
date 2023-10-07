@@ -1,9 +1,10 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, IsNull, SaveOptions } from "typeorm";
+import {EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
+import {Request} from "express";
 
 // TODO: send endedAt date for the year on the front end before sending body post
 // TODO: set studentClassroom active to false for all studentClassrooms
@@ -11,12 +12,16 @@ import { AppDataSource } from "../data-source";
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
 
-  override async findAllWhere(options: any) {
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const search = request?.query.search as string
+
     try {
 
       const result = await this.repository.find({
         relations: ['periods.bimester'],
         order: { name: 'DESC', periods: { bimester: { id: 'ASC' } } },
+        where: { name: ILike(`%${search}%`) }
       });
 
       return { status: 200, data: result };

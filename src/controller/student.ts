@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
+import { EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -16,9 +16,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const search = request?.query.search as string
+    const yearId = request?.query.yearId as string
+
     try {
-      // TODO: filter by endedAt
-      const studentsClassrooms = await this.studentsClassrooms({}) as StudentClassroomReturn[]
+      // TODO: filter by endedAt se eu permitir no front mandar um ativos e inativos
+      const studentsClassrooms = await this.studentsClassrooms({ search, yearId }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -172,10 +176,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async studentsClassrooms(options: ObjectLiteral) {
+  async studentsClassrooms(options: { search?: string, yearId?: string }) {
 
-    // TODO: get yearId from request
-    const yearId = 1
+    const yearId = options.yearId ?? (await this.currentYear()).id
 
     const preResult = await AppDataSource
       .createQueryBuilder()
@@ -205,6 +208,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('classroom.school', 'school')
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
+      .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
       .groupBy('studentClassroom.id')
       .getRawMany();
 

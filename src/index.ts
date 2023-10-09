@@ -1,5 +1,5 @@
 import express from 'express'
-
+import authorization from "./middleware/authorization";
 import { Router } from 'express';
 import { Application } from "express";
 import { AppDataSource } from "./data-source";
@@ -9,6 +9,7 @@ import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
 import { DisabilityRouter } from "./routes/disability";
 import { DisciplineRouter } from "./routes/discipline";
+import { LoginRouter } from "./routes/login";
 import { PersonCategoryRouter } from "./routes/personCategory";
 import { PersonRouter } from "./routes/person";
 import { SchoolRouter } from "./routes/school";
@@ -29,21 +30,22 @@ const route = Router()
 app.use(bodyParser.json());
 app.use(cors({origin: true}));
 
-route.use('/bimester', BimesterRouter);
-route.use('/classroom', ClassroomRouter);
-route.use('/classroom-category', CassroomCategoryRouter);
-route.use('/disability', DisabilityRouter);
-route.use('/discipline', DisciplineRouter);
-route.use('/login', UserRouter);
-route.use('/person', PersonRouter);
-route.use('/person-category', PersonCategoryRouter);
-route.use('/school', SchoolRouter);
-route.use('/state', StateRouter);
-route.use('/student', StudentRouter);
-route.use('/teacher', TeacherRouter);
-route.use('/teacher-class-discipline', TeacherClassDisciplineRouter);
-route.use('/user', UserRouter);
-route.use('/year', YearRouter);
+route.use('/bimester', authorization, BimesterRouter);
+route.use('/classroom', authorization, ClassroomRouter);
+route.use('/classroom-category', authorization, CassroomCategoryRouter);
+route.use('/disability', authorization, DisabilityRouter);
+route.use('/discipline', authorization, DisciplineRouter);
+route.use('/person', authorization, PersonRouter);
+route.use('/person-category', authorization, PersonCategoryRouter);
+route.use('/school', authorization, SchoolRouter);
+route.use('/state', authorization, StateRouter);
+route.use('/student', authorization, StudentRouter);
+route.use('/teacher', authorization, TeacherRouter);
+route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRouter);
+route.use('/user', authorization, UserRouter);
+route.use('/year', authorization, YearRouter);
+
+route.use('/login', LoginRouter);
 
 route.use('/initial-configs', InitialConfigsRouter)
 

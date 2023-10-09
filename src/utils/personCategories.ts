@@ -1,4 +1,4 @@
-export const enumOfPersonCategory = {
+export const personCategories = {
   ALUNO: 1,
   PROFESSOR: 2,
   MONITOR_DE_INFORMATICA: 3,

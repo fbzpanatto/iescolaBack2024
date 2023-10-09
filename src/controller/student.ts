@@ -3,7 +3,7 @@ import { EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
-import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { personCategories } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
@@ -102,7 +102,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
   async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.ALUNO}}) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.ALUNO}}) as PersonCategory
   }
   async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})

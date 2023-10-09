@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { teacherController } from "../controller/teacher";
+import havePermission from "../middleware/havePermission";
 
 export const TeacherRouter = Router();
 
-TeacherRouter.get('/', (req, res) => {
+TeacherRouter.get('/', havePermission, (req, res) => {
 
   teacherController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))

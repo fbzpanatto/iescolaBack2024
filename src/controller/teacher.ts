@@ -10,7 +10,7 @@ import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { personController } from "./person";
-import { enumOfPersonCategory } from "../utils/enumOfPersonCategory";
+import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
@@ -109,7 +109,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
   async teacherCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: enumOfPersonCategory.PROFESSOR}}) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.PROFESSOR}}) as PersonCategory
   }
   async updateClassRel(teacher: Teacher, body: TeacherBody) {
 

@@ -14,6 +14,7 @@ import { StudentDisability } from "./StudentDisability";
 import { Teacher } from "./Teacher";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Year } from "./Year";
+import { User } from "./User";
 export const entities = [
   Bimester,
   Classroom,
@@ -30,5 +31,6 @@ export const entities = [
   StudentDisability,
   Teacher,
   TeacherClassDiscipline,
+  User,
   Year,
 ];

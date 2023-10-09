@@ -16,6 +16,7 @@ import { StateRouter } from "./routes/state";
 import { StudentRouter } from "./routes/student";
 import { TeacherClassDisciplineRouter } from "./routes/teacherClassDiscipline";
 import { TeacherRouter } from "./routes/teacher";
+import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 
 import { InitialConfigsRouter } from "./routes/initialConfigs";
@@ -33,6 +34,7 @@ route.use('/classroom', ClassroomRouter);
 route.use('/classroom-category', CassroomCategoryRouter);
 route.use('/disability', DisabilityRouter);
 route.use('/discipline', DisciplineRouter);
+route.use('/login', UserRouter);
 route.use('/person', PersonRouter);
 route.use('/person-category', PersonCategoryRouter);
 route.use('/school', SchoolRouter);
@@ -40,6 +42,7 @@ route.use('/state', StateRouter);
 route.use('/student', StudentRouter);
 route.use('/teacher', TeacherRouter);
 route.use('/teacher-class-discipline', TeacherClassDisciplineRouter);
+route.use('/user', UserRouter);
 route.use('/year', YearRouter);
 
 route.use('/initial-configs', InitialConfigsRouter)

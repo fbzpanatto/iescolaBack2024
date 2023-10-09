@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
+import { EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -33,14 +33,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('teacherClassDiscipline.classroom', 'classroom')
       .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
       .groupBy('teacher.id')
-      .getRawOne();
+      .getRawOne() as { teacher: number, classrooms: string }
 
-    console.log(result)
-
+    const classrooms = result.classrooms.split(',').map((classroomId: string) => Number(classroomId))
 
     try {
       // TODO: filter by endedAt se eu permitir no front mandar um ativos e inativos
-      const studentsClassrooms = await this.studentsClassrooms({ search, year }) as StudentClassroomReturn[]
+      const studentsClassrooms = await this.studentsClassrooms({ search, year, classrooms }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -194,7 +193,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async studentsClassrooms(options: { search?: string, year?: string }) {
+  async studentsClassrooms(options: { search?: string, year?: string, classrooms?: number[] }) {
 
     const yearId = options.year ?? (await this.currentYear()).id
 
@@ -227,6 +226,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
       .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
+      .andWhere(options.classrooms ? 'classroom.id IN (:...classrooms)' : '1=1', { classrooms: options.classrooms })
       .groupBy('studentClassroom.id')
       .getRawMany();
 

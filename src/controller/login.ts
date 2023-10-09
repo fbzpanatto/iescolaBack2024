@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { User } from "../model/User";
 import { Request } from "express";
-import {AppDataSource} from "../data-source";
+import { AppDataSource } from "../data-source";
 const jwt = require('jsonwebtoken');
 
 class LoginController extends GenericController<EntityTarget<User>> {

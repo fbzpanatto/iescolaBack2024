@@ -8,11 +8,7 @@ export default (req: Request, res: Response, next: NextFunction) => {
     const entity = req.baseUrl.split('/')[1].split('-').join('')
     const method = req.method
     const condition = permissions(user.category, entity, method)
-    if(!condition) {
-      return res.status(403).json({
-        message: 'Unauthorized!'
-      })
-    }
+    if(!condition) { return res.status(403).json({ message: 'Você não tem permissão.' })}
     next()
-  } catch (error: any) { return { status: 500, message: error.message } }
+  } catch (error: any) { return res.status(500).json({ message: error.message })}
 }

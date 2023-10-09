@@ -11,28 +11,28 @@ TeacherRouter.get('/', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.get('/:id', (req, res) => {
+TeacherRouter.get('/:id', havePermission, (req, res) => {
 
   teacherController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.post('/', (req, res) => {
+TeacherRouter.post('/', havePermission, (req, res) => {
 
   teacherController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.put('/:id', (req, res) => {
+TeacherRouter.put('/:id', havePermission, (req, res) => {
 
   teacherController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.delete('/:id', (req, res) => {
+TeacherRouter.delete('/:id', havePermission, (req, res) => {
 
   teacherController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

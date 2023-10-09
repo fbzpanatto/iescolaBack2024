@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { loginController } from "../controller/login";
 
-
 export const LoginRouter = Router();
 
 LoginRouter.post('/', (req, res) => {

@@ -89,10 +89,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   override async updateId(id: string, body: TeacherBody) {
     try {
 
-      const teacher = (await this.findOneByWhere({
+      const teacher = await AppDataSource.getRepository(Teacher).findOne({
         relations: ['person'],
-        where: { id: id }
-      })).data as Teacher
+        where: { id: Number(id) }
+      })
 
       if (!teacher) { return { status: 404, message: 'Data not found' } }
 
@@ -117,7 +117,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
       relations: ['classroom', 'teacher'],
-      where: { teacher: teacher, endedAt: IsNull() }
+      where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
     })
 
     for(let relation of teacherClassDisciplines) {
@@ -133,7 +133,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
       relations: ['discipline', 'teacher'],
-      where: { teacher: teacher, endedAt: IsNull() }
+      where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
     })
 
     for(let relation of teacherClassDisciplines) {

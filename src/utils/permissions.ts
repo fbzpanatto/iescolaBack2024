@@ -12,6 +12,11 @@ const permissionsArray: { entity: string, category: number, methods: Permission 
         entity: "teacher",
         category: personCategories.PROFESSOR,
         methods: { GET: true, PUT: true }
+    },
+    {
+        entity: "student",
+        category: personCategories.PROFESSOR,
+        methods: { GET: true, PUT: true, POST: true }
     }
 ]
 

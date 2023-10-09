@@ -1,37 +1,38 @@
 import { Router } from "express";
 import { studentController } from "../controller/student";
+import havePermission from "../middleware/havePermission";
 
 export const StudentRouter = Router();
 
-StudentRouter.get('/', (req, res) => {
+StudentRouter.get('/', havePermission, (req, res) => {
 
   studentController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-StudentRouter.get('/:id', (req, res) => {
+StudentRouter.get('/:id', havePermission, (req, res) => {
 
   studentController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-StudentRouter.post('/', (req, res) => {
+StudentRouter.post('/', havePermission, (req, res) => {
 
   studentController.save(req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-StudentRouter.put('/:id', (req, res) => {
+StudentRouter.put('/:id', havePermission, (req, res) => {
 
   studentController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-StudentRouter.delete('/:id', (req, res) => {
+StudentRouter.delete('/:id', havePermission, (req, res) => {
 
   studentController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

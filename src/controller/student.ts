@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
+import {EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -11,14 +11,32 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
+import { Teacher } from "../model/Teacher";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
+    const body = request?.body.user
     const search = request?.query.search as string
     const year = request?.query.year as string
+
+    const result = await AppDataSource
+      .createQueryBuilder()
+      .select('teacher.id', 'teacher' )
+      .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classrooms')
+      .from(Teacher, 'teacher')
+      .leftJoin('teacher.person', 'person')
+      .leftJoin('person.user', 'user')
+      .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
+      .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+      .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
+      .groupBy('teacher.id')
+      .getRawOne();
+
+    console.log(result)
+
 
     try {
       // TODO: filter by endedAt se eu permitir no front mandar um ativos e inativos

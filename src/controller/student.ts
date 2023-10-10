@@ -18,28 +18,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const body = request?.body.user
+    const owner = request?.query.owner as string
     const search = request?.query.search as string
     const year = request?.query.year as string
 
-    const result = await AppDataSource
-      .createQueryBuilder()
-      .select('teacher.id', 'teacher' )
-      .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classrooms')
-      .from(Teacher, 'teacher')
-      .leftJoin('teacher.person', 'person')
-      .leftJoin('person.user', 'user')
-      .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
-      .leftJoin('teacherClassDiscipline.classroom', 'classroom')
-      .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
-      .groupBy('teacher.id')
-      .getRawOne() as { teacher: number, classrooms: string }
-
-    const classrooms = result.classrooms.split(',').map((classroomId: string) => Number(classroomId))
-
     try {
-      // TODO: filter by endedAt se eu permitir no front mandar um ativos e inativos
-      const studentsClassrooms = await this.studentsClassrooms({ search, year, classrooms }) as StudentClassroomReturn[]
+      const classrooms = await this.teacherClassrooms(request?.body.user)
+      const studentsClassrooms = await this.studentsClassrooms({ search, year, classrooms, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -70,6 +55,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   override async updateId(studentId: string, body: SaveStudent) {
     try {
+
+      // TODO: verificar se o usuário tem permissão para alterar os dados do aluno.
+      // TODO: professor da categoria dois não tem permissão para alterar diretamente a sala do aluno. Apenas informações básicas.
 
       const student = await this.repository
         .findOne({
@@ -193,8 +181,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async studentsClassrooms(options: { search?: string, year?: string, classrooms?: number[] }) {
+  async studentsClassrooms(options: { search?: string, year?: string, classrooms?: number[], owner?: string }) {
 
+    const condition = options.owner === '1'
     const yearId = options.year ?? (await this.currentYear()).id
 
     const preResult = await AppDataSource
@@ -226,7 +215,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
       .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
-      .andWhere(options.classrooms ? 'classroom.id IN (:...classrooms)' : '1=1', { classrooms: options.classrooms })
+      .andWhere( condition ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.classrooms })
       .groupBy('studentClassroom.id')
       .getRawMany();
 
@@ -260,6 +249,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         },
       }
     })
+  }
+  async teacherClassrooms(body: { user: number }) {
+    const result = await AppDataSource
+      .createQueryBuilder()
+      .select('teacher.id', 'teacher' )
+      .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classrooms')
+      .from(Teacher, 'teacher')
+      .leftJoin('teacher.person', 'person')
+      .leftJoin('person.user', 'user')
+      .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
+      .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+      .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
+      .groupBy('teacher.id')
+      .getRawOne() as { teacher: number, classrooms: string }
+
+    return result.classrooms.split(',').map((classroomId: string) => Number(classroomId))
   }
   createStudent(body: SaveStudent, person: Person, state: State) {
     const student = new Student()

@@ -37,6 +37,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   override async save(body: SaveStudent) {
     try {
+      // TODO: verificar se o usuário tem permissão para criar um aluno. Se o usuário for professor, verificar se ele é professor da sala que está tentando criar o aluno.
       const year = await this.currentYear();
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);
@@ -183,6 +184,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async studentsClassrooms(options: { search?: string, year?: string, classrooms?: number[], owner?: string }) {
 
+    // TODO: se ownser for diferente de 1 ou 2 sempre retornar 1.
     const condition = options.owner === '1'
     const yearId = options.year ?? (await this.currentYear()).id
 
@@ -205,18 +207,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'classroom.shortName',
         'school.id',
         'school.shortName',
+        'transfers.id',
       ])
       .from(StudentClassroom, 'studentClassroom')
       .leftJoin('studentClassroom.student', 'student')
       .leftJoin('student.person', 'person')
       .leftJoin('student.state', 'state')
+      .leftJoin('student.transfers', 'transfers', 'transfers.endedAt IS NULL')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
+      .andWhere('studentClassroom.endedAt IS NULL')
       .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
       .andWhere( condition ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.classrooms })
       .groupBy('studentClassroom.id')
+      .addGroupBy('transfers.id')
       .getRawMany();
 
     return preResult.map((item) => {

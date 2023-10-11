@@ -2,27 +2,48 @@ import { personCategories } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
 
-const permissionsArray: { entity: string, category: number, methods: Permission }[] = [
+const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
     {
-        entity: "classroom",
         category: personCategories.PROFESSOR,
-        methods: { GET: true }
+        permissions: [
+            {
+                entity: "classroom",
+                methods: { GET: true }
+            },
+            {
+                entity: "teacher",
+                methods: { GET: true, PUT: true }
+            },
+            {
+                entity: "student",
+                methods: { GET: true, PUT: true, POST: true }
+            }
+        ]
     },
     {
-        entity: "teacher",
-        category: personCategories.PROFESSOR,
-        methods: { GET: true, PUT: true }
-    },
-    {
-        entity: "student",
-        category: personCategories.PROFESSOR,
-        methods: { GET: true, PUT: true, POST: true }
+        category: personCategories.ADMINISTRADOR,
+        permissions: [
+            {
+                entity: "classroom",
+                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+            },
+            {
+                entity: "teacher",
+                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+            },
+            {
+                entity: "student",
+                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+            }
+        ]
     }
 ]
 
 function userHasPermission(category: number, entity: string, method: string) {
-    return !!permissionsArray.find((permission) => {
-        return permission.category === category && permission.entity === entity && permission.methods[method as keyof Permission]
+    return !!arrayOfPermissions.find((permission) => {
+        return permission.category === category && permission.permissions.find((permission) => {
+            return permission.entity === entity && permission.methods[method as keyof Permission]
+        })
     })
 }
 

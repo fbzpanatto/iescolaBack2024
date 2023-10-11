@@ -3,6 +3,7 @@ import { Person } from "./Person";
 import { StudentDisability } from "./StudentDisability";
 import { StudentClassroom } from "./StudentClassroom";
 import { State } from "./State";
+import {Transfer} from "./Transfer";
 
 @Entity()
 export class Student {
@@ -34,4 +35,7 @@ export class Student {
 
   @OneToMany(() => StudentClassroom, sc => sc.student)
   studentClassrooms: StudentClassroom[]
+
+  @OneToMany(() => Transfer, transfer => transfer.student)
+  transfers: Transfer[]
 }

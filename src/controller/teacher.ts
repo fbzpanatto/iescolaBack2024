@@ -12,6 +12,7 @@ import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { personController } from "./person";
 import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
+import {User} from "../model/User";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -71,6 +72,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacher = await this.repository.save(this.createTeacher(person))
       const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
       const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
+
+      // TODO: Review this code
+      const { username, password } = this.generateUser(person)
+      await AppDataSource.getRepository(User).save({ person: person, username, password })
 
       for(let classroom of classrooms) {
         for(let discipline of disciplines) {
@@ -195,6 +200,21 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const teacher = new Teacher()
     teacher.person = person
     return teacher
+  }
+
+  generateUser(person: Person) {
+    const username = person.name.substring(0, 10).replace(/\s/g, '').trim()
+    const password = this.generatePassword(8);
+    return { username, password };
+  }
+  generatePassword(length: number) {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let randomString = '';
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * charset.length);
+      randomString += charset[randomIndex];
+    }
+    return randomString;
   }
 }
 

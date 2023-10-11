@@ -18,6 +18,10 @@ import { PERSON_CATEGORY } from "../mock/personCategory";
 import { STATES } from "../mock/state";
 import { State } from "../model/State";
 import { Disability } from "../model/Disability";
+import {TransferStatus} from "../model/TransferStatus";
+import {TRANSFER_STATUS} from "../mock/transferStatus";
+import {User} from "../model/User";
+import {Person} from "../model/Person";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -35,16 +39,40 @@ async function createClassroom(school: School, classroom: {name: string, shortNa
   await classSource.save(newClass)
 }
 
+async function createAdminUser(person: Person) {
+  const userSource = new dataSourceController(User).entity
+  const user = new User()
+  user.username = 'admin'
+  user.password = 'admin'
+  user.person = person
+  await userSource.save(user)
+}
+
+async function createAdminPerson() {
+  const adminCategorySource = new dataSourceController(PersonCategory).entity
+  const adminCategory = await adminCategorySource.findOneBy({ id: 11 }) as PersonCategory
+  const personSource = new dataSourceController(Person).entity
+  const person = new Person()
+  person.name = 'Administrador'
+  person.birth = new Date()
+  person.category = adminCategory
+
+  const result = await personSource.save(person)
+  await createAdminUser(result)
+}
+
 InitialConfigsRouter.get('/', async (req, res) => {
   try {
     const personCategorySource = new dataSourceController(PersonCategory).entity
     const bimesterSource = new dataSourceController(Bimester).entity
+    const transferStatusSource = new dataSourceController(TransferStatus).entity
     const schoolSource = new dataSourceController(School).entity
     const periodSource = new dataSourceController(Period).entity
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
     const disciplineSource = new dataSourceController(Discipline).entity
     const stateSource = new dataSourceController(State).entity
     const disabilitieSource = new dataSourceController(Disability).entity
+    const userSource = new dataSourceController(User).entity
 
     const newYear = new Year()
     newYear.name = '2023'
@@ -61,6 +89,12 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newBimester = new Bimester()
       newBimester.name = bimester.name
       await bimesterSource.save(newBimester)
+    }
+
+    for(let status of TRANSFER_STATUS) {
+      const newStatus = new TransferStatus()
+      newStatus.name = status.name
+      await transferStatusSource.save(newStatus)
     }
 
     for(let state of STATES) {
@@ -123,9 +157,14 @@ InitialConfigsRouter.get('/', async (req, res) => {
       await personCategorySource.save(newPersonCategory)
     }
 
+    await createAdminPerson()
+
     return res.status(200).json({ message: 'Configurações iniciais criadas com sucesso!' })
   } catch (e) {
     console.log(e)
     return res.status(500).json({ message: 'Erro ao criar configurações iniciais!' })
   }
 })
+
+
+//TODO: usuário admin está sendo criado sem dar aula em nenhuma turma, basta apenas não aplicar nenhum filtro na busca de turmas, alunos, etc...

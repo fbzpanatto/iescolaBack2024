@@ -13,6 +13,8 @@ import { StudentClassroom } from "./StudentClassroom";
 import { StudentDisability } from "./StudentDisability";
 import { Teacher } from "./Teacher";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
+import { Transfer } from "./Transfer";
+import { TransferStatus } from "./TransferStatus";
 import { Year } from "./Year";
 import { User } from "./User";
 export const entities = [
@@ -30,6 +32,8 @@ export const entities = [
   StudentClassroom,
   StudentDisability,
   Teacher,
+  Transfer,
+  TransferStatus,
   TeacherClassDiscipline,
   User,
   Year,

@@ -17,6 +17,7 @@ import { StateRouter } from "./routes/state";
 import { StudentRouter } from "./routes/student";
 import { TransferRouter } from "./routes/transfer";
 import { TeacherClassDisciplineRouter } from "./routes/teacherClassDiscipline";
+import { TeacherClassroomsRouter } from "./routes/teacherClassrooms";
 import { TeacherRouter } from "./routes/teacher";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
@@ -43,6 +44,7 @@ route.use('/state', authorization, StateRouter);
 route.use('/student', authorization, StudentRouter);
 route.use('/transfer', authorization, TransferRouter)
 route.use('/teacher', authorization, TeacherRouter);
+route.use('/teacher-classroom', authorization, TeacherClassroomsRouter )
 route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRouter);
 route.use('/user', authorization, UserRouter);
 route.use('/year', authorization, YearRouter);

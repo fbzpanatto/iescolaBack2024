@@ -2,6 +2,7 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm"
 import { Teacher } from "./Teacher";
 import { Student } from "./Student";
 import { TransferStatus } from "./TransferStatus";
+import {Classroom} from "./Classroom";
 
 @Entity()
 export class Transfer {
@@ -11,6 +12,9 @@ export class Transfer {
 
   @ManyToOne(() => Teacher, teacher => teacher.requester)
   requester: Teacher
+
+  @ManyToOne(() => Classroom, classroom => classroom.transfers)
+  requested: Classroom
 
   @ManyToOne(() => Teacher, teacher => teacher.receiver, { nullable: true })
   receiver: Teacher

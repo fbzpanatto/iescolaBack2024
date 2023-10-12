@@ -17,6 +17,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             {
                 entity: "student",
                 methods: { GET: true, PUT: true, POST: true }
+            },
+            {
+                entity: "transfer",
+                methods: { GET: true, POST: true, PUT: true }
             }
         ]
     },
@@ -33,6 +37,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             },
             {
                 entity: "student",
+                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+            },
+            {
+                entity: "transfer",
                 methods: { GET: true, POST: true, PUT: true, DELETE: true }
             }
         ]

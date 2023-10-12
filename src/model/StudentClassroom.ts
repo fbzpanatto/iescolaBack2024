@@ -18,6 +18,7 @@ export class StudentClassroom {
   @ManyToOne(() => Year, year => year.studentClassrooms)
   year: Year
 
+  //TODO: não permitir cadastrar dois números iguais para uma mesma sala de aula
   @Column({ nullable: false })
   rosterNumber: number
 

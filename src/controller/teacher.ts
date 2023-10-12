@@ -201,7 +201,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     teacher.person = person
     return teacher
   }
-
   generateUser(person: Person) {
     const username = person.name.substring(0, 10).replace(/\s/g, '').trim()
     const password = this.generatePassword(8);

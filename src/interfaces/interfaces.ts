@@ -42,11 +42,22 @@ export interface StudentClassroomReturn {
       name: string,
       birth: Date,
     },
+    transfer?: {
+      id: number,
+      startedAt: Date,
+      status: {
+        name: string,
+      },
+      requester: {
+        name: string,
+      }
+    }
     disabilities: number[],
   },
   classroom: {
     id: number,
     shortName: string,
+    teacher: {id: number, classrooms: number[]} | undefined,
     school: {
       id: number,
       shortName: string,

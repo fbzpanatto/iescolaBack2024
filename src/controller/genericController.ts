@@ -6,6 +6,7 @@ import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
 import { Request } from "express";
+import {TransferStatus} from "../model/TransferStatus";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -71,5 +72,8 @@ export class GenericController<T> {
   }
   async state(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State
+  }
+  async transferStatus(id: number) {
+    return await AppDataSource.getRepository(TransferStatus).findOne({where: {id: id}}) as TransferStatus
   }
 }

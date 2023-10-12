@@ -3,6 +3,7 @@ import { School } from "./School";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { StudentClassroom } from "./StudentClassroom";
+import {Transfer} from "./Transfer";
 
 @Entity()
 export class Classroom {
@@ -30,4 +31,7 @@ export class Classroom {
 
   @OneToMany(() => StudentClassroom, studentClassroom => studentClassroom.classroom)
   studentClassrooms: StudentClassroom[]
+
+  @OneToMany(() => Transfer, transfer => transfer.requested)
+  transfers: Transfer[]
 }

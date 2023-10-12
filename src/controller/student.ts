@@ -23,8 +23,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const year = request?.query.year as string
 
     try {
-      const classrooms = await this.teacherClassrooms(request?.body.user)
-      const studentsClassrooms = await this.studentsClassrooms({ search, year, classrooms, owner }) as StudentClassroomReturn[]
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -182,7 +182,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
     }
   }
-  async studentsClassrooms(options: { search?: string, year?: string, classrooms?: number[], owner?: string }) {
+  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }) {
 
     // TODO: se ownser for diferente de 1 ou 2 sempre retornar 1.
     const condition = options.owner === '1'
@@ -208,19 +208,26 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'school.id',
         'school.shortName',
         'transfers.id',
+        'transfers.startedAt',
+        'requesterPerson.name',
+        'transfersStatus.name'
       ])
       .from(StudentClassroom, 'studentClassroom')
       .leftJoin('studentClassroom.student', 'student')
       .leftJoin('student.person', 'person')
       .leftJoin('student.state', 'state')
       .leftJoin('student.transfers', 'transfers', 'transfers.endedAt IS NULL')
+      .leftJoin('transfers.status', 'transfersStatus')
+      .leftJoin('transfers.requester', 'requester')
+      .leftJoin('requester.person', 'requesterPerson')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
       .andWhere('studentClassroom.endedAt IS NULL')
+      // TODO: acrescentar também o search pelo ra do aluno que esteja contido na condição de teacherClasses
       .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
-      .andWhere( condition ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.classrooms })
+      .andWhere( condition ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
       .groupBy('studentClassroom.id')
       .addGroupBy('transfers.id')
       .getRawMany();
@@ -244,10 +251,21 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             name: item.person_name,
             birth: item.person_birth,
           },
+          transfer: item.transfers_id ? {
+            id: item.transfers_id,
+            startedAt: item.transfers_startedAt,
+            status: {
+              name: item.transfersStatus_name,
+            },
+            requester: {
+              name: item.requesterPerson_name,
+            }
+          } : false,
         },
         classroom: {
           id: item.classroom_id,
           shortName: item.classroom_shortName,
+          teacher: options.teacherClasses,
           school: {
             id: item.school_id,
             shortName: item.school_shortName,
@@ -270,7 +288,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .groupBy('teacher.id')
       .getRawOne() as { teacher: number, classrooms: string }
 
-    return result.classrooms.split(',').map((classroomId: string) => Number(classroomId))
+    return {
+      id: result.teacher,
+      classrooms: result.classrooms?.split(',').map((classroomId: string) => Number(classroomId)) ?? [],
+    }
   }
   createStudent(body: SaveStudent, person: Person, state: State) {
     const student = new Student()

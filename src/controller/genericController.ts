@@ -7,6 +7,7 @@ import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
 import { Request } from "express";
 import {TransferStatus} from "../model/TransferStatus";
+import {Teacher} from "../model/Teacher";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -75,5 +76,11 @@ export class GenericController<T> {
   }
   async transferStatus(id: number) {
     return await AppDataSource.getRepository(TransferStatus).findOne({where: {id: id}}) as TransferStatus
+  }
+  async teacherByUser(userId: number) {
+    return await AppDataSource.getRepository(Teacher).findOne({
+      relations: ['person'],
+      where: { person: { user: { id: userId } } },
+    }) as Teacher
   }
 }

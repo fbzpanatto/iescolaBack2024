@@ -102,12 +102,6 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  async teacherByUser(userId: number) {
-    return await AppDataSource.getRepository(Teacher).findOne({
-      where: {person: {user: {id: userId}}}
-    }) as Teacher
-  }
 }
 
 export const transferController = new TransferController();

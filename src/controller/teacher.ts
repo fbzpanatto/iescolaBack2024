@@ -94,19 +94,21 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   override async updateId(id: string, body: TeacherBody) {
     try {
 
-      const teacher = await AppDataSource.getRepository(Teacher).findOne({
-        relations: ['person'],
+      const frontendTeacher =  await this.teacherByUser(body.user.user)
+      const databaseTeacher = await AppDataSource.getRepository(Teacher).findOne({
+        relations: ['person.category'],
         where: { id: Number(id) }
       })
 
-      if (!teacher) { return { status: 404, message: 'Data not found' } }
+      if (!databaseTeacher) { return { status: 404, message: 'Data not found' } }
+      if(frontendTeacher.id !== databaseTeacher.id && databaseTeacher.person.category.id === personCategories.PROFESSOR) { return { status: 401, message: 'Você não tem permissão para modificar este registro.' } }
 
-      if (body.teacherClasses) { await this.updateClassRel(teacher, body) }
-      if (body.teacherDisciplines) { await this.updateDisciRel(teacher, body) }
+      if (body.teacherClasses) { await this.updateClassRel(databaseTeacher, body) }
+      if (body.teacherDisciplines) { await this.updateDisciRel(databaseTeacher, body) }
 
-      teacher.person.name = body.name
-      teacher.person.birth = body.birth
-      await personController.save(teacher.person, {})
+      databaseTeacher.person.name = body.name
+      databaseTeacher.person.birth = body.birth
+      await personController.save(databaseTeacher.person, {})
 
       const result = (await this.findOneById(id)).data as TeacherResponse
 

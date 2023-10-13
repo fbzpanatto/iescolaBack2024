@@ -12,6 +12,7 @@ import {SaveStudent, StudentClassroomReturn} from "../interfaces/interfaces";
 import {Person} from "../model/Person";
 import {Request} from "express";
 import {Teacher} from "../model/Teacher";
+import {ISOWNER} from "../utils/owner";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -169,8 +170,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }) {
 
-    // TODO: se ownser for diferente de 1 ou 2 sempre retornar 1.
-    const condition = options.owner === '1'
+    const condition = options.owner === ISOWNER.OWNER
     const yearId = options.year ?? (await this.currentYear()).id
 
     const preResult = await AppDataSource

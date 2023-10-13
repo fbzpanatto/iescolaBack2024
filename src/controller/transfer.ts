@@ -2,7 +2,6 @@ import { GenericController } from "./genericController";
 import { DeepPartial, EntityTarget, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { Transfer } from "../model/Transfer";
 import { AppDataSource } from "../data-source";
-import { Teacher } from "../model/Teacher";
 import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
 

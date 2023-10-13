@@ -47,7 +47,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   override async save(body: SaveStudent) {
     try {
-      // TODO: verificar se o usuário tem permissão para criar um aluno. Se o usuário for professor, verificar se ele é professor da sala que está tentando criar o aluno.
       const year = await this.currentYear();
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);

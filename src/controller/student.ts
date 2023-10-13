@@ -1,18 +1,18 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
-import {Student} from "../model/Student";
-import {AppDataSource} from "../data-source";
-import {PersonCategory} from "../model/PersonCategory";
-import {personCategories} from "../utils/personCategories";
-import {StudentDisability} from "../model/StudentDisability";
-import {Disability} from "../model/Disability";
-import {State} from "../model/State";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {SaveStudent, StudentClassroomReturn} from "../interfaces/interfaces";
-import {Person} from "../model/Person";
-import {Request} from "express";
-import {Teacher} from "../model/Teacher";
-import {ISOWNER} from "../utils/owner";
+import { GenericController } from "./genericController";
+import { Brackets, EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
+import { Student } from "../model/Student";
+import { AppDataSource } from "../data-source";
+import { PersonCategory } from "../model/PersonCategory";
+import { personCategories } from "../utils/personCategories";
+import { StudentDisability } from "../model/StudentDisability";
+import { Disability } from "../model/Disability";
+import { State } from "../model/State";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
+import { Person } from "../model/Person";
+import { Request } from "express";
+import { Teacher } from "../model/Teacher";
+import { ISOWNER } from "../utils/owner";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -215,13 +215,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .andWhere(new Brackets(qb => {
         qb.where('person.name LIKE :search', { search: `%${options.search}%` })
           .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });
-      }));
-
-    if (condition) {
-      queryBuilder.andWhere('classroom.id IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms });
-    } else {
-      queryBuilder.andWhere('classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms });
-    }
+      }))
+      .andWhere(condition? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
 
     const preResult = await queryBuilder.getRawMany();
 

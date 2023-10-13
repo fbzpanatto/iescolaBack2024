@@ -1,17 +1,17 @@
-import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
-import { Student } from "../model/Student";
-import { AppDataSource } from "../data-source";
-import { PersonCategory } from "../model/PersonCategory";
-import { personCategories } from "../utils/personCategories";
-import { StudentDisability } from "../model/StudentDisability";
-import { Disability } from "../model/Disability";
-import { State } from "../model/State";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
-import { Person } from "../model/Person";
-import { Request } from "express";
-import { Teacher } from "../model/Teacher";
+import {GenericController} from "./genericController";
+import {EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
+import {Student} from "../model/Student";
+import {AppDataSource} from "../data-source";
+import {PersonCategory} from "../model/PersonCategory";
+import {personCategories} from "../utils/personCategories";
+import {StudentDisability} from "../model/StudentDisability";
+import {Disability} from "../model/Disability";
+import {State} from "../model/State";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {SaveStudent, StudentClassroomReturn} from "../interfaces/interfaces";
+import {Person} from "../model/Person";
+import {Request} from "express";
+import {Teacher} from "../model/Teacher";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -28,12 +28,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  override async findOneById(id: string | number) {
+  override async findOneById(id: string | number, request?: Request) {
     try {
-      const result = await this.student(Number(id));
-      if (!result) { return { status: 404, message: 'Data not found' } }
-      return { status: 200, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const preStudent = await this.student(Number(id));
+
+      if (!preStudent) { return { status: 404, message: 'Registro não encontrado' } }
+
+      const student = this.formartStudentResponse(preStudent)
+      if(!teacherClasses.classrooms.includes(student.classroom.id)) { return { status: 403, message: 'Você não tem permissão para acessar esse registro.' } }
+
+
+      return { status: 200, data: student };
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
   override async save(body: SaveStudent) {
     try {
@@ -44,6 +54,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const category = await this.studentCategory();
       const disabilities = await this.disabilities(body.disabilities);
       const person = this.createPerson({ name: body.name, birth: body.birth, category });
+
+      const exists = await this.repository.findOne({where: {ra: body.ra}})
+      if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+
       const student = await this.repository.save(this.createStudent(body, person, state));
       if(!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
@@ -57,13 +71,16 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   override async updateId(studentId: string, body: SaveStudent) {
     try {
 
-      // TODO: verificar se o usuário tem permissão para alterar os dados do aluno.
-      // TODO: professor da categoria dois não tem permissão para alterar diretamente a sala do aluno. Apenas informações básicas.
-
       const student = await this.repository
         .findOne({
           where: { id: studentId }, relations: ['person', 'studentDisabilities.disability', 'state']
         }) as Student;
+
+      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
+      if(student.ra !== body.ra) {
+        const exists = await this.repository.findOne({where: {ra: body.ra}})
+        if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      }
 
       student.ra = body.ra;
       student.dv = body.dv;
@@ -72,14 +89,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       student.observationTwo = body.observationTwo;
       student.person.name = body.name;
       student.person.birth = body.birth;
-      const response = await this.repository.save(student) as Student;
+      const register = await this.repository.save(student) as Student;
 
       const stDisabilities = student.studentDisabilities
         .filter((studentDisability) => !studentDisability.endedAt);
 
-      await this.setDisabilities(response, stDisabilities, body.disabilities);
+      await this.setDisabilities(register, stDisabilities, body.disabilities);
 
-      const result = await this.student(Number(studentId));
+      const preResult = await this.student(Number(studentId));
+      const result = this.formartStudentResponse(preResult)
 
       return { status: 200, data: result };
     } catch (error: any) {return { status: 500, message: error.message }}
@@ -115,7 +133,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async student(studentId: number) {
 
-    const student = await AppDataSource
+    return await AppDataSource
       .createQueryBuilder()
       .select([
         'student.id',
@@ -146,41 +164,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
-      .where('student.id = :studentId', { studentId })
+      .where('student.id = :studentId', {studentId})
       .groupBy('studentClassroom.id')
-      .getRawOne();
-
-    return {
-      id: student.studentClassroom_id,
-      rosterNumber: student.studentClassroom_rosterNumber,
-      startedAt: student.studentClassroom_startedAt,
-      endedAt: student.studentClassroom_endedAt,
-      student: {
-        id: student.student_id,
-        ra: student.student_ra,
-        dv: student.student_dv,
-        observationOne: student.student_observationOne,
-        observationTwo: student.student_observationTwo,
-        state: {
-          id: student.state_id,
-          acronym: student.state_acronym
-        },
-        person: {
-          id: student.person_id,
-          name: student.person_name,
-          birth: student.person_birth,
-        },
-        disabilities: student.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
-      },
-      classroom: {
-        id: student.classroom_id,
-        shortName: student.classroom_shortName,
-        school: {
-          id: student.school_id,
-          shortName: student.school_shortName,
-        }
-      }
-    }
+      .getRawOne()
   }
   async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }) {
 
@@ -302,6 +288,39 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     student.observationOne = body.observationOne
     student.observationTwo = body.observationTwo
     return student
+  }
+  formartStudentResponse(student: any) {
+    return {
+      id: student.studentClassroom_id,
+      rosterNumber: student.studentClassroom_rosterNumber,
+      startedAt: student.studentClassroom_startedAt,
+      endedAt: student.studentClassroom_endedAt,
+      student: {
+        id: student.student_id,
+        ra: student.student_ra,
+        dv: student.student_dv,
+        observationOne: student.student_observationOne,
+        observationTwo: student.student_observationTwo,
+        state: {
+          id: student.state_id,
+          acronym: student.state_acronym
+        },
+        person: {
+          id: student.person_id,
+          name: student.person_name,
+          birth: student.person_birth,
+        },
+        disabilities: student.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
+      },
+      classroom: {
+        id: student.classroom_id,
+        shortName: student.classroom_shortName,
+        school: {
+          id: student.school_id,
+          shortName: student.school_shortName,
+        }
+      }
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import { PersonCategory } from "../model/PersonCategory";
 
-export interface TeacherBody { name: string, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: { user: number, username: string, category: number, iat: number, exp: number } }
+export interface User { user: number, username: string, category: number, iat: number, exp: number }
+export interface TeacherBody { name: string, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: User }
 export interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 
 export interface SavePerson {
@@ -22,6 +23,7 @@ export interface SaveStudent {
   classroomName: string,
   observationOne: string,
   observationTwo: string,
+  user: User
 }
 
 export interface StudentClassroomReturn {

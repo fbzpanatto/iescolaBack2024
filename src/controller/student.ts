@@ -1,5 +1,5 @@
 import {GenericController} from "./genericController";
-import {EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
+import {Brackets, EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
 import {Student} from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {PersonCategory} from "../model/PersonCategory";
@@ -27,7 +27,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
   override async findOneById(id: string | number, request?: Request) {
     try {
@@ -170,11 +173,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }) {
 
-    const condition = options.owner === ISOWNER.OWNER
-    const yearId = options.year ?? (await this.currentYear()).id
+    const condition = options.owner === ISOWNER.OWNER;
+    const yearId = options.year ?? (await this.currentYear()).id;
 
-    const preResult = await AppDataSource
-      .createQueryBuilder()
+    const queryBuilder = AppDataSource.createQueryBuilder();
+    queryBuilder
       .select([
         'studentClassroom.id',
         'studentClassroom.rosterNumber',
@@ -197,25 +200,30 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         'requesterPerson.name',
         'transfersStatus.name'
       ])
-      .from(StudentClassroom, 'studentClassroom')
-      .leftJoin('studentClassroom.student', 'student')
+      .from(Student, 'student')
       .leftJoin('student.person', 'person')
       .leftJoin('student.state', 'state')
       .leftJoin('student.transfers', 'transfers', 'transfers.endedAt IS NULL')
       .leftJoin('transfers.status', 'transfersStatus')
       .leftJoin('transfers.requester', 'requester')
       .leftJoin('requester.person', 'requesterPerson')
+      .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
       .leftJoin('studentClassroom.year', 'year')
       .where('year.id = :yearId', { yearId })
-      .andWhere('studentClassroom.endedAt IS NULL')
-      // TODO: acrescentar também o search pelo ra do aluno que esteja contido na condição de teacherClasses
-      .andWhere('person.name LIKE :search', { search: `%${options.search}%` })
-      .andWhere( condition ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
-      .groupBy('studentClassroom.id')
-      .addGroupBy('transfers.id')
-      .getRawMany();
+      .andWhere(new Brackets(qb => {
+        qb.where('person.name LIKE :search', { search: `%${options.search}%` })
+          .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });
+      }));
+
+    if (condition) {
+      queryBuilder.andWhere('classroom.id IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms });
+    } else {
+      queryBuilder.andWhere('classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms });
+    }
+
+    const preResult = await queryBuilder.getRawMany();
 
     return preResult.map((item) => {
       return {

@@ -4,6 +4,13 @@ import havePermission from "../middleware/havePermission";
 
 export const TeacherRouter = Router();
 
+TeacherRouter.get('/pending-transfer', havePermission, (req, res) => {
+
+  teacherController.getRequestedStudentTransfers(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TeacherRouter.get('/', havePermission, (req, res) => {
 
   teacherController.findAllWhere({}, req)

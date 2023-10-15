@@ -14,7 +14,7 @@ export class Transfer {
   requester: Teacher
 
   @ManyToOne(() => Classroom, classroom => classroom.transfers)
-  requested: Classroom
+  requestedClassroom: Classroom
 
   @ManyToOne(() => Teacher, teacher => teacher.receiver, { nullable: true })
   receiver: Teacher

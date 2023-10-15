@@ -32,6 +32,6 @@ export class Classroom {
   @OneToMany(() => StudentClassroom, studentClassroom => studentClassroom.classroom)
   studentClassrooms: StudentClassroom[]
 
-  @OneToMany(() => Transfer, transfer => transfer.requested)
+  @OneToMany(() => Transfer, transfer => transfer.requestedClassroom)
   transfers: Transfer[]
 }

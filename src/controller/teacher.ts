@@ -13,6 +13,8 @@ import { personController } from "./person";
 import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
 import {User} from "../model/User";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {transferStatus} from "../utils/transferStatus";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -20,7 +22,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const search = request?.query.search as string
+    const search = request?.query.search ?? ''
 
     try {
       const result = await this.repository.find({
@@ -114,6 +116,29 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+  async getRequestedStudentTransfers(request?: Request) {
+    try {
+
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder('studentClassroom')
+        .leftJoin('studentClassroom.classroom', 'classroom')
+        .leftJoin('studentClassroom.student', 'student')
+        .leftJoin('student.person', 'person')
+        .leftJoin('student.transfers', 'transfers')
+        .where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
+        .andWhere('studentClassroom.endedAt IS NULL')
+        .andWhere('transfers.endedAt IS NULL')
+        .andWhere('transfers.status = :status', { status: transferStatus.PENDING })
+        .getCount()
+
+      return { status: 200, data: studentClassrooms }
+
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
   async teacherCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.PROFESSOR}}) as PersonCategory

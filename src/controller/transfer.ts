@@ -29,7 +29,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       transfer.startedAt = body.startedAt;
       transfer.endedAt = body.endedAt;
       transfer.requester = teacher;
-      transfer.requested = body.classroom;
+      transfer.requestedClassroom = body.classroom;
       transfer.status = await this.transferStatus(transferStatus.PENDING)
 
       const result = await this.repository.save(transfer)
@@ -79,7 +79,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         await AppDataSource.getRepository(StudentClassroom).save({
           student: body.student,
-          classroom: transfer.requested,
+          classroom: transfer.requestedClassroom,
           startedAt: new Date(),
           rosterNumber: highestRosterNumber.number + 1,
           year: await this.currentYear()

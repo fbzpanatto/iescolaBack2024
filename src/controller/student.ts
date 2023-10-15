@@ -51,6 +51,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   override async save(body: SaveStudent) {
     try {
+      const teacherClasses = await this.teacherClassrooms(body.user)
       const year = await this.currentYear();
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);
@@ -60,6 +61,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const exists = await this.repository.findOne({where: {ra: body.ra}})
       if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      if(body.user.category === personCategories.PROFESSOR) {
+        if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
+      }
 
       const student = await this.repository.save(this.createStudent(body, person, state));
       if(!!disabilities.length) {
@@ -67,6 +71,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           return { student, startedAt: new Date(), disability }
         }))
       }
+
       await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() })
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }

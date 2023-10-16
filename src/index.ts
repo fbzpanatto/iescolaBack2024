@@ -23,6 +23,8 @@ import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 
 import { InitialConfigsRouter } from "./routes/initialConfigs";
+import {TestRouter} from "./routes/test";
+import {TestCategoryRouter} from "./routes/testCategory";
 
 const bodyParser = require('body-parser');
 const app: Application = express();
@@ -44,6 +46,8 @@ route.use('/state', authorization, StateRouter);
 route.use('/student', authorization, StudentRouter);
 route.use('/transfer', authorization, TransferRouter)
 route.use('/teacher', authorization, TeacherRouter);
+route.use('/test', authorization, TestRouter);
+route.use('/test-category', authorization, TestCategoryRouter);
 route.use('/teacher-classroom', authorization, TeacherClassroomsRouter )
 route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRouter);
 route.use('/user', authorization, UserRouter);

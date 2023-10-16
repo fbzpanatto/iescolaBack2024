@@ -1,40 +1,40 @@
 import { Router } from "express";
-import { yearController } from "../controller/year";
+import { testController } from "../controller/test";
 import havePermission from "../middleware/havePermission";
 
-export const YearRouter = Router();
+export const TestRouter = Router();
 
-YearRouter.get('/', havePermission, (req, res) => {
+TestRouter.get('/', havePermission, (req, res) => {
 
-  yearController.findAllWhere({}, req)
+  testController.findAllWhere({})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-YearRouter.get('/:id', havePermission, (req, res) => {
+TestRouter.get('/:id', havePermission, (req, res) => {
 
-  yearController.findOneById(req.params.id)
+  testController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-YearRouter.post('/', havePermission, (req, res) => {
+TestRouter.post('/', havePermission, (req, res) => {
 
-  yearController.save(req.body, {})
+  testController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-YearRouter.put('/:id', havePermission, (req, res) => {
+TestRouter.put('/:id', havePermission, (req, res) => {
 
-  yearController.updateId(req.params.id, req.body)
+  testController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-YearRouter.delete('/:id', havePermission, (req, res) => {
+TestRouter.delete('/:id', havePermission, (req, res) => {
 
-  yearController.deleteId(req.params.id)
+  testController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });

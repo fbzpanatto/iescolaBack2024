@@ -1,6 +1,7 @@
-import { Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
 import { Year } from "./Year";
 import { Bimester } from "./Bimester";
+import {Test} from "./Test";
 
 @Entity()
 export class Period {
@@ -13,4 +14,7 @@ export class Period {
 
   @ManyToOne(() => Bimester, b => b.periods)
   bimester: Bimester
+
+  @OneToMany(() => Test, t => t.period)
+  tests: Test[]
 }

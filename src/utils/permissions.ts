@@ -1,6 +1,8 @@
 import { personCategories } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
+const allPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
+const getPostPutPermissions: Permission = { GET: true, POST: true, PUT: true }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
     {
@@ -11,16 +13,24 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 methods: { GET: true }
             },
             {
+                entity: "year",
+                methods: { GET: true }
+            },
+            {
                 entity: "teacher",
                 methods: { GET: true, PUT: true }
             },
             {
+                entity: "test",
+                methods: getPostPutPermissions
+            },
+            {
                 entity: "student",
-                methods: { GET: true, PUT: true, POST: true }
+                methods: getPostPutPermissions
             },
             {
                 entity: "transfer",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: getPostPutPermissions
             }
         ]
     },
@@ -29,19 +39,27 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         permissions: [
             {
                 entity: "classroom",
-                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+                methods: allPermissions
             },
             {
                 entity: "teacher",
-                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+                methods: allPermissions
             },
             {
                 entity: "student",
-                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+                methods: allPermissions
             },
             {
                 entity: "transfer",
-                methods: { GET: true, POST: true, PUT: true, DELETE: true }
+                methods: allPermissions
+            },
+            {
+                entity: "test",
+                methods: allPermissions
+            },
+            {
+                entity: "year",
+                methods: allPermissions
             }
         ]
     }

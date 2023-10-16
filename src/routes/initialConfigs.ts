@@ -22,6 +22,8 @@ import {TransferStatus} from "../model/TransferStatus";
 import {TRANSFER_STATUS} from "../mock/transferStatus";
 import {User} from "../model/User";
 import {Person} from "../model/Person";
+import {TestCategory} from "../model/TestCategory";
+import {TESTCATEGORY} from "../mock/testCategory";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -72,7 +74,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const disciplineSource = new dataSourceController(Discipline).entity
     const stateSource = new dataSourceController(State).entity
     const disabilitieSource = new dataSourceController(Disability).entity
-    const userSource = new dataSourceController(User).entity
+    const testCategorySource = new dataSourceController(TestCategory).entity
 
     const newYear = new Year()
     newYear.name = '2023'
@@ -83,6 +85,12 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newDisability = new Disability()
       newDisability.name = disability.name
       await disabilitieSource.save(newDisability)
+    }
+
+    for(let testCategory of TESTCATEGORY) {
+      const newTestCategory = new TestCategory()
+      newTestCategory.name = testCategory.name
+      await testCategorySource.save(newTestCategory)
     }
 
     for(let bimester of BIMESTER) {

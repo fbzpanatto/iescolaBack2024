@@ -17,10 +17,15 @@ import { Transfer } from "./Transfer";
 import { TransferStatus } from "./TransferStatus";
 import { Year } from "./Year";
 import { User } from "./User";
+import { Descriptor } from "./Descriptor";
+import { Topic } from "./Topic";
+import { Test } from "./Test";
+import {TestCategory} from "./TestCategory";
 export const entities = [
   Bimester,
   Classroom,
   ClassroomCategory,
+  Descriptor,
   Discipline,
   Disability,
   Person,
@@ -32,6 +37,9 @@ export const entities = [
   StudentClassroom,
   StudentDisability,
   Teacher,
+  Test,
+  TestCategory,
+  Topic,
   Transfer,
   TransferStatus,
   TeacherClassDiscipline,

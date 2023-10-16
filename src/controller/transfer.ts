@@ -1,11 +1,11 @@
 import { GenericController } from "./genericController";
-import {Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import { Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { Transfer } from "../model/Transfer";
 import { AppDataSource } from "../data-source";
 import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
-import {Year} from "../model/Year";
+import { Year } from "../model/Year";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 

@@ -41,11 +41,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
             .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
         }))
-        .andWhere('transfer.startedAt BETWEEN :start AND :end', {
-          start: `${year}-01-01`,
-          end: `${year}-12-31`
-        })
-        // addwhere to filter by startedAt and endedAt is between current sytem year
+        .andWhere('transfer.startedAt BETWEEN :start AND :end', { start: `${year}-01-01`, end: `${year}-12-31`})
         .orderBy('transfer.startedAt', 'DESC')
         .getMany()
 

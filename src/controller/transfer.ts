@@ -5,6 +5,7 @@ import { AppDataSource } from "../data-source";
 import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
+import {Year} from "../model/Year";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -12,8 +13,12 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const year = request?.query.year as string
     const search = request?.query.search as string
+    const yearFromDatabase = await AppDataSource.getRepository(Year)
+      .findOne({ where: { id: Number(request?.query.year as string) } }) as Year
+
+    const date = new Date(yearFromDatabase.createdAt)
+    const year = date.getFullYear()
 
     try {
 
@@ -36,6 +41,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
             .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
         }))
+        .andWhere('transfer.startedAt BETWEEN :start AND :end', {
+          start: `${year}-01-01`,
+          end: `${year}-12-31`
+        })
+        // addwhere to filter by startedAt and endedAt is between current sytem year
         .orderBy('transfer.startedAt', 'DESC')
         .getMany()
 

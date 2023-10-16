@@ -24,6 +24,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const year = request?.query.year as string
 
     try {
+
+      // if(request?.body.user.category === personCategories.ADMINISTRADOR) {
+      //
+      // }
+
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };

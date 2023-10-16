@@ -34,4 +34,7 @@ export class Classroom {
 
   @OneToMany(() => Transfer, transfer => transfer.requestedClassroom)
   transfers: Transfer[]
+
+  @OneToMany(() => Transfer, transfer => transfer.currentClassroom)
+  currentTransfers: Transfer[]
 }

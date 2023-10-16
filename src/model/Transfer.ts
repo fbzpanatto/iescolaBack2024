@@ -16,6 +16,9 @@ export class Transfer {
   @ManyToOne(() => Classroom, classroom => classroom.transfers)
   requestedClassroom: Classroom
 
+  @ManyToOne(() => Classroom, classroom => classroom.currentTransfers)
+  currentClassroom: Classroom
+
   @ManyToOne(() => Teacher, teacher => teacher.receiver, { nullable: true })
   receiver: Teacher
 

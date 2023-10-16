@@ -1,8 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToOne, ManyToOne } from "typeorm"
+import {Entity, Column, PrimaryGeneratedColumn, OneToOne, ManyToOne, OneToMany} from "typeorm"
 import { Student } from "./Student";
 import { PersonCategory } from "./PersonCategory";
 import {Teacher} from "./Teacher";
 import {User} from "./User";
+import {Test} from "./Test";
 
 @Entity()
 export class Person {
@@ -21,6 +22,9 @@ export class Person {
 
   @OneToOne(type => Teacher, s => s.person)
   teacher: Teacher;
+
+  @OneToMany(() => Test, test => test.person)
+  tests: Test[]
 
   @ManyToOne(type => PersonCategory, c => c.persons)
   category: PersonCategory;

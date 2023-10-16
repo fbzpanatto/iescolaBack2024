@@ -20,7 +20,9 @@ import { User } from "./User";
 import { Descriptor } from "./Descriptor";
 import { Topic } from "./Topic";
 import { Test } from "./Test";
-import {TestCategory} from "./TestCategory";
+import { TestCategory } from "./TestCategory";
+import { Question } from "./Question";
+import {TestQuestion} from "./TestQuestion";
 export const entities = [
   Bimester,
   Classroom,
@@ -38,8 +40,10 @@ export const entities = [
   StudentDisability,
   Teacher,
   Test,
+  Question,
   TestCategory,
   Topic,
+  TestQuestion,
   Transfer,
   TransferStatus,
   TeacherClassDiscipline,

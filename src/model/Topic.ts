@@ -12,7 +12,7 @@ export class Topic {
   @Column()
   name: string
 
-  @OneToMany(() => Descriptor, descriptor => descriptor.topic)
+  @OneToMany(() => Descriptor, descriptor => descriptor.topic, { cascade: true  })
   descriptors: Descriptor[]
 
   @ManyToOne(() => Discipline, discipline => discipline.topics)

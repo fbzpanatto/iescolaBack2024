@@ -4,6 +4,8 @@ import { Period } from "./Period";
 import {Discipline} from "./Discipline";
 import {Classroom} from "./Classroom";
 import {TestCategory} from "./TestCategory";
+import {Person} from "./Person";
+import {TestQuestion} from "./TestQuestion";
 
 @Entity()
 export class Test {
@@ -22,6 +24,12 @@ export class Test {
 
   @ManyToOne(() => TestCategory, category => category.tests)
   category: TestCategory
+
+  @ManyToOne(() => Person, person => person.tests)
+  person: Person
+
+  @OneToMany(() => Test, test => test.testQuestions)
+  testQuestions: TestQuestion[]
 
   @ManyToMany(() => Classroom)
   @JoinTable({ name: "test_classroom" })

@@ -1,6 +1,7 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
 import { Length } from "class-validator";
 import { Topic } from "./Topic";
+import {Question} from "./Question";
 
 @Entity()
 export class Descriptor {
@@ -15,6 +16,9 @@ export class Descriptor {
   @Column()
   name: string
 
-  @ManyToOne(() => Topic, topic => topic.descriptors)
+  @OneToMany(() => Question, question => question.descriptor, { cascade: true })
+  questions: Question[]
+
+  @ManyToOne(() => Topic, topic => topic.descriptors, { nullable: true})
   topic: Topic
 }

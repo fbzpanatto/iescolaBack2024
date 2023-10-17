@@ -12,6 +12,9 @@ export class Topic {
   @Column()
   name: string
 
+  @Column()
+  description: string
+
   @OneToMany(() => Descriptor, descriptor => descriptor.topic, { cascade: true  })
   descriptors: Descriptor[]
 

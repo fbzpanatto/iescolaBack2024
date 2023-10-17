@@ -23,6 +23,7 @@ import { Test } from "./Test";
 import { TestCategory } from "./TestCategory";
 import { Question } from "./Question";
 import {TestQuestion} from "./TestQuestion";
+import {QuestionGroup} from "./QuestionGroup";
 export const entities = [
   Bimester,
   Classroom,
@@ -47,6 +48,7 @@ export const entities = [
   Transfer,
   TransferStatus,
   TeacherClassDiscipline,
+  QuestionGroup,
   User,
   Year,
 ];

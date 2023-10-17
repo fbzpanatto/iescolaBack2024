@@ -27,6 +27,7 @@ import { TestRouter } from "./routes/test";
 import { TestCategoryRouter } from "./routes/testCategory";
 import { DescriptorRouter } from "./routes/descriptor";
 import { TopicRouter } from "./routes/topic";
+import {QuestionRouter} from "./routes/questionGroup";
 
 const bodyParser = require('body-parser');
 const app: Application = express();
@@ -50,6 +51,7 @@ route.use('/transfer', authorization, TransferRouter)
 route.use('/teacher', authorization, TeacherRouter);
 route.use('/test', authorization, TestRouter);
 route.use('/descriptor', DescriptorRouter);
+route.use('/question-group', QuestionRouter);
 route.use('/topic', TopicRouter);
 route.use('/test-category', authorization, TestCategoryRouter);
 route.use('/teacher-classroom', authorization, TeacherClassroomsRouter )

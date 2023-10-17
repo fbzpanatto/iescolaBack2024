@@ -24,6 +24,12 @@ import {User} from "../model/User";
 import {Person} from "../model/Person";
 import {TestCategory} from "../model/TestCategory";
 import {TESTCATEGORY} from "../mock/testCategory";
+import {QUESTION_GROUP} from "../mock/questionGroup";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {Topic} from "../model/Topic";
+import {TOPIC} from "../mock/topic";
+import {DESCRIPTOR} from "../mock/descriptor";
+import {Descriptor} from "../model/Descriptor";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -75,11 +81,20 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const stateSource = new dataSourceController(State).entity
     const disabilitieSource = new dataSourceController(Disability).entity
     const testCategorySource = new dataSourceController(TestCategory).entity
+    const questionGroupSource = new dataSourceController(QuestionGroup).entity
+    const topicSource = new dataSourceController(Topic).entity
+    const descriptorSource = new dataSourceController(Descriptor).entity
 
     const newYear = new Year()
     newYear.name = '2023'
     newYear.active = true
     newYear.createdAt = new Date()
+
+    for(let questionGroup of QUESTION_GROUP) {
+      const newQuestionGroup = new QuestionGroup()
+      newQuestionGroup.name = questionGroup.name
+      await questionGroupSource.save(newQuestionGroup)
+    }
 
     for(let disability of DISABILITY) {
       const newDisability = new Disability()
@@ -163,6 +178,23 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newPersonCategory.name = personCategory.name
       newPersonCategory.active = personCategory.active
       await personCategorySource.save(newPersonCategory)
+    }
+
+    for(let topic of TOPIC) {
+      const newTopic = new Topic()
+      newTopic.name = topic.name
+      newTopic.description = topic.description
+      newTopic.discipline = await disciplineSource.findOneBy({ id: topic.discipline.id }) as Discipline
+      newTopic.classroomCategory = await classCategorySource.findOneBy({ id: topic.classroomCategory.id }) as ClassroomCategory
+      await topicSource.save(newTopic)
+    }
+
+    for(let descriptor of DESCRIPTOR) {
+      const newDescriptor = new Descriptor()
+      newDescriptor.name = descriptor.name
+      newDescriptor.code = descriptor.code
+      newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic
+      await descriptorSource.save(newDescriptor)
     }
 
     await createAdminPerson()

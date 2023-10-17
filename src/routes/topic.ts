@@ -5,7 +5,7 @@ export const TopicRouter = Router();
 
 TopicRouter.get('/', (req, res) => {
 
-  topicController.findAllWhere({})
+  topicController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

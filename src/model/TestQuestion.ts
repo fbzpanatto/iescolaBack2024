@@ -21,4 +21,7 @@ export class TestQuestion {
 
   @ManyToOne(() => QuestionGroup, questionGroup => questionGroup.testQuestions)
   questionGroup: QuestionGroup
+
+  @Column({ default: true })
+  active: boolean
 }

@@ -15,7 +15,7 @@ class TopicController extends GenericController<EntityTarget<Topic>> {
     try {
 
       const result = await AppDataSource.getRepository(Topic).find({
-        relations: ['descriptors'],
+        relations: ['classroomCategory'],
         where: { classroomCategory: { id: Number(classCategoryId) } }
       });
       return { status: 200, data: result };

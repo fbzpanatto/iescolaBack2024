@@ -13,10 +13,14 @@ export class TestQuestion {
   @Column()
   order: number
 
+  // set this to false after
+  @Column({ nullable: true })
+  answer: string
+
   @ManyToOne(() => Test, test => test.testQuestions)
   test: Test
 
-  @ManyToOne(() => Question, question => question.testQuestions)
+  @ManyToOne(() => Question, question => question.testQuestions, { cascade: true })
   question: Question
 
   @ManyToOne(() => QuestionGroup, questionGroup => questionGroup.testQuestions)

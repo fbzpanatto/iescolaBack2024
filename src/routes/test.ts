@@ -6,7 +6,7 @@ export const TestRouter = Router();
 
 TestRouter.get('/', havePermission, (req, res) => {
 
-  testController.findAllWhere({})
+  testController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

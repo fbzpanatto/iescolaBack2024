@@ -141,6 +141,28 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return { status: 201, data: newTest };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+  async updateId(id: number | string, body: ObjectLiteral) {
+    try {
+
+      const test = await AppDataSource.getRepository(Test)
+        .findOne({ where: { id: Number(id) } })
+
+      if(!test) return { status: 404, message: "Teste não encontrado" }
+
+      test.name = body.name
+
+      await AppDataSource.getRepository(Test).save(test)
+
+      const testQuestions = body.testQuestions.map((register: any) => ({ ...register, test: test }))
+
+      await AppDataSource.getRepository(TestQuestion).save(testQuestions)
+
+      const result = (await this.findOneById(id)).data
+
+      return { status: 200, data: result };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const testController = new TestController();

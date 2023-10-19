@@ -102,4 +102,24 @@ export class GenericController<T> {
       classrooms: result.classrooms?.split(',').map((classroomId: string) => Number(classroomId)) ?? [],
     }
   }
+
+  async teacherDisciplines(body: { user: number }) {
+    const result = await AppDataSource
+      .createQueryBuilder()
+      .select('teacher.id', 'teacher' )
+      .addSelect('GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)', 'disciplines')
+      .from(Teacher, 'teacher')
+      .leftJoin('teacher.person', 'person')
+      .leftJoin('person.user', 'user')
+      .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
+      .leftJoin('teacherClassDiscipline.discipline', 'discipline')
+      .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
+      .groupBy('teacher.id')
+      .getRawOne() as { teacher: number, disciplines: string }
+
+    return {
+      id: result.teacher,
+      disciplines: result.disciplines?.split(',').map((disciplineId: string) => Number(disciplineId)) ?? [],
+    }
+  }
 }

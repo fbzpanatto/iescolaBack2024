@@ -1,6 +1,7 @@
 import { GenericController } from "./genericController";
-import { EntityTarget } from "typeorm";
+import {EntityTarget, FindManyOptions, ObjectLiteral} from "typeorm";
 import { Classroom } from "../model/Classroom";
+import {Request} from "express";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -8,8 +9,10 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     super(Classroom);
   }
 
-  override async findAllWhere(options: any) {
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     try {
+
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
 
       let result = await this.repository
         .createQueryBuilder('classroom')
@@ -17,7 +20,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         .addSelect('classroom.shortName', 'name')
         .addSelect('school.shortName', 'school')
         .leftJoin('classroom.school', 'school')
-        // .where('classroom.active = :active', { active: true })
+        .where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
         .getRawMany();
 
       return { status: 200, data: result }

@@ -1,37 +1,37 @@
 import { Router } from "express";
-import {questionGroupController} from "../controller/questionGroup";
+import { questionGroupController } from "../controller/questionGroup";
 
-export const QuestionRouter = Router();
+export const QuestionGroupRouter = Router();
 
-QuestionRouter.get('/', (req, res) => {
+QuestionGroupRouter.get('/', (req, res) => {
 
   questionGroupController.findAllWhere({})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-QuestionRouter.get('/:id', (req, res) => {
+QuestionGroupRouter.get('/:id', (req, res) => {
 
   questionGroupController.findOneById(req.params.id)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-QuestionRouter.post('/', (req, res) => {
+QuestionGroupRouter.post('/', (req, res) => {
 
   questionGroupController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-QuestionRouter.put('/:id', (req, res) => {
+QuestionGroupRouter.put('/:id', (req, res) => {
 
   questionGroupController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-QuestionRouter.delete('/:id', (req, res) => {
+QuestionGroupRouter.delete('/:id', (req, res) => {
 
   questionGroupController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

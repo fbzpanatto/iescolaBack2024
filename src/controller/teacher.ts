@@ -1,6 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, ILike, In, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
+import {Brackets, EntityTarget, FindManyOptions, ILike, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
@@ -23,14 +23,45 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const search = request?.query.search ?? ''
+    const body = request?.body as TeacherBody
 
     try {
-      const result = await this.repository.find({
-        relations: ['person', 'teacherClassDiscipline.classroom', 'teacherClassDiscipline.discipline'],
-        where: { person: { name: ILike(`%${search}%`) } }
-      }) as Teacher[]
-      return { status: 200, data: result }
-    } catch (error: any) { return { status: 500, message: error.message } }
+
+      const teacher = await this.teacherByUser(body.user.user)
+      if(!teacher) { return { status: 404, message: 'Você não tem permissão para acessar este recurso.' } }
+
+      const newResult = await AppDataSource.getRepository(Teacher)
+        .createQueryBuilder('teacher')
+        .select([
+          'teacher.id',
+          'person.id',
+          'person.name',
+          'person.birth',
+        ])
+        .leftJoin('teacher.person', 'person')
+        .andWhere(new Brackets(qb => {
+          if(!(teacher.person.category.id === personCategories.PROFESSOR)) {
+            qb.where('teacher.id > 0')
+            return
+          }
+          qb.where('teacher.id = :teacherId', { teacherId: teacher.id })
+        }))
+        .andWhere('person.name LIKE :search', { search: `%${search}%` })
+        .groupBy('teacher.id')
+        .getMany()
+
+      // const result = await this.repository.find({
+      //   relations: ['person', 'teacherClassDiscipline.classroom', 'teacherClassDiscipline.discipline'],
+      //   where: {
+      //     person: { name: ILike(`%${search}%`) }
+      //   }
+      // }) as Teacher[]
+
+      return { status: 200, data: newResult }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
   override async findOneById(id: string | number, request?: Request) {
 
@@ -140,10 +171,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 200, data: studentClassrooms }
 
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   async teacherCategory() {
     return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.PROFESSOR}}) as PersonCategory

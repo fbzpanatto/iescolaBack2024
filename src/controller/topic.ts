@@ -11,12 +11,16 @@ class TopicController extends GenericController<EntityTarget<Topic>> {
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const classCategoryId = request?.query.category as string | undefined;
+    const disciplineId = request?.query.discipline as string | undefined;
 
     try {
 
       const result = await AppDataSource.getRepository(Topic).find({
         relations: ['classroomCategory'],
-        where: { classroomCategory: { id: Number(classCategoryId) } }
+        where: {
+          classroomCategory: { id: Number(classCategoryId) },
+          discipline: { id: Number(disciplineId) }
+        }
       });
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }

@@ -47,4 +47,52 @@ export const TOPIC = [
     "discipline": { "id": 2 },
     "classroomCategory": { "id": 1 }
   },
+  {
+    "name": "Tópico I",
+    "description": "Espaço e Forma",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 1 }
+  },
+  {
+    "name": "Tópico II",
+    "description": "Grandezas e Medidas",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 1 }
+  },
+  {
+    "name": "Tópico III",
+    "description": "Números e Operações / Álgebra e Funções",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 1 }
+  },
+  {
+    "name": "Tópico IV",
+    "description": "Tratamento da Informação",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 1 }
+  },
+  {
+    "name": "Tópico I",
+    "description": "Espaço e Forma",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 2 }
+  },
+  {
+    "name": "Tópico II",
+    "description": "Grandezas e Medidas",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 2 }
+  },
+  {
+    "name": "Tópico III",
+    "description": "Números e Operações / Álgebra e Funções",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 2 }
+  },
+  {
+    "name": "Tópico IV",
+    "description": "Tratamento da Informação",
+    "discipline": { "id": 1 },
+    "classroomCategory": { "id": 2 }
+  },
 ]

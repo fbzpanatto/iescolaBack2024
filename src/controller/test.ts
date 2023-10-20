@@ -49,10 +49,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .getMany();
 
       return { status: 200, data: tests };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async findOneById(testId: string | number) {
@@ -95,10 +92,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .getMany();
 
       return { status: 200, data: { ...test, testQuestions } };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {

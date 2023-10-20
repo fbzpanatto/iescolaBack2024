@@ -18,7 +18,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             },
             {
                 entity: "teacher",
-                methods: { GET: true, PUT: true }
+                methods: { GET: true }
             },
             {
                 entity: "test",

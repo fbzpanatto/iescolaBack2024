@@ -19,6 +19,6 @@ export class Descriptor {
   @OneToMany(() => Question, question => question.descriptor, { cascade: true })
   questions: Question[]
 
-  @ManyToOne(() => Topic, topic => topic.descriptors, { nullable: true})
+  @ManyToOne(() => Topic, topic => topic.descriptors, { nullable: true })
   topic: Topic
 }

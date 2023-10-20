@@ -30,6 +30,7 @@ import {Topic} from "../model/Topic";
 import {TOPIC} from "../mock/topic";
 import {DESCRIPTOR} from "../mock/descriptor";
 import {Descriptor} from "../model/Descriptor";
+import {Teacher} from "../model/Teacher";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -66,6 +67,10 @@ async function createAdminPerson() {
   person.category = adminCategory
 
   const result = await personSource.save(person)
+  const teacherSource = new dataSourceController(Teacher).entity
+  const teacher = new Teacher()
+  teacher.person = result
+  await teacherSource.save(teacher)
   await createAdminUser(result)
 }
 

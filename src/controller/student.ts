@@ -32,10 +32,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async findOneById(id: string | number, request?: Request) {
     try {
@@ -49,10 +46,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
 
       return { status: 200, data: student };
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async save(body: SaveStudent) {
     try {

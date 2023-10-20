@@ -79,7 +79,7 @@ export class GenericController<T> {
   }
   async teacherByUser(userId: number) {
     return await AppDataSource.getRepository(Teacher).findOne({
-      relations: ['person'],
+      relations: ['person.category'],
       where: { person: { user: { id: userId } } },
     }) as Teacher
   }

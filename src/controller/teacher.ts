@@ -32,8 +32,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  override async findOneById(id: string | number) {
+  override async findOneById(id: string | number, request?: Request) {
+
+    const body = request?.body as TeacherBody
+
     try {
+
+      const teacher = await this.teacherByUser(body.user.user)
+
+      if(teacher.id !== Number(id) && teacher.person.category.id === personCategories.PROFESSOR) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
 
       const result = await this.repository
         .createQueryBuilder('teacher')
@@ -112,9 +119,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       databaseTeacher.person.birth = body.birth
       await personController.save(databaseTeacher.person, {})
 
-      const result = (await this.findOneById(id)).data as TeacherResponse
-
-      return { status: 200, data: result }
+      return { status: 200, data: databaseTeacher }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
   async getRequestedStudentTransfers(request?: Request) {

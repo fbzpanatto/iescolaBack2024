@@ -20,7 +20,7 @@ TeacherRouter.get('/', havePermission, (req, res) => {
 
 TeacherRouter.get('/:id', havePermission, (req, res) => {
 
-  teacherController.findOneById(req.params.id)
+  teacherController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

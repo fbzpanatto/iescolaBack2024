@@ -19,7 +19,6 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const teacher = await this.teacherByUser(body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      console.log(teacherClasses.classrooms)
 
       let result = await this.repository
         .createQueryBuilder('classroom')
@@ -27,7 +26,6 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         .addSelect('classroom.shortName', 'name')
         .addSelect('school.shortName', 'school')
         .leftJoin('classroom.school', 'school')
-        // .where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
         .where(new Brackets(qb => {
           if(teacher.person.category.id === personCategories.PROFESSOR) {
             qb.where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
@@ -39,10 +37,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       return { status: 200, data: result }
 
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

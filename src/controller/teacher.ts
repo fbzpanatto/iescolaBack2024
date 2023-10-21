@@ -50,18 +50,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .groupBy('teacher.id')
         .getMany()
 
-      // const result = await this.repository.find({
-      //   relations: ['person', 'teacherClassDiscipline.classroom', 'teacherClassDiscipline.discipline'],
-      //   where: {
-      //     person: { name: ILike(`%${search}%`) }
-      //   }
-      // }) as Teacher[]
-
       return { status: 200, data: newResult }
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
   override async findOneById(id: string | number, request?: Request) {
 
@@ -141,7 +131,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
 
       if (!databaseTeacher) { return { status: 404, message: 'Data not found' } }
-      if(frontendTeacher.id !== databaseTeacher.id && databaseTeacher.person.category.id === personCategories.PROFESSOR) { return { status: 401, message: 'Você não tem permissão para modificar este registro.' } }
+      if(frontendTeacher.person.category.id === personCategories.PROFESSOR && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
 
       if (body.teacherClasses) { await this.updateClassRel(databaseTeacher, body) }
       if (body.teacherDisciplines) { await this.updateDisciRel(databaseTeacher, body) }

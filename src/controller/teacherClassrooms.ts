@@ -4,6 +4,7 @@ import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import {Request} from "express";
 import {TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
+import {TeacherBody} from "../interfaces/interfaces";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -12,7 +13,12 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
   }
 
   async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const body = request?.body
+
     try {
+
+      const teacher = await this.teacherByUser(body.user.user)
 
       const classrooms = await AppDataSource.
       getRepository(TeacherClassDiscipline)
@@ -28,6 +34,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
         .leftJoin('teacher.person', 'person')
         .leftJoin('person.user', 'user')
         .where('user.id = :userId', { userId: request?.body.user.user })
+        .andWhere('teacherClassDiscipline.endedAt IS NULL')
         .groupBy( 'classroom.id')
         .getRawMany() as { id: number, name: string, school: string }[];
 

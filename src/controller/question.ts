@@ -14,8 +14,6 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
     const id = request?.query.discipline as string;
 
-    console.log(id)
-
     try {
 
       const questions = await AppDataSource.getRepository(Question)

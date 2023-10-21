@@ -31,7 +31,7 @@ export class Test {
   @OneToMany(() => Test, test => test.testQuestions)
   testQuestions: TestQuestion[]
 
-  @ManyToMany(() => Classroom)
+  @ManyToMany(() => Classroom, { cascade: true })
   @JoinTable({ name: "test_classroom" })
   classrooms: Classroom[]
 }

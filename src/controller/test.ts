@@ -106,6 +106,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const period = await AppDataSource.getRepository(Period)
         .findOne({ where: { year: body.year, bimester: body.bimester }})
 
+      if(!userPerson) return { status: 404, message: "Usuário inexistente" }
+      if(!period) return { status: 404, message: "Period não encontrado" }
+
       const classes = await AppDataSource.getRepository(Classroom)
         .createQueryBuilder("classroom")
         .select(["classroom.id", "classroom.name", "classroom.shortName"])
@@ -116,8 +119,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
 
-      if(!userPerson) return { status: 404, message: "Usuário inexistente" }
-      if(!period) return { status: 404, message: "Period não encontrado" }
       if(!classes || classes.length < 1) return { status: 404, message: "Não existem alunos matriculados em alguma das salas informadas." }
 
       const newTest = await AppDataSource.getRepository(Test).save({
@@ -136,7 +137,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: number | string, body: ObjectLiteral) {
+  override async updateId(id: number | string, body: ObjectLiteral) {
     try {
 
       const test = await AppDataSource.getRepository(Test)
@@ -156,6 +157,47 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  override async deleteId(request: Request) {
+
+    const testId = request.params.id
+    const body = request.body
+
+    try {
+
+      const teacher = await this.teacherByUser(body.user.user)
+
+      const test = await AppDataSource.getRepository(Test)
+        .findOne({
+          relations: ["person"],
+          where: { id: Number(testId) }
+        })
+      if (!test) { return { status: 404, message: 'Data not found' } }
+
+      if( teacher.person.id !== test.person.id ) return { status: 401, message: "Você não tem permissão para deletar esse teste." }
+
+      // TODO: Only delete if there is no student with a test result
+
+      await AppDataSource.getRepository(TestQuestion)
+        .createQueryBuilder()
+        .delete()
+        .from(TestQuestion)
+        .where("test = :testId", { testId })
+        .execute();
+
+      const result = await AppDataSource.getRepository(Test)
+        .createQueryBuilder()
+        .delete()
+        .from(Test)
+        .where("id = :testId", { testId })
+        .execute();
+
+      return { status: 200, data: result };
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 }
 

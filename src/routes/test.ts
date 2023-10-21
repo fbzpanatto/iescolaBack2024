@@ -34,7 +34,7 @@ TestRouter.put('/:id', havePermission, (req, res) => {
 
 TestRouter.delete('/:id', havePermission, (req, res) => {
 
-  testController.deleteId(req.params.id)
+  testController.deleteId(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });

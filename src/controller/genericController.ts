@@ -55,6 +55,7 @@ export class GenericController<T> {
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
   get repository() { return AppDataSource.getRepository(this.entity) }
 
 
@@ -102,7 +103,6 @@ export class GenericController<T> {
       classrooms: result.classrooms?.split(',').map((classroomId: string) => Number(classroomId)) ?? [],
     }
   }
-
   async teacherDisciplines(body: { user: number }) {
     const result = await AppDataSource
       .createQueryBuilder()

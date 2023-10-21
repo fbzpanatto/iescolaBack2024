@@ -2,7 +2,6 @@ import { personCategories } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
 const allPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
-const getPostPutPermissions: Permission = { GET: true, POST: true, PUT: true }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
     {
@@ -21,17 +20,17 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 methods: { GET: true }
             },
             {
-                entity: "test",
-                methods: getPostPutPermissions
-            },
-            {
                 entity: "student",
-                methods: getPostPutPermissions
+                methods: { GET: true, POST: true, PUT: true }
             },
             {
                 entity: "transfer",
-                methods: getPostPutPermissions
-            }
+                methods: { GET: true, POST: true, PUT: true }
+            },
+            {
+                entity: "test",
+                methods: allPermissions
+            },
         ]
     },
     {

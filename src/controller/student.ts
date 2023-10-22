@@ -78,26 +78,26 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
 
       const student = await this.repository
-        .findOne({
-          relations: ['person', 'studentDisabilities.disability', 'state'],
-          where: { id: Number(studentId), studentClassrooms: { endedAt: IsNull() }  },
-        }) as Student;
+        .findOne({ relations: ['person', 'studentDisabilities.disability', 'state'], where: { id: Number(studentId)} }) as Student;
 
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
-        relations: ['student', 'classroom'],
-        where: { student: { id: Number(studentId) }, endedAt: IsNull() }
-      })
+      const newClassroom = await AppDataSource.getRepository(Classroom)
+        .findOne({ where: { id: body.classroom } })
 
-      const currentClassroom = studentClassroom?.classroom
-      const newClassroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: body.classroom } })
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
+        .findOne({ relations: ['student', 'classroom'], where: { student: { id: student.id }, endedAt: IsNull() }}) as StudentClassroom
+
+      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
+      if(!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
       if(!newClassroom) { return { status: 404, message: 'Sala não encontrada' } }
-
-      if(currentClassroom?.id != newClassroom.id) {
-
-        const exists = await AppDataSource
-          .getRepository(StudentClassroom)
-          .findOne({ relations: ['student', 'classroom'], where: { student: { id: student.id }, endedAt: IsNull() }}) as StudentClassroom
-        await AppDataSource.getRepository(StudentClassroom).save({ ...exists, endedAt: new Date() })
+      if(student.ra !== body.ra) {
+        const exists = await this.repository.findOne({ where: { ra: body.ra } } )
+        if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      }
+      if(body.user.category === personCategories.PROFESSOR) {
+        return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' }
+      }
+      if(studentClassroom?.classroom.id != newClassroom.id) {
+        await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
         await AppDataSource.getRepository(StudentClassroom).save({
           student,
           classroom: newClassroom,
@@ -105,16 +105,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           rosterNumber: Number(body.rosterNumber),
           startedAt: new Date()
         })
-
-      }
-
-      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
-      if(student.ra !== body.ra) {
-        const exists = await this.repository.findOne({ where: { ra: body.ra } } )
-        if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
-      }
-      if(body.user.category === personCategories.PROFESSOR) {
-        return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' }
       }
 
       student.ra = body.ra;

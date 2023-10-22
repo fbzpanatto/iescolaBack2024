@@ -9,10 +9,10 @@ export class StudentClassroom {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => Student, student => student.studentDisabilities)
+  @ManyToOne(() => Student, student => student.studentClassrooms, { nullable: false })
   student: Student
 
-  @ManyToOne(() => Classroom, classroom => classroom.studentClassrooms)
+  @ManyToOne(() => Classroom, classroom => classroom.studentClassrooms, { nullable: false })
   classroom: Classroom
 
   @ManyToOne(() => Year, year => year.studentClassrooms)

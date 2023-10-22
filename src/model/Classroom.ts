@@ -20,7 +20,7 @@ export class Classroom {
   @Column({select: false})
   active: boolean
 
-  @ManyToOne(() => School, school => school.classrooms)
+  @ManyToOne(() => School, school => school.classrooms, { cascade: true })
   school: School
 
   @ManyToOne(() => ClassroomCategory, category => category.classrooms)

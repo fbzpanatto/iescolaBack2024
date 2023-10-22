@@ -70,7 +70,7 @@ export class GenericController<T> {
     return await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } } ) as Year
   }
   async classroom(id: number) {
-    return await AppDataSource.getRepository(Classroom).findOne({where: {id: id}}) as Classroom
+    return await AppDataSource.getRepository(Classroom).findOne({ where: {id: id}}) as Classroom
   }
   async state(id: number) {
     return await AppDataSource.getRepository(State).findOne({where: {id: id}}) as State

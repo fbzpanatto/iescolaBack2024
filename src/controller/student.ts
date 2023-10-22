@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { Brackets, EntityTarget, FindManyOptions, In, ObjectLiteral } from "typeorm";
+import {Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -13,6 +13,9 @@ import { Person } from "../model/Person";
 import { Request } from "express";
 import { Teacher } from "../model/Teacher";
 import { ISOWNER } from "../utils/owner";
+import {classroomController} from "./classroom";
+import {Classroom} from "../model/Classroom";
+import {studentClassroomController} from "./studentClassroom";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -70,18 +73,48 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  override async updateId(studentId: string, body: SaveStudent) {
+  override async updateId(studentId: number | string, body: any) {
+
     try {
 
       const student = await this.repository
         .findOne({
-          where: { id: studentId }, relations: ['person', 'studentDisabilities.disability', 'state']
+          relations: ['person', 'studentDisabilities.disability', 'state'],
+          where: { id: Number(studentId), studentClassrooms: { endedAt: IsNull() }  },
         }) as Student;
+
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
+        relations: ['student', 'classroom'],
+        where: { student: { id: Number(studentId) }, endedAt: IsNull() }
+      })
+
+      const currentClassroom = studentClassroom?.classroom
+      const newClassroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: body.classroom } })
+      if(!newClassroom) { return { status: 404, message: 'Sala não encontrada' } }
+
+      if(currentClassroom?.id != newClassroom.id) {
+
+        const exists = await AppDataSource
+          .getRepository(StudentClassroom)
+          .findOne({ relations: ['student', 'classroom'], where: { student: { id: student.id }, endedAt: IsNull() }}) as StudentClassroom
+        await AppDataSource.getRepository(StudentClassroom).save({ ...exists, endedAt: new Date() })
+        await AppDataSource.getRepository(StudentClassroom).save({
+          student,
+          classroom: newClassroom,
+          year: await this.currentYear(),
+          rosterNumber: Number(body.rosterNumber),
+          startedAt: new Date()
+        })
+
+      }
 
       if(!student) { return { status: 404, message: 'Registro não encontrado' } }
       if(student.ra !== body.ra) {
-        const exists = await this.repository.findOne({where: {ra: body.ra}})
+        const exists = await this.repository.findOne({ where: { ra: body.ra } } )
         if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      }
+      if(body.user.category === personCategories.PROFESSOR) {
+        return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' }
       }
 
       student.ra = body.ra;

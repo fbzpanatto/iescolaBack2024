@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -11,11 +11,8 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
-import { Teacher } from "../model/Teacher";
 import { ISOWNER } from "../utils/owner";
-import {classroomController} from "./classroom";
-import {Classroom} from "../model/Classroom";
-import {studentClassroomController} from "./studentClassroom";
+import { Classroom } from "../model/Classroom";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -28,6 +25,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
+
+      console.log('teacherClasses: ', teacherClasses)
+
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }

@@ -1,10 +1,11 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, FindManyOptions, In, ObjectLiteral} from "typeorm";
+import {Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import {Request} from "express";
 import {TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import {TeacherBody} from "../interfaces/interfaces";
+import {personCategories} from "../utils/personCategories";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -28,13 +29,10 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
           'classroom.shortName as name',
           'school.shortName as school'
         ])
-        .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+        .leftJoin('teacherClassDiscipline.classroom', 'classroom', 'teacherClassDiscipline.endedAt IS NULL')
         .leftJoin('classroom.school', 'school')
         .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-        .leftJoin('teacher.person', 'person')
-        .leftJoin('person.user', 'user')
-        .where('user.id = :userId', { userId: request?.body.user.user })
-        .andWhere('teacherClassDiscipline.endedAt IS NULL')
+        .where('teacher.id = :id', { id: teacher.id })
         .groupBy( 'classroom.id')
         .getRawMany() as { id: number, name: string, school: string }[];
 

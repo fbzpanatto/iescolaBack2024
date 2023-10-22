@@ -21,6 +21,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const yearId = request?.query.year as string
     const search = request?.query.search as string
 
+    const teacherClasses = await this.teacherClassrooms(request?.body.user)
+
     try {
       const tests = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
@@ -44,7 +46,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoin("test.discipline", "discipline")
         .leftJoin("test.category", "category")
         .leftJoin("test.person", "person")
-        .where("period.year = :yearId", { yearId })
+        .leftJoin("test.classrooms", "classroom")
+        .where("period.year = :yearId AND classroom.id IN (:...teacherClasses)", { yearId, teacherClasses: teacherClasses.classrooms })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 
@@ -112,9 +115,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const classes = await AppDataSource.getRepository(Classroom)
         .createQueryBuilder("classroom")
         .select(["classroom.id", "classroom.name", "classroom.shortName"])
-        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+        .leftJoin("classroom.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
         .where("classroom.id IN (:...classesIds)", { classesIds })
-        .andWhere("studentClassroom.endedAt IS NULL")
         .groupBy("classroom.id, studentClassroom.id")
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
@@ -194,10 +196,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .execute();
 
       return { status: 200, data: result };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

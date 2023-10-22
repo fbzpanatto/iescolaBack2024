@@ -13,8 +13,7 @@ export class TestQuestion {
   @Column()
   order: number
 
-  // set this to false after
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   answer: string
 
   @ManyToOne(() => Test, test => test.testQuestions)

@@ -26,8 +26,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
 
-      console.log('teacherClasses: ', teacherClasses)
-
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }

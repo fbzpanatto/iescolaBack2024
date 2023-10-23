@@ -13,7 +13,7 @@ TestRouter.get('/', havePermission, (req, res) => {
 
 TestRouter.get('/:id', havePermission, (req, res) => {
 
-  testController.findOneById(req.params.id)
+  testController.findOneById(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

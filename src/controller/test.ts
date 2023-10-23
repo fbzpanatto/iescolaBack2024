@@ -21,48 +21,42 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const yearId = request?.query.year as string
     const search = request?.query.search as string
 
-    const teacherClasses = await this.teacherClassrooms(request?.body.user)
-
     try {
-      const tests = await AppDataSource.getRepository(Test)
+
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+
+      const testClasses = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
-        .select([
-          "test.id",
-          "test.name",
-          "year.id",
-          "year.name",
-          "bimester.id",
-          "bimester.name",
-          "discipline.id",
-          "discipline.name",
-          "category.id",
-          "category.name",
-          "person.id",
-          "person.name",
-        ])
+        .leftJoinAndSelect("test.person", "person")
         .leftJoinAndSelect("test.period", "period")
-        .leftJoin("period.year", "year")
-        .leftJoin("period.bimester", "bimester")
-        .leftJoin("test.discipline", "discipline")
-        .leftJoin("test.category", "category")
-        .leftJoin("test.person", "person")
-        .leftJoin("test.classrooms", "classroom")
-        .where("period.year = :yearId AND classroom.id IN (:...teacherClasses)", { yearId, teacherClasses: teacherClasses.classrooms })
+        .leftJoinAndSelect("test.category", "category")
+        .leftJoinAndSelect("period.year", "year")
+        .leftJoinAndSelect("period.bimester", "bimester")
+        .leftJoinAndSelect("test.discipline", "discipline")
+        .leftJoinAndSelect("test.classrooms", "classroom")
+        .leftJoinAndSelect("classroom.school", "school")
+        .where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+        .andWhere("year.id = :yearId", { yearId })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 
-      return { status: 200, data: tests };
+      return { status: 200, data: testClasses };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async findOneById(testId: string | number) {
+  override async findOneById(testId: number | string, body?: ObjectLiteral) {
+
     try {
+
+      const teacher = await this.teacherByUser(body?.user.user)
 
       const test = await AppDataSource.getRepository(Test)
         .findOne({
           relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"],
           where: { id: Number(testId) },
         })
+
+      if( teacher.person.id !== test?.person.id ) return { status: 401, message: "Você não tem permissão para editar esse teste." }
 
       if (!test) { return { status: 404, message: 'Data not found' } }
 
@@ -142,10 +136,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
   override async updateId(id: number | string, body: ObjectLiteral) {
     try {
 
+      const teacher = await this.teacherByUser(body.user.user)
+
       const test = await AppDataSource.getRepository(Test)
-        .findOne({ where: { id: Number(id) } })
+        .findOne({
+          relations: ["person"],
+          where: { id: Number(id) }
+        })
 
       if(!test) return { status: 404, message: "Teste não encontrado" }
+      if( teacher.person.id !== test.person.id ) return { status: 401, message: "Você não tem permissão para editar esse teste." }
 
       test.name = body.name
 
@@ -155,7 +155,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       await AppDataSource.getRepository(TestQuestion).save(testQuestions)
 
-      const result = (await this.findOneById(id)).data
+      const result = (await this.findOneById(id, body)).data
 
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }

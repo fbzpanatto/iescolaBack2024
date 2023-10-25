@@ -13,7 +13,7 @@ YearRouter.get('/', havePermission, (req, res) => {
 
 YearRouter.get('/:id', havePermission, (req, res) => {
 
-  yearController.findOneById(req.params.id)
+  yearController.findOneById(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

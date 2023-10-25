@@ -30,9 +30,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  override async findOneById(id: string | number, request?: Request) {
+  override async findOneById(id: string | number, body?: ObjectLiteral) {
     try {
-      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const teacherClasses = await this.teacherClassrooms(body?.user)
       const preStudent = await this.student(Number(id));
 
       if (!preStudent) { return { status: 404, message: 'Registro não encontrado' } }

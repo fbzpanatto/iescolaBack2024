@@ -13,7 +13,7 @@ StudentRouter.get('/', havePermission, (req, res) => {
 
 StudentRouter.get('/:id', havePermission, (req, res) => {
 
-  studentController.findOneById(req.params.id, req)
+  studentController.findOneById(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

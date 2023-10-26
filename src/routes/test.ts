@@ -4,6 +4,13 @@ import havePermission from "../middleware/havePermission";
 
 export const TestRouter = Router();
 
+TestRouter.get('/report', havePermission, (req, res) => {
+
+  testController.findAllWhereReports({}, req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TestRouter.get('/', havePermission, (req, res) => {
 
   testController.findAllWhere({}, req)

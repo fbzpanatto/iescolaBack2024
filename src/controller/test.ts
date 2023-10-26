@@ -16,6 +16,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
     super(Test);
   }
 
+  async findAllWhereReports(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const yearId = request?.query.year as string
+    const search = request?.query.search as string
+
+    try {
+
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+
+      const testClasses = await AppDataSource.getRepository(Test)
+        .createQueryBuilder("test")
+        .leftJoinAndSelect("test.person", "person")
+        .leftJoinAndSelect("test.period", "period")
+        .leftJoinAndSelect("test.category", "category")
+        .leftJoinAndSelect("period.year", "year")
+        .leftJoinAndSelect("period.bimester", "bimester")
+        .leftJoinAndSelect("test.discipline", "discipline")
+        .leftJoinAndSelect("test.classrooms", "classroom")
+        .leftJoinAndSelect("classroom.school", "school")
+        .where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+        .andWhere("year.id = :yearId", { yearId })
+        .andWhere("test.name LIKE :search", { search: `%${search}%` })
+        .getMany();
+
+
+      return { status: 200, data: testClasses };
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
+  }
+
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const yearId = request?.query.year as string

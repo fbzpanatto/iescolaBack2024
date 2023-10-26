@@ -16,6 +16,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
     super(Test);
   }
 
+  async getAllClassroomStudents(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
+    const classroomId = request?.query.classroom as string
+    const testId = request?.query.test as string
+
+    console.log('getAllClassroomStudents', testId, classroomId)
+
+    try {
+      return { status: 200, data: [] };
+    } catch (error: any) { return { status: 500, message: error.message }}
+  }
+
   async findAllWhereReports(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const yearId = request?.query.year as string
@@ -42,10 +54,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
 
       return { status: 200, data: testClasses };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message }}
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {

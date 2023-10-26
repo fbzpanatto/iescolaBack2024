@@ -11,6 +11,13 @@ TestRouter.get('/report', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+TestRouter.get('/classroom', havePermission, (req, res) => {
+
+  testController.getAllClassroomStudents({}, req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TestRouter.get('/', havePermission, (req, res) => {
 
   testController.findAllWhere({}, req)

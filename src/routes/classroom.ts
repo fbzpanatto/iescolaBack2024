@@ -12,7 +12,7 @@ ClassroomRouter.get('/', (req, res) => {
 
 ClassroomRouter.get('/:id', (req, res) => {
 
-  classroomController.findOneById(req.params.id)
+  classroomController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

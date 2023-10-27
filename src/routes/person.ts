@@ -12,7 +12,7 @@ PersonRouter.get('/', (req, res) => {
 
 PersonRouter.get('/:id', (req, res) => {
 
-  personController.findOneById(req.params.id)
+  personController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

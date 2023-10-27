@@ -4,6 +4,7 @@ import { StudentDisability } from "./StudentDisability";
 import { StudentClassroom } from "./StudentClassroom";
 import { State } from "./State";
 import {Transfer} from "./Transfer";
+import {StudentQuestion} from "./StudentQuestion";
 
 @Entity()
 export class Student {
@@ -35,6 +36,9 @@ export class Student {
 
   @OneToMany(() => StudentClassroom, sc => sc.student)
   studentClassrooms: StudentClassroom[]
+
+  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.student)
+  studentQuestions: StudentQuestion[]
 
   @OneToMany(() => Transfer, transfer => transfer.student)
   transfers: Transfer[]

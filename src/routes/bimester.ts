@@ -12,7 +12,7 @@ BimesterRouter.get('/', (req, res) => {
 
 BimesterRouter.get('/:id', (req, res) => {
 
-  bimesterController.findOneById(req.params.id)
+  bimesterController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

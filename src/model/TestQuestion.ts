@@ -1,8 +1,9 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
 import { Descriptor } from "./Descriptor";
 import {Test} from "./Test";
 import {Question} from "./Question";
 import {QuestionGroup} from "./QuestionGroup";
+import {StudentQuestion} from "./StudentQuestion";
 
 @Entity()
 export class TestQuestion {
@@ -24,6 +25,9 @@ export class TestQuestion {
 
   @ManyToOne(() => QuestionGroup, questionGroup => questionGroup.testQuestions)
   questionGroup: QuestionGroup
+
+  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.testQuestion)
+  studentQuestions: StudentQuestion[]
 
   @Column({ default: true })
   active: boolean

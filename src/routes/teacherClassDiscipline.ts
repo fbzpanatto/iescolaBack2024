@@ -12,7 +12,7 @@ TeacherClassDisciplineRouter.get('/', (req, res) => {
 
 TeacherClassDisciplineRouter.get('/:id', (req, res) => {
 
-  teacherClassDisciplineController.findOneById(req.params.id)
+  teacherClassDisciplineController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

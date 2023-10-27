@@ -29,6 +29,8 @@ import { DescriptorRouter } from "./routes/descriptor";
 import { TopicRouter } from "./routes/topic";
 import {QuestionGroupRouter} from "./routes/questionGroup";
 import {QuestionRouter} from "./routes/question";
+import {StudentQuestion} from "./model/StudentQuestion";
+import {StudentQuestionRouter} from "./routes/studentQuestion";
 
 const bodyParser = require('body-parser');
 const app: Application = express();
@@ -48,6 +50,7 @@ route.use('/person-category', authorization, PersonCategoryRouter);
 route.use('/school', authorization, SchoolRouter);
 route.use('/state', authorization, StateRouter);
 route.use('/student', authorization, StudentRouter);
+route.use('/student-question', authorization, StudentQuestionRouter);
 route.use('/transfer', authorization, TransferRouter);
 route.use('/question', QuestionRouter);
 route.use('/teacher', authorization, TeacherRouter);

@@ -22,8 +22,9 @@ import { Topic } from "./Topic";
 import { Test } from "./Test";
 import { TestCategory } from "./TestCategory";
 import { Question } from "./Question";
-import {TestQuestion} from "./TestQuestion";
-import {QuestionGroup} from "./QuestionGroup";
+import { TestQuestion } from "./TestQuestion";
+import { QuestionGroup } from "./QuestionGroup";
+import {StudentQuestion} from "./StudentQuestion";
 export const entities = [
   Bimester,
   Classroom,
@@ -39,6 +40,7 @@ export const entities = [
   Student,
   StudentClassroom,
   StudentDisability,
+  StudentQuestion,
   Teacher,
   Test,
   Question,

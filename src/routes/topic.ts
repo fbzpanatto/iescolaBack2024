@@ -12,7 +12,7 @@ TopicRouter.get('/', (req, res) => {
 
 TopicRouter.get('/:id', (req, res) => {
 
-  topicController.findOneById(req.params.id)
+  topicController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

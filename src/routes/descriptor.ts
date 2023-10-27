@@ -12,7 +12,7 @@ DescriptorRouter.get('/', (req, res) => {
 
 DescriptorRouter.get('/:id', (req, res) => {
 
-  descriptorController.findOneById(req.params.id)
+  descriptorController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

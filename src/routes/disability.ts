@@ -12,7 +12,7 @@ DisabilityRouter.get('/', (req, res) => {
 
 DisabilityRouter.get('/:id', (req, res) => {
 
-  disabilityController.findOneById(req.params.id)
+  disabilityController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

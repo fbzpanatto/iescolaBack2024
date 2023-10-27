@@ -12,7 +12,7 @@ CassroomCategoryRouter.get('/', (req, res) => {
 
 CassroomCategoryRouter.get('/:id', (req, res) => {
 
-  classroomCategoryController.findOneById(req.params.id)
+  classroomCategoryController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

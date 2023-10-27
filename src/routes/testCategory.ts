@@ -12,7 +12,7 @@ TestCategoryRouter.get('/', (req, res) => {
 
 TestCategoryRouter.get('/:id', (req, res) => {
 
-  testCategoryController.findOneById(req.params.id)
+  testCategoryController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

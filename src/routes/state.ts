@@ -12,7 +12,7 @@ StateRouter.get('/', (req, res) => {
 
 StateRouter.get('/:id', (req, res) => {
 
-  stateController.findOneById(req.params.id)
+  stateController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

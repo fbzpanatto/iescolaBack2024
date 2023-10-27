@@ -12,7 +12,7 @@ QuestionGroupRouter.get('/', (req, res) => {
 
 QuestionGroupRouter.get('/:id', (req, res) => {
 
-  questionGroupController.findOneById(req.params.id)
+  questionGroupController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

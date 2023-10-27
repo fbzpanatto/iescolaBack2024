@@ -12,7 +12,7 @@ DisciplineRouter.get('/', (req, res) => {
 
 DisciplineRouter.get('/:id', (req, res) => {
 
-  disciplineController.findOneById(req.params.id)
+  disciplineController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

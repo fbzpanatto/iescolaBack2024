@@ -12,7 +12,7 @@ SchoolRouter.get('/', (req, res) => {
 
 SchoolRouter.get('/:id', (req, res) => {
 
-  schoolController.findOneById(req.params.id)
+  schoolController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

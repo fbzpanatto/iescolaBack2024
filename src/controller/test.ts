@@ -9,6 +9,8 @@ import {Classroom} from "../model/Classroom";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {TestQuestion} from "../model/TestQuestion";
 import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion} from "../model/StudentQuestion";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -18,43 +20,84 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getAllClassroomStudents(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const classroomId = request?.query.classroom as string
-    const testId = request?.query.test as string
-
-    console.log('getAllClassroomStudents', testId, classroomId)
-
-    try {
-      return { status: 200, data: [] };
-    } catch (error: any) { return { status: 500, message: error.message }}
-  }
-
-  async findAllWhereReports(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
-
-    const yearId = request?.query.year as string
-    const search = request?.query.search as string
+    const testId = request?.params.id
+    const classroomId = request?.params.classroom
 
     try {
 
-      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const { classrooms } = await this.teacherClassrooms(request?.body.user)
+      if(!classrooms.includes(Number(classroomId))) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
-      const testClasses = await AppDataSource.getRepository(Test)
+      const test = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
         .leftJoinAndSelect("test.person", "person")
         .leftJoinAndSelect("test.period", "period")
-        .leftJoinAndSelect("test.category", "category")
-        .leftJoinAndSelect("period.year", "year")
         .leftJoinAndSelect("period.bimester", "bimester")
+        .leftJoinAndSelect("period.year", "year")
         .leftJoinAndSelect("test.discipline", "discipline")
-        .leftJoinAndSelect("test.classrooms", "classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
-        .andWhere("year.id = :yearId", { yearId })
-        .andWhere("test.name LIKE :search", { search: `%${search}%` })
+        .leftJoinAndSelect("test.category", "category")
+        .where("test.id = :testId", { testId })
+        .getOne();
+
+      const questionGroups = await AppDataSource.getRepository(QuestionGroup)
+        .createQueryBuilder("questionGroup")
+        .select(["questionGroup.id AS id", "questionGroup.name AS name"])
+        .addSelect("COUNT(testQuestions.id)", "questionsCount")
+        .leftJoin("questionGroup.testQuestions", "testQuestions")
+        .where("testQuestions.test = :testId", { testId })
+        .groupBy("questionGroup.id")
+        .getRawMany();
+
+      const testQuestions = await AppDataSource.getRepository(TestQuestion)
+        .createQueryBuilder("testQuestion")
+        .leftJoinAndSelect("testQuestion.question", "question")
+        .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+        .leftJoinAndSelect("testQuestion.test", "test")
+        .where("testQuestion.test = :testId", { testId })
+        .orderBy("questionGroup.id", "ASC")
+        .addOrderBy("testQuestion.order", "ASC")
         .getMany();
 
+      const classroom = await AppDataSource.getRepository(Classroom)
+        .createQueryBuilder("classroom")
+        .leftJoinAndSelect("classroom.school", "school")
+        .where("classroom.id = :classroomId", { classroomId })
+        .getOne();
 
-      return { status: 200, data: testClasses };
-    } catch (error: any) { return { status: 500, message: error.message }}
+      let studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder("studentClassroom")
+        .leftJoinAndSelect("studentClassroom.student", "student")
+        .leftJoinAndSelect("student.person", "person")
+        .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
+        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
+        .leftJoin("testQuestion.questionGroup", "questionGroup")
+        .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId })
+        .leftJoin("studentClassroom.classroom", "classroom")
+        .where("classroom.id = :classroomId", { classroomId })
+        .orderBy("questionGroup.id", "ASC")
+        .addOrderBy("testQuestion.order", "ASC")
+        .getMany();
+
+      for (let studentClassroom of studentClassrooms) {
+        for (let testQuestion of testQuestions) {
+          const existingRecord = await AppDataSource.getRepository(StudentQuestion).findOne({
+            where: {
+              student: { id: Number(studentClassroom.student.id) },
+              testQuestion: { id: Number(testQuestion.id) }
+            },
+          });
+          if (!existingRecord) {
+            await AppDataSource.getRepository(StudentQuestion).upsert({
+              student: studentClassroom.student,
+              testQuestion: testQuestion,
+              answer: '',
+            }, ["student", "testQuestion"]);
+          }
+        }
+      }
+
+      return { status: 200, data: { test, classroom, testQuestions, studentClassrooms, questionGroups  } };
+    } catch (error: any) {return { status: 500, message: error.message }}
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {

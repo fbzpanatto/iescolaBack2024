@@ -13,7 +13,7 @@ TransferRouter.get('/', havePermission, (req, res) => {
 
 TransferRouter.get('/:id', havePermission, (req, res) => {
 
-  transferController.findOneById(req.params.id)
+  transferController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

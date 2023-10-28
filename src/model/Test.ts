@@ -28,6 +28,9 @@ export class Test {
   @ManyToOne(() => Person, person => person.tests)
   person: Person
 
+  @Column({ nullable: true })
+  createdAt: Date
+
   @OneToMany(() => Test, test => test.testQuestions)
   testQuestions: TestQuestion[]
 

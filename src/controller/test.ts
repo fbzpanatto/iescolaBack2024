@@ -1,6 +1,5 @@
 import { GenericController } from "./genericController";
-import {DeepPartial, EntityTarget, FindManyOptions, In, ObjectLiteral, SaveOptions} from "typeorm";
-import { Bimester } from "../model/Bimester";
+import {Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
 import {Test} from "../model/Test";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -37,14 +36,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.discipline", "discipline")
         .leftJoinAndSelect("test.category", "category")
         .where("test.id = :testId", { testId })
-        .getOne();
+        .getOne()
+
+      if(!test) return { status: 404, message: "Teste não encontrado" }
 
       const questionGroups = await AppDataSource.getRepository(QuestionGroup)
         .createQueryBuilder("questionGroup")
         .select(["questionGroup.id AS id", "questionGroup.name AS name"])
         .addSelect("COUNT(testQuestions.id)", "questionsCount")
         .leftJoin("questionGroup.testQuestions", "testQuestions")
-        .where("testQuestions.test = :testId", { testId })
+        .where("testQuestions.test = :testId", { testId: test.id })
         .groupBy("questionGroup.id")
         .getRawMany();
 
@@ -53,7 +54,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("testQuestion.question", "question")
         .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
         .leftJoinAndSelect("testQuestion.test", "test")
-        .where("testQuestion.test = :testId", { testId })
+        .where("testQuestion.test = :testId", { testId: test.id })
         .orderBy("questionGroup.id", "ASC")
         .addOrderBy("testQuestion.order", "ASC")
         .getMany();
@@ -64,19 +65,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .where("classroom.id = :classroomId", { classroomId })
         .getOne();
 
-      let studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
-        .createQueryBuilder("studentClassroom")
-        .leftJoinAndSelect("studentClassroom.student", "student")
-        .leftJoinAndSelect("student.person", "person")
-        .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
-        .leftJoin("testQuestion.questionGroup", "questionGroup")
-        .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId })
-        .leftJoin("studentClassroom.classroom", "classroom")
-        .where("classroom.id = :classroomId", { classroomId })
-        .orderBy("questionGroup.id", "ASC")
-        .addOrderBy("testQuestion.order", "ASC")
-        .getMany();
+      const studentClassrooms = await this.studentClassrooms(test, Number(classroomId))
 
       for (let studentClassroom of studentClassrooms) {
         for (let testQuestion of testQuestions) {
@@ -100,6 +89,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) {return { status: 500, message: error.message }}
   }
 
+  async studentClassrooms(test: Test, classroomId: number) {
+    return await AppDataSource.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+      .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .where("classroom.id = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+      }))
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
+  }
+
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const yearId = request?.query.year as string
@@ -107,6 +115,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
+      // TODO: se não houver nenhuma sala cadastrada para o professor, vai dar erro no sistema após criação do banco de dados
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
 
       const testClasses = await AppDataSource.getRepository(Test)
@@ -207,7 +216,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         discipline: body.discipline,
         person: userPerson,
         period: period,
-        classrooms: classes
+        classrooms: classes,
+        createdAt: new Date(),
       });
 
       const testQuestions = body.testQuestions.map((register: any) => ({ ...register, test: newTest }))

@@ -13,6 +13,7 @@ import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
 import { Classroom } from "../model/Classroom";
+import {StudentQuestion} from "../model/StudentQuestion";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -125,6 +126,24 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 200, data: result };
     } catch (error: any) {return { status: 500, message: error.message }}
   }
+
+  async updateQuestion(id: number | string, body: ObjectLiteral) {
+
+    try {
+
+      const result = await AppDataSource
+        .getRepository(StudentQuestion)
+        .save({
+        id: body.id,
+        answer: body.answer,
+        student: { id: body.student.id },
+        testQuestion: { id: body.testQuestion.id }
+      })
+
+      return { status: 200, data: result };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {
     const currentDisabilities = studentDisabilities.map((studentDisability) => studentDisability.disability.id)
 

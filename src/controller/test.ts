@@ -68,30 +68,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const studentClassrooms = await this.studentClassrooms(test, Number(classroomId))
 
       for(let studentClassroom of studentClassrooms) {
-
-        const stClassDB = await AppDataSource.getRepository(StudentClassroom)
-          .findOne({
-            where: { id: studentClassroom.id },
-          }) as StudentClassroom
-
         for(let testQuestion of testQuestions) {
-
-          const testQuestionDB = await AppDataSource.getRepository(TestQuestion)
-            .findOne({
-              relations: ["test", "question"],
-              where: { id: testQuestion.id, test: { id: test.id } },
-            }) as TestQuestion
-
           const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
             .findOne({
-              where: { testQuestion: { id: testQuestionDB.id, test: { id: test.id }, question: { id: testQuestionDB.question.id } }, studentClassroom: { id: stClassDB.id } },
+              where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } },
             }) as StudentQuestion
 
           if(!studentQuestion) {
             await AppDataSource.getRepository(StudentQuestion).save({
               answer: '',
-              testQuestion: testQuestionDB,
-              studentClassroom: stClassDB,
+              testQuestion: testQuestion,
+              studentClassroom: studentClassroom,
             })
           }
         }

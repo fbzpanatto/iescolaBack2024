@@ -136,7 +136,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .save({
         id: body.id,
         answer: body.answer,
-        student: { id: body.student.id },
+        studentClassroom: { id: body.studentClassroom.id },
         testQuestion: { id: body.testQuestion.id }
       })
 

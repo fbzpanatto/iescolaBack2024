@@ -1,7 +1,8 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
 import { Student } from "./Student";
 import { Classroom } from "./Classroom";
 import {Year} from "./Year";
+import {StudentQuestion} from "./StudentQuestion";
 
 @Entity()
 export class StudentClassroom {
@@ -17,6 +18,9 @@ export class StudentClassroom {
 
   @ManyToOne(() => Year, year => year.studentClassrooms)
   year: Year
+
+  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.studentClassroom)
+  studentQuestions: StudentQuestion[]
 
   //TODO: não permitir cadastrar dois números iguais para uma mesma sala de aula
   @Column({ nullable: false })

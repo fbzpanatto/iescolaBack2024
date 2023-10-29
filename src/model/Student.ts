@@ -37,9 +37,6 @@ export class Student {
   @OneToMany(() => StudentClassroom, sc => sc.student)
   studentClassrooms: StudentClassroom[]
 
-  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.student)
-  studentQuestions: StudentQuestion[]
-
   @OneToMany(() => Transfer, transfer => transfer.student)
   transfers: Transfer[]
 }

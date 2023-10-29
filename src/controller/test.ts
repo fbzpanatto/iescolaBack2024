@@ -10,6 +10,8 @@ import {TestQuestion} from "../model/TestQuestion";
 import {Request} from "express";
 import {QuestionGroup} from "../model/QuestionGroup";
 import {StudentQuestion} from "../model/StudentQuestion";
+import {Student} from "../model/Student";
+import {Console} from "node:inspector";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -67,26 +69,83 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const studentClassrooms = await this.studentClassrooms(test, Number(classroomId))
 
-      for (let studentClassroom of studentClassrooms) {
-        for (let testQuestion of testQuestions) {
-          const existingRecord = await AppDataSource.getRepository(StudentQuestion).findOne({
-            where: {
-              student: { id: Number(studentClassroom.student.id) },
-              testQuestion: { id: Number(testQuestion.id) }
-            },
-          });
-          if (!existingRecord) {
-            await AppDataSource.getRepository(StudentQuestion).upsert({
-              student: studentClassroom.student,
-              testQuestion: testQuestion,
+      for(let studentClassroom of studentClassrooms) {
+
+        const stClassDB = await AppDataSource.getRepository(StudentClassroom)
+          .findOne({
+            where: { id: studentClassroom.id },
+          }) as StudentClassroom
+
+        for(let testQuestion of testQuestions) {
+
+          const testQuestionDB = await AppDataSource.getRepository(TestQuestion)
+            .findOne({
+              relations: ["test", "question"],
+              where: { id: testQuestion.id, test: { id: test.id } },
+            }) as TestQuestion
+
+          const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
+            .findOne({
+              where: { testQuestion: { id: testQuestionDB.id, test: { id: test.id }, question: { id: testQuestionDB.question.id } }, studentClassroom: { id: stClassDB.id } },
+            }) as StudentQuestion
+
+          if(!studentQuestion) {
+            await AppDataSource.getRepository(StudentQuestion).save({
               answer: '',
-            }, ["student", "testQuestion"]);
+              testQuestion: testQuestionDB,
+              studentClassroom: stClassDB,
+            })
           }
         }
       }
 
-      return { status: 200, data: { test, classroom, testQuestions, studentClassrooms, questionGroups  } };
-    } catch (error: any) {return { status: 500, message: error.message }}
+      const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId))
+
+      for(let register of studentClassroomsWithQuestions) {
+        console.log(register.studentQuestions)
+      }
+
+      return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
+  }
+
+  async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number) {
+
+    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+
+    console.log(testQuestions)
+
+    return await AppDataSource.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoinAndSelect("studentClassroom.classroom", "classroom", "classroom.id = :classroomId", { classroomId })
+      .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+      .leftJoin("testQuestion.test", "test")
+      .where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+      .andWhere("testQuestion.test = :testId", { testId: test.id })
+      .getMany();
+
+
+
+    // return await AppDataSource.getRepository(StudentClassroom)
+    //   .createQueryBuilder("studentClassroom")
+    //   .leftJoinAndSelect("studentClassroom.student", "student")
+    //   .leftJoinAndSelect("student.person", "person")
+    //   .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions", "studentQuestions.testQuestion IN (:...testQuestions)", { testQuestions: test.testQuestions }
+    //   .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
+    //   .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId: test.id })
+    //   .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+    //   .where("studentClassroom.classroom = :classroomId", { classroomId })
+    //   .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+    //   .orderBy("studentClassroom.rosterNumber", "ASC")
+    //   .addOrderBy("questionGroup.id", "ASC")
+    //   .addOrderBy("testQuestion.order", "ASC")
+    //   .getMany();
   }
 
   async studentClassrooms(test: Test, classroomId: number) {
@@ -94,17 +153,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
-      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoin("studentClassroom.classroom", "classroom")
-      .where("classroom.id = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-      }))
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
       .getMany();
   }
 

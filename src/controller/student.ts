@@ -131,6 +131,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
+      const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
+        .findOne({ relations: ['testQuestion'], where: { id: Number(body.id) } }) as StudentQuestion
+
+      if(!studentQuestion) { return { status: 404, message: 'Registro não encontrado' } }
+
       const result = await AppDataSource
         .getRepository(StudentQuestion)
         .save({
@@ -140,7 +145,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         testQuestion: { id: body.testQuestion.id }
       })
 
-      return { status: 200, data: result };
+      const mappedResult = {
+        ...result,
+        score: studentQuestion.testQuestion.answer === result.answer ? 1 : 0,
+      }
+
+      return { status: 200, data: mappedResult };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

@@ -1,5 +1,5 @@
-import { GenericController } from "./genericController";
-import {Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {GenericController} from "./genericController";
+import {DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
 import {Test} from "../model/Test";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -93,8 +93,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-
-    return await AppDataSource.getRepository(StudentClassroom)
+    const preResult = await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
@@ -108,6 +107,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany();
+
+    return preResult.map(studentClassroom => {
+      let totalScore = 0
+      const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
+        const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
+        const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
+        totalScore += score
+        return {...studentQuestion, score}
+      })
+      return {...studentClassroom, studentQuestions, totalScore}
+    })
   }
 
   async studentClassrooms(test: Test, classroomId: number) {

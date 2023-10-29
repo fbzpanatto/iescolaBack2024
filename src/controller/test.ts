@@ -10,8 +10,6 @@ import {TestQuestion} from "../model/TestQuestion";
 import {Request} from "express";
 import {QuestionGroup} from "../model/QuestionGroup";
 import {StudentQuestion} from "../model/StudentQuestion";
-import {Student} from "../model/Student";
-import {Console} from "node:inspector";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -101,22 +99,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId))
 
-      for(let register of studentClassroomsWithQuestions) {
-        console.log(register.studentQuestions)
-      }
-
       return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-
-    console.log(testQuestions)
 
     return await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -125,27 +114,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.classroom", "classroom", "classroom.id = :classroomId", { classroomId })
       .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
       .leftJoin("testQuestion.test", "test")
       .where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
       .andWhere("testQuestion.test = :testId", { testId: test.id })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
       .getMany();
-
-
-
-    // return await AppDataSource.getRepository(StudentClassroom)
-    //   .createQueryBuilder("studentClassroom")
-    //   .leftJoinAndSelect("studentClassroom.student", "student")
-    //   .leftJoinAndSelect("student.person", "person")
-    //   .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions", "studentQuestions.testQuestion IN (:...testQuestions)", { testQuestions: test.testQuestions }
-    //   .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion")
-    //   .leftJoinAndSelect("testQuestion.test", "test", "test.id = :testId", { testId: test.id })
-    //   .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-    //   .where("studentClassroom.classroom = :classroomId", { classroomId })
-    //   .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-    //   .orderBy("studentClassroom.rosterNumber", "ASC")
-    //   .addOrderBy("questionGroup.id", "ASC")
-    //   .addOrderBy("testQuestion.order", "ASC")
-    //   .getMany();
   }
 
   async studentClassrooms(test: Test, classroomId: number) {

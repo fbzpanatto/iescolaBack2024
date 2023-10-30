@@ -147,7 +147,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const mappedResult = {
         ...result,
-        score: studentQuestion.testQuestion.answer === result.answer ? 1 : 0,
+        score: studentQuestion.testQuestion.answer.includes(result.answer.trim().toUpperCase()) ? 1 : 0
       }
 
       return { status: 200, data: mappedResult };

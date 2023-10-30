@@ -19,8 +19,6 @@ StudentQuestionRouter.get('/:id', (req, res) => {
 
 StudentQuestionRouter.post('/', (req, res) => {
 
-  console.log('req.body', req.body)
-
   studentQuestionController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))

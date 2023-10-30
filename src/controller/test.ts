@@ -35,11 +35,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 
       const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+      const questionGroups = await this.getTestQuestionsGroups(Number(testId))
 
       const test = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
-        .leftJoin("test.period", "period")
-        .leftJoin("period.year", "periodYear")
+        .leftJoinAndSelect("test.period", "period")
+        .leftJoinAndSelect("period.bimester", "periodBimester")
+        .leftJoinAndSelect("period.year", "periodYear")
         .leftJoinAndSelect("test.discipline", "discipline")
         .leftJoinAndSelect("test.category", "category")
         .leftJoinAndSelect("test.person", "testPerson")
@@ -61,7 +63,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .getOne()
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      let response = { ...test, testQuestions }
+      let response = { ...test, testQuestions, questionGroups }
       response.classrooms = response.classrooms.map((classroom: Classroom) => {
         classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => {
           studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion: StudentQuestion) => {
@@ -103,14 +105,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const questionGroups = await AppDataSource.getRepository(QuestionGroup)
-        .createQueryBuilder("questionGroup")
-        .select(["questionGroup.id AS id", "questionGroup.name AS name"])
-        .addSelect("COUNT(testQuestions.id)", "questionsCount")
-        .leftJoin("questionGroup.testQuestions", "testQuestions")
-        .where("testQuestions.test = :testId", { testId: test.id })
-        .groupBy("questionGroup.id")
-        .getRawMany();
+      const questionGroups = await this.getTestQuestionsGroups(Number(testId))
 
       const testQuestions = await this.getTestQuestions(Number(testId))
 
@@ -197,6 +192,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany();
+  }
+
+  async getTestQuestionsGroups(testId: number) {
+    return await AppDataSource.getRepository(QuestionGroup)
+      .createQueryBuilder("questionGroup")
+      .select(["questionGroup.id AS id", "questionGroup.name AS name"])
+      .addSelect("COUNT(testQuestions.id)", "questionsCount")
+      .leftJoin("questionGroup.testQuestions", "testQuestions")
+      .where("testQuestions.test = :testId", { testId })
+      .groupBy("questionGroup.id")
+      .getRawMany();
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {

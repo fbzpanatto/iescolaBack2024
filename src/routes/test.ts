@@ -25,6 +25,13 @@ TestRouter.get('/:id/classroom/:classroom', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+TestRouter.get('/:id/classroom/:classroom/graphic', havePermission, (req, res) => {
+
+  testController.getGraphic(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TestRouter.get('/:id', havePermission, (req, res) => {
 
   testController.findOneById(req.params.id, req.body)

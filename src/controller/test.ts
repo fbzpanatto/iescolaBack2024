@@ -1,15 +1,15 @@
-import {GenericController} from "./genericController";
-import {DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {Test} from "../model/Test";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {StudentQuestion} from "../model/StudentQuestion";
+import { GenericController } from "./genericController";
+import { DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { Test } from "../model/Test";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { Period } from "../model/Period";
+import { Classroom } from "../model/Classroom";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { StudentQuestion } from "../model/StudentQuestion";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -23,17 +23,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classroomId = request?.params.classroom
     const yearId = request?.query.year as string
 
-    console.log('-----------------------------------------------------------------------------------')
-    console.log('testId', testId)
-    console.log('classroomId', classroomId)
-    console.log('yearId', yearId)
-
     try {
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId))) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
+      if (!classroom) return { status: 404, message: "Sala não encontrada" }
+
+      const testQuestions = await this.getTestQuestions(Number(testId))
+      if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
+
+      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
 
       const test = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
@@ -46,23 +47,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("classroom.school", "school", "school.id = :schoolId", { schoolId: classroom?.school.id })
         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
         .leftJoinAndSelect("studentClassroom.student", "student")
+        .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+        .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
         .leftJoinAndSelect("student.person", "studentPerson")
         .leftJoin("studentClassroom.year", "studentClassroomYear")
         .where("test.id = :testId", { testId })
         .andWhere("periodYear.id = :yearId", { yearId })
         .andWhere("studentClassroomYear.id = :yearId", { yearId })
+        .andWhere("testQuestion.test = :testId", { testId })
+        .orderBy("questionGroup.id", "ASC")
+        .addOrderBy("testQuestion.order", "ASC")
         .getOne()
-
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const testQuestions = await this.getTestQuestions(Number(testId))
+      let response = { ...test, testQuestions }
+      response.classrooms = response.classrooms.map((classroom: Classroom) => {
+        classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => {
+          studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion: StudentQuestion) => {
+            const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
+            const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
+            return {...studentQuestion, score}
+          })
+          return studentClassroom
+        })
+        return classroom
+      })
 
-      const preResult = { ...test, testQuestions }
-
-      console.log('preResult', preResult)
-
-
-      const response = {}
       return { status: 200, data: response };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -155,14 +166,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
 
     return preResult.map(studentClassroom => {
-      let totalScore = 0
       const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
         const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
         const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
-        totalScore += score
-        return {...studentQuestion, score}
+        return {...studentQuestion, score }
       })
-      return {...studentClassroom, studentQuestions, totalScore}
+      return {...studentClassroom, studentQuestions }
     })
   }
 

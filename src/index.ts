@@ -31,6 +31,7 @@ import {QuestionGroupRouter} from "./routes/questionGroup";
 import {QuestionRouter} from "./routes/question";
 import {StudentQuestion} from "./model/StudentQuestion";
 import {StudentQuestionRouter} from "./routes/studentQuestion";
+import {ReportRouter} from "./routes/report";
 
 const bodyParser = require('body-parser');
 const app: Application = express();
@@ -55,6 +56,7 @@ route.use('/transfer', authorization, TransferRouter);
 route.use('/question', QuestionRouter);
 route.use('/teacher', authorization, TeacherRouter);
 route.use('/test', authorization, TestRouter);
+route.use('/report', authorization, ReportRouter);
 route.use('/descriptor', DescriptorRouter);
 route.use('/question-group', QuestionGroupRouter);
 route.use('/topic', TopicRouter);

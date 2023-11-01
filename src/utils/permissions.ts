@@ -57,6 +57,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 methods: allPermissions
             },
             {
+                entity: "report",
+                methods: allPermissions
+            },
+            {
                 entity: "year",
                 methods: allPermissions
             }

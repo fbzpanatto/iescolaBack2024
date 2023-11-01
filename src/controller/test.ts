@@ -1,15 +1,15 @@
-import { GenericController } from "./genericController";
-import { DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { Test } from "../model/Test";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
+import {GenericController} from "./genericController";
+import {DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {Test} from "../model/Test";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion} from "../model/StudentQuestion";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -46,7 +46,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.category", "category")
         .leftJoinAndSelect("test.person", "testPerson")
         .leftJoinAndSelect("test.classrooms", "classroom")
-        .leftJoinAndSelect("classroom.school", "school", "school.id = :schoolId", { schoolId: classroom?.school.id })
+        .leftJoinAndSelect("classroom.school", "school")
         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
         .leftJoinAndSelect("studentClassroom.student", "student")
         .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
@@ -60,13 +60,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .andWhere("testQuestion.test = :testId", { testId })
         .orderBy("questionGroup.id", "ASC")
         .addOrderBy("testQuestion.order", "ASC")
+        .addOrderBy("studentClassroom.rosterNumber", "ASC")
+        .addOrderBy("classroom.shortName", "ASC")
         .getOne()
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
       let response = { ...test, testQuestions, questionGroups }
-      response.classrooms = response.classrooms.map((classroom: Classroom) => {
-        classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => {
-          studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion: StudentQuestion) => {
+
+      const allClasses = response.classrooms
+      allClasses.map((classroom: Classroom) => {
+        classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
+          studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
             const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
             const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
             return {...studentQuestion, score}
@@ -75,6 +79,29 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
         return classroom
       })
+
+      const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id)
+      const newResult = {
+        id: 99,
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITA',
+        school: {
+          id: 99,
+          name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+          shortName: 'ITATIBA',
+          inep: null,
+          active: true
+        },
+        studentClassrooms: []
+      } as unknown as Classroom
+
+      for(let el of allClasses) {
+        for(let student of el.studentClassrooms) {
+          newResult.studentClassrooms.push(student)
+        }
+      }
+
+      response.classrooms = [ ...filteredClasses, newResult ]
 
       return { status: 200, data: response };
     } catch (error: any) { return { status: 500, message: error.message } }

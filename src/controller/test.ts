@@ -10,11 +10,81 @@ import {TestQuestion} from "../model/TestQuestion";
 import {Request} from "express";
 import {QuestionGroup} from "../model/QuestionGroup";
 import {StudentQuestion} from "../model/StudentQuestion";
+import {School} from "../model/School";
+
+interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() {
     super(Test);
+  }
+
+  async getReportTestData(request: Request) {
+
+    const yearId = request?.query.year as string
+    const testId = request?.params.id
+
+    try {
+
+      const testQuestions = await this.getTestQuestions(Number(testId))
+      if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
+
+      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+      const questionGroups = await this.getTestQuestionsGroups(Number(testId))
+
+      const test = await AppDataSource.getRepository(Test)
+        .createQueryBuilder("test")
+        .leftJoinAndSelect("test.period", "period")
+        .leftJoinAndSelect("period.bimester", "periodBimester")
+        .leftJoinAndSelect("period.year", "periodYear")
+        .leftJoinAndSelect("test.discipline", "discipline")
+        .leftJoinAndSelect("test.category", "category")
+        .leftJoinAndSelect("test.person", "testPerson")
+        .where("test.id = :testId", { testId })
+        .andWhere("periodYear.id = :yearId", { yearId })
+        .getOne()
+
+      if(!test) return { status: 404, message: "Teste não encontrado" }
+
+      const schools = await AppDataSource.getRepository(School)
+        .createQueryBuilder("school")
+        .leftJoinAndSelect("school.classrooms", "classroom")
+        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+        .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+        .leftJoin("testQuestion.test", "test")
+        .leftJoin("studentClassroom.year", "year")
+        .where("year.id = :yearId", { yearId })
+        .andWhere("test.id = :testId", { testId })
+        .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+        .getMany()
+
+      const schoolsWithStudentQuestionsRefactored = schools.map(school => ({
+        ...school,
+        classrooms: school.classrooms.map(classroom => ({
+          ...classroom,
+          studentClassrooms: classroom.studentClassrooms.map(studentClassroom => ({
+            ...studentClassroom,
+            studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
+              const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id);
+              const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
+              return {...studentQuestion, score};
+            })
+          }))
+        }))
+      }));
+
+      const studentsBySchoolRefactored: schoolAsClassroom[] = schoolsWithStudentQuestionsRefactored.map(school => ({
+        id: school.id,
+        name: school.name,
+        shortName: school.shortName,
+        studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
+      }));
+
+      let response = { ...test, testQuestions, questionGroups, schools: studentsBySchoolRefactored }
+      return { status: 200, data: response };
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getGraphic(request: Request) {
@@ -81,7 +151,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
 
       const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id)
-      const newResult = {
+      const cityHall = {
         id: 99,
         name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         shortName: 'ITA',
@@ -97,11 +167,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for(let el of allClasses) {
         for(let student of el.studentClassrooms) {
-          newResult.studentClassrooms.push(student)
+          cityHall.studentClassrooms.push(student)
         }
       }
 
-      response.classrooms = [ ...filteredClasses, newResult ]
+      response.classrooms = [ ...filteredClasses, cityHall ]
 
       return { status: 200, data: response };
     } catch (error: any) { return { status: 500, message: error.message } }

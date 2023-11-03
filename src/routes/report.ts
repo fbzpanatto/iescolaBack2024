@@ -17,3 +17,10 @@ ReportRouter.get('/:id', havePermission, (req, res) => {
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
+
+ReportRouter.get('/:id/avg', havePermission, (req, res) => {
+
+  reportController.getSchoolAvg(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})

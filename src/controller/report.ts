@@ -14,10 +14,29 @@ import {School} from "../model/School";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
+
 class ReportController extends GenericController<EntityTarget<Test>> {
 
   constructor() {
     super(Test);
+  }
+
+  async getSchoolAvg(request: Request){
+    try {
+      const response = (await this.getReport(request)).data
+      if(!response) return { status: 404, message: "Teste não encontrado" }
+
+      const schools = response.schools as {id: number, name: string, shortName: string, qRate: ({id: number, rate: string} | {id: number, rate: number})[]}[]
+      const schoolAvg = schools.map(school => ({
+        ...school,
+        qRate: school.qRate
+          .reduce((acc, curr) =>
+            (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0) /
+            school.qRate.filter(q => q.rate !== 'N/A').length
+      }))
+
+      return { status: 200, data: {...response, schoolAvg } };
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getReport(request: Request) {

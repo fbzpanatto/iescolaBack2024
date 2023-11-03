@@ -75,6 +75,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
           studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
             const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
+            if(studentQuestion.answer.length === 0) return ({ ...studentQuestion, score: 0 })
             const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
             return {...studentQuestion, score}
           })
@@ -194,6 +195,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return preResult.map(studentClassroom => {
       const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
         const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id)
+
+
+        if(studentQuestion.answer.length === 0) {
+          console.log(studentClassroom.student.person.name, studentQuestion.answer, testQuestion?.order, testQuestion?.questionGroup.name, testQuestion?.answer)
+          console.log({ ...studentQuestion, score: 0 })
+          return { ...studentQuestion, score: 0 }
+        }
         const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
         return {...studentQuestion, score }
       })

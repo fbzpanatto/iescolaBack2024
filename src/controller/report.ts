@@ -62,27 +62,40 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       const schoolsWithStudentQuestionsRefactored = schools.map(school => ({
         ...school,
-        classrooms: school.classrooms.map(classroom => ({
-          ...classroom,
-          studentClassrooms: classroom.studentClassrooms.map(studentClassroom => ({
-            ...studentClassroom,
-            studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
-              const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id);
-              const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
-              return {...studentQuestion, score};
-            })
-          }))
-        }))
+        studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(studentClassroom => ({
+          ...studentClassroom,
+          studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
+            const testQuestion = testQuestions.find(tq => tq.id === studentQuestion.testQuestion.id);
+            if(studentQuestion.answer.length === 0) return ({ ...studentQuestion, score: 0 });
+            const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
+            return { ...studentQuestion, score };
+          })
+        })) as StudentClassroom[])
       }));
 
-      const studentsBySchoolRefactored: schoolAsClassroom[] = schoolsWithStudentQuestionsRefactored.map(school => ({
-        id: school.id,
-        name: school.name,
-        shortName: school.shortName,
-        studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
-      }));
+      const myNewArray = schoolsWithStudentQuestionsRefactored.map(school => {
+        const { id, name, shortName } = school;
+        const qRate = testQuestions.map(testQuestion => {
+          if (!testQuestion.active) {
+            return { id: testQuestion.id, rate: 'N/A' };
+          }
+          let sum = 0;
+          let count = 0;
+          school.studentClassrooms.flatMap(studentClassroom => studentClassroom.studentQuestions)
+            .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
+            .forEach(studentQuestion => {
+              let studentQuestionAny = studentQuestion as any;
+              sum += studentQuestionAny.score;
+              count += 1;
+            });
+          const rate = count === 0 ? 0 : (sum / count) * 100;
+          return { id: testQuestion.id, rate };
+        });
+        return { id, name, shortName, qRate };
+      });
 
-      let response = { ...test, testQuestions, questionGroups, schools: studentsBySchoolRefactored }
+
+      let response = { ...test, testQuestions, questionGroups, schools: myNewArray }
       return { status: 200, data: response };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

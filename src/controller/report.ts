@@ -60,20 +60,19 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         .getMany()
 
-      const schoolsWithStudentQuestionsRefactored = schools.map(school => ({
+      const simplifiedSchools = schools.map(school => ({
         ...school,
         studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(studentClassroom => ({
           ...studentClassroom,
           studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
             const testQuestion = testQuestions.find(tq => tq.id === studentQuestion.testQuestion.id);
-            if(studentQuestion.answer.length === 0) return ({ ...studentQuestion, score: 0 });
-            const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
+            const score = (studentQuestion.answer.length === 0) ? 0 : (testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
             return { ...studentQuestion, score };
           })
         })) as StudentClassroom[])
       }));
 
-      const myNewArray = schoolsWithStudentQuestionsRefactored.map(school => {
+      const simplifiedArray = simplifiedSchools.map(school => {
         const { id, name, shortName } = school;
         const qRate = testQuestions.map(testQuestion => {
           if (!testQuestion.active) {
@@ -84,7 +83,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           school.studentClassrooms.flatMap(studentClassroom => studentClassroom.studentQuestions)
             .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
             .forEach(studentQuestion => {
-              let studentQuestionAny = studentQuestion as any;
+              const studentQuestionAny = studentQuestion as any;
               sum += studentQuestionAny.score;
               count += 1;
             });
@@ -94,8 +93,13 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         return { id, name, shortName, qRate };
       });
 
+      simplifiedArray.sort((a, b) => {
+        const totalA = a.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
+        const totalB = b.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
+        return totalB - totalA;
+      });
 
-      let response = { ...test, testQuestions, questionGroups, schools: myNewArray }
+      let response = { ...test, testQuestions, questionGroups, schools: simplifiedArray }
       return { status: 200, data: response };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

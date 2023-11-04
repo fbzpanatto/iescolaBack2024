@@ -309,6 +309,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoin("topic.classroomCategory", "classroomCategory")
         .leftJoin("testQuestion.questionGroup", "questionGroup")
         .where("testQuestion.test = :testId", { testId: test.id })
+        .orderBy("questionGroup.id", "ASC")
+        .addOrderBy("testQuestion.order", "ASC")
         .getMany();
 
       return { status: 200, data: { ...test, testQuestions } };

@@ -32,6 +32,13 @@ StudentRouter.put('/:id/question', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 });
 
+StudentRouter.put('/:id/test-status', havePermission, (req, res) => {
+
+  studentController.updateTestStatus(req.params.id, req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+});
+
 
 StudentRouter.put('/:id', havePermission, (req, res) => {
 

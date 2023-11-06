@@ -14,6 +14,7 @@ import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
 import { Classroom } from "../model/Classroom";
 import {StudentQuestion} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -152,6 +153,32 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return { status: 200, data: mappedResult };
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async updateTestStatus(id: number | string, body: ObjectLiteral) {
+
+    try {
+
+      const studentTestStatus = await AppDataSource.getRepository(StudentTestStatus)
+        .findOne({
+          relations: ['test', 'studentClassroom'],
+          where: {
+            id: Number(body.id),
+            studentClassroom: { id: Number(id) },
+            test: { id: Number(body.test.id) }
+          } }) as StudentTestStatus
+
+      if(!studentTestStatus) { return { status: 404, message: 'Registro não encontrado' } }
+
+      studentTestStatus.observation = body.observation ?? studentTestStatus.observation
+      studentTestStatus.active = body.active ?? studentTestStatus.active
+      await AppDataSource.getRepository(StudentTestStatus).save(studentTestStatus)
+
+      const result = {}
+      return { status: 200, data: result };
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+
   }
 
   async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {

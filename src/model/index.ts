@@ -24,7 +24,8 @@ import { TestCategory } from "./TestCategory";
 import { Question } from "./Question";
 import { TestQuestion } from "./TestQuestion";
 import { QuestionGroup } from "./QuestionGroup";
-import {StudentQuestion} from "./StudentQuestion";
+import { StudentQuestion } from "./StudentQuestion";
+import { StudentTestStatus } from "./StudentTestStatus";
 export const entities = [
   Bimester,
   Classroom,
@@ -39,6 +40,7 @@ export const entities = [
   State,
   Student,
   StudentClassroom,
+  StudentTestStatus,
   StudentDisability,
   StudentQuestion,
   Teacher,

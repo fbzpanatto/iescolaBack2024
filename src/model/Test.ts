@@ -6,6 +6,7 @@ import {Classroom} from "./Classroom";
 import {TestCategory} from "./TestCategory";
 import {Person} from "./Person";
 import {TestQuestion} from "./TestQuestion";
+import {StudentTestStatus} from "./StudentTestStatus";
 
 @Entity()
 export class Test {
@@ -33,6 +34,9 @@ export class Test {
 
   @OneToMany(() => Test, test => test.testQuestions)
   testQuestions: TestQuestion[]
+
+  @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.test)
+  studentStatus: StudentTestStatus[]
 
   @ManyToMany(() => Classroom, { cascade: true })
   @JoinTable({ name: "test_classroom" })

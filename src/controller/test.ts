@@ -11,6 +11,7 @@ import {Request} from "express";
 import {QuestionGroup} from "../model/QuestionGroup";
 import {StudentQuestion} from "../model/StudentQuestion";
 import {School} from "../model/School";
+import {StudentTestStatus} from "../model/StudentTestStatus";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
@@ -149,6 +150,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearId)
 
       for(let studentClassroom of studentClassrooms) {
+
+        const studentTestStatus = await AppDataSource.getRepository(StudentTestStatus)
+          .findOne({
+            where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } },
+          }) as StudentTestStatus
+
+        if(!studentTestStatus) {
+          await AppDataSource.getRepository(StudentTestStatus).save({
+            active: true,
+            test: test,
+            studentClassroom: studentClassroom,
+            observation: '',
+          })
+        }
+
         for(let testQuestion of testQuestions) {
           const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
             .findOne({
@@ -168,7 +184,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearId)
 
       return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearId: string) {
@@ -177,6 +196,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const preResult = await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("studentClassroom.classroom", "classroom")
@@ -187,6 +208,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
       .andWhere("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere("testQuestion.test = :testId", { testId: test.id })
+      .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.id = :yearId", { yearId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
@@ -199,7 +221,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
         return {...studentQuestion, score }
       })
-      return {...studentClassroom, studentQuestions }
+      return {
+        ...studentClassroom,
+        studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id),
+        studentQuestions
+      }
     })
   }
 
@@ -207,6 +233,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", { classroomId })

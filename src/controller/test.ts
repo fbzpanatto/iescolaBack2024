@@ -52,6 +52,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+        .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+        .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
         .leftJoinAndSelect("studentClassroom.student", "student")
         .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
         .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
@@ -62,6 +64,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .andWhere("periodYear.id = :yearId", { yearId })
         .andWhere("studentClassroomYear.id = :yearId", { yearId })
         .andWhere("testQuestion.test = :testId", { testId })
+        .andWhere("studentStatusTest.id = :testId", { testId })
         .orderBy("questionGroup.id", "ASC")
         .addOrderBy("testQuestion.order", "ASC")
         .addOrderBy("studentClassroom.rosterNumber", "ASC")
@@ -108,7 +111,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       response.classrooms = [ ...filteredClasses, cityHall ]
 
-      return { status: 200, data: response };
+      const newReturn = {
+        ...response,
+        classrooms: response.classrooms.map((classroom: Classroom) => {
+          return {
+            ...classroom,
+            studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => {
+              return {
+                ...studentClassroom,
+                studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
+              }
+            })
+          }
+        })
+      }
+
+      return { status: 200, data: newReturn };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

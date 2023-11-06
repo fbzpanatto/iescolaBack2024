@@ -70,12 +70,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .createQueryBuilder("school")
         .leftJoinAndSelect("school.classrooms", "classroom")
         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+        .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+        .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
         .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
         .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
         .leftJoin("testQuestion.test", "test")
         .leftJoin("studentClassroom.year", "year")
         .where("year.id = :yearId", { yearId })
         .andWhere("test.id = :testId", { testId })
+        .andWhere("studentStatusTest.id = :testId", { testId })
         .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         .getMany()
 
@@ -99,7 +102,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }
           let sum = 0;
           let count = 0;
-          school.studentClassrooms.flatMap(studentClassroom => studentClassroom.studentQuestions)
+          school.studentClassrooms
+            .filter(studentClassroom => studentClassroom.studentStatus.find(register => register.test.id === test.id)?.active)
+            .flatMap(studentClassroom => studentClassroom.studentQuestions)
             .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
             .forEach(studentQuestion => {
               const studentQuestionAny = studentQuestion as any;

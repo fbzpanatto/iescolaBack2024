@@ -120,37 +120,37 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const user = await this.teacherByUser(body.user.user) as Teacher
       if(user.person.category.id === personCategories.MONITOR_DE_INFORMATICA) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.SECRETARIO) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.COORDENADOR) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO, personCategories.COORDENADOR]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.VICE_DIRETOR) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.DIRETOR) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.SUPERVISOR) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 
       if(user.person.category.id === personCategories.ADMINISTRADOR) {
-        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
+        const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
         if(!canCreate.includes(body.category.id)) { return { status: 401, message: 'Você não tem permissão para criar este registro.' } }
       }
 

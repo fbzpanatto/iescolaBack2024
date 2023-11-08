@@ -34,6 +34,35 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         ]
     },
     {
+        category: personCategories.MONITOR_DE_INFORMATICA,
+        permissions: [
+            {
+                entity: "year",
+                methods: { GET: true }
+            },
+            {
+                entity: "test",
+                methods: { GET: true }
+            },
+            {
+                entity: "teacher",
+                methods: { GET: true, POST: true }
+            },
+            {
+                entity: "student",
+                methods: { GET: true, POST: true }
+            },
+            {
+                entity: "transfer",
+                methods: { GET: true}
+            },
+            {
+                entity: "classroom",
+                methods: { GET: true }
+            },
+        ]
+    },
+    {
         category: personCategories.PROFESSOR,
         permissions: [
             {

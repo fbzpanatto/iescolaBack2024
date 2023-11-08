@@ -28,12 +28,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      if(teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR) {
-
-      }
-
       const teacherClasses = await this.teacherClassrooms(body?.user)
-      const notInCategoriesIds = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
+      const notInCategories = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
+
+      console.log(teacher.person.name, teacher.person.category.id, teacher.person.category.name)
 
       const newResult = await AppDataSource.getRepository(Teacher)
         .createQueryBuilder('teacher')
@@ -41,9 +39,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoinAndSelect('person.category', 'category')
         .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
         .leftJoin('teacherClassDiscipline.classroom', 'classroom')
-        .where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategoriesIds })
-        .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
-        .andWhere('teacherClassDiscipline.endedAt IS NULL')
+        .where(new Brackets(qb => {
+          if(teacher.person.category.id != personCategories.ADMINISTRADOR && teacher.person.category.id != personCategories.SUPERVISOR) {
+            qb.where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategories })
+              .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
+              .andWhere('teacherClassDiscipline.endedAt IS NULL')
+          } else {
+            console.log('sou admin')
+          }
+        }))
         .andWhere('person.name LIKE :search', { search: `%${search}%` })
         .groupBy('teacher.id')
         .getMany()

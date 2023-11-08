@@ -53,6 +53,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 200, data: newResult }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+  // TODO: check this
+  // @ts-ignore
   override async findOneById(id: string | number, request?: Request) {
 
     const body = request?.body as TeacherBody
@@ -69,9 +72,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .addSelect('person.id', 'person_id')
         .addSelect('person.name', 'person_name')
         .addSelect('person.birth', 'person_birth')
+        .addSelect('category.id', 'category_id')
+        .addSelect('category.name', 'category_name')
         .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classroom_ids')
         .addSelect('GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)', 'discipline_ids')
         .leftJoin('teacher.person', 'person')
+        .leftJoin("person.category", "category")
         .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
         .leftJoin('teacherClassDiscipline.classroom', 'classroom')
         .leftJoin('teacherClassDiscipline.discipline', 'discipline')
@@ -85,7 +91,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         person: {
           id: result.person_id,
           name: result.person_name,
-          birth: result.person_birth
+          birth: result.person_birth,
+          category: {
+            id: result.category_id,
+            name: result.category_name
+          }
         },
         teacherClasses: result.classroom_ids?.split(',').map((item: string) => parseInt(item)) ?? [],
         teacherDisciplines: result.discipline_ids?.split(',').map((item: string) => parseInt(item)) ?? []
@@ -95,9 +105,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+
+
   override async save(body: TeacherBody, options: SaveOptions | undefined) {
     try {
-      const category = await this.teacherCategory()
+      const category = await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: body.category.id } } ) as PersonCategory
       const person = this.createPerson({ name: body.name, birth: body.birth, category })
       const teacher = await this.repository.save(this.createTeacher(person))
       const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
@@ -121,6 +134,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 201, data: teacher }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+
+
   override async updateId(id: string, body: TeacherBody) {
     try {
 

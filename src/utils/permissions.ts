@@ -5,6 +5,35 @@ const allPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: t
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
     {
+        category: personCategories.SECRETARIO,
+        permissions: [
+            {
+                entity: "year",
+                methods: { GET: true }
+            },
+            {
+                entity: "test",
+                methods: { GET: true }
+            },
+            {
+                entity: "teacher",
+                methods: { GET: true, POST: true, PUT: true }
+            },
+            {
+                entity: "student",
+                methods: { GET: true, POST: true, PUT: true }
+            },
+            {
+                entity: "transfer",
+                methods: { GET: true, POST: true, PUT: true }
+            },
+            {
+                entity: "classroom",
+                methods: { GET: true }
+            },
+        ]
+    },
+    {
         category: personCategories.PROFESSOR,
         permissions: [
             {

@@ -77,6 +77,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
+      const userTeacher = await this.teacherByUser(body.user.user)
+
       const student = await this.repository
         .findOne({ relations: ['person', 'studentDisabilities.disability', 'state'], where: { id: Number(studentId)} }) as Student;
 
@@ -93,9 +95,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const exists = await this.repository.findOne({ where: { ra: body.ra } } )
         if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       }
-      if(body.user.category === personCategories.PROFESSOR) {
-        return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' }
-      }
+
+      const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
+      if(!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != newClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
+
       if(studentClassroom?.classroom.id != newClassroom.id) {
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
         await AppDataSource.getRepository(StudentClassroom).save({
@@ -105,6 +108,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           rosterNumber: Number(body.rosterNumber),
           startedAt: new Date()
         })
+      } else {
+        if(studentClassroom.rosterNumber != body.rosterNumber ) {
+          studentClassroom.rosterNumber = body.rosterNumber
+          await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, rosterNumber: body.rosterNumber })
+        }
       }
 
       student.ra = body.ra;

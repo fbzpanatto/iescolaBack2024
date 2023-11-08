@@ -31,8 +31,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacherClasses = await this.teacherClassrooms(body?.user)
       const notInCategories = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
 
-      console.log(teacher.person.name, teacher.person.category.id, teacher.person.category.name)
-
       const newResult = await AppDataSource.getRepository(Teacher)
         .createQueryBuilder('teacher')
         .leftJoinAndSelect('teacher.person', 'person')

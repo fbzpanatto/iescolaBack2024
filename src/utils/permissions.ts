@@ -9,6 +9,39 @@ const fourthLevelPermissions: Permission = { GET: true, POST: true, PUT: true, D
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
     {
+        category: personCategories.ADMINISTRADOR,
+        permissions: [
+            {
+                entity: "classroom",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "teacher",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "student",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "transfer",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "test",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "report",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "year",
+                methods: fourthLevelPermissions
+            }
+        ]
+    },
+    {
         category: personCategories.SUPERVISOR,
         permissions: [
             {
@@ -209,39 +242,6 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "test",
                 methods: thirdLevelPermissions
             },
-        ]
-    },
-    {
-        category: personCategories.ADMINISTRADOR,
-        permissions: [
-            {
-                entity: "classroom",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "teacher",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "student",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "transfer",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "test",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "report",
-                methods: fourthLevelPermissions
-            },
-            {
-                entity: "year",
-                methods: fourthLevelPermissions
-            }
         ]
     }
 ]

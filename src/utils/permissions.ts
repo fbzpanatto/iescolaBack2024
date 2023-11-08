@@ -32,13 +32,13 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 methods: fourthLevelPermissions
             },
             {
-                entity: "report",
+                entity: "year",
                 methods: fourthLevelPermissions
             },
             {
-                entity: "year",
-                methods: fourthLevelPermissions
-            }
+                entity: "report",
+                methods: firstLevelPermissions
+            },
         ]
     },
     {
@@ -66,6 +66,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             },
             {
                 entity: "classroom",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "report",
                 methods: firstLevelPermissions
             },
         ]

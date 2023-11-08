@@ -1,9 +1,9 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, FindManyOptions, ObjectLiteral} from "typeorm";
+import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
-import {Request} from "express";
-import {AppDataSource} from "../data-source";
-import {personCategories} from "../utils/personCategories";
+import { Request } from "express";
+import { AppDataSource } from "../data-source";
+import { personCategories } from "../utils/personCategories";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
 

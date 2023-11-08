@@ -44,8 +44,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
             qb.where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategories })
               .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
               .andWhere('teacherClassDiscipline.endedAt IS NULL')
-          } else {
-            console.log('sou admin')
           }
         }))
         .andWhere('person.name LIKE :search', { search: `%${search}%` })

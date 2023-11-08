@@ -38,11 +38,19 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
         .leftJoin('teacherClassDiscipline.classroom', 'classroom')
         .where(new Brackets(qb => {
+
+          if(teacher.person.category.id === personCategories.PROFESSOR) {
+            qb.where('teacher.id = :teacherId', { teacherId: teacher.id })
+            return
+          }
+
           if(teacher.person.category.id != personCategories.ADMINISTRADOR && teacher.person.category.id != personCategories.SUPERVISOR) {
             qb.where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategories })
               .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
               .andWhere('teacherClassDiscipline.endedAt IS NULL')
+            return
           }
+
         }))
         .andWhere('person.name LIKE :search', { search: `%${search}%` })
         .groupBy('teacher.id')
@@ -61,8 +69,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
+      const cannotChange = [personCategories.MONITOR_DE_INFORMATICA, personCategories.PROFESSOR]
 
-      if(teacher.id !== Number(id) && teacher.person.category.id === personCategories.PROFESSOR) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
+      if( teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id) ) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
 
       const result = await this.repository
         .createQueryBuilder('teacher')
@@ -145,7 +154,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
 
       if (!databaseTeacher) { return { status: 404, message: 'Data not found' } }
-      if(frontendTeacher.person.category.id === personCategories.PROFESSOR && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
+      if(frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
 
       if (body.teacherClasses) { await this.updateClassRel(databaseTeacher, body) }
       if (body.teacherDisciplines) { await this.updateDisciRel(databaseTeacher, body) }

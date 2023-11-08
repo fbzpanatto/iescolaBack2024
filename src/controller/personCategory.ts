@@ -13,12 +13,10 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const studentCategoryId = personCategories.ALUNO
-
     try {
       const result = await AppDataSource.getRepository(PersonCategory)
         .createQueryBuilder('personCategory')
-        .where('personCategory.id != :id', { id: studentCategoryId })
+        .where('personCategory.id != :id', { id: personCategories.ALUNO })
         .getMany();
 
       return { status: 200, data: result };

@@ -6,5 +6,6 @@ export const personCategories = {
   COORDENADOR: 5,
   SECRETARIO: 6,
   MONITOR_DE_INFORMATICA: 7,
-  PROFESSOR: 8
+  PROFESSOR: 8,
+  ALUNO: 9
 }

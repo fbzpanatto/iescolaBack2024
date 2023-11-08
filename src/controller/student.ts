@@ -205,7 +205,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
   async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.ALUNO}}) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({ where: {id: personCategories.ALUNO}}) as PersonCategory
   }
   async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})

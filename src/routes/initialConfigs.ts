@@ -31,6 +31,7 @@ import {TOPIC} from "../mock/topic";
 import {DESCRIPTOR} from "../mock/descriptor";
 import {Descriptor} from "../model/Descriptor";
 import {Teacher} from "../model/Teacher";
+import {personCategories} from "../utils/personCategories";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -59,7 +60,7 @@ async function createAdminUser(person: Person) {
 
 async function createAdminPerson() {
   const adminCategorySource = new dataSourceController(PersonCategory).entity
-  const adminCategory = await adminCategorySource.findOneBy({ id: 1 }) as PersonCategory
+  const adminCategory = await adminCategorySource.findOneBy({ id: personCategories.ADMINISTRADOR }) as PersonCategory
   const personSource = new dataSourceController(Person).entity
   const person = new Person()
   person.name = 'Administrador'

@@ -7,4 +7,5 @@ export const PERSON_CATEGORY = [
   { name: 'Secretário', active: true },
   { name: 'Monitor de Informática', active: true },
   { name: 'Professor', active: true },
+  { name: 'Aluno', active: true }
 ];

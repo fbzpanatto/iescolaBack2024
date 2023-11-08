@@ -38,6 +38,93 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         ]
     },
     {
+        category: personCategories.DIRETOR,
+        permissions: [
+            {
+                entity: "year",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "test",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "teacher",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "student",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "transfer",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "classroom",
+                methods: firstLevelPermissions
+            },
+        ]
+    },
+    {
+        category: personCategories.VICE_DIRETOR,
+        permissions: [
+            {
+                entity: "year",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "test",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "teacher",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "student",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "transfer",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "classroom",
+                methods: firstLevelPermissions
+            },
+        ]
+    },
+    {
+        category: personCategories.COORDENADOR,
+        permissions: [
+            {
+                entity: "year",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "test",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "teacher",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "student",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "transfer",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "classroom",
+                methods: firstLevelPermissions
+            },
+        ]
+    },
+    {
         category: personCategories.SECRETARIO,
         permissions: [
             {

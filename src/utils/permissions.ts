@@ -1,35 +1,68 @@
 import { personCategories } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
-const allPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
+
+const firstLevelPermissions: Permission = { GET: true, POST: false, PUT: false, DELETE: false }
+const secondLevelPermissions: Permission = { GET: true, POST: true, PUT: false, DELETE: false }
+const thirdLevelPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: false }
+const fourthLevelPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
+    {
+        category: personCategories.SUPERVISOR,
+        permissions: [
+            {
+                entity: "year",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "test",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "teacher",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "student",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "transfer",
+                methods: thirdLevelPermissions
+            },
+            {
+                entity: "classroom",
+                methods: firstLevelPermissions
+            },
+        ]
+    },
     {
         category: personCategories.SECRETARIO,
         permissions: [
             {
                 entity: "year",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "test",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: thirdLevelPermissions
             },
             {
                 entity: "student",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: thirdLevelPermissions
             },
             {
                 entity: "transfer",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: thirdLevelPermissions
             },
             {
                 entity: "classroom",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
         ]
     },
@@ -38,27 +71,27 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         permissions: [
             {
                 entity: "year",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "test",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",
-                methods: { GET: true, POST: true }
+                methods: secondLevelPermissions
             },
             {
                 entity: "student",
-                methods: { GET: true, POST: true }
+                methods: secondLevelPermissions
             },
             {
                 entity: "transfer",
-                methods: { GET: true}
+                methods: firstLevelPermissions
             },
             {
                 entity: "classroom",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
         ]
     },
@@ -67,27 +100,27 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         permissions: [
             {
                 entity: "classroom",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "year",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",
-                methods: { GET: true }
+                methods: firstLevelPermissions
             },
             {
                 entity: "student",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: thirdLevelPermissions
             },
             {
                 entity: "transfer",
-                methods: { GET: true, POST: true, PUT: true }
+                methods: thirdLevelPermissions
             },
             {
                 entity: "test",
-                methods: allPermissions
+                methods: thirdLevelPermissions
             },
         ]
     },
@@ -96,31 +129,31 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
         permissions: [
             {
                 entity: "classroom",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "teacher",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "student",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "transfer",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "test",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "report",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             },
             {
                 entity: "year",
-                methods: allPermissions
+                methods: fourthLevelPermissions
             }
         ]
     }

@@ -28,24 +28,22 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      if(!teacher) { return { status: 404, message: 'Você não tem permissão para acessar este recurso.' } }
+      if(teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR) {
+
+      }
+
+      const teacherClasses = await this.teacherClassrooms(body?.user)
+      const notInCategoriesIds = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
 
       const newResult = await AppDataSource.getRepository(Teacher)
         .createQueryBuilder('teacher')
-        .select([
-          'teacher.id',
-          'person.id',
-          'person.name',
-          'person.birth',
-        ])
-        .leftJoin('teacher.person', 'person')
-        .andWhere(new Brackets(qb => {
-          if(!(teacher.person.category.id === personCategories.PROFESSOR)) {
-            qb.where('teacher.id > 0')
-            return
-          }
-          qb.where('teacher.id = :teacherId', { teacherId: teacher.id })
-        }))
+        .leftJoinAndSelect('teacher.person', 'person')
+        .leftJoinAndSelect('person.category', 'category')
+        .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
+        .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+        .where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategoriesIds })
+        .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
+        .andWhere('teacherClassDiscipline.endedAt IS NULL')
         .andWhere('person.name LIKE :search', { search: `%${search}%` })
         .groupBy('teacher.id')
         .getMany()

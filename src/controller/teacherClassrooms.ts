@@ -1,10 +1,9 @@
 import { GenericController } from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral} from "typeorm";
+import {Brackets, EntityTarget, FindManyOptions, ObjectLiteral} from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import {Request} from "express";
 import {TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
-import {TeacherBody} from "../interfaces/interfaces";
 import {personCategories} from "../utils/personCategories";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
@@ -37,7 +36,6 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
           .getRawMany() as { id: number, name: string, school: string }[];
 
         return { status: 200, data: classrooms };
-
       } else {
 
         const classrooms = await AppDataSource.
@@ -60,9 +58,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
           .groupBy( 'classroom.id')
           .getRawMany() as { id: number, name: string, school: string }[];
 
-
         return { status: 200, data: classrooms };
-
       }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -85,6 +81,3 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
 }
 
 export const teacherClassroomsController = new TeacherClassroomsController();
-
-
-// TODO: um professor padrão não pode criar um professor. bem como não pode alterar suas salas de aulas nem suas disciplinas?

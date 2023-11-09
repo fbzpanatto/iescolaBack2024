@@ -255,7 +255,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             },
             {
                 entity: "student",
-                methods: secondLevelPermissions
+                methods: thirdLevelPermissions
             },
             {
                 entity: "transfer",

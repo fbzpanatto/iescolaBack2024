@@ -266,8 +266,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }, isAdminSupervisor:boolean) {
 
-    const condition = options.owner === ISOWNER.OWNER;
+    const isOwner = options.owner === ISOWNER.OWNER;
     const yearId = options.year ?? (await this.currentYear()).id;
+    let allClassrooms: Classroom[] = []
+    if(isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[]}
+    console.log('allClassrooms', allClassrooms)
 
     const queryBuilder = AppDataSource.createQueryBuilder();
     queryBuilder
@@ -311,9 +314,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }))
       .andWhere(new Brackets(qb => {
         if(!isAdminSupervisor) {
-          qb.andWhere(condition? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
+          qb.andWhere(isOwner? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
+        } else {
+          qb.andWhere(isOwner? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: allClassrooms.map(classroom => classroom.id) })
         }
       }))
+
     const preResult = await queryBuilder.getRawMany();
 
     return preResult.map((item) => {

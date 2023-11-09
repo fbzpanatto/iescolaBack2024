@@ -123,10 +123,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       const user = await this.teacherByUser(body.user.user) as Teacher
-      if(user.person.category.id === personCategories.MONITOR_DE_INFORMATICA) {
-        const canCreate = [personCategories.PROFESSOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
-      }
 
       if(user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]

@@ -27,8 +27,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-
-      const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }) as StudentClassroomReturn[]
+      const isAdminSupervisor = !([personCategories.ADMINISTRADOR, personCategories.SUPERVISOR].includes(request?.body.user.category.id))
+      const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }, isAdminSupervisor) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -255,7 +255,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .groupBy('studentClassroom.id')
       .getRawOne()
   }
-  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }) {
+  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }, isAdminSupervisor:boolean) {
 
     const condition = options.owner === ISOWNER.OWNER;
     const yearId = options.year ?? (await this.currentYear()).id;
@@ -300,8 +300,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         qb.where('person.name LIKE :search', { search: `%${options.search}%` })
           .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });
       }))
-      .andWhere(condition? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
-
+      .andWhere(new Brackets(qb => {
+        if(!isAdminSupervisor) {
+          qb.andWhere(condition? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
+        }
+      }))
     const preResult = await queryBuilder.getRawMany();
 
     return preResult.map((item) => {

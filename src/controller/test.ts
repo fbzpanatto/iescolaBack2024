@@ -1,5 +1,5 @@
 import {GenericController} from "./genericController";
-import {DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
 import {Test} from "../model/Test";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -12,6 +12,7 @@ import {QuestionGroup} from "../model/QuestionGroup";
 import {StudentQuestion} from "../model/StudentQuestion";
 import {School} from "../model/School";
 import {StudentTestStatus} from "../model/StudentTestStatus";
+import {personCategories} from "../utils/personCategories";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
@@ -288,10 +289,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const yearId = request?.query.year as string
     const search = request?.query.search as string
+    const userBody = request?.body.user
 
     try {
 
-      // TODO: se não houver nenhuma sala cadastrada para o professor, vai dar erro no sistema após criação do banco de dados
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
 
       const testClasses = await AppDataSource.getRepository(Test)
@@ -304,7 +305,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.discipline", "discipline")
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
-        .where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+        .where(new Brackets(qb => {
+          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+            qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+          }
+        }))
         .andWhere("year.id = :yearId", { yearId })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();

@@ -155,6 +155,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     const yearId = request?.query.year as string
     const search = request?.query.search as string
+    const userBody = request?.body.user
+
+    console.log(userBody)
 
     try {
 

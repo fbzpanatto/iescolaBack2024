@@ -1,37 +1,38 @@
 import { Router } from "express";
 import { personCategoryController } from "../controller/personCategory";
+import havePermission from "../middleware/havePermission";
 
 export const PersonCategoryRouter = Router();
 
-PersonCategoryRouter.get('/', (req, res) => {
+PersonCategoryRouter.get('/', havePermission, (req, res) => {
 
-  personCategoryController.findAllWhere({})
+  personCategoryController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-PersonCategoryRouter.get('/:id', (req, res) => {
+PersonCategoryRouter.get('/:id', havePermission, (req, res) => {
 
   personCategoryController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-PersonCategoryRouter.post('/', (req, res) => {
+PersonCategoryRouter.post('/', havePermission, (req, res) => {
 
   personCategoryController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-PersonCategoryRouter.put('/:id', (req, res) => {
+PersonCategoryRouter.put('/:id', havePermission, (req, res) => {
 
   personCategoryController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-PersonCategoryRouter.delete('/:id', (req, res) => {
+PersonCategoryRouter.delete('/:id', havePermission, (req, res) => {
 
   personCategoryController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

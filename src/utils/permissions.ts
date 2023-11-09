@@ -43,6 +43,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "personcategory",
                 methods: firstLevelPermissions
             },
+            {
+                entity: "studentquestion",
+                methods: fourthLevelPermissions
+            },
         ]
     },
     {
@@ -80,6 +84,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "personcategory",
                 methods: firstLevelPermissions
             },
+            {
+                entity: "studentquestion",
+                methods: thirdLevelPermissions
+            },
         ]
     },
     {
@@ -112,6 +120,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             {
                 entity: "personcategory",
                 methods: firstLevelPermissions
+            },
+            {
+                entity: "studentquestion",
+                methods: thirdLevelPermissions
             },
         ]
     },
@@ -146,6 +158,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "personcategory",
                 methods: firstLevelPermissions
             },
+            {
+                entity: "studentquestion",
+                methods: thirdLevelPermissions
+            },
         ]
     },
     {
@@ -179,6 +195,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "personcategory",
                 methods: firstLevelPermissions
             },
+            {
+                entity: "studentquestion",
+                methods: thirdLevelPermissions
+            },
         ]
     },
     {
@@ -210,6 +230,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             },
             {
                 entity: "personcategory",
+                methods: firstLevelPermissions
+            },
+            {
+                entity: "studentquestion",
                 methods: firstLevelPermissions
             },
         ]
@@ -245,6 +269,10 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "personcategory",
                 methods: firstLevelPermissions
             },
+            {
+                entity: "studentquestion",
+                methods: firstLevelPermissions
+            },
         ]
     },
     {
@@ -277,7 +305,11 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
             {
                 entity: "personcategory",
                 methods: firstLevelPermissions
-            }
+            },
+            {
+                entity: "studentquestion",
+                methods: thirdLevelPermissions
+            },
         ]
     }
 ]

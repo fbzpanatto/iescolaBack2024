@@ -15,6 +15,8 @@ import { ISOWNER } from "../utils/owner";
 import { Classroom } from "../model/Classroom";
 import {StudentQuestion} from "../model/StudentQuestion";
 import {StudentTestStatus} from "../model/StudentTestStatus";
+import {Transfer} from "../model/Transfer";
+import {TransferStatus} from "../model/TransferStatus";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -108,7 +110,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
       if(!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != newClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
 
-      if(studentClassroom?.classroom.id != newClassroom.id) {
+      if(studentClassroom?.classroom.id != newClassroom.id && canChange.includes(userTeacher.person.category.id)) {
+
+        const newTransfer = new Transfer()
+        newTransfer.startedAt = new Date()
+        newTransfer.endedAt = new Date()
+        newTransfer.requester = userTeacher
+        newTransfer.requestedClassroom = newClassroom
+        newTransfer.currentClassroom = studentClassroom.classroom
+        newTransfer.receiver = userTeacher
+        newTransfer.student = student
+        newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
+
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
         await AppDataSource.getRepository(StudentClassroom).save({
           student,
@@ -117,11 +130,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           rosterNumber: Number(body.rosterNumber),
           startedAt: new Date()
         })
-      } else {
-        if(studentClassroom.rosterNumber != body.rosterNumber ) {
-          studentClassroom.rosterNumber = body.rosterNumber
-          await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, rosterNumber: body.rosterNumber })
-        }
+      }
+
+      if(studentClassroom.rosterNumber != body.rosterNumber ) {
+        studentClassroom.rosterNumber = body.rosterNumber
+        await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, rosterNumber: body.rosterNumber })
       }
 
       student.ra = body.ra;

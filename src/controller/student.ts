@@ -270,7 +270,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const yearId = options.year ?? (await this.currentYear()).id;
     let allClassrooms: Classroom[] = []
     if(isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[]}
-    console.log('allClassrooms', allClassrooms)
 
     const queryBuilder = AppDataSource.createQueryBuilder();
     queryBuilder

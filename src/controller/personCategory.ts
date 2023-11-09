@@ -23,6 +23,7 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
     if(userBody.category === personCategories.COORDENADOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.ALUNO)
     if(userBody.category === personCategories.SECRETARIO) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.ALUNO)
     if(userBody.category === personCategories.MONITOR_DE_INFORMATICA) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO)
+    if(userBody.category === personCategories.PROFESSOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO)
 
     try {
 

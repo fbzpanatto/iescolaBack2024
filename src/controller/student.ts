@@ -112,6 +112,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       if(studentClassroom?.classroom.id != newClassroom.id && canChange.includes(userTeacher.person.category.id)) {
 
+        await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
+        await AppDataSource.getRepository(StudentClassroom).save({
+          student,
+          classroom: newClassroom,
+          year: await this.currentYear(),
+          rosterNumber: Number(body.rosterNumber),
+          startedAt: new Date()
+        })
+
         const newTransfer = new Transfer()
         newTransfer.startedAt = new Date()
         newTransfer.endedAt = new Date()
@@ -121,15 +130,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         newTransfer.receiver = userTeacher
         newTransfer.student = student
         newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
-
-        await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
-        await AppDataSource.getRepository(StudentClassroom).save({
-          student,
-          classroom: newClassroom,
-          year: await this.currentYear(),
-          rosterNumber: Number(body.rosterNumber),
-          startedAt: new Date()
-        })
+        await AppDataSource.getRepository(Transfer).save(newTransfer)
       }
 
       if(studentClassroom.rosterNumber != body.rosterNumber ) {
@@ -331,6 +332,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           qb.andWhere(isOwner? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: allClassrooms.map(classroom => classroom.id) })
         }
       }))
+      .orderBy('school.shortName', 'ASC')
+      .addOrderBy('classroom.shortName', 'ASC')
+      .addOrderBy('person.name', 'ASC')
 
     const preResult = await queryBuilder.getRawMany();
 

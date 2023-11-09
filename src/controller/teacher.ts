@@ -76,6 +76,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const result = await this.repository
         .createQueryBuilder('teacher')
         .select('teacher.id', 'teacher_id')
+        .addSelect('teacher.email', 'teacher_email')
+        .addSelect('teacher.register', 'teacher_register')
         .addSelect('person.id', 'person_id')
         .addSelect('person.name', 'person_name')
         .addSelect('person.birth', 'person_birth')
@@ -95,6 +97,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       let newResult = {
         id: result.teacher_id,
+        email: result.teacher_email,
+        register: result.teacher_register,
         person: {
           id: result.person_id,
           name: result.person_name,
@@ -156,7 +160,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const category = await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: body.category.id } } ) as PersonCategory
       const person = this.createPerson({ name: body.name, birth: body.birth, category })
-      const teacher = await this.repository.save(this.createTeacher(person))
+      const teacher = await this.repository.save(this.createTeacher(person, body))
       const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
       const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
 
@@ -306,9 +310,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-  createTeacher(person: Person) {
+  createTeacher(person: Person, body: TeacherBody) {
     const teacher = new Teacher()
     teacher.person = person
+    teacher.email = body.email
+    teacher.register = body.register
     return teacher
   }
   generateUser(person: Person) {

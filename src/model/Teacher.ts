@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, OneToMany } from "typeorm"
+import {Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, OneToMany, Column} from "typeorm"
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
@@ -8,6 +8,12 @@ export class Teacher {
 
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column({ nullable: true })
+  email: string
+
+  @Column({ nullable: true })
+  register: number
 
   @OneToOne(() => Person, person => person.teacher, { cascade: true })
   @JoinColumn()

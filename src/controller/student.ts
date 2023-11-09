@@ -26,21 +26,30 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const year = request?.query.year as string
 
     try {
+      const teacher = await this.teacherByUser(request?.body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = !([personCategories.ADMINISTRADOR, personCategories.SUPERVISOR].includes(request?.body.user.category.id))
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }, isAdminSupervisor) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
   override async findOneById(id: string | number, body?: ObjectLiteral) {
     try {
+      const teacher = await this.teacherByUser(body?.user.user)
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const teacherClasses = await this.teacherClassrooms(body?.user)
       const preStudent = await this.student(Number(id));
 
       if (!preStudent) { return { status: 404, message: 'Registro não encontrado' } }
 
       const student = this.formartStudentResponse(preStudent)
-      if(!teacherClasses.classrooms.includes(student.classroom.id)) { return { status: 403, message: 'Você não tem permissão para acessar esse registro.' } }
+
+      if(
+        teacherClasses.classrooms.length > 0 &&
+        !teacherClasses.classrooms.includes(student.classroom.id) &&
+        !isAdminSupervisor
+      ) { return { status: 403, message: 'Você não tem permissão para acessar esse registro.' } }
 
 
       return { status: 200, data: student };

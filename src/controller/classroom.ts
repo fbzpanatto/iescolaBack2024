@@ -19,6 +19,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const teacher = await this.teacherByUser(body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
 
       let result = await this.repository
         .createQueryBuilder('classroom')
@@ -27,7 +28,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         .addSelect('school.shortName', 'school')
         .leftJoin('classroom.school', 'school')
         .where(new Brackets(qb => {
-          if(teacher.person.category.id === personCategories.PROFESSOR) {
+          if(!isAdminSupervisor) {
             qb.where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
           } else {
             qb.where('classroom.id > 0')

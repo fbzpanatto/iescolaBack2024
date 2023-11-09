@@ -16,13 +16,13 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
     let excludeIds = []
     const userBody = request?.body.user
 
-    if(userBody.category === personCategories.ADMINISTRADOR) excludeIds.push(personCategories.ADMINISTRADOR)
-    if(userBody.category === personCategories.SUPERVISOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR)
-    if(userBody.category === personCategories.DIRETOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR)
-    if(userBody.category === personCategories.VICE_DIRETOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR)
-    if(userBody.category === personCategories.COORDENADOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR)
-    if(userBody.category === personCategories.SECRETARIO) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO)
-    if(userBody.category === personCategories.MONITOR_DE_INFORMATICA) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.MONITOR_DE_INFORMATICA)
+    if(userBody.category === personCategories.ADMINISTRADOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.ALUNO)
+    if(userBody.category === personCategories.SUPERVISOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.ALUNO)
+    if(userBody.category === personCategories.DIRETOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.ALUNO)
+    if(userBody.category === personCategories.VICE_DIRETOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.ALUNO)
+    if(userBody.category === personCategories.COORDENADOR) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.ALUNO)
+    if(userBody.category === personCategories.SECRETARIO) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.ALUNO)
+    if(userBody.category === personCategories.MONITOR_DE_INFORMATICA) excludeIds.push(personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO, personCategories.MONITOR_DE_INFORMATICA, personCategories.ALUNO)
 
     try {
 

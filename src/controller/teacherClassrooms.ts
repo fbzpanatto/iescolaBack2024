@@ -20,23 +20,50 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
 
-      const classrooms = await AppDataSource.
-      getRepository(TeacherClassDiscipline)
-        .createQueryBuilder('teacherClassDiscipline')
-        .select([
-          'classroom.id as id',
-          'classroom.shortName as name',
-          'school.shortName as school'
-        ])
-        .leftJoin('teacherClassDiscipline.classroom', 'classroom', 'teacherClassDiscipline.endedAt IS NULL')
-        .leftJoin('classroom.school', 'school')
-        .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-        .where('teacher.id = :id', { id: teacher.id })
-        .groupBy( 'classroom.id')
-        .getRawMany() as { id: number, name: string, school: string }[];
+      if(isAdminSupervisor) {
 
-      return { status: 200, data: classrooms };
+        const classrooms = await AppDataSource
+          .getRepository(Classroom)
+          .createQueryBuilder('classroom')
+          .select([
+            'classroom.id as id',
+            'classroom.shortName as name',
+            'school.shortName as school'
+          ])
+          .leftJoin('classroom.school', 'school')
+          .groupBy( 'classroom.id')
+          .getRawMany() as { id: number, name: string, school: string }[];
+
+        return { status: 200, data: classrooms };
+
+      } else {
+
+        const classrooms = await AppDataSource.
+        getRepository(TeacherClassDiscipline)
+          .createQueryBuilder('teacherClassDiscipline')
+          .select([
+            'classroom.id as id',
+            'classroom.shortName as name',
+            'school.shortName as school'
+          ])
+          .leftJoin('teacherClassDiscipline.classroom', 'classroom')
+          .leftJoin('classroom.school', 'school')
+          .leftJoin('teacherClassDiscipline.teacher', 'teacher')
+          .where('teacher.id = :id', { id: teacher.id })
+          .andWhere(new Brackets(qb => {
+            if(!isAdminSupervisor) {
+              qb.andWhere('teacherClassDiscipline.endedAt IS NULL')
+            }
+          }))
+          .groupBy( 'classroom.id')
+          .getRawMany() as { id: number, name: string, school: string }[];
+
+
+        return { status: 200, data: classrooms };
+
+      }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

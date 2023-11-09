@@ -139,8 +139,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
+      const teacher = await this.teacherByUser(request?.body.user.user)
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if(!classrooms.includes(Number(classroomId))) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
       const test = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
@@ -203,10 +205,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearId)
 
       return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearId: string) {

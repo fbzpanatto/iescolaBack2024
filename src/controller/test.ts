@@ -233,6 +233,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("year.id = :yearId", { yearId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
+      .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
     return preResult.map(studentClassroom => {

@@ -124,6 +124,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const user = await this.teacherByUser(body.user.user) as Teacher
 
+      if(body.register) {
+        const registerExists = await AppDataSource.getRepository(Teacher).findOne({ where: { register: body.register } })
+        if(registerExists) { return { status: 409, message: 'Já existe um registro com este número de matricula.' } }
+      }
+
+      if(body.email) {
+        const emailExists = await AppDataSource.getRepository(Teacher).findOne({ where: { email: body.email } })
+        if(emailExists) { return { status: 409, message: 'Já existe um registro com este email.' } }
+      }
+
       if(user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
         if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
@@ -176,7 +186,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       return { status: 201, data: teacher }
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
 

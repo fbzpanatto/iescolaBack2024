@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, Column, OneToMany, ManyToOne } from "typeorm"
+import {Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, Column, OneToMany, ManyToOne, Index} from "typeorm"
 import { Person } from "./Person";
 import { StudentDisability } from "./StudentDisability";
 import { StudentClassroom } from "./StudentClassroom";
@@ -6,6 +6,7 @@ import { State } from "./State";
 import {Transfer} from "./Transfer";
 import {StudentQuestion} from "./StudentQuestion";
 
+@Index(["ra", "dv"], { unique: true })
 @Entity()
 export class Student {
 
@@ -16,7 +17,7 @@ export class Student {
   @JoinColumn()
   person: Person
 
-  @Column({ unique: true, nullable: false })
+  @Column({ nullable: false })
   ra: string;
 
   @Column({ nullable: true, length: 1 })

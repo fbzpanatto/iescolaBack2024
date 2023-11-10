@@ -67,7 +67,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const disabilities = await this.disabilities(body.disabilities);
       const person = this.createPerson({ name: body.name, birth: body.birth, category });
 
-      const exists = await this.repository.findOne({where: {ra: body.ra}})
+      const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv }})
       if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       if(body.user.category === personCategories.PROFESSOR) {
         if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
@@ -102,8 +102,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       if(!student) { return { status: 404, message: 'Registro não encontrado' } }
       if(!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
       if(!newClassroom) { return { status: 404, message: 'Sala não encontrada' } }
-      if(student.ra !== body.ra) {
-        const exists = await this.repository.findOne({ where: { ra: body.ra } } )
+
+      const composedBodyStudentRa = `${body.ra}${body.dv}`
+      const composedStudentRa  = `${student.ra}${student.dv}`
+
+      if(composedStudentRa !== composedBodyStudentRa) {
+        const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv } } )
         if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       }
 

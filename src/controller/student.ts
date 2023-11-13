@@ -59,6 +59,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
   override async save(body: SaveStudent) {
     try {
+      const teacher = await this.teacherByUser(body.user.user)
       const teacherClasses = await this.teacherClassrooms(body.user)
       const year = await this.currentYear();
       const state = await this.state(body.state);
@@ -81,6 +82,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() })
+
+      const newTransfer = new Transfer()
+      newTransfer.startedAt = new Date()
+      newTransfer.endedAt = new Date()
+      newTransfer.requester = teacher
+      newTransfer.requestedClassroom = classroom
+      newTransfer.currentClassroom = classroom
+      newTransfer.receiver = teacher
+      newTransfer.student = student
+      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
+      await AppDataSource.getRepository(Transfer).save(newTransfer)
+
       return { status: 201, data: student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

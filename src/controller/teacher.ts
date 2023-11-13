@@ -1,6 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, ILike, In, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
@@ -12,9 +12,9 @@ import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { personController } from "./person";
 import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
-import {User} from "../model/User";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {transferStatus} from "../utils/transferStatus";
+import { User } from "../model/User";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { transferStatus } from "../utils/transferStatus";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -136,32 +136,32 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if(user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       if(user.person.category.id === personCategories.COORDENADOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       if(user.person.category.id === personCategories.VICE_DIRETOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       if(user.person.category.id === personCategories.DIRETOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       if(user.person.category.id === personCategories.SUPERVISOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       if(user.person.category.id === personCategories.ADMINISTRADOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar este registro.' } }
+        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
       const category = await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: body.category.id } } ) as PersonCategory
@@ -169,10 +169,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacher = await this.repository.save(this.createTeacher(person, body))
       const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
       const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
-
-      // TODO: Review this code
       const { username, password } = this.generateUser(person)
       await AppDataSource.getRepository(User).save({ person: person, username, password })
+
+      if(body.category.id === personCategories.ADMINISTRADOR || body.category.id === personCategories.SUPERVISOR) { return { status: 201, data: teacher } }
 
       for(let classroom of classrooms) {
         for(let discipline of disciplines) {
@@ -186,10 +186,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       return { status: 201, data: teacher }
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
 
@@ -204,17 +201,57 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
 
       if (!databaseTeacher) { return { status: 404, message: 'Data not found' } }
+
+      if(frontendTeacher.person.category.id === personCategories.SECRETARIO) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
+      if(frontendTeacher.person.category.id === personCategories.COORDENADOR) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
+      if(frontendTeacher.person.category.id === personCategories.VICE_DIRETOR) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
+      if(frontendTeacher.person.category.id === personCategories.DIRETOR) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
+      if(frontendTeacher.person.category.id === personCategories.SUPERVISOR) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
+      if(frontendTeacher.person.category.id === personCategories.ADMINISTRADOR) {
+        const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+      }
+
       if(frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
+
+      databaseTeacher.person.name = body.name
+      databaseTeacher.person.birth = body.birth
+
+      if(databaseTeacher.person.category.id === personCategories.ADMINISTRADOR || databaseTeacher.person.category.id === personCategories.SUPERVISOR) {
+        await AppDataSource.getRepository(Teacher).save(databaseTeacher)
+        return { status: 200, data: databaseTeacher }
+      }
 
       if (body.teacherClasses) { await this.updateClassRel(databaseTeacher, body) }
       if (body.teacherDisciplines) { await this.updateDisciRel(databaseTeacher, body) }
 
-      databaseTeacher.person.name = body.name
-      databaseTeacher.person.birth = body.birth
-      await personController.save(databaseTeacher.person, {})
+      await AppDataSource.getRepository(Teacher).save(databaseTeacher)
 
       return { status: 200, data: databaseTeacher }
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
   async getRequestedStudentTransfers(request?: Request) {
     try {

@@ -204,32 +204,32 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if(frontendTeacher.person.category.id === personCategories.SECRETARIO) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.COORDENADOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.VICE_DIRETOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.DIRETOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.SUPERVISOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.ADMINISTRADOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão editar uma pessoa dessa categoria.' } }
+        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
       if(frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }

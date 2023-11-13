@@ -4,6 +4,13 @@ import havePermission from "../middleware/havePermission";
 
 export const StudentRouter = Router();
 
+StudentRouter.get('/inactive', havePermission, (req, res) => {
+
+  studentController.getAllInactives(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 StudentRouter.get('/', havePermission, (req, res) => {
 
   studentController.findAllWhere({}, req)

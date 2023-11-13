@@ -9,10 +9,10 @@ export class Teacher {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column({ unique: true, nullable: true })
+  @Column({nullable: true})
   email: string
 
-  @Column({ unique: true, nullable: true })
+  @Column({nullable: true})
   register: number
 
   @OneToOne(() => Person, person => person.teacher, { cascade: true })

@@ -21,6 +21,33 @@ import {TransferStatus} from "../model/TransferStatus";
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
+  async getAllInactives(request?: Request) {
+
+    const yearId = request?.query.year
+    const search = request?.query.search ?? ''
+
+    try {
+
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder('studentClassroom')
+        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
+        .leftJoinAndSelect('studentClassroom.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .where('year.id = :yearId', { yearId })
+        .andWhere('studentClassroom.endedAt IS NOT NULL')
+        .andWhere(new Brackets(qb => {
+          qb.where('person.name LIKE :search', { search: `%${search}%` })
+            .orWhere('student.ra LIKE :search', { search: `%${search}%` })
+        }))
+        .getMany()
+
+      return { status: 200, data: studentClassroom };
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const owner = request?.query.owner as string

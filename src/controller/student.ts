@@ -22,13 +22,14 @@ import {User} from "../model/User";
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
 
-  async getAllInactives(request?: Request) {
+  async getAllInactivates(request?: Request) {
 
     const yearId = request?.query.year
-    const search = request?.query.search ?? ''
-    const currentYear = await this.currentYear()
 
     try {
+
+      const currentYear = await this.currentYear()
+      if(!currentYear) { return { status: 409, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
       const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
@@ -56,21 +57,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .addOrderBy('studentClassroom.id', 'DESC')
         .getMany();
 
-
-
-
-
-
       return { status: 200, data: studentClassrooms };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async setInactiveNewClasstoom(body: { student: Student, newClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+  async setInactiveNewClasstoom(body: { student: Student, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
 
-    const { student, newClassroom, user } = body
+    const { student, newClassroom, oldClassroom, user } = body
 
     try {
+
+      const teacher = await this.teacherByUser(user.user)
 
       const activeStudentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
         relations: ['classroom.school', 'student.person', 'year'],
@@ -78,6 +76,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }) as StudentClassroom
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
+      const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
+
       const currentYear = await this.currentYear()
 
       if(!currentYear) { return { status: 409, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
@@ -92,7 +92,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         startedAt: new Date()
       })
 
-      // TODO: CREATE A TRANSFER REGISTER HERE
+      await AppDataSource.getRepository(Transfer).save({
+        startedAt: new Date(),
+        endedAt: new Date(),
+        requester: teacher,
+        requestedClassroom: classroom,
+        currentClassroom: oldClassroomInDatabase,
+        receiver: teacher,
+        student: student,
+        status: await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
+        year: currentYear
+      })
 
       return { status: 200, data: newStudentClassroom };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -169,6 +179,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       newTransfer.receiver = teacher
       newTransfer.student = student
       newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
+      newTransfer.year = await this.currentYear()
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 
       return { status: 201, data: student };
@@ -226,6 +237,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         newTransfer.receiver = userTeacher
         newTransfer.student = student
         newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
+        newTransfer.year = await this.currentYear()
         await AppDataSource.getRepository(Transfer).save(newTransfer)
       }
 

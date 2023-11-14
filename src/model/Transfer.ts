@@ -2,7 +2,8 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm"
 import { Teacher } from "./Teacher";
 import { Student } from "./Student";
 import { TransferStatus } from "./TransferStatus";
-import {Classroom} from "./Classroom";
+import { Classroom } from "./Classroom";
+import {Year} from "./Year";
 
 @Entity()
 export class Transfer {
@@ -33,4 +34,7 @@ export class Transfer {
 
   @Column({ nullable: true })
   endedAt: Date
+
+  @ManyToOne(() => Year, year => year.transfers)
+  year: Year
 }

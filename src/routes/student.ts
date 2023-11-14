@@ -6,7 +6,7 @@ export const StudentRouter = Router();
 
 StudentRouter.get('/inactive', havePermission, (req, res) => {
 
-  studentController.getAllInactives(req)
+  studentController.getAllInactivates(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

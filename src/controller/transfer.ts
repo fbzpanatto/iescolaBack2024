@@ -13,12 +13,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
+    const yearId = request?.query.year as string
     const search = request?.query.search as string
-    const yearFromDatabase = await AppDataSource.getRepository(Year)
-      .findOne({ where: { id: Number(request?.query.year as string) } }) as Year
-
-    const date = new Date(yearFromDatabase.createdAt)
-    const year = date.getFullYear()
 
     try {
 
@@ -41,7 +37,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
             .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
         }))
-        .andWhere('transfer.startedAt BETWEEN :start AND :end', { start: `${year}-01-01`, end: `${year}-12-31`})
+        .andWhere('transfer.year = :yearId', { yearId })
         .orderBy('transfer.startedAt', 'DESC')
         .getMany()
 
@@ -70,6 +66,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       transfer.endedAt = body.endedAt;
       transfer.requester = teacher;
       transfer.requestedClassroom = body.classroom;
+      transfer.year = await this.currentYear()
       transfer.currentClassroom = body.currentClassroom;
       transfer.status = await this.transferStatus(transferStatus.PENDING)
 

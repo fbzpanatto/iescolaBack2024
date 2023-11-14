@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
 import { Length } from "class-validator";
 import { Period } from "./Period";
 import {StudentClassroom} from "./StudentClassroom";
+import {Transfer} from "./Transfer";
 
 @Entity()
 export class Year {
@@ -27,4 +28,7 @@ export class Year {
 
   @OneToMany(() => StudentClassroom, sc => sc.year)
   studentClassrooms: StudentClassroom[]
+
+  @OneToMany(() => Transfer, t => t.year)
+  transfers: Transfer[]
 }

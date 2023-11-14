@@ -30,29 +30,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
-        .select([
-          'studentClassroom.id',
-          'studentClassroom.rosterNumber',
-          'studentClassroom.startedAt',
-          'studentClassroom.endedAt',
-          'student.id',
-          'student.ra',
-          'student.dv',
-          'state.id',
-          'state.acronym',
-          'person.id',
-          'person.name',
-          'person.birth',
-          'classroom.id',
-          'classroom.shortName',
-          'school.id',
-          'school.shortName'
-        ])
-        .leftJoin('studentClassroom.student', 'student')
-        .leftJoin('student.person', 'person')
-        .leftJoin('student.state', 'state')
-        .leftJoin('studentClassroom.classroom', 'classroom')
-        .leftJoin('classroom.school', 'school')
+        .leftJoinAndSelect('studentClassroom.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('student.state', 'state')
+        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
         .leftJoin('studentClassroom.year', 'year')
         .where('year.id = :yearId', { yearId })
         .andWhere(new Brackets(qb => {

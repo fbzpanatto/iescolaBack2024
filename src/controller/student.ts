@@ -28,22 +28,46 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
+      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
-        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-        .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoinAndSelect('studentClassroom.student', 'student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .select([
+          'studentClassroom.id',
+          'studentClassroom.rosterNumber',
+          'studentClassroom.startedAt',
+          'studentClassroom.endedAt',
+          'student.id',
+          'student.ra',
+          'student.dv',
+          'state.id',
+          'state.acronym',
+          'person.id',
+          'person.name',
+          'person.birth',
+          'classroom.id',
+          'classroom.shortName',
+          'school.id',
+          'school.shortName'
+        ])
+        .leftJoin('studentClassroom.student', 'student')
+        .leftJoin('student.person', 'person')
+        .leftJoin('student.state', 'state')
+        .leftJoin('studentClassroom.classroom', 'classroom')
+        .leftJoin('classroom.school', 'school')
+        .leftJoin('studentClassroom.year', 'year')
         .where('year.id = :yearId', { yearId })
-        .andWhere('studentClassroom.endedAt IS NOT NULL')
         .andWhere(new Brackets(qb => {
           qb.where('person.name LIKE :search', { search: `%${search}%` })
-            .orWhere('student.ra LIKE :search', { search: `%${search}%` })
+            .orWhere('student.ra LIKE :search', { search: `%${search}%` });
         }))
+        .andWhere('studentClassroom.endedAt IS NOT NULL')
+        .andWhere('studentClassroom.endedAt = (SELECT MAX(endedAt) FROM student_classroom WHERE studentId = student.id)')
+        .groupBy( 'studentClassroom.id, student.id')
+        .orderBy('school.shortName', 'ASC')
+        .addOrderBy('classroom.shortName', 'ASC')
+        .addOrderBy('person.name', 'ASC')
         .getMany()
 
-      return { status: 200, data: studentClassroom };
+      return { status: 200, data: studentClassrooms };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

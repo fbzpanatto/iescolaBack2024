@@ -11,6 +11,13 @@ StudentRouter.get('/inactive', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+StudentRouter.post('/inactive', havePermission, (req, res) => {
+
+  studentController.setInactiveNewClasstoom(req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 StudentRouter.get('/', havePermission, (req, res) => {
 
   studentController.findAllWhere({}, req)

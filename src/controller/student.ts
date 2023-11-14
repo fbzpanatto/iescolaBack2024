@@ -17,6 +17,7 @@ import {StudentQuestion} from "../model/StudentQuestion";
 import {StudentTestStatus} from "../model/StudentTestStatus";
 import {Transfer} from "../model/Transfer";
 import {TransferStatus} from "../model/TransferStatus";
+import {User} from "../model/User";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -25,6 +26,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const yearId = request?.query.year
     const search = request?.query.search ?? ''
+    const currentYear = await this.currentYear()
 
     try {
 
@@ -35,22 +37,64 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .leftJoinAndSelect('student.state', 'state')
         .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
         .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoin('studentClassroom.year', 'year')
-        .where('year.id = :yearId', { yearId })
-        .andWhere(new Brackets(qb => {
-          qb.where('person.name LIKE :search', { search: `%${search}%` })
-            .orWhere('student.ra LIKE :search', { search: `%${search}%` });
-        }))
-        .andWhere('studentClassroom.endedAt IS NOT NULL')
-        .andWhere('studentClassroom.endedAt = (SELECT MAX(endedAt) FROM student_classroom WHERE studentId = student.id)')
-        .groupBy( 'studentClassroom.id, student.id')
-        .orderBy('school.shortName', 'ASC')
-        .addOrderBy('classroom.shortName', 'ASC')
-        .addOrderBy('person.name', 'ASC')
-        .getMany()
+        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .where('studentClassroom.endedAt IS NOT NULL')
+        .andWhere('year.id = :yearId', { yearId })
+        .andWhere(qb => {
+          const subQuery = qb
+            .subQuery()
+            .select('sc2.id')
+            .from('student_classroom', 'sc2')
+            .where('sc2.studentId = student.id')
+            .andWhere('sc2.yearId = :currentYearId', { currentYearId: currentYear.id })
+            .getQuery();
+
+          return 'NOT EXISTS ' + subQuery;
+        })
+        .setParameter('currentYearId', currentYear.id)
+        .orderBy('person.name', 'ASC')
+        .addOrderBy('studentClassroom.id', 'DESC')
+        .getMany();
+
+
+
+
+
 
       return { status: 200, data: studentClassrooms };
 
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async setInactiveNewClasstoom(body: { student: Student, newClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+
+    const { student, newClassroom, user } = body
+
+    try {
+
+      const activeStudentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
+        relations: ['classroom.school', 'student.person', 'year'],
+        where: { student: { id: student.id }, endedAt: IsNull() }
+      }) as StudentClassroom
+
+      const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
+      const currentYear = await this.currentYear()
+
+      if(!currentYear) { return { status: 409, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+
+      if(activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName}. Solicite sua transferência através do menu Matrículas Ativas`} }
+
+      const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
+        student: student,
+        classroom: classroom,
+        year: currentYear,
+        rosterNumber: 99,
+        startedAt: new Date()
+      })
+
+      // TODO: CREATE A TRANSFER REGISTER HERE
+
+      return { status: 200, data: newStudentClassroom };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

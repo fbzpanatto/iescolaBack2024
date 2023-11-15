@@ -13,11 +13,10 @@ import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
 import { Classroom } from "../model/Classroom";
-import {StudentQuestion} from "../model/StudentQuestion";
-import {StudentTestStatus} from "../model/StudentTestStatus";
-import {Transfer} from "../model/Transfer";
-import {TransferStatus} from "../model/TransferStatus";
-import {User} from "../model/User";
+import { Transfer } from "../model/Transfer";
+import { TransferStatus } from "../model/TransferStatus";
+import getTimeZone from "../utils/getTimeZone";
+import {Year} from "../model/Year";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -29,44 +28,47 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
 
       const currentYear = await this.currentYear()
-      if(!currentYear) { return { status: 409, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      if(!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
-      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
-        .createQueryBuilder('studentClassroom')
-        .leftJoinAndSelect('studentClassroom.student', 'student')
+      const preResult = await AppDataSource.getRepository(Student)
+        .createQueryBuilder('student')
         .leftJoinAndSelect('student.person', 'person')
         .leftJoinAndSelect('student.state', 'state')
+        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
         .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
         .leftJoinAndSelect('classroom.school', 'school')
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .where('studentClassroom.endedAt IS NOT NULL')
         .andWhere('year.id = :yearId', { yearId })
         .andWhere(qb => {
-          const subQuery = qb
+          const subQueryMaxEndedAt = qb
             .subQuery()
-            .select('sc2.id')
+            .select('MAX(sc2.endedAt)')
             .from('student_classroom', 'sc2')
             .where('sc2.studentId = student.id')
-            .andWhere('sc2.yearId = :currentYearId', { currentYearId: currentYear.id })
+            .andWhere('sc2.yearId = :yearId', { yearId })
             .getQuery();
 
-          return 'NOT EXISTS ' + subQuery;
+          return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
         })
-        .setParameter('currentYearId', currentYear.id)
         .orderBy('person.name', 'ASC')
-        .addOrderBy('studentClassroom.id', 'DESC')
         .getMany();
 
-      return { status: 200, data: studentClassrooms };
+      const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms)}))
+
+      return { status: 200, data: result };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async setInactiveNewClasstoom(body: { student: Student, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+  async setInactiveNewClasstoom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
 
-    const { student, newClassroom, oldClassroom, user } = body
+    const { student, oldYear, newClassroom, oldClassroom, user } = body
 
     try {
+
+      const currentYear = await this.currentYear()
+      if(!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
       const teacher = await this.teacherByUser(user.user)
 
@@ -75,14 +77,43 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         where: { student: { id: student.id }, endedAt: IsNull() }
       }) as StudentClassroom
 
+      if(activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas`} }
+
+      const lastYearName = Number(currentYear.name) - 1
+      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
+      const oldYearDB = await AppDataSource.getRepository(Year).findOne({ where: { id: oldYear } }) as Year
+
+      if(!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
+      if(!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
+
+      const lastYearStudentClassroom = await AppDataSource.getRepository(Student)
+        .createQueryBuilder('student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('student.state', 'state')
+        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
+        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .where('studentClassroom.endedAt IS NOT NULL')
+        .andWhere('student.id = :studentId', { studentId: student.id })
+        .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
+        .andWhere(qb => {
+          const subQueryMaxEndedAt = qb
+            .subQuery()
+            .select('MAX(sc2.endedAt)')
+            .from('student_classroom', 'sc2')
+            .where('sc2.studentId = student.id')
+            .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
+            .getQuery();
+
+          return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
+        })
+        .getOne();
+
+      if(lastYearStudentClassroom && lastYearStudentClassroom?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.`} }
+
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
       const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
-
-      const currentYear = await this.currentYear()
-
-      if(!currentYear) { return { status: 409, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
-
-      if(activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName}. Solicite sua transferência através do menu Matrículas Ativas`} }
 
       const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
         student: student,
@@ -480,6 +511,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }
       }
     }
+  }
+
+  getOneClassroom(studentClassrooms: StudentClassroom[]) {
+    const maxEndedAtIndex = studentClassrooms.findIndex(sc => getTimeZone(sc.endedAt) === Math.max(...studentClassrooms.map(sc => getTimeZone(sc.endedAt))));
+    return studentClassrooms[maxEndedAtIndex];
   }
 }
 

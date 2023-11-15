@@ -223,7 +223,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       newTransfer.currentClassroom = classroom
       newTransfer.receiver = teacher
       newTransfer.student = student
-      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
+      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 5, name: 'Novo' } }) as TransferStatus
       newTransfer.year = await this.currentYear()
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 

@@ -51,8 +51,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
         })
+        .andWhere(qb => {
+          const subQueryCurrentYearNullEndedAt = qb
+            .subQuery()
+            .select('1')
+            .from('student_classroom', 'sc3')
+            .where('sc3.studentId = student.id')
+            .andWhere('sc3.yearId = :currentYearId', { currentYearId: currentYear.id }) // Substitua por seu valor
+            .andWhere('sc3.endedAt IS NULL')
+            .getQuery();
+
+          return `NOT EXISTS ${subQueryCurrentYearNullEndedAt}`;
+        })
+        .setParameter('currentYearId', currentYear.id) // Substitua por seu valor
         .orderBy('person.name', 'ASC')
         .getMany();
+
 
       const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms)}))
 

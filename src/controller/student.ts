@@ -74,10 +74,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return { status: 200, data: result };
 
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) {return { status: 500, message: error.message }}
   }
 
   async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
@@ -227,7 +224,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const activeStudentClassroom = lastStudentRegister.studentClassrooms.find(sc => sc.endedAt === null) as StudentClassroom
 
-        if(activeStudentClassroom) { preResult = activeStudentClassroom}
+        if(activeStudentClassroom) { preResult = activeStudentClassroom }
         else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
 
         return { status: 409, message: `Já existe um aluno com o RA informado em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
@@ -295,6 +292,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       if(!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
 
       if(studentClassroom?.classroom.id != bodyClassroom.id && canChange.includes(userTeacher.person.category.id)) {
+
+        const newClassroomNumber = Number(bodyClassroom.shortName.replace(/\D/g, ''))
+        const oldClassroomNumber = Number(studentClassroom.classroom.shortName.replace(/\D/g, ''))
+
+        if(newClassroomNumber < oldClassroomNumber) { return { status: 404, message: 'Não é possível alterar a sala para uma sala com número menor que a atual.' }}
 
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
 

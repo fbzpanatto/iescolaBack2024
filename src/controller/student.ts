@@ -30,6 +30,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const currentYear = await this.currentYear()
       if(!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
+      const lastYearName = Number(currentYear.name) - 1
+      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
+
       const preResult = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')
         .leftJoinAndSelect('student.person', 'person')
@@ -57,13 +60,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             .select('1')
             .from('student_classroom', 'sc3')
             .where('sc3.studentId = student.id')
-            .andWhere('sc3.yearId = :currentYearId', { currentYearId: currentYear.id }) // Substitua por seu valor
+            .andWhere('sc3.yearId = :currentYearId', { currentYearId: currentYear.id })
             .andWhere('sc3.endedAt IS NULL')
             .getQuery();
 
           return `NOT EXISTS ${subQueryCurrentYearNullEndedAt}`;
         })
-        .setParameter('currentYearId', currentYear.id) // Substitua por seu valor
+        .setParameter('currentYearId', currentYear.id)
         .orderBy('person.name', 'ASC')
         .getMany();
 

@@ -47,6 +47,8 @@ class YearController extends GenericController<EntityTarget<Year>> {
       const currentYear = await this.currentYear() as Year
       if(currentYear && currentYear.active && body.active) { return { status: 404, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
 
+      if(isNaN(Number(body.name))) { return { status: 404, message: `O ano ${body.name} não é um número.` } }
+
       const newYear = new Year();
       newYear.name = body.name;
       newYear.active = body.active;

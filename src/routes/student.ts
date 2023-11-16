@@ -13,7 +13,7 @@ StudentRouter.get('/inactive', havePermission, (req, res) => {
 
 StudentRouter.post('/inactive', havePermission, (req, res) => {
 
-  studentController.setInactiveNewClasstoom(req.body)
+  studentController.setInactiveNewClassroom(req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

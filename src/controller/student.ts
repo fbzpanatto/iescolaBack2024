@@ -28,9 +28,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
 
       const currentYear = await this.currentYear();
-      if (!currentYear) {
-        return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
-      }
+      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
       const lastYearName = Number(currentYear.name) - 1;
       const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
@@ -81,7 +79,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
 
-  async setInactiveNewClasstoom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+  async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
 
     const { student, oldYear, newClassroom, oldClassroom, user } = body
 

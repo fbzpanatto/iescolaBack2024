@@ -380,16 +380,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .findOne({ where: { user: { id: body.user.user } } })
 
       const period = await AppDataSource.getRepository(Period)
-        .findOne({ where: { year: body.year, bimester: body.bimester }})
-
+        .findOne({ relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } })
       if(!userPerson) return { status: 404, message: "Usuário inexistente" }
       if(!period) return { status: 404, message: "Period não encontrado" }
 
       const classes = await AppDataSource.getRepository(Classroom)
         .createQueryBuilder("classroom")
         .select(["classroom.id", "classroom.name", "classroom.shortName"])
-        .leftJoin("classroom.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
+        .leftJoin("classroom.studentClassrooms", "studentClassroom")
+        .leftJoin('studentClassroom.year', 'year')
         .where("classroom.id IN (:...classesIds)", { classesIds })
+        .andWhere('year.id = :yearId', { yearId: period.year.id })
+        .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: new Date() })
+        .andWhere('studentClassroom.endedAt IS NULL')
         .groupBy("classroom.id, studentClassroom.id")
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
@@ -410,7 +413,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       await AppDataSource.getRepository(TestQuestion).save(testQuestions)
 
       return { status: 201, data: newTest };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   override async updateId(id: number | string, body: ObjectLiteral) {

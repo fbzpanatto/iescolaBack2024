@@ -27,11 +27,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
-      const currentYear = await this.currentYear()
-      if(!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      const currentYear = await this.currentYear();
+      if (!currentYear) {
+        return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
+      }
 
-      const lastYearName = Number(currentYear.name) - 1
-      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
+      const lastYearName = Number(currentYear.name) - 1;
+      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
 
       const preResult = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')
@@ -44,38 +46,39 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .where('studentClassroom.endedAt IS NOT NULL')
         .andWhere('year.id = :yearId', { yearId })
         .andWhere(qb => {
-          const subQueryMaxEndedAt = qb
+          const subQueryNoCurrentYear = qb
+            .subQuery()
+            .select('1')
+            .from('student_classroom', 'sc1')
+            .where('sc1.studentId = student.id')
+            .andWhere('sc1.yearId = :currentYearId', { currentYearId: currentYear.id })
+            .andWhere('sc1.endedAt IS NULL')
+            .getQuery();
+
+          return `NOT EXISTS ${subQueryNoCurrentYear}`;
+        })
+        .andWhere(qb => {
+          const subQueryLastYearOrOlder = qb
             .subQuery()
             .select('MAX(sc2.endedAt)')
             .from('student_classroom', 'sc2')
             .where('sc2.studentId = student.id')
-            .andWhere('sc2.yearId = :yearId', { yearId })
+            .andWhere('sc2.yearId <= :lastYearId', { lastYearId: lastYearDB.id })
             .getQuery();
 
-          return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
+          return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`;
         })
-        .andWhere(qb => {
-          const subQueryCurrentYearNullEndedAt = qb
-            .subQuery()
-            .select('1')
-            .from('student_classroom', 'sc3')
-            .where('sc3.studentId = student.id')
-            .andWhere('sc3.yearId = :currentYearId', { currentYearId: currentYear.id })
-            .andWhere('sc3.endedAt IS NULL')
-            .getQuery();
-
-          return `NOT EXISTS ${subQueryCurrentYearNullEndedAt}`;
-        })
-        .setParameter('currentYearId', currentYear.id)
         .orderBy('person.name', 'ASC')
         .getMany();
-
 
       const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms)}))
 
       return { status: 200, data: result };
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async setInactiveNewClasstoom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {

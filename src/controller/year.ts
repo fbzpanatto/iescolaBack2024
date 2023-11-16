@@ -1,15 +1,12 @@
 import { GenericController } from "./genericController";
-import {EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import { EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
-import {Request} from "express";
-import {personCategories} from "../utils/personCategories";
-import {StudentClassroom} from "../model/StudentClassroom";
-
-// TODO: send endedAt date for the year on the front end before sending body post
-// TODO: set studentClassroom active to false for all studentClassrooms
+import { Request } from "express";
+import { personCategories } from "../utils/personCategories";
+import { StudentClassroom } from "../model/StudentClassroom";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
@@ -35,7 +32,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const canCreate = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
+      const canCreate = [personCategories.ADMINISTRADOR]
 
       if(!canCreate.includes(teacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }

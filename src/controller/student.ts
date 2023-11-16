@@ -17,6 +17,7 @@ import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import getTimeZone from "../utils/getTimeZone";
 import {Year} from "../model/Year";
+import {Max, max} from "class-validator";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -204,8 +205,33 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const disabilities = await this.disabilities(body.disabilities);
       const person = this.createPerson({ name: body.name, birth: body.birth, category });
 
-      const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv }})
-      if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } } )
+      if(exists) {
+
+        const lastStudentRegister = await AppDataSource.getRepository(Student)
+          .createQueryBuilder('student')
+          .leftJoinAndSelect('student.person', 'person')
+          .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
+          .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+          .leftJoinAndSelect('classroom.school', 'school')
+          .leftJoinAndSelect('studentClassroom.year', 'year')
+          .where('student.ra = :ra', { ra: body.ra })
+          .andWhere('student.dv = :dv', { dv: body.dv })
+          .andWhere(new Brackets(qb => {
+            qb.where('studentClassroom.endedAt IS NULL')
+              .orWhere('studentClassroom.endedAt < :currentDate', { currentDate: new Date() })
+          }))
+          .getOne() as Student;
+
+        let preResult: StudentClassroom
+
+        const activeStudentClassroom = lastStudentRegister.studentClassrooms.find(sc => sc.endedAt === null) as StudentClassroom
+
+        if(activeStudentClassroom) { preResult = activeStudentClassroom}
+        else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
+
+        return { status: 409, message: `Já existe um aluno com o RA informado em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
+      }
       if(body.user.category === personCategories.PROFESSOR) {
         if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
       }
@@ -232,7 +258,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 
       return { status: 201, data: student };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
   override async updateId(studentId: number | string, body: any) {
 

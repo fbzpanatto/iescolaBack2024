@@ -25,6 +25,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async getAllInactivates(request?: Request) {
 
     const yearId = request?.query.year
+    const search = request?.query.search
 
     try {
 
@@ -33,6 +34,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const lastYearName = Number(currentYear.name) - 1;
       const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
+
+      if(!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
 
       const preResult = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')
@@ -43,6 +46,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .leftJoinAndSelect('classroom.school', 'school')
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .where('studentClassroom.endedAt IS NOT NULL')
+        .andWhere(new Brackets(qb => {
+          qb.where('person.name LIKE :search', { search: `%${search}%` })
+            .orWhere('student.ra LIKE :search', { search: `%${search}%` });
+        }))
         .andWhere('year.id = :yearId', { yearId })
         .andWhere(qb => {
           const subQueryNoCurrentYear = qb

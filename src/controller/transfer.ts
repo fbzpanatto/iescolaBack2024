@@ -66,7 +66,6 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
       if(!currentClassroom) return { status: 404, message: 'Registro não encontrado' }
       if(!requestedClassroom) return { status: 404, message: 'Registro não encontrado' }
-      if(currentClassroom.id === requestedClassroom.id) { return { status: 404, message: 'A sala atual e a solicitada são iguais' } }
 
       const notDigit = /\D/g
       if(Number(requestedClassroom.name.replace(notDigit, '')) < Number(currentClassroom.name.replace(notDigit, ''))) {

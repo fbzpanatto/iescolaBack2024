@@ -91,10 +91,14 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const topicSource = new dataSourceController(Topic).entity
     const descriptorSource = new dataSourceController(Descriptor).entity
 
+
+    const currentYear = new Date().getFullYear()
+    const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
+
     const newYear = new Year()
-    newYear.name = '2023'
+    newYear.name = date.getFullYear().toString()
     newYear.active = true
-    newYear.createdAt = new Date()
+    newYear.createdAt = date
 
     for(let questionGroup of QUESTION_GROUP) {
       const newQuestionGroup = new QuestionGroup()

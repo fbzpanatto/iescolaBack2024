@@ -1,12 +1,12 @@
-import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
-import { Year } from "../model/Year";
-import { Bimester } from "../model/Bimester";
-import { Period } from "../model/Period";
-import { AppDataSource } from "../data-source";
-import { Request } from "express";
-import { personCategories } from "../utils/personCategories";
-import { StudentClassroom } from "../model/StudentClassroom";
+import {GenericController} from "./genericController";
+import {EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import {Year} from "../model/Year";
+import {Bimester} from "../model/Bimester";
+import {Period} from "../model/Period";
+import {AppDataSource} from "../data-source";
+import {Request} from "express";
+import {personCategories} from "../utils/personCategories";
+import {StudentClassroom} from "../model/StudentClassroom";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
@@ -44,11 +44,16 @@ class YearController extends GenericController<EntityTarget<Year>> {
       const currentYear = await this.currentYear() as Year
       if(currentYear && currentYear.active && body.active) { return { status: 404, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
 
-      if(isNaN(Number(body.name))) { return { status: 404, message: `O ano ${body.name} não é um número.` } }
+      const baseYear = await AppDataSource.getRepository(Year)
+        .createQueryBuilder('year')
+        .select('MAX(CAST(year.name AS UNSIGNED))', 'maxValue')
+        .getRawOne();
+
+      const toNewYear = Number(baseYear.maxValue) + 1
 
       const newYear = new Year();
-      newYear.name = body.name;
-      newYear.active = body.active;
+      newYear.name = toNewYear.toString();
+      newYear.active = true;
       newYear.createdAt = body.createdAt ?? new Date()
       newYear.endedAt = body.endedAt ?? null
 

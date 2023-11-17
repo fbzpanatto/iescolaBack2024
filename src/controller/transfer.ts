@@ -6,6 +6,7 @@ import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
 import { Year } from "../model/Year";
+import {Classroom} from "../model/Classroom";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -59,6 +60,18 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         }
       });
       if(transferInDatabse) return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' }
+
+      const currentClassroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: body.currentClassroom.id }})
+      const requestedClassroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: body.classroom.id }})
+
+      if(!currentClassroom) return { status: 404, message: 'Registro não encontrado' }
+      if(!requestedClassroom) return { status: 404, message: 'Registro não encontrado' }
+      if(currentClassroom.id === requestedClassroom.id) { return { status: 404, message: 'A sala atual e a solicitada são iguais' } }
+
+      const notDigit = /\D/g
+      if(Number(requestedClassroom.name.replace(notDigit, '')) < Number(currentClassroom.name.replace(notDigit, ''))) {
+        return { status: 400, message: 'Regressão de sala não é permitido.' }
+      }
 
       const transfer = new Transfer();
       transfer.student = body.student;

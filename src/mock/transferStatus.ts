@@ -3,5 +3,6 @@ export const TRANSFER_STATUS = [
   { name: "Cancelada"},
   { name: "Recusado" },
   { name: "Pendente" },
-  { name: 'Novo'}
+  { name: 'Novo'},
+  { name: 'Formado'}
 ];

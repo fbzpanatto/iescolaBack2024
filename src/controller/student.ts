@@ -8,7 +8,7 @@ import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { SaveStudent, StudentClassroomReturn } from "../interfaces/interfaces";
+import { SaveStudent, StudentClassroomReturn, User } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -17,7 +17,6 @@ import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import getTimeZone from "../utils/getTimeZone";
 import {Year} from "../model/Year";
-import {Max, max} from "class-validator";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -585,7 +584,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return studentClassrooms[maxEndedAtIndex];
   }
 
-  async graduate(studentId: number | string, body: { student: { id: number, active: boolean } } ) {
+  async graduate(studentId: number | string, body: { user: User, student: { id: number, active: boolean, classroom: Classroom }, year: number } ) {
+
+    const userTeacher = await this.teacherByUser(body.user.user)
+
     try {
 
       const student = await AppDataSource.getRepository(Student).findOne({ where: { id: Number(studentId) } }) as Student
@@ -593,6 +595,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       student.active = body.student.active
       await AppDataSource.getRepository(Student).save(student)
+
+      const newTransfer = new Transfer()
+      newTransfer.startedAt = new Date()
+      newTransfer.endedAt = new Date()
+      newTransfer.requester = userTeacher
+      newTransfer.requestedClassroom = body.student.classroom
+      newTransfer.currentClassroom = body.student.classroom
+      newTransfer.receiver = userTeacher
+      newTransfer.student = student
+      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 6, name: 'Formado' } }) as TransferStatus
+      newTransfer.year = await AppDataSource.getRepository(Year).findOne({ where: { id: body.year } }) as Year
+      await AppDataSource.getRepository(Transfer).save(newTransfer)
 
       return { status: 200, data: student };
 

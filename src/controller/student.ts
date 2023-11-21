@@ -241,7 +241,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
 
         if(!lastStudentRegister.active) {
-          return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}` }
+          return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano de ${preResult?.year.name}.` }
         }
 
         return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }

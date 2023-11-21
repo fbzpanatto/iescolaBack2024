@@ -244,7 +244,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}` }
         }
 
-        return { status: 409, message: `Já existe um aluno com o RA informado em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
+        return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
       }
       if(body.user.category === personCategories.PROFESSOR) {
         if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }

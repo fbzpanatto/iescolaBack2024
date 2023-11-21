@@ -1,5 +1,3 @@
-// TODO: apenas de lembrete. Criar testes apenas para salas que possuem alunos.
-
 export const CLASSROOM= [
   { name: "1º ANO A", shortName: "1A", active: true, category: 1 },
   { name: "1º ANO B", shortName: "1B", active: true, category: 1 },
@@ -36,6 +34,5 @@ export const CLASSROOM= [
   { name: "9º ANO A", shortName: "9A", active: true, category: 2 },
   { name: "9º ANO B", shortName: "9B", active: true, category: 2 },
   { name: "9º ANO C", shortName: "9C", active: true, category: 2 },
-  { name: "9º ANO D", shortName: "9D", active: true, category: 2 },
-  { name: "OUTROS", shortName: "OUTROS", active: false, category: 3 },
+  { name: "9º ANO D", shortName: "9D", active: true, category: 2 }
 ];

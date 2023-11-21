@@ -46,6 +46,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .leftJoinAndSelect('classroom.school', 'school')
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .where('studentClassroom.endedAt IS NOT NULL')
+        .andWhere('student.active = 1')
         .andWhere(new Brackets(qb => {
           qb.where('person.name LIKE :search', { search: `%${search}%` })
             .orWhere('student.ra LIKE :search', { search: `%${search}%` });
@@ -137,6 +138,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
       const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
+
+      const notDigit = /\D/g
+      if(Number(classroom.name.replace(notDigit, '')) < Number(oldClassroomInDatabase.name.replace(notDigit, ''))) {
+        return { status: 400, message: 'Regressão de sala não é permitido.' }
+      }
 
       const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
         student: student,
@@ -234,6 +240,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if(activeStudentClassroom) { preResult = activeStudentClassroom }
         else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
 
+        if(!lastStudentRegister.active) {
+          return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}` }
+        }
+
         return { status: 409, message: `Já existe um aluno com o RA informado em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
       }
       if(body.user.category === personCategories.PROFESSOR) {
@@ -267,6 +277,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return { status: 500, message: error.message }
     }
   }
+
   override async updateId(studentId: number | string, body: any) {
 
     try {
@@ -572,6 +583,20 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   getOneClassroom(studentClassrooms: StudentClassroom[]) {
     const maxEndedAtIndex = studentClassrooms.findIndex(sc => getTimeZone(sc.endedAt) === Math.max(...studentClassrooms.map(sc => getTimeZone(sc.endedAt))));
     return studentClassrooms[maxEndedAtIndex];
+  }
+
+  async graduate(studentId: number | string, body: { student: { id: number, active: boolean } } ) {
+    try {
+
+      const student = await AppDataSource.getRepository(Student).findOne({ where: { id: Number(studentId) } }) as Student
+      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
+
+      student.active = body.student.active
+      await AppDataSource.getRepository(Student).save(student)
+
+      return { status: 200, data: student };
+
+    } catch (error: any) {return { status: 500, message: error.message }}
   }
 }
 

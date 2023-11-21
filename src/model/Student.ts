@@ -40,4 +40,7 @@ export class Student {
 
   @OneToMany(() => Transfer, transfer => transfer.student)
   transfers: Transfer[]
+
+  @Column({ nullable: true, default: true })
+  active: boolean;
 }

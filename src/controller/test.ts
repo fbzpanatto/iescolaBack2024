@@ -1,5 +1,5 @@
 import {GenericController} from "./genericController";
-import {Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import {Test} from "../model/Test";
 import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
@@ -13,6 +13,7 @@ import {StudentQuestion} from "../model/StudentQuestion";
 import {School} from "../model/School";
 import {StudentTestStatus} from "../model/StudentTestStatus";
 import {personCategories} from "../utils/personCategories";
+import {Year} from "../model/Year";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
@@ -379,6 +380,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const userPerson = await AppDataSource.getRepository(Person)
         .findOne({ where: { user: { id: body.user.user } } })
 
+      const checkYear = await AppDataSource.getRepository(Year)
+        .findOne({ where: { id: body.year.id } })
+
+      if(!checkYear) return { status: 404, message: "Ano não encontrado" }
+      if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
+
       const period = await AppDataSource.getRepository(Period)
         .findOne({ relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } })
       if(!userPerson) return { status: 404, message: "Usuário inexistente" }
@@ -397,7 +404,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
 
-      if(!classes || classes.length < 1) return { status: 404, message: "Não existem alunos matriculados em alguma das salas informadas." }
+      if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em alguma das salas informadas." }
 
       const newTest = await AppDataSource.getRepository(Test).save({
         name: body.name,

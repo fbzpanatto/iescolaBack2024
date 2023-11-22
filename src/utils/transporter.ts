@@ -1,13 +1,23 @@
 import { createTransport } from 'nodemailer';
 
-// export const transporter = createTransport({
-//   service: 'gmail',
-//   auth: {
-//     type: 'OAuth2',
-//     user: process.env.MAIL_USERNAME,
-//     pass: process.env.MAIL_PASSWORD,
-//     clientId: process.env.OAUTH_CLIENTID,
-//     clientSecret: process.env.OAUTH_CLIENT_SECRET,
-//     refreshToken: process.env.OAUTH_REFRESH_TOKEN
-//   }
-// });
+const transporter = createTransport({
+  service: 'gmail',
+  auth: {
+    user: '',
+    pass: ''
+  }
+})
+
+const mailOptions = {
+  from: '',
+  to: '',
+  subject: '',
+  html: ''
+}
+
+export const sendEmail = (param = mailOptions) => {
+  transporter.sendMail(param, (error, info) => {
+    if (error) { console.log(error) }
+    else { console.log('Email sent: ' + info.response) }
+  })
+}

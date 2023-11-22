@@ -1,9 +1,9 @@
+require("dotenv").config();
 import express from 'express'
 import authorization from "./middleware/authorization";
 import { Router } from 'express';
 import { Application } from "express";
 import { AppDataSource } from "./data-source";
-
 import { BimesterRouter } from "./routes/bimester";
 import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
@@ -27,11 +27,10 @@ import { TestRouter } from "./routes/test";
 import { TestCategoryRouter } from "./routes/testCategory";
 import { DescriptorRouter } from "./routes/descriptor";
 import { TopicRouter } from "./routes/topic";
-import {QuestionGroupRouter} from "./routes/questionGroup";
-import {QuestionRouter} from "./routes/question";
-import {StudentQuestion} from "./model/StudentQuestion";
-import {StudentQuestionRouter} from "./routes/studentQuestion";
-import {ReportRouter} from "./routes/report";
+import { QuestionGroupRouter } from "./routes/questionGroup";
+import { QuestionRouter } from "./routes/question";
+import { StudentQuestionRouter } from "./routes/studentQuestion";
+import { ReportRouter } from "./routes/report";
 
 const bodyParser = require('body-parser');
 const app: Application = express();

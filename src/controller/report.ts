@@ -80,7 +80,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .where("year.id = :yearId", { yearId })
         .andWhere("test.id = :testId", { testId })
         .andWhere("studentStatusTest.id = :testId", { testId })
-        .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+        .andWhere(new Brackets(qb => {
+          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+          qb.orWhere("studentQuestions.id IS NOT NULL")
+        }))
         .getMany()
 
       const simplifiedSchools = schools.map(school => ({

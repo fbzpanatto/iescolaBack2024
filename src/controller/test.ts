@@ -163,37 +163,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearId)
 
-      for(let studentClassroom of studentClassrooms) {
-
-        const studentTestStatus = await AppDataSource.getRepository(StudentTestStatus)
-          .findOne({
-            where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } },
-          }) as StudentTestStatus
-
-        if(!studentTestStatus) {
-          await AppDataSource.getRepository(StudentTestStatus).save({
-            active: true,
-            test: test,
-            studentClassroom: studentClassroom,
-            observation: '',
-          })
-        }
-
-        for(let testQuestion of testQuestions) {
-          const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
-            .findOne({
-              where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } },
-            }) as StudentQuestion
-
-          if(!studentQuestion) {
-            await AppDataSource.getRepository(StudentQuestion).save({
-              answer: '',
-              testQuestion: testQuestion,
-              studentClassroom: studentClassroom,
-            })
-          }
-        }
-      }
+      await this.linkStudentToTest(studentClassrooms, test, testQuestions)
 
       const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearId)
 
@@ -294,36 +264,97 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
 
       const test = await this.getTest(Number(testId), Number(yearId))
-
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const response = await AppDataSource.getRepository(StudentClassroom)
-        .createQueryBuilder("studentClassroom")
-        .select([
-          'studentClassroom.id AS id',
-          'studentClassroom.rosterNumber AS rosterNumber',
-          'studentClassroom.startedAt AS startedAt',
-          'studentClassroom.endedAt AS endedAt',
-          'person.name AS name',
-          'student.ra AS ra',
-          'student.dv AS dv',
-        ])
-        .leftJoin("studentClassroom.year", "year")
-        .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-        .leftJoin("studentClassroom.studentStatus", "studentStatus")
-        .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: testId })
-        .leftJoin("studentClassroom.student", "student")
-        .leftJoin("student.person", "person")
-        .where("studentClassroom.classroom = :classroomId", { classroomId })
-        .andWhere("studentClassroom.startedAt > :testCreatedAt", { testCreatedAt: test.createdAt })
-        .andWhere("studentClassroom.endedAt IS NULL")
-        .andWhere("year.id = :yearId", { yearId })
-        .andWhere("studentQuestions.id IS NULL") // Filtra os registros sem studentQuestions
-        .getRawMany();
+      const response = await this.getStudentsThatAreNotIncluded(test, Number(classroomId), Number(yearId) )
 
       return { status: 200, data: response };
 
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async linkStudentToTest(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[]) {
+    for(let studentClassroom of studentClassrooms) {
+
+      const studentTestStatus = await AppDataSource.getRepository(StudentTestStatus)
+        .findOne({
+          where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } },
+        }) as StudentTestStatus
+
+      if(!studentTestStatus) {
+        await AppDataSource.getRepository(StudentTestStatus).save({
+          active: true,
+          test: test,
+          studentClassroom: studentClassroom,
+          observation: '',
+        })
+      }
+
+      for(let testQuestion of testQuestions) {
+        const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
+          .findOne({
+            where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } },
+          }) as StudentQuestion
+
+        if(!studentQuestion) {
+          await AppDataSource.getRepository(StudentQuestion).save({
+            answer: '',
+            testQuestion: testQuestion,
+            studentClassroom: studentClassroom,
+          })
+        }
+      }
+    }
+  }
+
+  async insertStudents(body: {user: ObjectLiteral, studentClassrooms: number[], test: {id: number}, year: {id: number}, classroom: {id: number}}) {
+
+    try {
+
+      const test = await this.getTest(body.test.id, body.year.id)
+      if(!test) return { status: 404, message: "Teste não encontrado" }
+
+      const studentClassrooms = await this.getStudentsThatAreNotIncluded(test, body.classroom.id, body.year.id )
+      if(!studentClassrooms || studentClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+
+      const testQuestions = await this.getTestQuestions(test.id)
+
+      const filteredStudentClassrooms = studentClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
+
+      await this.linkStudentToTest(filteredStudentClassrooms, test, testQuestions)
+
+      let result = {}
+
+      return { status: 200, data: result };
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getStudentsThatAreNotIncluded(test: Test, classroomId: number, yearId: number) {
+
+    return await AppDataSource.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .select([
+        'studentClassroom.id AS id',
+        'studentClassroom.rosterNumber AS rosterNumber',
+        'studentClassroom.startedAt AS startedAt',
+        'studentClassroom.endedAt AS endedAt',
+        'person.name AS name',
+        'student.ra AS ra',
+        'student.dv AS dv',
+      ])
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", {classroomId})
+      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+      .andWhere("studentClassroom.endedAt IS NULL")
+      .andWhere("year.id = :yearId", {yearId})
+      .andWhere("studentQuestions.id IS NULL")
+      .getRawMany() as unknown as { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }[]
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {

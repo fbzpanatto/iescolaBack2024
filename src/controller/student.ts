@@ -17,6 +17,8 @@ import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import getTimeZone from "../utils/getTimeZone";
 import {Year} from "../model/Year";
+import {Literacy} from "../model/Literacy";
+import {LiteracyTier} from "../model/LiteracyTier";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -245,6 +247,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
       }
+
       if(body.user.category === personCategories.PROFESSOR) {
         if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
       }
@@ -256,7 +259,24 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }))
       }
 
-      await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() })
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() }) as StudentClassroom
+
+      const notDigit = /\D/g
+      const classroomNumber = Number(studentClassroom.classroom.shortName.replace(notDigit, ''))
+
+      if(classroomNumber >= 1 && classroomNumber <= 3) {
+        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+
+        for(let tier of literacyTier) {
+
+          await AppDataSource.getRepository(Literacy).save({
+            studentClassroom,
+            literacyTier: tier,
+            literacyLevel: { id: 1 },
+            active: false
+          })
+        }
+      }
 
       const newTransfer = new Transfer()
       newTransfer.startedAt = new Date()

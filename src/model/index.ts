@@ -26,6 +26,9 @@ import { TestQuestion } from "./TestQuestion";
 import { QuestionGroup } from "./QuestionGroup";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
+import {Literacy} from "./Literacy";
+import {LiteracyTier} from "./LiteracyTier";
+import {LiteracyLevel} from "./LiteracyLevel";
 export const entities = [
   Bimester,
   Classroom,
@@ -33,6 +36,9 @@ export const entities = [
   Descriptor,
   Discipline,
   Disability,
+  Literacy,
+  LiteracyTier,
+  LiteracyLevel,
   Person,
   PersonCategory,
   Period,

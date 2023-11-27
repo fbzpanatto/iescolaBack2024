@@ -32,6 +32,10 @@ import {DESCRIPTOR} from "../mock/descriptor";
 import {Descriptor} from "../model/Descriptor";
 import {Teacher} from "../model/Teacher";
 import {personCategories} from "../utils/personCategories";
+import {LITERACYTIER} from "../mock/literacyTier";
+import {LiteracyTier} from "../model/LiteracyTier";
+import {LiteracyLevel} from "../model/LiteracyLevel";
+import {LITERACYLEVEL} from "../mock/literacyLevel";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -85,15 +89,29 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const classCategorySource = new dataSourceController(ClassroomCategory).entity
     const disciplineSource = new dataSourceController(Discipline).entity
     const stateSource = new dataSourceController(State).entity
-    const disabilitieSource = new dataSourceController(Disability).entity
+    const disabilitySource = new dataSourceController(Disability).entity
     const testCategorySource = new dataSourceController(TestCategory).entity
     const questionGroupSource = new dataSourceController(QuestionGroup).entity
     const topicSource = new dataSourceController(Topic).entity
     const descriptorSource = new dataSourceController(Descriptor).entity
-
+    const literacyTierSource = new dataSourceController(LiteracyTier).entity
+    const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
+
+    for(let literacyTier of LITERACYTIER) {
+      const newLiteracyTier = new LiteracyTier()
+      newLiteracyTier.name = literacyTier.name
+      await literacyTierSource.save(newLiteracyTier)
+    }
+
+    for(let literacyLevel of LITERACYLEVEL) {
+      const newLiteracyLevel = new LiteracyLevel()
+      newLiteracyLevel.name = literacyLevel.name
+      newLiteracyLevel.shortName = literacyLevel.shortName
+      await literacyLevelSource.save(newLiteracyLevel)
+    }
 
     const newYear = new Year()
     newYear.name = date.getFullYear().toString()
@@ -109,7 +127,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     for(let disability of DISABILITY) {
       const newDisability = new Disability()
       newDisability.name = disability.name
-      await disabilitieSource.save(newDisability)
+      await disabilitySource.save(newDisability)
     }
 
     for(let testCategory of TESTCATEGORY) {
@@ -215,6 +233,3 @@ InitialConfigsRouter.get('/', async (req, res) => {
     return res.status(500).json({ message: 'Erro ao criar configurações iniciais!' })
   }
 })
-
-
-//TODO: usuário admin está sendo criado sem dar aula em nenhuma turma, basta apenas não aplicar nenhum filtro na busca de turmas, alunos, etc...

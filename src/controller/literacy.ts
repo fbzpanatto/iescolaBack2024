@@ -36,13 +36,14 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoin('classroom.school', 'school')
         .leftJoin('classroom.category', 'category')
         .leftJoin('classroom.studentClassrooms', 'studentClassroom')
-        .leftJoin('studentClassroom.year', 'year', 'year.id = :yearId', { yearId })
+        .leftJoin('studentClassroom.year', 'year')
         .where(new Brackets(qb => {
           if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
         .having('COUNT(studentClassroom.id) > 0')
+        .andWhere('year.id = :yearId', { yearId })
         .andWhere('category.id = :categoryId', { categoryId: classroomCategory.PEB_I })
         .andWhere('classroom.active = :active', { active: true })
         .andWhere(new Brackets(qb => {

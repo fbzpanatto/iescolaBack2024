@@ -3,10 +3,9 @@ import { Brackets, EntityTarget } from "typeorm";
 import { Literacy } from "../model/Literacy";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { StudentClassroom } from "../model/StudentClassroom";
 import { personCategories } from "../utils/personCategories";
 import { Classroom } from "../model/Classroom";
-import {classroomCategory} from "../utils/classroomCategory";
+import { classroomCategory } from "../utils/classroomCategory";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 

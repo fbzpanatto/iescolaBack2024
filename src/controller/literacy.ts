@@ -6,12 +6,13 @@ import { AppDataSource } from "../data-source";
 import { personCategories } from "../utils/personCategories";
 import { Classroom } from "../model/Classroom";
 import { classroomCategory } from "../utils/classroomCategory";
+import { StudentClassroom } from "../model/StudentClassroom";
+import {LiteracyLevel} from "../model/LiteracyLevel";
+import {LiteracyTier} from "../model/LiteracyTier";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
-  constructor() {
-    super(Literacy);
-  }
+  constructor() { super(Literacy) }
 
   async getClassrooms(req: Request) {
 
@@ -52,38 +53,42 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  // async getStudentClassrooms(request: Request) {
-  //
-  //   const yearId = request?.query.year as string
-  //   const userBody = request?.body.user
-  //
-  //   try {
-  //
-  //     const teacherClasses = await this.teacherClassrooms(request?.body.user)
-  //
-  //     // TODO: Review this query
-  //     let newResult = await AppDataSource.getRepository(StudentClassroom)
-  //       .createQueryBuilder('studentClassroom')
-  //       .leftJoin('studentClassroom.year', 'year')
-  //       .leftJoinAndSelect('studentClassroom.student', 'student')
-  //       .leftJoinAndSelect('student.person', 'person')
-  //       .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
-  //       .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
-  //       .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
-  //       .leftJoin('studentClassroom.classroom', 'classroom')
-  //       .leftJoin('classroom.school', 'school')
-  //       .where(new Brackets(qb => {
-  //         if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
-  //           qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
-  //         }
-  //       }))
-  //       .andWhere('literacies.id IS NOT NULL')
-  //       .andWhere("year.id = :yearId", { yearId })
-  //       .getMany()
-  //
-  //     return { status: 200, data: newResult }
-  //   } catch (error: any) { return { status: 500, message: error.message } }
-  // }
+  async getStudentClassrooms(request: Request) {
+
+    const yearId = request?.query.year as string
+    const userBody = request?.body.user
+    const classroomId = request?.params.id as string
+
+    try {
+
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+
+      const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
+      const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
+
+      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder('studentClassroom')
+        .leftJoin('studentClassroom.year', 'year')
+        .leftJoinAndSelect('studentClassroom.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
+        .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+        .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+        .leftJoin('studentClassroom.classroom', 'classroom')
+        .leftJoin('classroom.school', 'school')
+        .where(new Brackets(qb => {
+          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+            qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+          }
+        }))
+        .andWhere('classroom.id = :classroomId', { classroomId })
+        .andWhere('literacies.id IS NOT NULL')
+        .andWhere("year.id = :yearId", { yearId })
+        .getMany()
+
+      return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const literacyController = new LiteracyController();

@@ -11,9 +11,9 @@ LiteracyRouter.get('/', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-// LiteracyRouter.get('/classroom/:id', havePermission, (req, res) => {
-//
-//   literacyController.getStudentClassrooms(req)
-//     .then(r => res.status(r.status).json(r))
-//     .catch(e => res.status(e.status).json(e))
-// })
+LiteracyRouter.get('/:id/classroom', havePermission, (req, res) => {
+
+  literacyController.getStudentClassrooms(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})

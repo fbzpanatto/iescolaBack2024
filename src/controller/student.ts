@@ -151,7 +151,23 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         year: currentYear,
         rosterNumber: 99,
         startedAt: new Date()
-      })
+      }) as StudentClassroom
+
+      const classroomNumber = Number(classroom.shortName.replace(notDigit, ''))
+
+      if(classroomNumber >= 1 && classroomNumber <= 3) {
+        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+
+        for(let tier of literacyTier) {
+
+          await AppDataSource.getRepository(Literacy).save({
+            studentClassroom: newStudentClassroom,
+            literacyTier: tier,
+            literacyLevel: { id: 1 },
+            active: false
+          })
+        }
+      }
 
       await AppDataSource.getRepository(Transfer).save({
         startedAt: new Date(),
@@ -337,13 +353,30 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
 
-        await AppDataSource.getRepository(StudentClassroom).save({
+        const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
           student,
           classroom: bodyClassroom,
           year: await this.currentYear(),
           rosterNumber: Number(body.rosterNumber),
           startedAt: new Date()
-        })
+        }) as StudentClassroom
+
+        const notDigit = /\D/g
+        const classroomNumber = Number(bodyClassroom.shortName.replace(notDigit, ''))
+
+        if(classroomNumber >= 1 && classroomNumber <= 3) {
+          const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+
+          for(let tier of literacyTier) {
+
+            await AppDataSource.getRepository(Literacy).save({
+              studentClassroom: newStudentClassroom,
+              literacyTier: tier,
+              literacyLevel: { id: 1 },
+              active: false
+            })
+          }
+        }
 
         const newTransfer = new Transfer()
         newTransfer.startedAt = new Date()

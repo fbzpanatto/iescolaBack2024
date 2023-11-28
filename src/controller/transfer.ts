@@ -7,6 +7,8 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
 import { Year } from "../model/Year";
 import {Classroom} from "../model/Classroom";
+import {LiteracyTier} from "../model/LiteracyTier";
+import {Literacy} from "../model/Literacy";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -127,13 +129,30 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           .where('classroom.id = :classroom', { classroom: body.classroom.id })
           .getRawOne()
 
-        await AppDataSource.getRepository(StudentClassroom).save({
+        const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
           student: body.student,
           classroom: transfer.requestedClassroom,
           startedAt: new Date(),
           rosterNumber: highestRosterNumber.number + 1,
           year: await this.currentYear()
-        })
+        }) as StudentClassroom
+
+        const notDigit = /\D/g
+        const classroomNumber = Number(transfer.requestedClassroom.shortName.replace(notDigit, ''))
+
+        if(classroomNumber >= 1 && classroomNumber <= 3) {
+          const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+
+          for(let tier of literacyTier) {
+
+            await AppDataSource.getRepository(Literacy).save({
+              studentClassroom: newStudentClassroom,
+              literacyTier: tier,
+              literacyLevel: { id: 1 },
+              active: false
+            })
+          }
+        }
 
         await AppDataSource.getRepository(StudentClassroom).save({
           ...studentClassroom,

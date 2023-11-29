@@ -7,8 +7,8 @@ import { personCategories } from "../utils/personCategories";
 import { Classroom } from "../model/Classroom";
 import { classroomCategory } from "../utils/classroomCategory";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {LiteracyTier} from "../model/LiteracyTier";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LiteracyTier } from "../model/LiteracyTier";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -88,6 +88,45 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number }, user: { user: number, username: string, category: number, iat: number, exp: number }}) {
+
+    const { studentClassroom, literacyTier, literacyLevel, user } = body
+
+    try {
+
+      const teacherClasses = await this.teacherClassrooms(user)
+
+      const stLiteracy = await AppDataSource.getRepository(Literacy)
+        .createQueryBuilder('literacy')
+        .leftJoin('literacy.studentClassroom', 'studentClassroom')
+        .leftJoin('studentClassroom.classroom', 'classroom')
+        .leftJoin('literacy.literacyTier', 'literacyTier')
+        .where(new Brackets(qb => {
+          if(user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
+            qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+          }
+        }))
+        .andWhere('studentClassroom.id = :studentClassroomId', { studentClassroomId: studentClassroom.id })
+        .andWhere('literacy.literacyTier = :literacyTierId', { literacyTierId: literacyTier.id })
+        .getOne()
+
+      if(!stLiteracy) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
+
+      const literacyLevelDb = await AppDataSource.getRepository(LiteracyLevel).findOne({
+        where: { id: literacyLevel.id }
+      })
+
+      if(!literacyLevelDb) { return { status: 404, message: 'Registro não encontrado' } }
+
+      stLiteracy.literacyLevel = literacyLevelDb
+      const result = await AppDataSource.getRepository(Literacy).save(stLiteracy)
+
+      return { status: 200, data: result }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+
   }
 }
 

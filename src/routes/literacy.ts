@@ -17,3 +17,10 @@ LiteracyRouter.get('/:id/classroom', havePermission, (req, res) => {
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
+
+LiteracyRouter.put('/:id/classroom', havePermission, (req, res) => {
+
+  literacyController.updateLiteracy(req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})

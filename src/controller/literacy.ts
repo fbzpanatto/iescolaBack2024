@@ -59,6 +59,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     const userBody = request?.body.user
     const classroomId = request?.params.id as string
 
+    console.log('yearId', yearId)
+    console.log('classroomId', classroomId)
+
     try {
 
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
@@ -68,14 +71,14 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
-        .leftJoin('studentClassroom.year', 'year')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
         .leftJoinAndSelect('studentClassroom.student', 'student')
         .leftJoinAndSelect('student.person', 'person')
         .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
         .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
-        .leftJoin('studentClassroom.classroom', 'classroom')
-        .leftJoin('classroom.school', 'school')
+        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
         .where(new Brackets(qb => {
           if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
@@ -85,6 +88,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere('literacies.id IS NOT NULL')
         .andWhere("year.id = :yearId", { yearId })
         .getMany()
+
+      console.log('studentClassrooms', studentClassrooms)
 
       return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
     } catch (error: any) { return { status: 500, message: error.message } }

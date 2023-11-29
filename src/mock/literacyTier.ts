@@ -1,5 +1,6 @@
 export const LITERACYTIER = [
-  { name: "AVALIAÇÃO INICIAL" },
-  { name: "AVALIAÇÃO DE PERCURSO" },
-  { name: "AVALIAÇÃO FINAL" }
+  { name: "1ª AVALIAÇÃO" },
+  { name: "2ª AVALIAÇÃO" },
+  { name: "3ª AVALIAÇÃO" },
+  { name: "4ª AVALIAÇÃO" }
 ];

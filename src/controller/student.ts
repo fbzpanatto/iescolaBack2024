@@ -162,8 +162,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           await AppDataSource.getRepository(Literacy).save({
             studentClassroom: newStudentClassroom,
-            literacyTier: tier,
-            literacyLevel: { id: 1 }
+            literacyTier: tier
           })
         }
       }
@@ -286,8 +285,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           await AppDataSource.getRepository(Literacy).save({
             studentClassroom,
-            literacyTier: tier,
-            literacyLevel: { id: 1 }
+            literacyTier: tier
           })
         }
       }
@@ -369,8 +367,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
             await AppDataSource.getRepository(Literacy).save({
               studentClassroom: newStudentClassroom,
-              literacyTier: tier,
-              literacyLevel: { id: 1 }
+              literacyTier: tier
             })
           }
         }

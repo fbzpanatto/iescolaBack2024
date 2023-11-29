@@ -147,8 +147,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
             await AppDataSource.getRepository(Literacy).save({
               studentClassroom: newStudentClassroom,
-              literacyTier: tier,
-              literacyLevel: { id: 1 }
+              literacyTier: tier
             })
           }
         }

@@ -15,6 +15,6 @@ export class Literacy {
   @ManyToOne(() => LiteracyLevel, literacyLevel => literacyLevel.literacies, { nullable: true })
   literacyLevel: LiteracyLevel
 
-  @ManyToOne(() => LiteracyTier, literacyTier => literacyTier.literacies, { nullable: true })
+  @ManyToOne(() => LiteracyTier, literacyTier => literacyTier.literacies, { nullable: false })
   literacyTier: LiteracyTier
 }

@@ -17,7 +17,4 @@ export class Literacy {
 
   @ManyToOne(() => LiteracyTier, literacyTier => literacyTier.literacies, { nullable: true })
   literacyTier: LiteracyTier
-
-  @Column({ default: false })
-  active: boolean
 }

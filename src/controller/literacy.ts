@@ -59,9 +59,6 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     const userBody = request?.body.user
     const classroomId = request?.params.id as string
 
-    console.log('yearId', yearId)
-    console.log('classroomId', classroomId)
-
     try {
 
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
@@ -88,8 +85,6 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere('literacies.id IS NOT NULL')
         .andWhere("year.id = :yearId", { yearId })
         .getMany()
-
-      console.log('studentClassrooms', studentClassrooms)
 
       return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
     } catch (error: any) { return { status: 500, message: error.message } }

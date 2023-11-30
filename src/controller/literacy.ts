@@ -9,6 +9,7 @@ import { classroomCategory } from "../utils/classroomCategory";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LiteracyTier } from "../model/LiteracyTier";
+import {Year} from "../model/Year";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -55,7 +56,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
   async getStudentClassrooms(request: Request) {
 
-    const yearId = request?.query.year as string
+    const yearId = request?.query.year
     const userBody = request?.body.user
     const classroomId = request?.params.id as string
 
@@ -65,6 +66,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
       const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
+
+      const currentYear = await this.currentYear() as Year
 
       const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
@@ -83,7 +86,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }))
         .andWhere('classroom.id = :classroomId', { classroomId })
         .andWhere('literacies.id IS NOT NULL')
-        .andWhere("year.id = :yearId", { yearId })
+        .andWhere("year.id = :yearId", { yearId: yearId ?? currentYear.id })
         .getMany()
 
       return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }

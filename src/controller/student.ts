@@ -230,6 +230,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const disabilities = await this.disabilities(body.disabilities);
       const person = this.createPerson({ name: body.name, birth: body.birth, category });
 
+      if(!year) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' }}
+
       const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } } )
       if(exists) {
 

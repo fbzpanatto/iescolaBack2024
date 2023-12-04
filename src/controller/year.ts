@@ -81,14 +81,14 @@ class YearController extends GenericController<EntityTarget<Year>> {
       if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
 
       const yearExists = await this.checkIfExists(body)
-      if(yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 404, message: `O ano ${body.name} já existe.` } }
+      if(yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
 
       const currentYear = await this.currentYear() as Year
-      if(currentYear && currentYear.active && body.active) { return { status: 404, message: `O ano ${currentYear.name} está ativo.` } }
+      if(currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo.` } }
 
       for (const prop in body) { yearToUpdate[prop] = body[prop as keyof Year] }
 
-      if(!body.active && body.endedAt === '' || body.endedAt === null) { return { status: 404, message: 'Data de encerramento não pode ser vazia.'} }
+      if(!body.active && body.endedAt === '' || body.endedAt === null) { return { status: 400, message: 'Data de encerramento não pode ser vazia.'} }
 
       if(!body.active && body.endedAt) {
 

@@ -136,8 +136,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getAllClassroomStudents(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    console.log('comming here')
-
     const testId = request?.params.id
     const classroomId = request?.params.classroom
     const yearId = request?.query.year as string

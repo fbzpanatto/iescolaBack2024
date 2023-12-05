@@ -16,14 +16,17 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const yearId = request?.query.year as string
+    const year = request?.params.year as string
     const search = request?.query.search as string
+
+    console.log(year)
 
     try {
 
       const result = await AppDataSource.getRepository(Transfer)
         .createQueryBuilder('transfer')
         .leftJoinAndSelect('transfer.status', 'status')
+        .leftJoin('transfer.year', 'year')
         .leftJoinAndSelect('transfer.requester', 'requester')
         .leftJoinAndSelect('requester.person', 'requesterPerson')
         .leftJoinAndSelect('transfer.student', 'student')
@@ -40,7 +43,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
             .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
         }))
-        .andWhere('transfer.year = :yearId', { yearId })
+        .andWhere('year.name = :year', { year })
         .orderBy('transfer.startedAt', 'DESC')
         .getMany()
 

@@ -4,7 +4,7 @@ import havePermission from "../middleware/havePermission";
 
 export const TransferRouter = Router();
 
-TransferRouter.get('/', havePermission, (req, res) => {
+TransferRouter.get('/:year', havePermission, (req, res) => {
 
   transferController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))

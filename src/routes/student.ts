@@ -18,7 +18,7 @@ StudentRouter.post('/inactive', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-StudentRouter.get('/:year', havePermission, (req, res) => {
+StudentRouter.get('/', havePermission, (req, res) => {
 
   studentController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))

@@ -19,8 +19,6 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     const year = request?.params.year as string
     const search = request?.query.search as string
 
-    console.log(year)
-
     try {
 
       const result = await AppDataSource.getRepository(Transfer)

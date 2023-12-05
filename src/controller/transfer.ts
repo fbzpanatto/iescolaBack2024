@@ -98,9 +98,9 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         relations: ['status', 'requester.person', 'requestedClassroom'],
         where: { id: Number(id) }
       })
-      if(!transfer) return { status: 404, message: 'Registro não encontrado' }
+      if(!transfer) return { status: 404, message: 'Registro não encontrado.' }
       if(teacher.id !== transfer.requester.id && body.cancel) {
-        return { status: 403, message: 'Você não tem permissão para alterar este registro'}
+        return { status: 403, message: 'Você não tem permissão para alterar este registro.'}
       }
       if(body.cancel) {
         transfer.status = await this.transferStatus(transferStatus.CANCELED)
@@ -120,7 +120,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
           .findOne({where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
 
-        if(!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
+        if(!studentClassroom) { return { status: 404, message: 'Registro não encontrado.' } }
 
         const highestRosterNumber = await AppDataSource.getRepository(StudentClassroom)
           .createQueryBuilder('studentClassroom')

@@ -187,7 +187,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const owner = request?.query.owner as string
     const search = request?.query.search as string
-    const year = request?.query.year as string
+    const year = request?.params.year as string
 
     try {
       const teacher = await this.teacherByUser(request?.body.user.user)
@@ -485,7 +485,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }, isAdminSupervisor:boolean) {
 
     const isOwner = options.owner === ISOWNER.OWNER;
-    const yearId = options.year ?? (await this.currentYear()).id;
+    const yearName = options.year ?? (await this.currentYear()).name;
     let allClassrooms: Classroom[] = []
     if(isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[]}
 
@@ -524,7 +524,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
       .leftJoin('studentClassroom.year', 'year')
-      .where('year.id = :yearId', { yearId })
+      .where('year.name = :yearName', { yearName })
       .andWhere(new Brackets(qb => {
         qb.where('person.name LIKE :search', { search: `%${options.search}%` })
           .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });

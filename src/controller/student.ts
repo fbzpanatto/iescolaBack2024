@@ -36,7 +36,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const lastYearName = Number(currentYear.name) - 1;
       const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
 
-      if(!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
+      if(!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.` } }
 
       const preResult = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')

@@ -185,6 +185,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
+    console.log('comming here')
+
     const owner = request?.query.owner as string
     const search = request?.query.search as string
     const year = request?.params.year as string

@@ -4,7 +4,7 @@ import havePermission from "../middleware/havePermission";
 
 export const ReportRouter = Router();
 
-ReportRouter.get('/', havePermission, (req, res) => {
+ReportRouter.get('/:year', havePermission, (req, res) => {
 
   reportController.findAllWhere({}, req)
     .then(r => res.status(r.status).json(r))

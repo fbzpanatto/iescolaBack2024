@@ -138,7 +138,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const testId = request?.params.id
     const classroomId = request?.params.classroom
-    const yearId = request?.query.year as string
+    const yearName = request?.params.year
 
     try {
 
@@ -147,7 +147,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
-      const test = await this.getTest(Number(testId), Number(yearId))
+      const test = await this.getTest(Number(testId), Number(yearName))
 
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
@@ -161,17 +161,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .where("classroom.id = :classroomId", { classroomId })
         .getOne();
 
-      const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearId)
+      const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearName as string)
 
       await this.linkStudentToTest(studentClassrooms, test, testQuestions)
 
-      const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearId)
+      const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearName as string)
 
       return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
-  async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearId: string) {
+  async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
     const preResult = await AppDataSource.getRepository(StudentClassroom)
@@ -193,7 +196,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }))
       .andWhere("testQuestion.test = :testId", { testId: test.id })
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.id = :yearId", { yearId })
+      .andWhere("year.name = :yearName", { yearName })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
@@ -214,7 +217,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  async studentClassrooms(test: Test, classroomId: number, yearId: string) {
+  async studentClassrooms(test: Test, classroomId: number, yearName: string) {
     return await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
@@ -228,7 +231,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         qb.orWhere("studentQuestions.id IS NOT NULL")
       }))
-      .andWhere("year.id = :yearId", { yearId })
+      .andWhere("year.name = :yearName", { yearName })
       .getMany();
   }
 
@@ -560,7 +563,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getTest(testId:number , yearId: number) {
+  async getTest(testId:number , yearName: number) {
     return await AppDataSource.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.person", "person")
@@ -570,7 +573,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.discipline", "discipline")
       .leftJoinAndSelect("test.category", "category")
       .where("test.id = :testId", {testId})
-      .andWhere("year.id = :yearId", {yearId})
+      .andWhere("year.name = :yearName", {yearName})
       .getOne()
   }
 }

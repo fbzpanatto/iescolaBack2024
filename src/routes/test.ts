@@ -11,7 +11,7 @@ TestRouter.get('/:year/all', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.get('/:id/classroom/:classroom', havePermission, (req, res) => {
+TestRouter.get('/:id/:year/:classroom', havePermission, (req, res) => {
 
   testController.getAllClassroomStudents({}, req)
     .then(r => res.status(r.status).json(r))

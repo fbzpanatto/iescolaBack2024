@@ -4,7 +4,7 @@ import havePermission from "../middleware/havePermission";
 
 export const StudentRouter = Router();
 
-StudentRouter.get('/inactive', havePermission, (req, res) => {
+StudentRouter.get('/inactive/:year', havePermission, (req, res) => {
 
   studentController.getAllInactivates(req)
     .then(r => res.status(r.status).json(r))

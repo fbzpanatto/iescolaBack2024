@@ -25,7 +25,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async getAllInactivates(request?: Request) {
 
-    const yearId = request?.query.year
+    const yearName = request?.params.year
     const search = request?.query.search
 
     try {
@@ -52,7 +52,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           qb.where('person.name LIKE :search', { search: `%${search}%` })
             .orWhere('student.ra LIKE :search', { search: `%${search}%` });
         }))
-        .andWhere('year.id = :yearId', { yearId })
+        .andWhere('year.name = :yearName', { yearName })
         .andWhere(qb => {
           const subQueryNoCurrentYear = qb
             .subQuery()

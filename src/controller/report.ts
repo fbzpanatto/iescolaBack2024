@@ -129,7 +129,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       let response = { ...test, testQuestions, questionGroups, schools: simplifiedArray }
       return { status: 200, data: response };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async getTestQuestions(testId: number) {
@@ -157,7 +160,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const yearName = request?.params.year as string
+    const yearId = request?.query.year as string
     const search = request?.query.search as string
 
     try {
@@ -170,9 +173,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .createQueryBuilder("test")
         .leftJoinAndSelect("test.person", "person")
         .leftJoinAndSelect("test.period", "period")
-        .leftJoinAndSelect("test.category", "category")
-        .leftJoinAndSelect("period.year", "year")
         .leftJoinAndSelect("period.bimester", "bimester")
+        .leftJoinAndSelect("period.year", "year")
+        .leftJoinAndSelect("test.category", "category")
         .leftJoinAndSelect("test.discipline", "discipline")
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
@@ -181,7 +184,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
-        .andWhere("year.name = :yearName", { yearName })
+        .andWhere("year.id = :yearId", { yearId })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 

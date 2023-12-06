@@ -42,7 +42,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getReport(request: Request) {
 
-    const yearId = request?.query.year as string
+    const yearName = request?.params.year
     const testId = request?.params.id
 
     try {
@@ -62,7 +62,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.category", "category")
         .leftJoinAndSelect("test.person", "testPerson")
         .where("test.id = :testId", { testId })
-        .andWhere("periodYear.id = :yearId", { yearId })
+        .andWhere("periodYear.name = :yearName", { yearName })
         .getOne()
 
       if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -77,7 +77,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
         .leftJoin("testQuestion.test", "test")
         .leftJoin("studentClassroom.year", "year")
-        .where("year.id = :yearId", { yearId })
+        .where("year.name = :yearName", { yearName })
         .andWhere("test.id = :testId", { testId })
         .andWhere("studentStatusTest.id = :testId", { testId })
         .andWhere(new Brackets(qb => {
@@ -160,7 +160,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const yearId = request?.query.year as string
+    const yearName = request?.params.year as string
     const search = request?.query.search as string
 
     try {
@@ -184,7 +184,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
-        .andWhere("year.id = :yearId", { yearId })
+        .andWhere("year.name = :yearName", { yearName })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 

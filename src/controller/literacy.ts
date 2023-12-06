@@ -18,7 +18,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
   async getClassrooms(req: Request) {
 
     const search = req.query.search as string
-    const yearId = req.query.year as string
+    const yearName = req.params.year as string
     const userBody = req.body.user
 
     try {
@@ -30,6 +30,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('classroom.school', 'school')
         .leftJoinAndSelect('classroom.category', 'category')
         .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassroom')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
         .leftJoin('studentClassroom.literacies', 'literacies')
         .where(new Brackets(qb => {
           if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
@@ -39,7 +40,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere('category.id = :categoryId', { categoryId: classroomCategory.PEB_I })
         .andWhere('literacies.id IS NOT NULL')
         .andWhere('classroom.active = :active', { active: true })
-        .andWhere('studentClassroom.year = :yearId', { yearId })
+        .andWhere('year.name = :yearName', { yearName })
         .andWhere(new Brackets(qb => {
           if(search) {
             qb.where("school.name LIKE :search", { search: `%${search}%` })

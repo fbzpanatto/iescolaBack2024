@@ -4,7 +4,7 @@ import havePermission from "../middleware/havePermission";
 
 export const LiteracyRouter = Router();
 
-LiteracyRouter.get('/', havePermission, (req, res) => {
+LiteracyRouter.get('/:year', havePermission, (req, res) => {
 
   literacyController.getClassrooms(req)
     .then(r => res.status(r.status).json(r))

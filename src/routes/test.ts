@@ -25,14 +25,14 @@ TestRouter.get('/:id/classroom/:classroom/graphic', havePermission, (req, res) =
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.get('/:id/classroom/:classroom/include', havePermission, (req, res) => {
+TestRouter.get('/:id/:year/:classroom/include', havePermission, (req, res) => {
 
   testController.getAllToInsert(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.post('/:id/classroom/:classroom/include', havePermission, (req, res) => {
+TestRouter.post('/:id/:classroom/include', havePermission, (req, res) => {
 
   testController.insertStudents(req.body)
     .then(r => res.status(r.status).json(r))

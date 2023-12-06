@@ -262,14 +262,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const testId = request?.params.id
     const classroomId = request?.params.classroom
-    const yearId = request?.query.year as string
+    const yearName = request.params.year
 
     try {
 
-      const test = await this.getTest(Number(testId), Number(yearId))
+      const test = await this.getTest(Number(testId), Number(yearName))
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const response = await this.getStudentsThatAreNotIncluded(test, Number(classroomId), Number(yearId) )
+      const response = await this.getStudentsThatAreNotIncluded(test, Number(classroomId), Number(yearName) )
 
       return { status: 200, data: response };
 
@@ -310,14 +310,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async insertStudents(body: {user: ObjectLiteral, studentClassrooms: number[], test: {id: number}, year: {id: number}, classroom: {id: number}}) {
+  async insertStudents(body: {user: ObjectLiteral, studentClassrooms: number[], test: {id: number}, year: number, classroom: {id: number}}) {
 
     try {
 
-      const test = await this.getTest(body.test.id, body.year.id)
+      const test = await this.getTest(body.test.id, body.year)
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const studentClassrooms = await this.getStudentsThatAreNotIncluded(test, body.classroom.id, body.year.id )
+      const studentClassrooms = await this.getStudentsThatAreNotIncluded(test, body.classroom.id, body.year )
       if(!studentClassrooms || studentClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
 
       const testQuestions = await this.getTestQuestions(test.id)
@@ -333,7 +333,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getStudentsThatAreNotIncluded(test: Test, classroomId: number, yearId: number) {
+  async getStudentsThatAreNotIncluded(test: Test, classroomId: number, yearName: number) {
 
     return await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -355,7 +355,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("studentClassroom.classroom = :classroomId", {classroomId})
       .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
       .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("year.id = :yearId", {yearId})
+      .andWhere("year.name = :yearName", {yearName})
       .andWhere("studentQuestions.id IS NULL")
       .getRawMany() as unknown as { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }[]
   }

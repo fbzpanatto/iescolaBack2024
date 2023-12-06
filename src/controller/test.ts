@@ -359,7 +359,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    const yearId = request?.query.year as string
+    const yearName = request?.params.year
     const search = request?.query.search as string
     const userBody = request?.body.user
 
@@ -382,7 +382,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
-        .andWhere("year.id = :yearId", { yearId })
+        .andWhere("year.name = :yearName", { yearName })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 

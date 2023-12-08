@@ -143,7 +143,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         studentClassrooms: allClassrooms.flatMap(cl => cl.studentClassrooms)
       } as unknown as Classroom
 
-      let result = { literacyLevels, literacyTiers, classrooms: [cityHall, schoolClassrooms] }
+      let result = { literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall] }
 
       return { status: 200, data: result }
 

@@ -120,7 +120,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
         .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
-        .leftJoin('studentClassroom.year', 'year')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
         .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
         .andWhere('year.id = :yearId', { yearId })
         .having('COUNT(studentClassroom.id) > 0')
@@ -143,7 +143,15 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         studentClassrooms: allClassrooms.flatMap(cl => cl.studentClassrooms)
       } as unknown as Classroom
 
-      let result = { literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall] }
+      const header = {
+        city: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        literacy: 'Avaliação Diagnóstica',
+        year: allClassrooms[0].studentClassrooms[0].year.name,
+        school: classroom.school.name,
+        classroomNumber
+      }
+
+      let result = { header, literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall] }
 
       return { status: 200, data: result }
 

@@ -1,15 +1,14 @@
-import { GenericController } from "./genericController";
-import { Brackets, EntityTarget } from "typeorm";
-import { Literacy } from "../model/Literacy";
-import { Request } from "express";
-import { AppDataSource } from "../data-source";
-import { personCategories } from "../utils/personCategories";
-import { Classroom } from "../model/Classroom";
-import { classroomCategory } from "../utils/classroomCategory";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { LiteracyLevel } from "../model/LiteracyLevel";
-import { LiteracyTier } from "../model/LiteracyTier";
-import {Year} from "../model/Year";
+import {GenericController} from "./genericController";
+import {Brackets, EntityTarget} from "typeorm";
+import {Literacy} from "../model/Literacy";
+import {Request} from "express";
+import {AppDataSource} from "../data-source";
+import {personCategories} from "../utils/personCategories";
+import {Classroom} from "../model/Classroom";
+import {classroomCategory} from "../utils/classroomCategory";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {LiteracyLevel} from "../model/LiteracyLevel";
+import {LiteracyTier} from "../model/LiteracyTier";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -89,6 +88,65 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .getMany()
 
       return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getTotals(request: Request) {
+
+    const yearId = request?.params.year as string
+    const userBody = request?.body.user
+    const classroomId = request?.params.id as string
+
+    try {
+
+      const teacher = await this.teacherByUser(userBody.user)
+      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+
+      const { classrooms } = await this.teacherClassrooms(request?.body.user)
+      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+
+      const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
+      if (!classroom) return { status: 404, message: "Sala não encontrada" }
+
+      const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
+      const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
+
+      const classroomNumber = classroom.shortName.replace(/\D/g, '')
+
+      const allClassrooms = await AppDataSource.getRepository(Classroom)
+        .createQueryBuilder('classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
+        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassroom')
+        .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
+        .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+        .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+        .leftJoin('studentClassroom.year', 'year')
+        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+        .andWhere('year.id = :yearId', { yearId })
+        .having('COUNT(studentClassroom.id) > 0')
+        .groupBy( 'classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id')
+        .getMany()
+
+      const schoolClassrooms = allClassrooms.filter((cl) => cl.school.id === classroom.school.id)
+
+      const cityHall = {
+        id: 99,
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITA',
+        school: {
+          id: 99,
+          name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+          shortName: 'ITATIBA',
+          inep: null,
+          active: true
+        },
+        studentClassrooms: allClassrooms.flatMap(cl => cl.studentClassrooms)
+      } as unknown as Classroom
+
+      let result = { literacyLevels, literacyTiers, classrooms: [cityHall, schoolClassrooms] }
+
+      return { status: 200, data: result }
+
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

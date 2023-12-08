@@ -104,14 +104,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           inep: null,
           active: true
         },
-        studentClassrooms: []
+        studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)
       } as unknown as Classroom
 
-      for(let el of allClasses) {
-        for(let student of el.studentClassrooms) {
-          cityHall.studentClassrooms.push(student)
-        }
-      }
+      // for(let el of allClasses) {
+      //   for(let student of el.studentClassrooms) {
+      //     cityHall.studentClassrooms.push(student)
+      //   }
+      // }
 
       response.classrooms = [ ...filteredClasses, cityHall ]
 

@@ -9,6 +9,7 @@ import {classroomCategory} from "../utils/classroomCategory";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {LiteracyLevel} from "../model/LiteracyLevel";
 import {LiteracyTier} from "../model/LiteracyTier";
+import {Year} from "../model/Year";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -102,6 +103,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const teacher = await this.teacherByUser(userBody.user)
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
 
+      const year = await AppDataSource.getRepository(Year).findOne({ where: { id: Number(yearId) } })
+      if (!year) return { status: 404, message: "Ano não encontrado" }
+
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
@@ -122,7 +126,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-        .andWhere('year.id = :yearId', { yearId })
+        .andWhere('year.id = :yearId', { yearId: year.id })
         .having('COUNT(studentClassroom.id) > 0')
         .groupBy( 'classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id')
         .getMany()
@@ -146,7 +150,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const header = {
         city: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         literacy: 'Avaliação Diagnóstica',
-        year: allClassrooms[0].studentClassrooms[0].year.name,
+        year: year.name,
         school: classroom.school.name,
         classroomNumber
       }
@@ -155,7 +159,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       return { status: 200, data: result }
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message }}
   }
 
   async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number }, user: { user: number, username: string, category: number, iat: number, exp: number }}) {

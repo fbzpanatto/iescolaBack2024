@@ -155,11 +155,61 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         classroomNumber
       }
 
-      let result = { header, literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall] }
+      let result = { header, literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall], totals: {} }
+
+      let totalResult: {
+        classId: number,
+        className: string,
+        scores: {
+          tier: { id: number, name: string },
+          level: { id: number, name: string },
+          total: number
+        }[]
+      }[] = []
+
+      for(let classroom of result.classrooms) {
+
+        let totalOfStudents = classroom.studentClassrooms.length
+
+        for(let tier of result.literacyTiers) {
+
+          for(let level of result.literacyLevels) {
+
+            const preTotal = this.calc({ tier, level }, classroom.studentClassrooms)
+            const total = Math.round((preTotal / totalOfStudents) * 100)
+
+            const classIndex = totalResult.findIndex((cl) => cl.classId === classroom.id)
+
+            if(classIndex === -1) {
+              totalResult.push({
+                classId: classroom.id,
+                className: classroom.name,
+                scores: [{ tier, level, total }]
+              })
+            } else {
+              totalResult[classIndex].scores.push({ tier, level, total })
+            }
+
+          }
+        }
+      }
+
+      result = { ...result, totals: totalResult }
 
       return { status: 200, data: result }
 
     } catch (error: any) { return { status: 500, message: error.message }}
+  }
+
+  calc( value: { tier: { id: number, name: string }, level: { id: number, name: string } }, studentClassrooms: StudentClassroom[] ) {
+    return studentClassrooms.reduce((total, studentClassroom) => {
+      if(studentClassroom.literacies.length === 0) return total
+      for(let literacy of studentClassroom.literacies) {
+        if(!literacy.literacyLevel) continue
+        if(literacy.literacyTier.id === value.tier.id && literacy.literacyLevel.id === value.level.id) total++
+      }
+      return total
+    }, 0)
   }
 
   async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number }, user: { user: number, username: string, category: number, iat: number, exp: number }}) {

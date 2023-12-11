@@ -155,8 +155,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         classroomNumber
       }
 
-      let result = { header, literacyLevels, literacyTiers, totals: {} }
-      let responseClassrooms = [...schoolClassrooms, cityHall]
+      let result = { header, literacyLevels, literacyTiers, classrooms: [...schoolClassrooms, cityHall], totals: {} }
 
       let totalResult: {
         classId: number,
@@ -168,7 +167,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }[]
       }[] = []
 
-      for(let classroom of responseClassrooms) {
+      for(let classroom of result.classrooms) {
 
         let totalOfStudents = classroom.studentClassrooms.length
 

@@ -94,7 +94,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
   async getTotals(request: Request) {
 
-    const yearId = request?.params.year as string
+    const yearName = request?.params.year as string
     const userBody = request?.body.user
     const classroomId = request?.params.id as string
 
@@ -103,7 +103,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const teacher = await this.teacherByUser(userBody.user)
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
 
-      const year = await AppDataSource.getRepository(Year).findOne({ where: { id: Number(yearId) } })
+      const year = await AppDataSource.getRepository(Year).findOne({ where: { name: yearName } })
       if (!year) return { status: 404, message: "Ano não encontrado" }
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)

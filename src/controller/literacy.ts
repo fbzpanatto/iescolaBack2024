@@ -134,7 +134,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const schoolClassrooms = allClassrooms.filter((cl) => cl.school.id === classroom.school.id)
 
       const cityHall = {
-        id: 99,
+        id: 'ITA',
         name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         shortName: 'ITA',
         school: {

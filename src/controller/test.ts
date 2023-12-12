@@ -94,7 +94,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id)
       const cityHall = {
-        id: 99,
+        id: 'ITA',
         name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         shortName: 'ITA',
         school: {

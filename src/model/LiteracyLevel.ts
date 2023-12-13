@@ -1,5 +1,6 @@
-import {Column, Entity, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import {Literacy} from "./Literacy";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Literacy } from "./Literacy";
+import { LiteracyFirst } from "./LiteracyFirst";
 
 @Entity()
 export class LiteracyLevel {
@@ -15,4 +16,7 @@ export class LiteracyLevel {
 
   @OneToMany(() => Literacy, literacy => literacy.literacyLevel)
   literacies: Literacy[]
+
+  @OneToMany(() => LiteracyFirst, literacyFirst => literacyFirst.literacyLevel)
+  literacyFirsts: LiteracyFirst[]
 }

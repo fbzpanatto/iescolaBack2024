@@ -29,6 +29,7 @@ import { StudentTestStatus } from "./StudentTestStatus";
 import {Literacy} from "./Literacy";
 import {LiteracyTier} from "./LiteracyTier";
 import {LiteracyLevel} from "./LiteracyLevel";
+import {LiteracyFirst} from "./LiteracyFirst";
 export const entities = [
   Bimester,
   Classroom,
@@ -37,28 +38,29 @@ export const entities = [
   Discipline,
   Disability,
   Literacy,
-  LiteracyTier,
+  LiteracyFirst,
   LiteracyLevel,
+  LiteracyTier,
   Person,
   PersonCategory,
   Period,
+  Question,
+  QuestionGroup,
   School,
   State,
   Student,
   StudentClassroom,
-  StudentTestStatus,
   StudentDisability,
   StudentQuestion,
+  StudentTestStatus,
   Teacher,
+  TeacherClassDiscipline,
   Test,
-  Question,
   TestCategory,
-  Topic,
   TestQuestion,
+  Topic,
   Transfer,
   TransferStatus,
-  TeacherClassDiscipline,
-  QuestionGroup,
   User,
   Year,
 ];

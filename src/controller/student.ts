@@ -19,6 +19,8 @@ import getTimeZone from "../utils/getTimeZone";
 import {Year} from "../model/Year";
 import {Literacy} from "../model/Literacy";
 import {LiteracyTier} from "../model/LiteracyTier";
+import {LiteracyFirst} from "../model/LiteracyFirst";
+import {LiteracyLevel} from "../model/LiteracyLevel";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -304,11 +306,45 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       newTransfer.year = await this.currentYear()
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 
+      if(classroomNumber === 1) {
+        const firstLiteracyLevel = new LiteracyFirst()
+        firstLiteracyLevel.studentClassroom = studentClassroom
+
+        await AppDataSource.getRepository(LiteracyFirst).save(firstLiteracyLevel)
+      }
+
       return { status: 201, data: student };
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async putLiteracyBeforeLevel(body: { user: { user: number, username: string, category: number, iat: number, exp: number }, studentClassroom: StudentClassroom, literacyLevel: LiteracyLevel }) {
+
+    try {
+
+      const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ''))
+
+      if(classroomNumber === 1) {
+        const literacyFirst = await AppDataSource.getRepository(LiteracyFirst).findOne({ where: { studentClassroom: { id: body.studentClassroom.id } } }) as LiteracyFirst
+
+        if(!literacyFirst) {
+          const newLiteracyFirst = new LiteracyFirst()
+          newLiteracyFirst.studentClassroom = body.studentClassroom
+          newLiteracyFirst.literacyLevel = body.literacyLevel
+          await AppDataSource.getRepository(LiteracyFirst).save(newLiteracyFirst)
+        } else {
+          literacyFirst.literacyLevel = body.literacyLevel
+          await AppDataSource.getRepository(LiteracyFirst).save(literacyFirst)
+        }
+      }
+
+      let result = {
+        title: 'Alfabetização',
+      }
+
+      return { status: 201, data: result }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+
   }
 
   override async updateId(studentId: number | string, body: any) {

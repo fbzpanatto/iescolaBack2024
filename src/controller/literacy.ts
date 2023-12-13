@@ -1,15 +1,15 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityTarget} from "typeorm";
-import {Literacy} from "../model/Literacy";
-import {Request} from "express";
-import {AppDataSource} from "../data-source";
-import {personCategories} from "../utils/personCategories";
-import {Classroom} from "../model/Classroom";
-import {classroomCategory} from "../utils/classroomCategory";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {LiteracyTier} from "../model/LiteracyTier";
-import {Year} from "../model/Year";
+import { GenericController } from "./genericController";
+import { Brackets, EntityTarget } from "typeorm";
+import { Literacy } from "../model/Literacy";
+import { Request } from "express";
+import { AppDataSource } from "../data-source";
+import { personCategories } from "../utils/personCategories";
+import { Classroom } from "../model/Classroom";
+import { classroomCategory } from "../utils/classroomCategory";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LiteracyTier } from "../model/LiteracyTier";
+import { Year } from "../model/Year";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -79,7 +79,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
         .leftJoinAndSelect('classroom.school', 'school')
         .where(new Brackets(qb => {
-          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))

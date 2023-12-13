@@ -1,10 +1,11 @@
-import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Student } from "./Student";
 import { Classroom } from "./Classroom";
-import {Year} from "./Year";
-import {StudentQuestion} from "./StudentQuestion";
-import {StudentTestStatus} from "./StudentTestStatus";
-import {Literacy} from "./Literacy";
+import { Year} from "./Year";
+import { StudentQuestion } from "./StudentQuestion";
+import { StudentTestStatus } from "./StudentTestStatus";
+import { Literacy } from "./Literacy";
+import { LiteracyFirst } from "./LiteracyFirst";
 
 @Entity()
 export class StudentClassroom {
@@ -39,4 +40,7 @@ export class StudentClassroom {
 
   @Column({ nullable: true })
   endedAt: Date
+
+  @OneToMany(() => LiteracyFirst, literacyFirst => literacyFirst.studentClassroom)
+  literacyFirsts: LiteracyFirst[]
 }

@@ -39,6 +39,13 @@ StudentRouter.post('/', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 });
 
+StudentRouter.put('/literacy-first/:id', havePermission, (req, res) => {
+
+  studentController.putLiteracyBeforeLevel(req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+});
+
 StudentRouter.put('/:id/graduate', havePermission, (req, res) => {
 
   studentController.graduate(req.params.id, req.body)

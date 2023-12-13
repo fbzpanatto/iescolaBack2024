@@ -76,6 +76,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
         .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+        .leftJoinAndSelect('studentClassroom.literacyFirsts', 'literacyFirsts')
+        .leftJoinAndSelect('literacyFirsts.literacyLevel', 'literacyFirstLevel')
         .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
         .leftJoinAndSelect('classroom.school', 'school')
         .where(new Brackets(qb => {
@@ -88,8 +90,18 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere("year.name = :yearName", { yearName })
         .getMany()
 
-      return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms } }
-    } catch (error: any) { return { status: 500, message: error.message } }
+      // TODO: Change relation to OneToOne
+      let newResponseStudentClassroom = studentClassrooms.map(({ literacyFirsts, ...rest }) => ({
+        ...rest,
+        literacyFirsts: literacyFirsts.shift()
+      }));
+
+
+      return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms: newResponseStudentClassroom } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async getTotals(request: Request) {

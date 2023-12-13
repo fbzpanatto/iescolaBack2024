@@ -337,11 +337,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }
       }
 
-      let result = {
-        title: 'Alfabetização',
-      }
-
-      return { status: 201, data: result }
+      return { status: 201, data: {} }
 
     } catch (error: any) { return { status: 500, message: error.message } }
 

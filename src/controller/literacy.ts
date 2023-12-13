@@ -1,15 +1,15 @@
-import { GenericController } from "./genericController";
-import { Brackets, EntityTarget } from "typeorm";
-import { Literacy } from "../model/Literacy";
-import { Request } from "express";
-import { AppDataSource } from "../data-source";
-import { personCategories } from "../utils/personCategories";
-import { Classroom } from "../model/Classroom";
-import { classroomCategory } from "../utils/classroomCategory";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { LiteracyLevel } from "../model/LiteracyLevel";
-import { LiteracyTier } from "../model/LiteracyTier";
-import { Year } from "../model/Year";
+import {GenericController} from "./genericController";
+import {Brackets, EntityTarget} from "typeorm";
+import {Literacy} from "../model/Literacy";
+import {Request} from "express";
+import {AppDataSource} from "../data-source";
+import {personCategories} from "../utils/personCategories";
+import {Classroom} from "../model/Classroom";
+import {classroomCategory} from "../utils/classroomCategory";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {LiteracyLevel} from "../model/LiteracyLevel";
+import {LiteracyTier} from "../model/LiteracyTier";
+import {Year} from "../model/Year";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -67,7 +67,19 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
       const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
+      const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) } }) as Classroom
 
+      const studentClassrooms = await this.test(classroom, userBody, teacherClasses, yearName)
+
+      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async test(classroom: Classroom, userBody: any, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {
+
+    const classroomNumber = classroom.shortName.replace(/\D/g, '')
+
+    if((Number(classroomNumber)) === 1) {
       const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
         .leftJoinAndSelect('studentClassroom.year', 'year')
@@ -85,22 +97,15 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
-        .andWhere('classroom.id = :classroomId', { classroomId })
+        .andWhere('classroom.id = :classroomId', { classroomId: classroom.id })
         .andWhere('literacies.id IS NOT NULL')
         .andWhere("year.name = :yearName", { yearName })
         .getMany()
 
-      // TODO: Change relation to OneToOne
-      let newResponseStudentClassroom = studentClassrooms.map(({ literacyFirsts, ...rest }) => ({
+      return studentClassrooms.map(({literacyFirsts, ...rest}) => ({
         ...rest,
         literacyFirsts: literacyFirsts.shift()
-      }));
-
-
-      return { status: 200, data: { literacyTiers, literacyLevels,  studentClassrooms: newResponseStudentClassroom } }
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
+      }))
     }
   }
 

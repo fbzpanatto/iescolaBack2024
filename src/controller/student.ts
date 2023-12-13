@@ -8,7 +8,7 @@ import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { SaveStudent, StudentClassroomReturn, User } from "../interfaces/interfaces";
+import { SaveStudent, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -665,7 +665,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return studentClassrooms[maxEndedAtIndex];
   }
 
-  async graduate(studentId: number | string, body: { user: User, student: { id: number, active: boolean, classroom: Classroom }, year: number } ) {
+  async graduate(studentId: number | string, body: { user: UserInterface, student: { id: number, active: boolean, classroom: Classroom }, year: number } ) {
 
     const userTeacher = await this.teacherByUser(body.user.user)
 

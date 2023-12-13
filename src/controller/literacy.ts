@@ -10,6 +10,7 @@ import {StudentClassroom} from "../model/StudentClassroom";
 import {LiteracyLevel} from "../model/LiteracyLevel";
 import {LiteracyTier} from "../model/LiteracyTier";
 import {Year} from "../model/Year";
+import {UserInterface} from "../interfaces/interfaces";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
@@ -69,13 +70,13 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) } }) as Classroom
 
-      const studentClassrooms = await this.test(classroom, userBody, teacherClasses, yearName)
+      const studentClassrooms = await this.getStudentClassroomsWithLiteracy(classroom, userBody, teacherClasses, yearName)
 
       return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async test(classroom: Classroom, userBody: any, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {
+  async getStudentClassroomsWithLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {
 
     const classroomNumber = classroom.shortName.replace(/\D/g, '')
 
@@ -107,6 +108,92 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         literacyFirsts: literacyFirsts.shift()
       }))
     }
+
+    const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+      .createQueryBuilder('studentClassroom')
+      .leftJoinAndSelect('studentClassroom.year', 'year')
+      .leftJoinAndSelect('studentClassroom.student', 'student')
+      .leftJoinAndSelect('student.person', 'person')
+      .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
+      .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+      .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+      .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+      .leftJoinAndSelect('classroom.school', 'school')
+      .where(new Brackets(qb => {
+        if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+        }
+      }))
+      .andWhere('classroom.id = :classroomId', { classroomId: classroom.id })
+      .andWhere('literacies.id IS NOT NULL')
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany()
+
+    const lastYear = await AppDataSource.getRepository(Year).findOne({ where: { name: String(Number(yearName) - 1) } })
+
+    if(!lastYear) return studentClassrooms
+
+    const result = studentClassrooms.map(async (studentClassroom) => {
+      const literacyFirsts = await this.getLastYearLiteracy(studentClassroom.student.id, lastYear.name)
+
+      if(!literacyFirsts) {
+        return {
+          ...studentClassroom,
+          literacyFirsts: {
+            id: 'NA',
+            literacyLevel: {
+              id: 'NA',
+              name: 'NA',
+              shortName: 'NA'
+            },
+            studentClassroom: studentClassroom
+          }
+        }
+      }
+
+      return {
+        ...studentClassroom,
+        literacyFirsts: {
+          id: literacyFirsts?.id,
+          literacyLevel: literacyFirsts?.literacyLevel,
+          studentClassroom: studentClassroom
+        }
+      }
+    })
+
+    return await Promise.all(result)
+  }
+
+  async getLastYearLiteracy(studentId: number, lastYearName: string) {
+    return await AppDataSource.getRepository(Literacy)
+      .createQueryBuilder('literacy')
+      .leftJoin('literacy.studentClassroom', 'studentClassroom')
+      .leftJoin('studentClassroom.student', 'student')
+      .leftJoin('studentClassroom.year', 'year')
+      .leftJoinAndSelect('literacy.literacyTier', 'literacyTier')
+      .leftJoinAndSelect('literacy.literacyLevel', 'literacyLevel')
+      .where('student.id = :studentId', { studentId })
+      .andWhere(qb => {
+        const subQuery = qb
+          .subQuery()
+          .select('MAX(literacy2.literacyTier)')
+          .from('Literacy', 'literacy2')
+          .where('literacy2.studentClassroom = studentClassroom.id')
+          .getQuery();
+        return `literacy.literacyTier = (${subQuery})`;
+      })
+      .andWhere(qb => {
+        const subQuery = qb
+          .subQuery()
+          .select('MAX(sc2.endedAt)')
+          .from('StudentClassroom', 'sc2')
+          .where('sc2.student = student.id')
+          .andWhere('sc2.endedAt IS NOT NULL')
+          .getQuery();
+        return `studentClassroom.endedAt = (${subQuery})`;
+      })
+      .andWhere('year.name = :lastYear', { lastYear: lastYearName })
+      .getOne()
   }
 
   async getTotals(request: Request) {

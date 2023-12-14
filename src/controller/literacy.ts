@@ -286,7 +286,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }, 0)
   }
 
-  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number }, user: { user: number, username: string, category: number, iat: number, exp: number }}) {
+  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: { user: number, username: string, category: number, iat: number, exp: number }}) {
 
     const { studentClassroom, literacyTier, literacyLevel, user } = body
 
@@ -310,13 +310,18 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       if(!stLiteracy) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
 
-      const literacyLevelDb = await AppDataSource.getRepository(LiteracyLevel).findOne({
-        where: { id: literacyLevel.id }
-      })
+      let literacyLevelDb: any
 
-      if(!literacyLevelDb) { return { status: 404, message: 'Registro não encontrado' } }
+      if(literacyLevel && literacyLevel.id) {
+        literacyLevelDb = await AppDataSource.getRepository(LiteracyLevel).findOne({
+          where: { id: literacyLevel.id }
+        })
+      }
+
+      if(!literacyLevel) { literacyLevelDb = null }
 
       stLiteracy.literacyLevel = literacyLevelDb
+
       const result = await AppDataSource.getRepository(Literacy).save(stLiteracy)
 
       return { status: 200, data: result }

@@ -319,22 +319,29 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async putLiteracyBeforeLevel(body: { user: { user: number, username: string, category: number, iat: number, exp: number }, studentClassroom: StudentClassroom, literacyLevel: LiteracyLevel }) {
 
+    console.log(body)
+
     try {
 
       const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ''))
+      const literacyFirst = await AppDataSource.getRepository(LiteracyFirst).findOne({ where: { studentClassroom: { id: body.studentClassroom.id } } })
 
-      if(classroomNumber === 1) {
-        const literacyFirst = await AppDataSource.getRepository(LiteracyFirst).findOne({ where: { studentClassroom: { id: body.studentClassroom.id } } }) as LiteracyFirst
+      if(classroomNumber === 1 || !literacyFirst) {
+
+        console.log(classroomNumber === 1 || !literacyFirst)
 
         if(!literacyFirst) {
+          console.log('!literacyFirst')
           const newLiteracyFirst = new LiteracyFirst()
           newLiteracyFirst.studentClassroom = body.studentClassroom
           newLiteracyFirst.literacyLevel = body.literacyLevel
           await AppDataSource.getRepository(LiteracyFirst).save(newLiteracyFirst)
         } else {
+          console.log('literacyFirst')
           literacyFirst.literacyLevel = body.literacyLevel
           await AppDataSource.getRepository(LiteracyFirst).save(literacyFirst)
         }
+        return { status: 201, data: {} }
       }
 
       return { status: 201, data: {} }

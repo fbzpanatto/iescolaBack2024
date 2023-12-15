@@ -110,11 +110,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
     if((Number(classroomNumber)) === 1) {
 
-      console.log('lastYear', lastYear)
-
       const result = studentClassrooms.map(async (studentClassroom) => {
         const literacyFirsts = await AppDataSource.getRepository(LiteracyFirst).findOne({
-          where: { studentClassroom: { student: { id: studentClassroom.student.id }, year: { name: (lastYear as Year).name } } },
+          where: { studentClassroom: { student: { id: studentClassroom.student.id } } },
           relations: ['literacyLevel']
         }) as LiteracyFirst
 
@@ -126,43 +124,37 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       return await Promise.all(result)
     }
 
+    // TODO: MELHOR ESSA BUSCA, MELHORAR OS FILTROS
+
+    console.log('classroomNumber', classroomNumber)
+    console.log('year', yearName, 'lastYear', lastYear?.name)
+
     const result = studentClassrooms.map(async(studentClassroom) => {
-      const literacyFirsts = await AppDataSource.getRepository(Literacy)
+      const studentId = studentClassroom.student.id;
+
+      const lastLiteracy = await AppDataSource.getRepository(Literacy)
         .createQueryBuilder('literacy')
-        .leftJoin('literacy.studentClassroom', 'studentClassroom')
-        .leftJoin('studentClassroom.year', 'year')
-        .leftJoin('studentClassroom.student', 'student')
-        .leftJoin('literacy.literacyTier', 'literacyTier')
+        .innerJoin('literacy.studentClassroom', 'studentClassroom')
+        .innerJoin('studentClassroom.year', 'year')
+        .innerJoin('studentClassroom.student', 'student')
+        .innerJoin('literacy.literacyTier', 'literacyTier')
         .leftJoinAndSelect('literacy.literacyLevel', 'literacyLevel')
-        .where('student.id = :studentId', { studentId: studentClassroom.student.id })
-        .andWhere(qb => {
-          const subQuery = qb
-            .subQuery()
-            .select('MAX(literacy2.literacyTier)')
-            .from('Literacy', 'literacy2')
-            .where('literacy2.studentClassroom = studentClassroom.id')
-            .getQuery();
-          return `literacy.literacyTier = (${subQuery})`;
-        })
-        .andWhere(qb => {
-          const subQuery = qb
-            .subQuery()
-            .select('MAX(sc2.endedAt)')
-            .from('StudentClassroom', 'sc2')
-            .where('sc2.student = student.id')
-            .andWhere('sc2.endedAt IS NOT NULL')
-            .getQuery();
-          return `studentClassroom.endedAt = (${subQuery})`;
-        })
-        .andWhere('year.name = :lastYear', { lastYear: (lastYear as Year).name })
-        .orderBy('studentClassroom.rosterNumber', 'ASC')
-        .getOne()
+        .where('student.id = :studentId', { studentId })
+        .andWhere('literacyLevel.id IS NOT NULL') // Garante que o literacyLevel não seja nulo
+        .andWhere('year.name = :yearName', { yearName: lastYear?.name })
+        .orderBy('literacyTier.id', 'DESC') // Ordena por ordem decrescente de ID do literacyTier
+        .addOrderBy('literacy.id', 'DESC') // Em caso de empate no ID do literacyTier, usa o ID do literacy
+        .getOne();
 
       return {
         ...studentClassroom,
-        literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
-      }
-    })
+        literacyFirsts: {
+          id: lastLiteracy?.id,
+          literacyLevel: lastLiteracy?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }
+        }
+      };
+    });
+
     return await Promise.all(result)
   }
 

@@ -117,38 +117,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           relations: ['literacyLevel', 'studentClassroom.classroom']
         }) as LiteracyFirst
 
-        const condition = studentClassroom.classroom.id === literacyFirsts.studentClassroom.classroom.id
-
-        if(condition) {
-          return {
-            ...studentClassroom,
-            literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
-          }
-        } else {
-
-          const studentId = studentClassroom.student.id;
-
-          const lastLiteracy = await AppDataSource.getRepository(Literacy)
-            .createQueryBuilder('literacy')
-            .innerJoin('literacy.studentClassroom', 'studentClassroom')
-            .innerJoin('studentClassroom.year', 'year')
-            .innerJoin('studentClassroom.student', 'student')
-            .innerJoin('literacy.literacyTier', 'literacyTier')
-            .leftJoinAndSelect('literacy.literacyLevel', 'literacyLevel')
-            .where('student.id = :studentId', { studentId })
-            .andWhere('literacyLevel.id IS NOT NULL') // Garante que o literacyLevel não seja nulo
-            .andWhere('year.name = :yearName', { yearName: lastYear?.name })
-            .andWhere('studentClassroom.endedAt IS NOT NULL')
-            .orderBy('studentClassroom.endedAt', 'DESC' )
-            .orderBy('literacyTier.id', 'DESC') // Ordena por ordem decrescente de ID do literacyTier
-            .addOrderBy('literacy.id', 'DESC') // Em caso de empate no ID do literacyTier, usa o ID do literacy
-            .getOne();
-
-          return {
-            ...studentClassroom,
-            literacyFirsts: { id: lastLiteracy?.id, literacyLevel: lastLiteracy?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
-          };
-
+        return {
+          ...studentClassroom,
+          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
         }
       })
       return await Promise.all(result)

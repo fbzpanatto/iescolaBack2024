@@ -137,6 +137,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('literacy.literacyLevel', 'literacyLevel')
         .where('student.id = :studentId', { studentId })
         .andWhere('literacyLevel.id IS NOT NULL') // Garante que o literacyLevel não seja nulo
+        // TODO: posso verificar se há algum registro no ano atual, se não houver, pego o último registro do ano anterior
         .andWhere('year.name = :yearName', { yearName: lastYear?.name })
         .orderBy('literacyTier.id', 'DESC') // Ordena por ordem decrescente de ID do literacyTier
         .addOrderBy('literacy.id', 'DESC') // Em caso de empate no ID do literacyTier, usa o ID do literacy

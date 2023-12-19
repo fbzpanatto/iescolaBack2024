@@ -32,6 +32,8 @@ import { QuestionGroupRouter } from "./routes/questionGroup";
 import { QuestionRouter } from "./routes/question";
 import { StudentQuestionRouter } from "./routes/studentQuestion";
 import { ReportRouter } from "./routes/report";
+import { ReportLiteracyRouter } from "./routes/reportLiteracyRouter";
+
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -59,6 +61,7 @@ route.use('/question', QuestionRouter);
 route.use('/teacher', authorization, TeacherRouter);
 route.use('/test', authorization, TestRouter);
 route.use('/report', authorization, ReportRouter);
+route.use('/report-literacy', authorization, ReportLiteracyRouter);
 route.use('/descriptor', DescriptorRouter);
 route.use('/question-group', QuestionGroupRouter);
 route.use('/topic', TopicRouter);

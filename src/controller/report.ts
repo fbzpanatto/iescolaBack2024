@@ -1,17 +1,13 @@
-import {GenericController} from "./genericController";
-import {Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {Test} from "../model/Test";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {StudentQuestion} from "../model/StudentQuestion";
-import {School} from "../model/School";
-import {personCategories} from "../utils/personCategories";
+import { GenericController} from "./genericController";
+import { Brackets, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
+import { Test} from "../model/Test";
+import { AppDataSource} from "../data-source";
+import { StudentClassroom} from "../model/StudentClassroom";
+import { TestQuestion} from "../model/TestQuestion";
+import { Request} from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { School } from "../model/School";
+import { personCategories } from "../utils/personCategories";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 

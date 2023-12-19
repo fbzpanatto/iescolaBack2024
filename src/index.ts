@@ -61,7 +61,7 @@ route.use('/question', QuestionRouter);
 route.use('/teacher', authorization, TeacherRouter);
 route.use('/test', authorization, TestRouter);
 route.use('/report', authorization, ReportRouter);
-route.use('/report-literacy', authorization, ReportLiteracyRouter);
+route.use('/literacy-report', authorization, ReportLiteracyRouter);
 route.use('/descriptor', DescriptorRouter);
 route.use('/question-group', QuestionGroupRouter);
 route.use('/topic', TopicRouter);

@@ -1,6 +1,7 @@
-import { Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { StudentClassroom } from "./StudentClassroom";
 import { LiteracyLevel } from "./LiteracyLevel";
+import {Student} from "./Student";
 
 @Entity()
 export class LiteracyFirst {
@@ -8,9 +9,10 @@ export class LiteracyFirst {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.literacyFirsts)
-  studentClassroom: StudentClassroom
+  @OneToOne(() => Student, student => student.literacyFirst, { nullable: false })
+  @JoinColumn()
+  student: Student
 
-  @ManyToOne(() => LiteracyLevel, literacyLevel => literacyLevel.literacyFirsts, { nullable: true})
+  @ManyToOne(() => LiteracyLevel, literacyLevel => literacyLevel.literacyFirsts, { nullable: true })
   literacyLevel: LiteracyLevel
 }

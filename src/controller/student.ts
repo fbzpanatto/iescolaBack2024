@@ -306,9 +306,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       newTransfer.year = await this.currentYear()
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 
-      if(classroomNumber === 1) {
+      if(classroomNumber >= 1 && classroomNumber <= 3) {
         const firstLiteracyLevel = new LiteracyFirst()
-        firstLiteracyLevel.studentClassroom = studentClassroom
+        firstLiteracyLevel.student = student
 
         await AppDataSource.getRepository(LiteracyFirst).save(firstLiteracyLevel)
       }
@@ -323,30 +323,23 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ''))
 
-      if(classroomNumber === 1) {
+      const register = await AppDataSource.getRepository(LiteracyFirst).findOne({
+        relations: ['literacyLevel'],
+        where: { student: { id: body.studentClassroom.student.id } }
+      })
 
-        const registerWithLiteracyNull = await AppDataSource.getRepository(LiteracyFirst).findOne({
-          where: { studentClassroom: { id: body.studentClassroom.id, classroom: { id: body.studentClassroom.classroom.id } }, literacyLevel: IsNull() }
-        })
+      if(!register) { return { status: 404, message: 'Registro não encontrado' } }
 
-        if(registerWithLiteracyNull) {
-          registerWithLiteracyNull.literacyLevel = body.literacyLevel
-          await AppDataSource.getRepository(LiteracyFirst).save(registerWithLiteracyNull)
-        } else {
+      if( classroomNumber >= 1 && classroomNumber <=3 && register && register.literacyLevel === null) {
 
-          const registerWithLiteracyFilled = await AppDataSource.getRepository(LiteracyFirst).findOne({
-            where: { studentClassroom: { id: body.studentClassroom.id, classroom: { id: body.studentClassroom.classroom.id } }, literacyLevel: Not(IsNull()) }
-          })
+        register.literacyLevel = body.literacyLevel
+        await AppDataSource.getRepository(LiteracyFirst).save(register)
 
-          if(registerWithLiteracyFilled) {
-            registerWithLiteracyFilled.literacyLevel = body.literacyLevel
-            await AppDataSource.getRepository(LiteracyFirst).save(registerWithLiteracyFilled)
-          }
-        }
+        return { status: 201, data: {} }
+
       }
 
       return { status: 201, data: {} }
-
     } catch (error: any) { return { status: 500, message: error.message } }
 
   }

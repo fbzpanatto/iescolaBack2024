@@ -40,7 +40,4 @@ export class StudentClassroom {
 
   @Column({ nullable: true })
   endedAt: Date
-
-  @OneToMany(() => LiteracyFirst, literacyFirst => literacyFirst.studentClassroom)
-  literacyFirsts: LiteracyFirst[]
 }

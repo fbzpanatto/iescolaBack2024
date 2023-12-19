@@ -82,45 +82,47 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
   async getStudentClassroomsWithLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {
 
     const classroomNumber = classroom.shortName.replace(/\D/g, '')
-    let lastYear = await AppDataSource.getRepository(Year).findOne({ where: { name: String(Number(yearName) - 1) } })
-    if(!lastYear) { lastYear = await AppDataSource.getRepository(Year).findOne({ where: { name: yearName } }) }
+    const lastYear = await AppDataSource.getRepository(Year).findOne({ where: { name: String(Number(yearName) - 1) } })
+    let studentClassrooms: StudentClassroom[] = []
 
-    const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
-      .createQueryBuilder('studentClassroom')
-      .leftJoinAndSelect('studentClassroom.year', 'year')
-      .leftJoinAndSelect('studentClassroom.student', 'student')
-      .leftJoinAndSelect('student.person', 'person')
-      .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
-      .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
-      .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
-      .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-      .leftJoinAndSelect('classroom.school', 'school')
-      .where(new Brackets(qb => {
-        if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
-          qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
-        }
-      }))
-      .andWhere('classroom.id = :classroomId', { classroomId: classroom.id })
-      .andWhere('literacies.id IS NOT NULL')
-      .andWhere("year.name = :yearName", { yearName })
-      .orderBy('studentClassroom.rosterNumber', 'ASC')
-      .getMany()
+    if(!lastYear) {
 
-    if(Number(classroomNumber) === 1) {
+      studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder('studentClassroom')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .leftJoinAndSelect('studentClassroom.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('studentClassroom.literacies', 'literacies')
+        .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+        .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
+        .where(new Brackets(qb => {
+          if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+            qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+          }
+        }))
+        .andWhere('classroom.id = :classroomId', { classroomId: classroom.id })
+        .andWhere('literacies.id IS NOT NULL')
+        .andWhere("year.name = :yearName", { yearName })
+        .orderBy('studentClassroom.rosterNumber', 'ASC')
+        .getMany()
+
       const result = studentClassrooms.map(async (studentClassroom) => {
 
-          const literacyFirsts = await AppDataSource.getRepository(LiteracyFirst).findOne({
-            where: { student: { id: studentClassroom.student.id } },
-            relations: ['literacyLevel']
-          }) as LiteracyFirst
+        const literacyFirsts = await AppDataSource.getRepository(LiteracyFirst).findOne({
+          where: { student: { id: studentClassroom.student.id } },
+          relations: ['literacyLevel']
+        }) as LiteracyFirst
 
-          return {
-            ...studentClassroom,
-            literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
-          }
+        return {
+          ...studentClassroom,
+          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
+        }
       })
 
       return await Promise.all(result)
+
     }
 
     // const result = studentClassrooms.map(async (studentClassroom) => {
@@ -135,6 +137,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     //     literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
     //   }
     // })
+
     return await Promise.all(studentClassrooms)
 
     // const result = studentClassrooms.map(async(studentClassroom) => {

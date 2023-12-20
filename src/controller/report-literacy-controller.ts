@@ -1,8 +1,10 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
+import { EntityTarget } from "typeorm";
 import { School } from "../model/School";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LiteracyTier } from "../model/LiteracyTier";
 
 class ReportLiteracy extends GenericController<EntityTarget<School>> {
 
@@ -17,11 +19,10 @@ class ReportLiteracy extends GenericController<EntityTarget<School>> {
 
     try {
 
-      console.log(classroom, year, search)
+      const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
+      const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
 
-      const result = { }
-
-      return { status: 200, data: result };
+      return { status: 200, data: { literacyTiers, literacyLevels } };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

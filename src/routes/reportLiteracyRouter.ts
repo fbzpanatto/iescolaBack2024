@@ -3,9 +3,9 @@ import { reportLiteracyController } from "../controller/report-literacy-controll
 
 export const ReportLiteracyRouter = Router();
 
-ReportLiteracyRouter.get('/:year/all', (req, res) => {
+ReportLiteracyRouter.get('/:classroom/:year', (req, res) => {
 
-  reportLiteracyController.findAllWhere({}, req)
+  reportLiteracyController.getReport(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

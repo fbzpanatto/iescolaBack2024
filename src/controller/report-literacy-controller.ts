@@ -1,28 +1,71 @@
 import { GenericController } from "./genericController";
-import { EntityTarget } from "typeorm";
 import { School } from "../model/School";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LiteracyTier } from "../model/LiteracyTier";
+import { Year } from "../model/Year";
+import { Brackets } from "typeorm";
 
-class ReportLiteracy extends GenericController<EntityTarget<School>> {
+class ReportLiteracy extends GenericController<School> {
 
   constructor() {
     super(School);
   }
 
   async getReport(request: Request) {
-
-    const { classroom, year} = request.params
-    const { search } = request.query
+    const { classroom, year } = request.params;
+    const { search } = request.query;
 
     try {
+      const [literacyLevels, literacyTiers, selectedYear] = await Promise.all([
+        AppDataSource.getRepository(LiteracyLevel).find(),
+        AppDataSource.getRepository(LiteracyTier).find(),
+        AppDataSource.getRepository(Year).findOne({ where: { name: year } })
+      ]);
 
-      const literacyLevels = await AppDataSource.getRepository(LiteracyLevel).find()
-      const literacyTiers = await AppDataSource.getRepository(LiteracyTier).find()
+      if(!selectedYear) return { status: 404, message: 'Year not found' }
 
-      return { status: 200, data: { literacyTiers, literacyLevels } };
+      const data = await AppDataSource.getRepository(School)
+        .createQueryBuilder('school')
+        .leftJoinAndSelect('school.classrooms', 'classroom')
+        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+        .leftJoinAndSelect('studentClassrooms.year', 'year')
+        .leftJoinAndSelect('studentClassrooms.literacies', 'literacies')
+        .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+        .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+        .where('year.id = :year', { year: selectedYear.id })
+        .andWhere('classroom.shortName LIKE :classroom', { classroom: `%${classroom}%` })
+        .andWhere(new Brackets(qb => {
+          if(search) {
+            qb.where("school.name LIKE :search", { search: `%${search}%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+          }
+        }))
+        .orderBy('school.name', 'ASC')
+        .getMany();
+
+      let arrOfSchools: {
+        id: number,
+        name: string,
+        shortName: string,
+        studentsClassrooms: any[]
+      }[] = [];
+
+      data.forEach(school => {
+        arrOfSchools.push({
+          id: school.id,
+          name: school.name,
+          shortName: school.shortName,
+          studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
+        })
+      })
+
+      for(let register of arrOfSchools) {
+        console.log(register)
+      }
+
+      return { status: 200, data: { literacyTiers, literacyLevels, schools: arrOfSchools } };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

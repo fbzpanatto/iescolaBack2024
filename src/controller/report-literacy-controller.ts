@@ -5,6 +5,10 @@ import { AppDataSource } from "../data-source";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { Year } from "../model/Year";
+import {Literacy} from "../model/Literacy";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {Student} from "../model/Student";
+import {Brackets} from "typeorm";
 
 class ReportLiteracy extends GenericController<School> {
 
@@ -15,6 +19,8 @@ class ReportLiteracy extends GenericController<School> {
   async getReport(request: Request) {
     const { classroom, year } = request.params;
     const { search } = request.query;
+
+    console.log(classroom, year, search)
 
     try {
       const [literacyLevels, literacyTiers, selectedYear] = await Promise.all([
@@ -33,10 +39,14 @@ class ReportLiteracy extends GenericController<School> {
         .leftJoinAndSelect('studentClassrooms.literacies', 'literacies')
         .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
-        .where('year.id = :year', { year: selectedYear.id })
-        .andWhere('school.active = 1')
+        .where('year.id = :yearSearch', { yearSearch: selectedYear.id })
         .andWhere('classroom.shortName LIKE :classroom', { classroom: `%${classroom}%` })
-        .andWhere('school.name LIKE :search OR school.shortName LIKE :search', { search: `%${search}%` })
+        .andWhere(new Brackets(qb => {
+          if(search) {
+            qb.where("school.name LIKE :search", { search: `%${search}%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+          }
+        }))
         .orderBy('school.name', 'ASC')
         .getMany();
 

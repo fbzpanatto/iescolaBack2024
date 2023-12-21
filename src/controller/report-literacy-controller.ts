@@ -5,7 +5,6 @@ import { AppDataSource } from "../data-source";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { Year } from "../model/Year";
-import { Brackets } from "typeorm";
 
 class ReportLiteracy extends GenericController<School> {
 
@@ -35,35 +34,18 @@ class ReportLiteracy extends GenericController<School> {
         .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
         .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
         .where('year.id = :year', { year: selectedYear.id })
+        .andWhere('school.active = 1')
         .andWhere('classroom.shortName LIKE :classroom', { classroom: `%${classroom}%` })
-        .andWhere(new Brackets(qb => {
-          if(search) {
-            qb.where("school.name LIKE :search", { search: `%${search}%` })
-              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
-          }
-        }))
+        .andWhere('school.name LIKE :search OR school.shortName LIKE :search', { search: `%${search}%` })
         .orderBy('school.name', 'ASC')
         .getMany();
 
-      let arrOfSchools: {
-        id: number,
-        name: string,
-        shortName: string,
-        studentsClassrooms: any[]
-      }[] = [];
-
-      data.forEach(school => {
-        arrOfSchools.push({
-          id: school.id,
-          name: school.name,
-          shortName: school.shortName,
-          studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
-        })
-      })
-
-      for(let register of arrOfSchools) {
-        console.log(register)
-      }
+      const arrOfSchools = data.map(school => ({
+        id: school.id,
+        name: school.name,
+        shortName: school.shortName,
+        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
+      }));
 
       return { status: 200, data: { literacyTiers, literacyLevels, schools: arrOfSchools } };
 

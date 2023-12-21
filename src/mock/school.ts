@@ -25,6 +25,5 @@ export const SCHOOLS = [
   { name: "EMEB ROSA SCAVONE", shortName: "ROSA SCAVONE", active: true },
   { name: "EMEB PROF SEBASTIÃO DE CAMARGO PIRES", shortName: "SEBASTIÃO PIRES", active: true },
   { name: "EMEB PROF SONIA RITA PENTEADO AGUIAR SANTOS", shortName: "SONIA RITA", active: true },
-  { name: "EMEB PROF VERA LUCIA CARRIDE DE PALMA", shortName: "VERA LUCIA", active: true },
-  { name: "OUTRO MUNICÍPIO", shortName: "OUTRO MUNICÍPIO", active: false },
+  { name: "EMEB PROF VERA LUCIA CARRIDE DE PALMA", shortName: "VERA LUCIA", active: true }
 ].sort((a, b) => a.name.localeCompare(b.name))

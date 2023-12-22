@@ -20,8 +20,6 @@ class ReportLiteracy extends GenericController<School> {
     const { classroom, year } = request.params;
     const { search } = request.query;
 
-    console.log(classroom, year, search)
-
     try {
       const [literacyLevels, literacyTiers, selectedYear] = await Promise.all([
         AppDataSource.getRepository(LiteracyLevel).find(),

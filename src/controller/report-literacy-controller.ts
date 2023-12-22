@@ -5,10 +5,7 @@ import { AppDataSource } from "../data-source";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { Year } from "../model/Year";
-import {Literacy} from "../model/Literacy";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {Student} from "../model/Student";
-import {Brackets} from "typeorm";
+import { Brackets } from "typeorm";
 
 class ReportLiteracy extends GenericController<School> {
 

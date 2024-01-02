@@ -33,7 +33,7 @@ import { QuestionRouter } from "./routes/question";
 import { StudentQuestionRouter } from "./routes/studentQuestion";
 import { ReportRouter } from "./routes/report";
 import { ReportLiteracyRouter } from "./routes/reportLiteracyRouter";
-
+import { LiteracySecondRouter } from "./routes/literacySecond";
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -55,6 +55,7 @@ route.use('/school', authorization, SchoolRouter);
 route.use('/state', authorization, StateRouter);
 route.use('/student', authorization, StudentRouter);
 route.use('/literacy', authorization, LiteracyRouter);
+route.use('/literacy-second', authorization, LiteracySecondRouter);
 route.use('/student-question', authorization, StudentQuestionRouter);
 route.use('/transfer', authorization, TransferRouter);
 route.use('/question', QuestionRouter);

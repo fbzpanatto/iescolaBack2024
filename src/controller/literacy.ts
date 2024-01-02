@@ -73,10 +73,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       const studentClassrooms = await this.getStudentClassroomsWithLiteracy(classroom, userBody, teacherClasses, yearName)
 
       return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms } }
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getStudentClassroomsWithLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {

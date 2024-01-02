@@ -26,12 +26,14 @@ import { TestQuestion } from "./TestQuestion";
 import { QuestionGroup } from "./QuestionGroup";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
-import {Literacy} from "./Literacy";
-import {LiteracyTier} from "./LiteracyTier";
-import {LiteracyLevel} from "./LiteracyLevel";
-import {LiteracyFirst} from "./LiteracyFirst";
-import {TextGender} from "./TextGender";
-import {TextGenderExam} from "./TextGenderExam";
+import { Literacy } from "./Literacy";
+import { LiteracyTier } from "./LiteracyTier";
+import { LiteracyLevel } from "./LiteracyLevel";
+import { LiteracyFirst } from "./LiteracyFirst";
+import { TextGender } from "./TextGender";
+import { TextGenderExam } from "./TextGenderExam";
+import { TextGenderExamLevel } from "./TextGenderExamLevel";
+import { TextGenderExamTier } from "./TextGenderExamTier";
 export const entities = [
   Bimester,
   Classroom,
@@ -62,6 +64,8 @@ export const entities = [
   TestQuestion,
   TextGender,
   TextGenderExam,
+  TextGenderExamTier,
+  TextGenderExamLevel,
   Topic,
   Transfer,
   TransferStatus,

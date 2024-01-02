@@ -40,6 +40,10 @@ import {TextGender} from "../model/TextGender";
 import {TextGenderExam} from "../model/TextGenderExam";
 import {TEXTGENDER} from "../mock/textGender";
 import {TEXTGENDEREXAM} from "../mock/textGenderExam";
+import {TextGenderExamTier} from "../model/TextGenderExamTier";
+import {TextGenderExamLevel} from "../model/TextGenderExamLevel";
+import {TEXTGENDEREXAMTIER} from "../mock/textGenderExamTier";
+import {TEXTGENDEREXAMLEVEL} from "../mock/textGenderExamLevel";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -102,6 +106,8 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
     const textGender = new dataSourceController(TextGender).entity
     const textGenderExam = new dataSourceController(TextGenderExam).entity
+    const textGenderExamTier = new dataSourceController(TextGenderExamTier).entity
+    const textGenderExamLevel = new dataSourceController(TextGenderExamLevel).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -240,7 +246,22 @@ InitialConfigsRouter.get('/', async (req, res) => {
     for(let el of TEXTGENDEREXAM) {
       const newTextGenderExam = new TextGenderExam()
       newTextGenderExam.name = el.name
+      newTextGenderExam.color = el.color
       await textGenderExam.save(newTextGenderExam)
+    }
+
+    for(let el of TEXTGENDEREXAMTIER) {
+      const newTextGenderExamTier = new TextGenderExamTier()
+      newTextGenderExamTier.name = el.name
+      newTextGenderExamTier.color = el.color
+      await textGenderExamTier.save(newTextGenderExamTier)
+    }
+
+    for(let el of TEXTGENDEREXAMLEVEL) {
+      const newTextGenderExamLevel = new TextGenderExamLevel()
+      newTextGenderExamLevel.name = el.name
+      newTextGenderExamLevel.color = el.color
+      await textGenderExamLevel.save(newTextGenderExamLevel)
     }
 
     await createAdminPerson()

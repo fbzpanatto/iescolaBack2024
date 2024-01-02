@@ -30,6 +30,8 @@ import {Literacy} from "./Literacy";
 import {LiteracyTier} from "./LiteracyTier";
 import {LiteracyLevel} from "./LiteracyLevel";
 import {LiteracyFirst} from "./LiteracyFirst";
+import {TextGender} from "./TextGender";
+import {TextGenderExam} from "./TextGenderExam";
 export const entities = [
   Bimester,
   Classroom,
@@ -58,6 +60,8 @@ export const entities = [
   Test,
   TestCategory,
   TestQuestion,
+  TextGender,
+  TextGenderExam,
   Topic,
   Transfer,
   TransferStatus,

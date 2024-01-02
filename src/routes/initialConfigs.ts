@@ -36,6 +36,10 @@ import {LITERACYTIER} from "../mock/literacyTier";
 import {LiteracyTier} from "../model/LiteracyTier";
 import {LiteracyLevel} from "../model/LiteracyLevel";
 import {LITERACYLEVEL} from "../mock/literacyLevel";
+import {TextGender} from "../model/TextGender";
+import {TextGenderExam} from "../model/TextGenderExam";
+import {TEXTGENDER} from "../mock/textGender";
+import {TEXTGENDEREXAM} from "../mock/textGenderExam";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -96,6 +100,8 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const descriptorSource = new dataSourceController(Descriptor).entity
     const literacyTierSource = new dataSourceController(LiteracyTier).entity
     const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
+    const textGender = new dataSourceController(TextGender).entity
+    const textGenderExam = new dataSourceController(TextGenderExam).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -223,6 +229,18 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newDescriptor.code = descriptor.code
       newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic
       await descriptorSource.save(newDescriptor)
+    }
+
+    for(let el of TEXTGENDER) {
+      const newTextGender = new TextGender()
+      newTextGender.name = el.name
+      await textGender.save(newTextGender)
+    }
+
+    for(let el of TEXTGENDEREXAM) {
+      const newTextGenderExam = new TextGenderExam()
+      newTextGenderExam.name = el.name
+      await textGenderExam.save(newTextGenderExam)
     }
 
     await createAdminPerson()

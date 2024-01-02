@@ -1,17 +1,17 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityTarget} from "typeorm";
-import {Literacy} from "../model/Literacy";
-import {Request} from "express";
-import {AppDataSource} from "../data-source";
-import {personCategories} from "../utils/personCategories";
-import {Classroom} from "../model/Classroom";
-import {classroomCategory} from "../utils/classroomCategory";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {LiteracyTier} from "../model/LiteracyTier";
-import {Year} from "../model/Year";
-import {UserInterface} from "../interfaces/interfaces";
-import {LiteracyFirst} from "../model/LiteracyFirst";
+import { GenericController } from "./genericController";
+import { Brackets, EntityTarget } from "typeorm";
+import { Literacy } from "../model/Literacy";
+import { Request } from "express";
+import { AppDataSource } from "../data-source";
+import { personCategories } from "../utils/personCategories";
+import { Classroom } from "../model/Classroom";
+import { classroomCategory } from "../utils/classroomCategory";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LiteracyTier } from "../model/LiteracyTier";
+import { Year } from "../model/Year";
+import { UserInterface } from "../interfaces/interfaces";
+import { LiteracyFirst } from "../model/LiteracyFirst";
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 

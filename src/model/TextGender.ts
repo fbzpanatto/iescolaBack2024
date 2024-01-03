@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { TextGenderGrade } from "./TextGenderGrade";
 
 @Entity()
 export class TextGender {
@@ -8,4 +9,7 @@ export class TextGender {
 
   @Column()
   name: string
+
+  @OneToMany(() => TextGenderGrade, textGenderGrade => textGenderGrade.textGender)
+  textGenderGrades: TextGenderGrade[]
 }

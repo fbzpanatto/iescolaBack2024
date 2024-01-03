@@ -34,6 +34,7 @@ import { TextGender } from "./TextGender";
 import { TextGenderExam } from "./TextGenderExam";
 import { TextGenderExamLevel } from "./TextGenderExamLevel";
 import { TextGenderExamTier } from "./TextGenderExamTier";
+import {TextGenderGrade} from "./TextGenderGrade";
 export const entities = [
   Bimester,
   Classroom,
@@ -66,6 +67,7 @@ export const entities = [
   TextGenderExam,
   TextGenderExamTier,
   TextGenderExamLevel,
+  TextGenderGrade,
   Topic,
   Transfer,
   TransferStatus,

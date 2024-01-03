@@ -23,6 +23,6 @@ export class TextGenderGrade {
   @ManyToOne(() => TextGenderExamTier, textGenderExamTier => textGenderExamTier.textGenderGrades)
   textGenderExamTier: TextGenderExamTier
 
-  @ManyToOne(() => TextGenderExamLevel, textGenderExamLevel => textGenderExamLevel.textGenderGrades)
+  @ManyToOne(() => TextGenderExamLevel, textGenderExamLevel => textGenderExamLevel.textGenderGrades, { nullable: true })
   textGenderExamLevel: TextGenderExamLevel
 }

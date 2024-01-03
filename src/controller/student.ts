@@ -21,6 +21,9 @@ import {Literacy} from "../model/Literacy";
 import {LiteracyTier} from "../model/LiteracyTier";
 import {LiteracyFirst} from "../model/LiteracyFirst";
 import {LiteracyLevel} from "../model/LiteracyLevel";
+import {TextGender} from "../model/TextGender";
+import {TextGenderExam} from "../model/TextGenderExam";
+import {TextGenderExamTier} from "../model/TextGenderExamTier";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -311,6 +314,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         firstLiteracyLevel.student = student
 
         await AppDataSource.getRepository(LiteracyFirst).save(firstLiteracyLevel)
+      }
+
+      if( classroomNumber === 4 || classroomNumber === 5 ) {
+        const textGender = await AppDataSource.getRepository(TextGender).find() as TextGender[]
+        const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
+        const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
+
+
       }
 
       return { status: 201, data: student };

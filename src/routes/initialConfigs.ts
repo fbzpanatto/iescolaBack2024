@@ -18,32 +18,34 @@ import { PERSON_CATEGORY } from "../mock/personCategory";
 import { STATES } from "../mock/state";
 import { State } from "../model/State";
 import { Disability } from "../model/Disability";
-import {TransferStatus} from "../model/TransferStatus";
-import {TRANSFER_STATUS} from "../mock/transferStatus";
-import {User} from "../model/User";
-import {Person} from "../model/Person";
-import {TestCategory} from "../model/TestCategory";
-import {TESTCATEGORY} from "../mock/testCategory";
-import {QUESTION_GROUP} from "../mock/questionGroup";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {Topic} from "../model/Topic";
-import {TOPIC} from "../mock/topic";
-import {DESCRIPTOR} from "../mock/descriptor";
-import {Descriptor} from "../model/Descriptor";
-import {Teacher} from "../model/Teacher";
-import {personCategories} from "../utils/personCategories";
-import {LITERACYTIER} from "../mock/literacyTier";
-import {LiteracyTier} from "../model/LiteracyTier";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {LITERACYLEVEL} from "../mock/literacyLevel";
-import {TextGender} from "../model/TextGender";
-import {TextGenderExam} from "../model/TextGenderExam";
-import {TEXTGENDER} from "../mock/textGender";
-import {TEXTGENDEREXAM} from "../mock/textGenderExam";
-import {TextGenderExamTier} from "../model/TextGenderExamTier";
-import {TextGenderExamLevel} from "../model/TextGenderExamLevel";
-import {TEXTGENDEREXAMTIER} from "../mock/textGenderExamTier";
-import {TEXTGENDEREXAMLEVEL} from "../mock/textGenderExamLevel";
+import { TransferStatus } from "../model/TransferStatus";
+import { TRANSFER_STATUS } from "../mock/transferStatus";
+import { User } from "../model/User";
+import { Person } from "../model/Person";
+import { TestCategory } from "../model/TestCategory";
+import { TESTCATEGORY } from "../mock/testCategory";
+import { QUESTION_GROUP } from "../mock/questionGroup";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { Topic } from "../model/Topic";
+import { TOPIC } from "../mock/topic";
+import { DESCRIPTOR } from "../mock/descriptor";
+import { Descriptor } from "../model/Descriptor";
+import { Teacher } from "../model/Teacher";
+import { personCategories } from "../utils/personCategories";
+import { LITERACYTIER } from "../mock/literacyTier";
+import { LiteracyTier } from "../model/LiteracyTier";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LITERACYLEVEL } from "../mock/literacyLevel";
+import { TextGender } from "../model/TextGender";
+import { TextGenderExam } from "../model/TextGenderExam";
+import { TEXTGENDER } from "../mock/textGender";
+import { TEXTGENDEREXAM } from "../mock/textGenderExam";
+import { TextGenderExamTier } from "../model/TextGenderExamTier";
+import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
+import { TEXTGENDEREXAMTIER } from "../mock/textGenderExamTier";
+import { TEXTGENDEREXAMLEVEL } from "../mock/textGenderExamLevel";
+import { TextGenderClassroom } from "../model/TextGenderClassroom";
+import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -108,6 +110,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const textGenderExam = new dataSourceController(TextGenderExam).entity
     const textGenderExamTier = new dataSourceController(TextGenderExamTier).entity
     const textGenderExamLevel = new dataSourceController(TextGenderExamLevel).entity
+    const textGenderClassroom = new dataSourceController(TextGenderClassroom).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -262,6 +265,13 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newTextGenderExamLevel.name = el.name
       newTextGenderExamLevel.color = el.color
       await textGenderExamLevel.save(newTextGenderExamLevel)
+    }
+
+    for(let el of TEXTGENDERCLASSROOM) {
+      const newTextGenderClassroom = new TextGenderClassroom()
+      newTextGenderClassroom.classroomNumber = el.classroomNumber
+      newTextGenderClassroom.textGender = await textGender.findOneBy({ id: el.textGender.id }) as TextGender
+      await textGenderClassroom.save(newTextGenderClassroom)
     }
 
     await createAdminPerson()

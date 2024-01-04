@@ -34,6 +34,8 @@ import { StudentQuestionRouter } from "./routes/studentQuestion";
 import { ReportRouter } from "./routes/report";
 import { ReportLiteracyRouter } from "./routes/reportLiteracyRouter";
 import { LiteracySecondRouter } from "./routes/literacySecond";
+import { TextGenderClassroomRouter } from "./routes/textGenderClassroom";
+
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -67,10 +69,11 @@ route.use('/descriptor', DescriptorRouter);
 route.use('/question-group', QuestionGroupRouter);
 route.use('/topic', TopicRouter);
 route.use('/test-category', authorization, TestCategoryRouter);
-route.use('/teacher-classroom', authorization, TeacherClassroomsRouter )
+route.use('/teacher-classroom', authorization, TeacherClassroomsRouter );
 route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRouter);
 route.use('/user', authorization, UserRouter);
 route.use('/year', authorization, YearRouter);
+route.use('/text-gender-tabs', TextGenderClassroomRouter)
 
 route.use('/login', LoginRouter);
 

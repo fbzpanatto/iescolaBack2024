@@ -24,6 +24,8 @@ import {LiteracyLevel} from "../model/LiteracyLevel";
 import {TextGender} from "../model/TextGender";
 import {TextGenderExam} from "../model/TextGenderExam";
 import {TextGenderExamTier} from "../model/TextGenderExamTier";
+import {TextGenderClassroom} from "../model/TextGenderClassroom";
+import {TextGenderGrade} from "../model/TextGenderGrade";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -317,11 +319,27 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       if( classroomNumber === 4 || classroomNumber === 5 ) {
-        const textGender = await AppDataSource.getRepository(TextGender).find() as TextGender[]
         const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
         const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
 
+        const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
+          where: { classroomNumber: classroomNumber },
+          relations: ['textGender']
+        }) as TextGenderClassroom[]
 
+        for(let tg of textGenderClassroom) {
+          for(let tier of textGenderExamTier) {
+            for(let exam of textGenderExam) {
+              const textGenderGrade = new TextGenderGrade()
+              textGenderGrade.studentClassroom = studentClassroom
+              textGenderGrade.textGender = tg.textGender
+              textGenderGrade.textGenderExam = exam
+              textGenderGrade.textGenderExamTier = tier
+
+              await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+            }
+          }
+        }
       }
 
       return { status: 201, data: student };

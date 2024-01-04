@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
+import {Entity, Column, PrimaryGeneratedColumn, OneToMany, Index} from "typeorm"
 import { Length } from "class-validator";
 import { Period } from "./Period";
 import {StudentClassroom} from "./StudentClassroom";
@@ -10,6 +10,7 @@ export class Year {
   @PrimaryGeneratedColumn()
   id: number
 
+  @Index("year_name_idx")
   @Length(4, 4)
   @Column({ unique: true})
   name: string

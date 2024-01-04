@@ -33,7 +33,14 @@ class TextGenderClassroomController extends GenericController<EntityTarget<TextG
         .where('classroomNumber = :classroomNumber', { classroomNumber })
         .getMany()
 
-      return { status: 200, data: textGenderTabs }
+      let totalTab = {
+        id: 99,
+        classroomNumber: 99,
+        textGender: { id: 99, name: "COMPARATIVO" },
+        notInclude: true
+      }
+
+      return { status: 200, data: [...textGenderTabs, totalTab] }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

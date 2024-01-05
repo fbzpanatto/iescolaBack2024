@@ -6,6 +6,9 @@ import { Classroom } from "../model/Classroom";
 import { Year } from "../model/Year";
 import { TextGender } from "../model/TextGender";
 import { StudentClassroom } from "../model/StudentClassroom";
+import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
+import {TextGenderExam} from "../model/TextGenderExam";
+import {TextGenderExamTier} from "../model/TextGenderExamTier";
 
 class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
 
@@ -34,6 +37,16 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       if(!gender) return { status: 404, message: 'Gênero não encontrado' }
 
+      const examLevel = await AppDataSource.getRepository(TextGenderExam)
+        .createQueryBuilder('textGenderExam')
+        .leftJoinAndSelect('textGenderExam.textGenderExamLevelGroups', 'textGenderExamLevelGroup')
+        .leftJoinAndSelect('textGenderExamLevelGroup.textGenderExamLevel', 'textGenderExamLevel')
+        .getMany()
+
+      const examTier = await AppDataSource.getRepository(TextGenderExamTier)
+        .createQueryBuilder('textGenderExamTier')
+        .getMany()
+
       const result= await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
         .leftJoin('studentClassroom.classroom', 'classroom')
@@ -48,7 +61,12 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .andWhere('textGender.id = :genderId', { genderId })
         .getMany()
 
-      return { status: 200, data: result }
+      const finalResult = {
+        headers: { examLevel, examTier },
+        data: result
+      }
+
+      return { status: 200, data: finalResult }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

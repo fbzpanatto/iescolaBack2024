@@ -14,6 +14,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
     try {
 
+      console.log(classroom, year, gender)
+
       const result = {}
 
       return { status: 200, data: result }

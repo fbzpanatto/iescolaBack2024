@@ -93,6 +93,4 @@ AppDataSource.initialize()
       console.log('Server running on port 3333', 'env:', process.env.NODE_ENV);
     });
   })
-  .catch((err) => {
-    console.log(err);
-  });
+  .catch((err) => { console.log(err)});

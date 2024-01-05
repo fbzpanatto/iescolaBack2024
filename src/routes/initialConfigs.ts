@@ -46,6 +46,8 @@ import { TEXTGENDEREXAMTIER } from "../mock/textGenderExamTier";
 import { TEXTGENDEREXAMLEVEL } from "../mock/textGenderExamLevel";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
+import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
+import {TEXTGENDEREXAMLEVELGROUP} from "../mock/textGenderExamLevelGroup";
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -111,6 +113,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const textGenderExamTier = new dataSourceController(TextGenderExamTier).entity
     const textGenderExamLevel = new dataSourceController(TextGenderExamLevel).entity
     const textGenderClassroom = new dataSourceController(TextGenderClassroom).entity
+    const textGenderExamLevelGroup = new dataSourceController(TextGenderExamLevelGroup).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -272,6 +275,13 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newTextGenderClassroom.classroomNumber = el.classroomNumber
       newTextGenderClassroom.textGender = await textGender.findOneBy({ id: el.textGender.id }) as TextGender
       await textGenderClassroom.save(newTextGenderClassroom)
+    }
+
+    for(let el of TEXTGENDEREXAMLEVELGROUP) {
+      const newTextGenderExamLevelGroup = new TextGenderExamLevelGroup()
+      newTextGenderExamLevelGroup.textGenderExam = await textGenderExam.findOneBy({ id: el.textGenderExam.id }) as TextGenderExam
+      newTextGenderExamLevelGroup.textGenderExamLevel = await textGenderExamLevel.findOneBy({ id: el.textGenderExamLevel.id }) as TextGenderExamLevel
+      await textGenderExamLevelGroup.save(newTextGenderExamLevelGroup)
     }
 
     await createAdminPerson()

@@ -51,6 +51,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .createQueryBuilder('studentClassroom')
         .leftJoin('studentClassroom.classroom', 'classroom')
         .leftJoin('studentClassroom.year', 'year')
+        .leftJoinAndSelect('studentClassroom.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
         .leftJoinAndSelect('studentClassroom.textGenderGrades', 'textGenderGrade')
         .leftJoinAndSelect('textGenderGrade.textGender', 'textGender')
         .leftJoinAndSelect('textGenderGrade.textGenderExam', 'textGenderExam')
@@ -62,6 +64,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .getMany()
 
       const finalResult = {
+        gender: gender,
         headers: { examLevel, examTier },
         data: result
       }

@@ -1,10 +1,10 @@
 export const TEXTGENDEREXAM = [
-  { name: "TEMA", color: "#85b466" },
-  { name: "ESTRUTURA DO GÊNERO", color: "#ffeb3b" },
+  { name: "TEMA", color: "#d79c58" },
+  { name: "ESTRUTURA DO GÊNERO", color: "#b7b641" },
   { name: "COERÊNCIA", color: "#6672b4" },
-  { name: "COESÃO", color: "#b49566" },
+  { name: "COESÃO", color: "#b48966" },
   { name: "PARÁGRAFOS E FRASES", color: "#66b49f" },
   { name: "PONTUAÇÃO", color: "#a666b4" },
-  { name: "ACENTUAÇÃO", color: "#6eb466" },
-  { name: "ORTOGRAFIA", color: "#eed2f5" }
+  { name: "ACENTUAÇÃO", color: "#a1a1a1" },
+  { name: "ORTOGRAFIA", color: "#b8a2bd" }
 ];

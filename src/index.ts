@@ -74,7 +74,7 @@ route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRout
 route.use('/teacher-classroom', authorization, TeacherClassroomsRouter );
 route.use('/test', authorization, TestRouter);
 route.use('/test-category', authorization, TestCategoryRouter);
-route.use('/text-gender-grade', TextGenderGradeRouter)
+route.use('/text-gender-grade', authorization, TextGenderGradeRouter)
 route.use('/text-gender-tabs', TextGenderClassroomRouter)
 route.use('/topic', TopicRouter);
 route.use('/transfer', authorization, TransferRouter);

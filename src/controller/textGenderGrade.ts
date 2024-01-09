@@ -73,6 +73,21 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+  async updateStudentTextGenderExamGrade(body: { studentClassroom: { id: number }, textGender: { id: number }, textGenderExam: { id: number }, textGenderExamTier: { id: number }, textGenderExamTierLevel: { id: number } }) {
+
+    console.log(body)
+
+    try {
+
+      let result = {}
+
+
+      return { status: 200, data: result }
+
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const textGenderGradeController = new TextGenderGradeController();

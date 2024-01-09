@@ -279,7 +279,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }, 0)
   }
 
-  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: { user: number, username: string, category: number, iat: number, exp: number }}) {
+  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface}) {
 
     const { studentClassroom, literacyTier, literacyLevel, user } = body
 

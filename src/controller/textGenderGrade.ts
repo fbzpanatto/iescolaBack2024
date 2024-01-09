@@ -9,6 +9,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
 import {TextGenderExam} from "../model/TextGenderExam";
 import {TextGenderExamTier} from "../model/TextGenderExamTier";
+import {BodyTextGenderExamGrade, UserInterface} from "../interfaces/interfaces";
 
 class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
 
@@ -74,7 +75,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateStudentTextGenderExamGrade(body: { studentClassroom: { id: number }, textGender: { id: number }, textGenderExam: { id: number }, textGenderExamTier: { id: number }, textGenderExamTierLevel: { id: number } }) {
+  async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {
 
     console.log(body)
 

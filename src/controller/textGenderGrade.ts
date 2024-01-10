@@ -26,7 +26,10 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
     try {
 
       const classroom = await AppDataSource.getRepository(Classroom)
-        .findOne({ where: { id: Number(classId) } }) as Classroom
+        .findOne({
+          relations: ['school'],
+          where: { id: Number(classId) }
+        }) as Classroom
 
       if(!classroom) return { status: 404, message: 'Sala não encontrada' }
 
@@ -68,6 +71,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       const finalResult = {
         gender: gender,
+        year: year,
+        classroom: classroom,
         headers: { examLevel, examTier },
         data: result
       }

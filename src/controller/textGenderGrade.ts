@@ -128,7 +128,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       const result = {
         year,
         classroom,
-        headers: { gender, examLevel, examTier },
+        classroomNumber,
+        gender,
+        headers: { examLevel, examTier },
         data: []
       }
 

@@ -118,7 +118,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .createQueryBuilder('textGenderExamTier')
         .getMany()
 
-      const textGenderTabs = await AppDataSource
+      const gender = await AppDataSource
         .getRepository(TextGenderClassroom)
         .createQueryBuilder('textGenderClassroom')
         .leftJoinAndSelect('textGenderClassroom.textGender', 'textGender')
@@ -126,11 +126,10 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .getMany()
 
       const result = {
-        textGenderTabs,
-        examLevel,
-        examTier,
         year,
-        classroom
+        classroom,
+        headers: { gender, examLevel, examTier },
+        data: []
       }
 
       return { status: 200, data: result }

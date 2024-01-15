@@ -125,6 +125,20 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .where('classroomNumber = :classroomNumber', { classroomNumber })
         .getMany()
 
+      const allClassrooms = await AppDataSource.getRepository(Classroom)
+        .createQueryBuilder('classroom')
+        .leftJoinAndSelect('classroom.school', 'school')
+        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassroom')
+        .leftJoinAndSelect('studentClassroom.textGenderGrades', 'textGenderGrades')
+        .leftJoinAndSelect('studentClassroom.year', 'year')
+        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+        .andWhere('year.id = :yearId', { yearId: year.id })
+        .having('COUNT(studentClassroom.id) > 0')
+        .groupBy('classroom.id, school.id, year.id, studentClassroom.id, textGenderGrades.id')
+        .getMany()
+
+      const schoolClassrooms = allClassrooms.filter(cl => cl.school.id === classroom.school.id)
+
       const result = {
         year,
         classroom,
@@ -136,7 +150,10 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       return { status: 200, data: result }
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {

@@ -1,18 +1,18 @@
-import { GenericController } from "./genericController";
-import { Brackets, EntityTarget} from "typeorm";
-import { TextGenderGrade } from "../model/TextGenderGrade";
-import { AppDataSource } from "../data-source";
-import { Classroom } from "../model/Classroom";
-import { Year } from "../model/Year";
-import { TextGender } from "../model/TextGender";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TextGenderExam } from "../model/TextGenderExam";
-import { TextGenderExamTier } from "../model/TextGenderExamTier";
-import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
-import { personCategories } from "../utils/personCategories";
-import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
-import { Request } from "express";
-import { TextGenderClassroom } from "../model/TextGenderClassroom";
+import {GenericController} from "./genericController";
+import {Brackets, EntityTarget} from "typeorm";
+import {TextGenderGrade} from "../model/TextGenderGrade";
+import {AppDataSource} from "../data-source";
+import {Classroom} from "../model/Classroom";
+import {Year} from "../model/Year";
+import {TextGender} from "../model/TextGender";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TextGenderExam} from "../model/TextGenderExam";
+import {TextGenderExamTier} from "../model/TextGenderExamTier";
+import {BodyTextGenderExamGrade} from "../interfaces/interfaces";
+import {personCategories} from "../utils/personCategories";
+import {TextGenderExamLevel} from "../model/TextGenderExamLevel";
+import {Request} from "express";
+import {TextGenderClassroom} from "../model/TextGenderClassroom";
 
 class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
 
@@ -125,7 +125,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .where('classroomNumber = :classroomNumber', { classroomNumber })
         .getMany()
 
-      const cityhall:{ id: number, name: string, classrooms: Classroom[] }[] = []
+      const allData:{ id: number, name: string, classrooms: Classroom[] }[] = []
 
       for(let gender of genders) {
 
@@ -144,15 +144,27 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
           .andWhere('textGender.id = :textGenderId', { textGenderId: gender.textGender.id })
           .getMany()
 
-        cityhall.push({ id: gender.textGender.id, name: gender.textGender.name, classrooms })
+        allData.push({
+          id: gender.textGender.id,
+          name: gender.textGender.name,
+          classrooms
+        })
       }
 
-      const onlySchool = cityhall.map(el => {
+      const onlySchool = allData.map(el => {
         return {
           ...el,
           classrooms: el.classrooms.filter(cl => cl.school.id === classroom.school.id)
         }
       })
+
+      for(let gender of genders) {
+        const cityHall = this.createCityHall()
+        const groupIndex = onlySchool.findIndex(el => el.id === gender.textGender.id)
+        const preResult = allData.filter(el => el.id === gender.textGender.id)
+        cityHall.studentClassrooms = preResult.flatMap(el => el.classrooms.flatMap(st => st.studentClassrooms))
+        onlySchool[groupIndex].classrooms.push(cityHall)
+      }
 
       const result = {
         year,
@@ -160,15 +172,28 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         classroomNumber,
         genders,
         headers: { examLevel, examTier },
-        data: { cityHall: cityhall, school: onlySchool }
+        groups: onlySchool
       }
 
       return { status: 200, data: result }
 
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  createCityHall() {
+    return {
+      id: 'ITA',
+      name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+      shortName: 'ITA',
+      school: {
+        id: 99,
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITATIBA',
+        inep: null,
+        active: true
+      },
+      studentClassrooms: []
+    } as unknown as Classroom
   }
 
   async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {

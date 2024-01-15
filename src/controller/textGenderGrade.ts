@@ -125,19 +125,34 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .where('classroomNumber = :classroomNumber', { classroomNumber })
         .getMany()
 
-      const allClassrooms = await AppDataSource.getRepository(Classroom)
-        .createQueryBuilder('classroom')
-        .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassroom')
-        .leftJoinAndSelect('studentClassroom.textGenderGrades', 'textGenderGrades')
-        .leftJoinAndSelect('studentClassroom.year', 'year')
-        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-        .andWhere('year.id = :yearId', { yearId: year.id })
-        .having('COUNT(studentClassroom.id) > 0')
-        .groupBy('classroom.id, school.id, year.id, studentClassroom.id, textGenderGrades.id')
-        .getMany()
+      const cityhall:{ id: number, name: string, classrooms: Classroom[] }[] = []
 
-      const schoolClassrooms = allClassrooms.filter(cl => cl.school.id === classroom.school.id)
+      for(let gender of genders) {
+
+        const classrooms = await AppDataSource.getRepository(Classroom)
+          .createQueryBuilder('classroom')
+          .leftJoinAndSelect('classroom.school', 'school')
+          .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+          .leftJoinAndSelect('studentClassrooms.year', 'year')
+          .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+          .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+          .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+          .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+          .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+          .where('classroom.shortName LIKE :shortName', { shortName: `%${ classroomNumber }%` })
+          .andWhere('year.id = :yearId', { yearId: year.id })
+          .andWhere('textGender.id = :textGenderId', { textGenderId: gender.textGender.id })
+          .getMany()
+
+        cityhall.push({ id: gender.textGender.id, name: gender.textGender.name, classrooms })
+      }
+
+      const onlySchool = cityhall.map(el => {
+        return {
+          ...el,
+          classrooms: el.classrooms.filter(cl => cl.school.id === classroom.school.id)
+        }
+      })
 
       const result = {
         year,
@@ -145,7 +160,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         classroomNumber,
         genders,
         headers: { examLevel, examTier },
-        data: []
+        data: { cityHall: cityhall, school: onlySchool }
       }
 
       return { status: 200, data: result }

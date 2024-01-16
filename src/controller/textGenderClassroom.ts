@@ -48,11 +48,8 @@ class TextGenderClassroomController extends GenericController<EntityTarget<TextG
   async getTabsReport(req: Request) {
 
     const { classroomNumber, year } = req.params
-    const { search } = req.query
 
     try {
-
-      console.log(classroomNumber, year, search)
 
       const textGenderTabs = await AppDataSource
         .getRepository(TextGenderClassroom)

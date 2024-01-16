@@ -44,6 +44,36 @@ class TextGenderClassroomController extends GenericController<EntityTarget<TextG
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+  async getTabsReport(req: Request) {
+
+    const { classroomNumber, year } = req.params
+    const { search } = req.query
+
+    try {
+
+      console.log(classroomNumber, year, search)
+
+      const textGenderTabs = await AppDataSource
+        .getRepository(TextGenderClassroom)
+        .createQueryBuilder('textGenderClassroom')
+        .leftJoinAndSelect('textGenderClassroom.textGender', 'textGender')
+        .where('classroomNumber = :classroomNumber', { classroomNumber })
+        .getMany()
+
+      if(!textGenderTabs) return { status: 404, message: 'Gêneros Textuais não foram encontrados' }
+
+      let totalTab = {
+        id: 99,
+        classroomNumber: 99,
+        textGender: { id: 99, name: "COMPARATIVO" },
+        notInclude: true
+      }
+
+      return { status: 200, data: [...textGenderTabs, totalTab] }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const textGenderClassroomController = new TextGenderClassroomController();

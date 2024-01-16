@@ -9,3 +9,10 @@ TextGenderClassroomRouter.get('/:id', (req, res) => {
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
+
+TextGenderClassroomRouter.get('/report/:classroomNumber/:year', (req, res) => {
+
+  textGenderClassroomController.getTabsReport(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})

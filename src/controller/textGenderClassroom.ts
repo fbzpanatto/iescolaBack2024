@@ -60,14 +60,7 @@ class TextGenderClassroomController extends GenericController<EntityTarget<TextG
 
       if(!textGenderTabs) return { status: 404, message: 'Gêneros Textuais não foram encontrados' }
 
-      let totalTab = {
-        id: 99,
-        classroomNumber: 99,
-        textGender: { id: 99, name: "COMPARATIVO" },
-        notInclude: true
-      }
-
-      return { status: 200, data: [...textGenderTabs, totalTab] }
+      return { status: 200, data: textGenderTabs }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

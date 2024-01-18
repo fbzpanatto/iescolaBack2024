@@ -1,18 +1,18 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityTarget} from "typeorm";
-import {TextGenderGrade} from "../model/TextGenderGrade";
-import {AppDataSource} from "../data-source";
-import {Classroom} from "../model/Classroom";
-import {Year} from "../model/Year";
-import {TextGender} from "../model/TextGender";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TextGenderExam} from "../model/TextGenderExam";
-import {TextGenderExamTier} from "../model/TextGenderExamTier";
-import {BodyTextGenderExamGrade} from "../interfaces/interfaces";
-import {personCategories} from "../utils/personCategories";
-import {TextGenderExamLevel} from "../model/TextGenderExamLevel";
-import {Request} from "express";
-import {TextGenderClassroom} from "../model/TextGenderClassroom";
+import { GenericController } from "./genericController";
+import { Brackets, EntityTarget } from "typeorm";
+import { TextGenderGrade } from "../model/TextGenderGrade";
+import { AppDataSource } from "../data-source";
+import { Classroom } from "../model/Classroom";
+import { Year } from "../model/Year";
+import { TextGender } from "../model/TextGender";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TextGenderExam } from "../model/TextGenderExam";
+import { TextGenderExamTier } from "../model/TextGenderExamTier";
+import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
+import { personCategories } from "../utils/personCategories";
+import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
+import { Request } from "express";
+import { TextGenderClassroom } from "../model/TextGenderClassroom";
 
 class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
 
@@ -32,17 +32,17 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
           where: { id: Number(classId) }
         }) as Classroom
 
-      if(!classroom) return { status: 404, message: 'Sala não encontrada' }
+      if (!classroom) return { status: 404, message: 'Sala não encontrada' }
 
       const year = await AppDataSource.getRepository(Year)
         .findOne({ where: { name: yearName } }) as Year
 
-      if(!year) return { status: 404, message: 'Ano não encontrado' }
+      if (!year) return { status: 404, message: 'Ano não encontrado' }
 
       const gender = await AppDataSource.getRepository(TextGender)
         .findOne({ where: { id: Number(genderId) } }) as TextGender
 
-      if(!gender) return { status: 404, message: 'Gênero não encontrado' }
+      if (!gender) return { status: 404, message: 'Gênero não encontrado' }
 
       const examLevel = await AppDataSource.getRepository(TextGenderExam)
         .createQueryBuilder('textGenderExam')
@@ -54,7 +54,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .createQueryBuilder('textGenderExamTier')
         .getMany()
 
-      const result= await AppDataSource.getRepository(StudentClassroom)
+      const result = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder('studentClassroom')
         .leftJoin('studentClassroom.classroom', 'classroom')
         .leftJoin('studentClassroom.year', 'year')
@@ -86,19 +86,19 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
   async getTotals(request: Request) {
 
     const { user: userBody } = request.body
-    const { classroom: classId, year: yearName} = request.params
+    const { classroom: classId, year: yearName } = request.params
 
     try {
 
       const teacher = await this.teacherByUser(userBody.user)
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if(!classrooms.includes(Number(classId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if (!classrooms.includes(Number(classId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom)
         .findOne({ relations: ['school'], where: { id: Number(classId) } }) as Classroom
 
-      if(!classroom) return { status: 404, message: 'Sala não encontrada' }
+      if (!classroom) return { status: 404, message: 'Sala não encontrada' }
 
       const notDigit = /\D/g
       const classroomNumber = classroom.shortName.replace(notDigit, '')
@@ -106,7 +106,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       const year = await AppDataSource.getRepository(Year)
         .findOne({ where: { name: yearName } }) as Year
 
-      if(!year) return { status: 404, message: 'Ano não encontrado' }
+      if (!year) return { status: 404, message: 'Ano não encontrado' }
 
       const examLevel = await AppDataSource.getRepository(TextGenderExam)
         .createQueryBuilder('textGenderExam')
@@ -125,9 +125,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .where('classroomNumber = :classroomNumber', { classroomNumber })
         .getMany()
 
-      const allData:{ id: number, name: string, classrooms: Classroom[] }[] = []
+      const allData: { id: number, name: string, classrooms: Classroom[] }[] = []
 
-      for(let gender of genders) {
+      for (let gender of genders) {
 
         const classrooms = await AppDataSource.getRepository(Classroom)
           .createQueryBuilder('classroom')
@@ -139,7 +139,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
           .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
           .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
           .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
-          .where('classroom.shortName LIKE :shortName', { shortName: `%${ classroomNumber }%` })
+          .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
           .andWhere('year.id = :yearId', { yearId: year.id })
           .andWhere('textGender.id = :textGenderId', { textGenderId: gender.textGender.id })
           .getMany()
@@ -158,7 +158,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         }
       })
 
-      for(let gender of genders) {
+      for (let gender of genders) {
         const cityHall = this.createCityHall()
         const groupIndex = onlySchool.findIndex(el => el.id === gender.textGender.id)
         const preResult = allData.filter(el => el.id === gender.textGender.id)
@@ -178,6 +178,24 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       return { status: 200, data: result }
 
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getReport(request: Request) {
+
+    const { classroom, year, textgender } = request.params
+
+    console.log('--------------', classroom, year, textgender)
+
+    try {
+
+      const result = {}
+
+      return { status: 200, data: result }
+
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   createCityHall() {
@@ -218,7 +236,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .leftJoin('textGenderGrade.textGenderExam', 'textGenderExam')
         .leftJoin('textGenderGrade.textGenderExamTier', 'textGenderExamTier')
         .where(new Brackets(qb => {
-          if(user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
+          if (user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
@@ -228,16 +246,16 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .andWhere('textGenderExamTier.id = :textGenderExamTierId', { textGenderExamTierId: textGenderExamTier.id })
         .getOne()
 
-      if(!stTextGenderGrade) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
+      if (!stTextGenderGrade) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
 
       let textGenderExamTierLevelDb: any
 
-      if(textGenderExamTierLevel && textGenderExamTierLevel.id) {
+      if (textGenderExamTierLevel && textGenderExamTierLevel.id) {
         textGenderExamTierLevelDb = await AppDataSource.getRepository(TextGenderExamLevel)
           .findOne({ where: { id: textGenderExamTierLevel.id } })
       }
 
-      if(!textGenderExamTierLevel) { textGenderExamTierLevelDb = null }
+      if (!textGenderExamTierLevel) { textGenderExamTierLevelDb = null }
 
       stTextGenderGrade.textGenderExamLevel = textGenderExamTierLevelDb
 

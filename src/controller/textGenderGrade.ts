@@ -183,8 +183,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
   async getReport(request: Request) {
 
     const { classroom, year, textgender } = request.params
+    const { search } = request.query
 
-    console.log('--------------', classroom, year, textgender)
+    console.log('--------------', classroom, year, textgender, search)
 
     try {
 

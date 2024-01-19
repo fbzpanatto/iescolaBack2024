@@ -13,6 +13,7 @@ import { personCategories } from "../utils/personCategories";
 import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
 import { Request } from "express";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
+import { School } from "../model/School";
 
 class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
 
@@ -182,37 +183,52 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   async getReport(request: Request) {
 
-    const { classroom, year, textgender } = request.params
+    const { classroom: classroomNumber, year: yearName, textgender: textGenderId } = request.params
     const { search } = request.query
-
-    console.log('--------------', classroom, year, textgender, search)
 
     try {
 
-      const result = {}
+      const [year, examLevel, examTier, textGender] = await Promise.all([
+        this.getYear(yearName),
+        this.getExamLevel(),
+        this.getexamTier(),
+        this.getTextGender(textGenderId)
+      ])
+
+      if(!year) return { status: 404, message: 'Ano não encontrado.' }
+
+      const schools = await AppDataSource.getRepository(School)
+      .createQueryBuilder('school')
+      .leftJoinAndSelect('school.classrooms', 'classroom')
+      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+      .leftJoinAndSelect('studentClassrooms.year', 'year')
+      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+      .andWhere('year.id = :yearId', { yearId: year.id })
+      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+      .andWhere(new Brackets(qb => {
+        if(search) {
+          qb.where("school.name LIKE :search", { search: `%${search}%` })
+            .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+        }
+      }))
+      .orderBy('school.name', 'ASC')
+      .getMany()
+
+      const result = {
+        classroomNumber,
+        year,
+        headers: { examLevel, examTier },
+        schools
+      }
 
       return { status: 200, data: result }
 
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
-  }
-
-  createCityHall() {
-    return {
-      id: 'ITA',
-      name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-      shortName: 'ITA',
-      school: {
-        id: 99,
-        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-        shortName: 'ITATIBA',
-        inep: null,
-        active: true
-      },
-      studentClassrooms: []
-    } as unknown as Classroom
+    } catch (error: any) { return { status: 500, message: error.message }}
   }
 
   async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {
@@ -266,6 +282,47 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
 
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  getYear(yearName: string) {
+    return AppDataSource.getRepository(Year).findOne({ where: { name: yearName } })
+  }
+
+  getTextGender(textGenderId: string) {
+    return AppDataSource.getRepository(TextGender)
+    .createQueryBuilder('textGender')
+    .where('textGender.id = :textGenderId', { textGenderId })
+    .getOne()
+  }
+
+  getExamLevel() {
+    return AppDataSource.getRepository(TextGenderExam)
+    .createQueryBuilder('textGenderExam')
+    .leftJoinAndSelect('textGenderExam.textGenderExamLevelGroups', 'textGenderExamLevelGroup')
+    .leftJoinAndSelect('textGenderExamLevelGroup.textGenderExamLevel', 'textGenderExamLevel')
+    .getMany()
+  }
+
+  getexamTier() {
+    return AppDataSource.getRepository(TextGenderExamTier)
+      .createQueryBuilder('textGenderExamTier')
+      .getMany()
+  }
+
+  createCityHall() {
+    return {
+      id: 'ITA',
+      name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+      shortName: 'ITA',
+      school: {
+        id: 99,
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITATIBA',
+        inep: null,
+        active: true
+      },
+      studentClassrooms: []
+    } as unknown as Classroom
   }
 }
 

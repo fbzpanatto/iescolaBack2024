@@ -24,7 +24,7 @@ class ReportLiteracy extends GenericController<School> {
         AppDataSource.getRepository(Year).findOne({ where: { name: year } })
       ]);
 
-      if(!selectedYear) return { status: 404, message: 'Year not found' }
+      if(!selectedYear) return { status: 404, message: 'Ano não encontrado.' }
 
       const data = await AppDataSource.getRepository(School)
         .createQueryBuilder('school')

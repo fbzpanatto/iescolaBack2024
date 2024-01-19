@@ -239,7 +239,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         for (let tier of examTier) {
           for (let examLevel of exam.textGenderExamLevelGroups.flatMap(el => el.textGenderExamLevel)) {
             const index = examTotalizer.findIndex(el => el.examId === exam.id && el.examTierId === tier.id && el.examTierLevelId === examLevel.id)
-            if(index === -1) {
+            const object = examTotalizer[index]
+            if(!object) {
               examTotalizer.push({
                 examId: exam.id,
                 examTierId: tier.id,
@@ -263,8 +264,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
             const index = schoolExamTotalizer.findIndex(el => el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
-            if(index !== -1) {
-              schoolExamTotalizer[index].total += 1
+            const object = schoolExamTotalizer[index]
+            if(object) {
+              object.total += 1
             }
           }
         }
@@ -276,7 +278,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         classroomNumber,
         year,
         headers: { examLevel, examTier },
-        arrOfSchoolsWithGrades
+        schools: arrOfSchoolsWithGrades
       }
 
       return { status: 200, data: result }

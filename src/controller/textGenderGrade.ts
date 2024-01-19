@@ -195,10 +195,6 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         this.getTextGender(textGenderId)
       ])
 
-
-
-
-
       if (!year) return { status: 404, message: 'Ano não encontrado.' }
 
       const data = await AppDataSource.getRepository(School)
@@ -232,36 +228,49 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }))
 
-      const exams: {[key: string]: any}[] = []
+      const examTotalizer: {
+        examId: number,
+        examTierId: number,
+        examTierLevelId: number,
+        total: number
+      }[] = []
 
-      const arrOfSchoolsWithGrades = arrOfSchools.map(school => ({
-        ...school,
-        exams
-      }))
-
-      for (let school of arrOfSchoolsWithGrades) {
-
-        const localTextGenderGrades = [...exams]
-
-        for (let oneStudentClassroom of school.studentsClassrooms) {
-
-          for (let stGrade of oneStudentClassroom.textGenderGrades) {
-
-            const condition = localTextGenderGrades.find(el => el.id === stGrade.textGenderExam.id)!!
-
-            if (!condition) {
-
-              const examLevelTierGroups = examLevel.find(el => el.id === stGrade.textGenderExam.id)?.textGenderExamLevelGroups.map(el => ({ id: el.textGenderExamLevel.id, name: el.textGenderExamLevel.name, total: 0 }))
-
-              localTextGenderGrades.push({
-                id: stGrade.textGenderExam.id,
-                name: stGrade.textGenderExam.name,
-                examTier: examTier.map(el => ({ id: el.id, name: el.name, examLevelTierGroups }))
+      for (let exam of examLevel) {
+        for (let tier of examTier) {
+          for (let examLevel of exam.textGenderExamLevelGroups.flatMap(el => el.textGenderExamLevel)) {
+            const index = examTotalizer.findIndex(el => el.examId === exam.id && el.examTierId === tier.id && el.examTierLevelId === examLevel.id)
+            if(index === -1) {
+              examTotalizer.push({
+                examId: exam.id,
+                examTierId: tier.id,
+                examTierLevelId: examLevel.id,
+                total: 0 
               })
             }
           }
         }
-        school.exams = localTextGenderGrades
+      }
+
+      const arrOfSchoolsWithGrades = arrOfSchools.map(school => ({
+        ...school,
+        examTotalizer
+      }))
+
+      for (let school of arrOfSchoolsWithGrades) {
+
+        const schoolExamTotalizer = [...examTotalizer]
+
+        for (let oneStudentClassroom of school.studentsClassrooms) {
+          for (let stGrade of oneStudentClassroom.textGenderGrades) {
+
+            const index = schoolExamTotalizer.findIndex(el => el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+            if(index !== -1) {
+              schoolExamTotalizer[index].total += 1
+            }
+          }
+        }
+
+        school.examTotalizer = schoolExamTotalizer
       }
 
       const result = {

@@ -11,7 +11,7 @@ import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
 import { personCategories } from "../utils/personCategories";
 import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
-import { Request } from "express";
+import e, { Request } from "express";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { School } from "../model/School";
 
@@ -195,40 +195,88 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         this.getTextGender(textGenderId)
       ])
 
-      if(!year) return { status: 404, message: 'Ano não encontrado.' }
 
-      const schools = await AppDataSource.getRepository(School)
-      .createQueryBuilder('school')
-      .leftJoinAndSelect('school.classrooms', 'classroom')
-      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
-      .leftJoinAndSelect('studentClassrooms.year', 'year')
-      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
-      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
-      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
-      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
-      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
-      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-      .andWhere('year.id = :yearId', { yearId: year.id })
-      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
-      .andWhere(new Brackets(qb => {
-        if(search) {
-          qb.where("school.name LIKE :search", { search: `%${search}%` })
-            .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
-        }
+
+
+
+      if (!year) return { status: 404, message: 'Ano não encontrado.' }
+
+      const data = await AppDataSource.getRepository(School)
+        .createQueryBuilder('school')
+        .leftJoinAndSelect('school.classrooms', 'classroom')
+        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+        .leftJoinAndSelect('studentClassrooms.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('studentClassrooms.year', 'year')
+        .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+        .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+        .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+        .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+        .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+        .andWhere('year.id = :yearId', { yearId: year.id })
+        .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+        .andWhere(new Brackets(qb => {
+          if (search) {
+            qb.where("school.name LIKE :search", { search: `%${search}%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+          }
+        }))
+        .orderBy('school.name', 'ASC')
+        .getMany()
+
+      const arrOfSchools = data.map(school => ({
+        id: school.id,
+        name: school.name,
+        shortName: school.shortName,
+        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }))
-      .orderBy('school.name', 'ASC')
-      .getMany()
+
+      const exams: {[key: string]: any}[] = []
+
+      const arrOfSchoolsWithGrades = arrOfSchools.map(school => ({
+        ...school,
+        exams
+      }))
+
+      for (let school of arrOfSchoolsWithGrades) {
+
+        const localTextGenderGrades = [...exams]
+
+        for (let oneStudentClassroom of school.studentsClassrooms) {
+
+          for (let stGrade of oneStudentClassroom.textGenderGrades) {
+
+            const condition = localTextGenderGrades.find(el => el.id === stGrade.textGenderExam.id)!!
+
+            if (!condition) {
+
+              const examLevelTierGroups = examLevel.find(el => el.id === stGrade.textGenderExam.id)?.textGenderExamLevelGroups.map(el => ({ id: el.textGenderExamLevel.id, name: el.textGenderExamLevel.name, total: 0 }))
+
+              localTextGenderGrades.push({
+                id: stGrade.textGenderExam.id,
+                name: stGrade.textGenderExam.name,
+                examTier: examTier.map(el => ({ id: el.id, name: el.name, examLevelTierGroups }))
+              })
+            }
+          }
+        }
+        school.exams = localTextGenderGrades
+      }
 
       const result = {
         classroomNumber,
         year,
         headers: { examLevel, examTier },
-        schools
+        arrOfSchoolsWithGrades
       }
 
       return { status: 200, data: result }
 
-    } catch (error: any) { return { status: 500, message: error.message }}
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {
@@ -290,17 +338,17 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   getTextGender(textGenderId: string) {
     return AppDataSource.getRepository(TextGender)
-    .createQueryBuilder('textGender')
-    .where('textGender.id = :textGenderId', { textGenderId })
-    .getOne()
+      .createQueryBuilder('textGender')
+      .where('textGender.id = :textGenderId', { textGenderId })
+      .getOne()
   }
 
   getExamLevel() {
     return AppDataSource.getRepository(TextGenderExam)
-    .createQueryBuilder('textGenderExam')
-    .leftJoinAndSelect('textGenderExam.textGenderExamLevelGroups', 'textGenderExamLevelGroup')
-    .leftJoinAndSelect('textGenderExamLevelGroup.textGenderExamLevel', 'textGenderExamLevel')
-    .getMany()
+      .createQueryBuilder('textGenderExam')
+      .leftJoinAndSelect('textGenderExam.textGenderExamLevelGroups', 'textGenderExamLevelGroup')
+      .leftJoinAndSelect('textGenderExamLevelGroup.textGenderExamLevel', 'textGenderExamLevel')
+      .getMany()
   }
 
   getexamTier() {

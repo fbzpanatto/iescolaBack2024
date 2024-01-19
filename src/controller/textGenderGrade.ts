@@ -262,7 +262,6 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
-
             const index = schoolExamTotalizer.findIndex(el => el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
             if(index !== -1) {
               schoolExamTotalizer[index].total += 1

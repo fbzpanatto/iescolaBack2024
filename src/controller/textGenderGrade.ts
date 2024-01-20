@@ -1,3 +1,4 @@
+import { TextGenderExam } from './../model/TextGenderExam';
 import { GenericController } from "./genericController";
 import { Brackets, EntityTarget } from "typeorm";
 import { TextGenderGrade } from "../model/TextGenderGrade";
@@ -225,60 +226,26 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         id: school.id,
         name: school.name,
         shortName: school.shortName,
-        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
+        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms),
+        examTotalizer: this.examTotalizer(examLevel, examTier)
       }))
 
-      const examTotalizer: {
-        examId: number,
-        examTierId: number,
-        examTierLevelId: number,
-        total: number
-      }[] = []
-
-      for (let exam of examLevel) {
-        for (let tier of examTier) {
-          for (let examLevel of exam.textGenderExamLevelGroups.flatMap(el => el.textGenderExamLevel)) {
-            const index = examTotalizer.findIndex(el => el.examId === exam.id && el.examTierId === tier.id && el.examTierLevelId === examLevel.id)
-            const object = examTotalizer[index]
-            if(!object) {
-              examTotalizer.push({
-                examId: exam.id,
-                examTierId: tier.id,
-                examTierLevelId: examLevel.id,
-                total: 0 
-              })
-            }
-          }
-        }
-      }
-
-      const arrOfSchoolsWithGrades = arrOfSchools.map(school => ({
-        ...school,
-        examTotalizer
-      }))
-
-      for (let school of arrOfSchoolsWithGrades) {
-
-        const schoolExamTotalizer = [...examTotalizer]
-
+      for (let school of arrOfSchools) {
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
-            const index = schoolExamTotalizer.findIndex(el => el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
-            const object = schoolExamTotalizer[index]
-            if(object) {
-              object.total += 1
+            const index = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+            if(index !== -1) {
+              school.examTotalizer[index].total += 1
             }
           }
         }
-
-        school.examTotalizer = schoolExamTotalizer
       }
 
       const result = {
         classroomNumber,
         year,
         headers: { examLevel, examTier },
-        schools: arrOfSchoolsWithGrades
+        schools: arrOfSchools
       }
 
       return { status: 200, data: result }
@@ -381,6 +348,33 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       },
       studentClassrooms: []
     } as unknown as Classroom
+  }
+
+  examTotalizer(examLevel: TextGenderExam[], examTier: TextGenderExamTier[] ) {
+
+    const examTotalizer: {
+      examId: number,
+      examTierId: number,
+      examTierLevelId: number,
+      total: number
+    }[] = []
+
+    for (let exam of examLevel) {
+      for (let tier of examTier) {
+        for (let examLevel of exam.textGenderExamLevelGroups.flatMap(el => el.textGenderExamLevel)) {
+          const index = examTotalizer.findIndex(el => el.examId === exam.id && el.examTierId === tier.id && el.examTierLevelId === examLevel.id)
+          if(index === -1) {
+            examTotalizer.push({
+              examId: exam.id,
+              examTierId: tier.id,
+              examTierLevelId: examLevel.id,
+              total: 0 
+            })
+          }
+        }
+      }
+    }
+    return examTotalizer
   }
 }
 

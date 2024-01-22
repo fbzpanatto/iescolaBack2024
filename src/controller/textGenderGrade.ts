@@ -7,7 +7,6 @@ import { Classroom } from "../model/Classroom";
 import { Year } from "../model/Year";
 import { TextGender } from "../model/TextGender";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { TextGenderExam } from "../model/TextGenderExam";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
 import { personCategories } from "../utils/personCategories";
@@ -230,12 +229,28 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         examTotalizer: this.examTotalizer(examLevel, examTier)
       }))
 
+      const cityHall = {
+        id: 'ITA',
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITA',
+        studentsClassrooms: data.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms)),
+        examTotalizer: this.examTotalizer(examLevel, examTier)
+      }
+
       for (let school of arrOfSchools) {
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
-            const index = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
-            if(index !== -1) {
-              school.examTotalizer[index].total += 1
+
+            const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+
+            const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+
+            if(indexForSchool !== -1 && indexForCity !== -1) {
+              school.examTotalizer[indexForSchool].total += 1
+              school.examTotalizer[indexForSchool].rate = (school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100
+
+              cityHall.examTotalizer[indexForCity].total += 1
+              cityHall.examTotalizer[indexForCity].rate = (cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100
             }
           }
         }
@@ -245,15 +260,12 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         classroomNumber,
         year,
         headers: { examLevel, examTier },
-        schools: arrOfSchools
+        schools: [...arrOfSchools, cityHall]
       }
 
       return { status: 200, data: result }
 
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateStudentTextGenderExamGrade(body: BodyTextGenderExamGrade) {
@@ -356,7 +368,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       examId: number,
       examTierId: number,
       examTierLevelId: number,
-      total: number
+      total: number,
+      rate: number
     }[] = []
 
     for (let exam of examLevel) {
@@ -368,7 +381,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
               examId: exam.id,
               examTierId: tier.id,
               examTierLevelId: examLevel.id,
-              total: 0 
+              total: 0,
+              rate: 0
             })
           }
         }

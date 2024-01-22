@@ -18,6 +18,7 @@ class ReportLiteracy extends GenericController<School> {
     const { search } = request.query;
 
     try {
+
       const [literacyLevels, literacyTiers, selectedYear] = await Promise.all([
         AppDataSource.getRepository(LiteracyLevel).find(),
         AppDataSource.getRepository(LiteracyTier).find(),
@@ -52,7 +53,7 @@ class ReportLiteracy extends GenericController<School> {
         studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }));
 
-      return { status: 200, data: { literacyTiers, literacyLevels, schools: arrOfSchools } };
+      return { status: 200, data: { literacyTiers, literacyLevels, schools: arrOfSchools, classroomNumber: classroom, year: selectedYear.name } };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

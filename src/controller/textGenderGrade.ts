@@ -211,6 +211,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
         .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
         .andWhere('year.id = :yearId', { yearId: year.id })
+        .andWhere('textGenderExamLevel.id IS NOT NULL')
         .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
         .andWhere(new Brackets(qb => {
           if (search) {
@@ -240,6 +241,10 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       for (let school of arrOfSchools) {
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
+
+            if(!stGrade.textGenderExamLevel?.id) {
+              console.log('é nulo')
+            }
 
             const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
 

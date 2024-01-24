@@ -197,49 +197,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       if (!year) return { status: 404, message: 'Ano não encontrado.' }
 
-      const allData = await AppDataSource.getRepository(School)
-      .createQueryBuilder('school')
-      .leftJoinAndSelect('school.classrooms', 'classroom')
-      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
-      .leftJoinAndSelect('studentClassrooms.student', 'student')
-      .leftJoinAndSelect('student.person', 'person')
-      .leftJoinAndSelect('studentClassrooms.year', 'year')
-      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
-      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
-      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
-      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
-      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
-      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-      .andWhere('year.id = :yearId', { yearId: year.id })
-      .andWhere('textGenderExamLevel.id IS NOT NULL')
-      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
-      .orderBy('school.name', 'ASC')
-      .getMany()
-
-      const filteredSchool = await AppDataSource.getRepository(School)
-        .createQueryBuilder('school')
-        .leftJoinAndSelect('school.classrooms', 'classroom')
-        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
-        .leftJoinAndSelect('studentClassrooms.student', 'student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('studentClassrooms.year', 'year')
-        .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
-        .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
-        .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
-        .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
-        .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
-        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-        .andWhere('year.id = :yearId', { yearId: year.id })
-        .andWhere('textGenderExamLevel.id IS NOT NULL')
-        .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
-        .andWhere(new Brackets(qb => {
-          if (search) {
-            qb.where("school.name LIKE :search", { search: `%${search}%` })
-              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
-          }
-        }))
-        .orderBy('school.name', 'ASC')
-        .getMany()
+      const allData = await this.getAllData(classroomNumber, textGender, year)
+      const filteredSchool = await this.filteredSchool(classroomNumber, textGender, year, search)
 
       const arrOfSchools = filteredSchool.map(school => ({
         id: school.id,
@@ -416,6 +375,54 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       }
     }
     return examTotalizer
+  }
+
+  async getAllData(classroomNumber: string, textGender: TextGender | null, year: Year) {
+    return await AppDataSource.getRepository(School)
+      .createQueryBuilder('school')
+      .leftJoinAndSelect('school.classrooms', 'classroom')
+      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+      .leftJoinAndSelect('studentClassrooms.student', 'student')
+      .leftJoinAndSelect('student.person', 'person')
+      .leftJoinAndSelect('studentClassrooms.year', 'year')
+      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+      .andWhere('year.id = :yearId', { yearId: year.id })
+      .andWhere('textGenderExamLevel.id IS NOT NULL')
+      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+      .orderBy('school.name', 'ASC')
+      .getMany()
+  }
+
+  async filteredSchool(classroomNumber: string, textGender: TextGender | null, year: Year, search: any) {
+    return await AppDataSource.getRepository(School)
+        .createQueryBuilder('school')
+        .leftJoinAndSelect('school.classrooms', 'classroom')
+        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+        .leftJoinAndSelect('studentClassrooms.student', 'student')
+        .leftJoinAndSelect('student.person', 'person')
+        .leftJoinAndSelect('studentClassrooms.year', 'year')
+        .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+        .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+        .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+        .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+        .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+        .andWhere('year.id = :yearId', { yearId: year.id })
+        .andWhere('textGenderExamLevel.id IS NOT NULL')
+        .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+        .andWhere(new Brackets(qb => {
+          if (search) {
+            qb.where("school.name LIKE :search", { search: `%${search}%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+          }
+        }))
+        .orderBy('school.name', 'ASC')
+        .getMany()
   }
 }
 

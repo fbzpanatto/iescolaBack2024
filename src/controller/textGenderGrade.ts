@@ -197,7 +197,26 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       if (!year) return { status: 404, message: 'Ano não encontrado.' }
 
-      const data = await AppDataSource.getRepository(School)
+      const allData = await AppDataSource.getRepository(School)
+      .createQueryBuilder('school')
+      .leftJoinAndSelect('school.classrooms', 'classroom')
+      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+      .leftJoinAndSelect('studentClassrooms.student', 'student')
+      .leftJoinAndSelect('student.person', 'person')
+      .leftJoinAndSelect('studentClassrooms.year', 'year')
+      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+      .andWhere('year.id = :yearId', { yearId: year.id })
+      .andWhere('textGenderExamLevel.id IS NOT NULL')
+      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+      .orderBy('school.name', 'ASC')
+      .getMany()
+
+      const filteredSchool = await AppDataSource.getRepository(School)
         .createQueryBuilder('school')
         .leftJoinAndSelect('school.classrooms', 'classroom')
         .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
@@ -222,7 +241,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .orderBy('school.name', 'ASC')
         .getMany()
 
-      const arrOfSchools = data.map(school => ({
+      const arrOfSchools = filteredSchool.map(school => ({
         id: school.id,
         name: school.name,
         shortName: school.shortName,
@@ -234,7 +253,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         id: 'ITA',
         name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         shortName: 'ITA',
-        studentsClassrooms: data.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms)),
+        studentsClassrooms: allData.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms)),
         examTotalizer: this.examTotalizer(examLevel, examTier)
       }
 
@@ -242,21 +261,24 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
 
-            if(!stGrade.textGenderExamLevel?.id) {
-              console.log('é nulo')
-            }
-
             const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
 
-            const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
-
-            if(indexForSchool !== -1 && indexForCity !== -1) {
+            if(indexForSchool !== -1) {
               school.examTotalizer[indexForSchool].total += 1
               school.examTotalizer[indexForSchool].rate = (school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100
-
-              cityHall.examTotalizer[indexForCity].total += 1
-              cityHall.examTotalizer[indexForCity].rate = (cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100
             }
+          }
+        }
+      }
+
+      for (let studentClassroom of cityHall.studentsClassrooms) {
+        for (let stGrade of studentClassroom.textGenderGrades) {
+
+          const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+
+          if(indexForCity !== -1) {
+            cityHall.examTotalizer[indexForCity].total += 1
+            cityHall.examTotalizer[indexForCity].rate = (cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100
           }
         }
       }

@@ -194,7 +194,6 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         this.getexamTier(),
         this.getTextGender(textGenderId)
       ])
-
       if (!year) return { status: 404, message: 'Ano não encontrado.' }
 
       const allData = await this.getAllData(classroomNumber, textGender, year)
@@ -224,7 +223,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
             if(indexForSchool !== -1) {
               school.examTotalizer[indexForSchool].total += 1
-              school.examTotalizer[indexForSchool].rate = (school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100
+              school.examTotalizer[indexForSchool].rate = Math.round((school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100)
             }
           }
         }
@@ -237,16 +236,19 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
           if(indexForCity !== -1) {
             cityHall.examTotalizer[indexForCity].total += 1
-            cityHall.examTotalizer[indexForCity].rate = (cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100
+            cityHall.examTotalizer[indexForCity].rate = Math.round((cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100)
           }
         }
       }
+
+      const examLevelLabels = this.examTotalizer(examLevel, examTier).map(el => el.graphicLabel)
 
       const result = {
         classroomNumber,
         year,
         headers: { examLevel, examTier },
-        schools: [...arrOfSchools, cityHall]
+        schools: [...arrOfSchools, cityHall],
+        examLevelLabels
       }
 
       return { status: 200, data: result }
@@ -352,10 +354,14 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
     const examTotalizer: {
       examId: number,
+      examLabel: string,
       examTierId: number,
+      examTierLabel: string,
       examTierLevelId: number,
+      examTierLevelLabel: string,
       total: number,
-      rate: number
+      rate: number,
+      graphicLabel: string
     }[] = []
 
     for (let exam of examLevel) {
@@ -365,10 +371,14 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
           if(index === -1) {
             examTotalizer.push({
               examId: exam.id,
+              examLabel: exam.name,
               examTierId: tier.id,
+              examTierLabel: tier.name,
               examTierLevelId: examLevel.id,
+              examTierLevelLabel: examLevel.name,
               total: 0,
-              rate: 0
+              rate: 0,
+              graphicLabel: tier.id === 1 ? `${exam.name.split(" ").join("").slice(0, 2)} - 1 - ${examLevel.name.split(" ").join("").slice(0, 2)}` : `${exam.name.split(" ").join("").slice(0, 2)} - 2 - ${examLevel.name.split(" ").join("").slice(0, 2)}`
             })
           }
         }

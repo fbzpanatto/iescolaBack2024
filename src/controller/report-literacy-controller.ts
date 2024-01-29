@@ -14,6 +14,7 @@ class ReportLiteracy extends GenericController<School> {
   }
 
   async getReport(request: Request) {
+
     const { classroom, year } = request.params;
     const { search } = request.query;
 
@@ -27,7 +28,20 @@ class ReportLiteracy extends GenericController<School> {
 
       if(!selectedYear) return { status: 404, message: 'Ano não encontrado.' }
 
-      const data = await AppDataSource.getRepository(School)
+      const allSchools = await AppDataSource.getRepository(School)
+      .createQueryBuilder('school')
+      .leftJoinAndSelect('school.classrooms', 'classroom')
+      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+      .leftJoinAndSelect('studentClassrooms.year', 'year')
+      .leftJoinAndSelect('studentClassrooms.literacies', 'literacies')
+      .leftJoinAndSelect('literacies.literacyLevel', 'literacyLevel')
+      .leftJoinAndSelect('literacies.literacyTier', 'literacyTier')
+      .where('year.id = :yearSearch', { yearSearch: selectedYear.id })
+      .andWhere('classroom.shortName LIKE :classroom', { classroom: `%${classroom}%` })
+      .orderBy('school.name', 'ASC')
+      .getMany();
+
+      const filteredData = await AppDataSource.getRepository(School)
         .createQueryBuilder('school')
         .leftJoinAndSelect('school.classrooms', 'classroom')
         .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
@@ -46,14 +60,21 @@ class ReportLiteracy extends GenericController<School> {
         .orderBy('school.name', 'ASC')
         .getMany();
 
-      const arrOfSchools = data.map(school => ({
+        const cityHall = {
+          id: 'ITA',
+          name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+          shortName: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+          studentsClassrooms: allSchools.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+        }
+
+      const filteredSchoolArray = filteredData.map(school => ({
         id: school.id,
         name: school.name,
         shortName: school.shortName,
         studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }));
 
-      return { status: 200, data: { literacyTiers, literacyLevels, schools: arrOfSchools, classroomNumber: classroom, year: selectedYear.name } };
+      return { status: 200, data: { literacyTiers, literacyLevels, schools: [...filteredSchoolArray, cityHall], classroomNumber: classroom, year: selectedYear.name } };
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

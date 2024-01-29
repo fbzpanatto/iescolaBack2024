@@ -39,12 +39,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoin('teacherClassDiscipline.classroom', 'classroom')
         .where(new Brackets(qb => {
 
-          if(teacher.person.category.id === personCategories.PROFESSOR) {
+          if (teacher.person.category.id === personCategories.PROFESSOR) {
             qb.where('teacher.id = :teacherId', { teacherId: teacher.id })
             return
           }
 
-          if(teacher.person.category.id != personCategories.ADMINISTRADOR && teacher.person.category.id != personCategories.SUPERVISOR) {
+          if (teacher.person.category.id != personCategories.ADMINISTRADOR && teacher.person.category.id != personCategories.SUPERVISOR) {
             qb.where('category.id NOT IN (:...categoryIds)', { categoryIds: notInCategories })
               .andWhere('classroom.id IN (:...classroomIds)', { classroomIds: teacherClasses.classrooms })
               .andWhere('teacherClassDiscipline.endedAt IS NULL')
@@ -71,7 +71,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacher = await this.teacherByUser(body.user.user)
       const cannotChange = [personCategories.MONITOR_DE_INFORMATICA, personCategories.PROFESSOR]
 
-      if( teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id) ) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
+      if (teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id)) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
 
       const result = await this.repository
         .createQueryBuilder('teacher')
@@ -124,58 +124,58 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const user = await this.teacherByUser(body.user.user) as Teacher
 
-      if(body.register) {
+      if (body.register) {
         const registerExists = await AppDataSource.getRepository(Teacher).findOne({ where: { register: body.register } })
-        if(registerExists) { return { status: 409, message: 'Já existe um registro com este número de matricula.' } }
+        if (registerExists) { return { status: 409, message: 'Já existe um registro com este número de matricula.' } }
       }
 
-      if(body.email) {
+      if (body.email) {
         const emailExists = await AppDataSource.getRepository(Teacher).findOne({ where: { email: body.email } })
-        if(emailExists) { return { status: 409, message: 'Já existe um registro com este email.' } }
+        if (emailExists) { return { status: 409, message: 'Já existe um registro com este email.' } }
       }
 
-      if(user.person.category.id === personCategories.SECRETARIO) {
+      if (user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      if(user.person.category.id === personCategories.COORDENADOR) {
+      if (user.person.category.id === personCategories.COORDENADOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      if(user.person.category.id === personCategories.VICE_DIRETOR) {
+      if (user.person.category.id === personCategories.VICE_DIRETOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      if(user.person.category.id === personCategories.DIRETOR) {
+      if (user.person.category.id === personCategories.DIRETOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      if(user.person.category.id === personCategories.SUPERVISOR) {
+      if (user.person.category.id === personCategories.SUPERVISOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      if(user.person.category.id === personCategories.ADMINISTRADOR) {
+      if (user.person.category.id === personCategories.ADMINISTRADOR) {
         const canCreate = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
-        if(!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
+        if (!canCreate.includes(body.category.id)) { return { status: 403, message: 'Você não tem permissão para criar uma pessoa com esta categoria.' } }
       }
 
-      const category = await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: body.category.id } } ) as PersonCategory
+      const category = await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: body.category.id } }) as PersonCategory
       const person = this.createPerson({ name: body.name, birth: body.birth, category })
       const teacher = await this.repository.save(this.createTeacher(person, body))
-      const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
-      const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
+      const classrooms = await AppDataSource.getRepository(Classroom).findBy({ id: In(body.teacherClasses) })
+      const disciplines = await AppDataSource.getRepository(Discipline).findBy({ id: In(body.teacherDisciplines) })
       const { username, password } = this.generateUser(person)
       await AppDataSource.getRepository(User).save({ person: person, username, password })
 
-      if(body.category.id === personCategories.ADMINISTRADOR || body.category.id === personCategories.SUPERVISOR) { return { status: 201, data: teacher } }
+      if (body.category.id === personCategories.ADMINISTRADOR || body.category.id === personCategories.SUPERVISOR) { return { status: 201, data: teacher } }
 
-      for(let classroom of classrooms) {
-        for(let discipline of disciplines) {
+      for (let classroom of classrooms) {
+        for (let discipline of disciplines) {
           const teacherClassDiscipline = new TeacherClassDiscipline()
           teacherClassDiscipline.teacher = teacher
           teacherClassDiscipline.classroom = classroom
@@ -186,7 +186,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       return { status: 201, data: teacher }
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
 
@@ -194,7 +197,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   override async updateId(id: string, body: TeacherBody) {
     try {
 
-      const frontendTeacher =  await this.teacherByUser(body.user.user)
+      const frontendTeacher = await this.teacherByUser(body.user.user)
       const databaseTeacher = await AppDataSource.getRepository(Teacher).findOne({
         relations: ['person.category'],
         where: { id: Number(id) }
@@ -202,42 +205,42 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if (!databaseTeacher) { return { status: 404, message: 'Data not found' } }
 
-      if(frontendTeacher.person.category.id === personCategories.SECRETARIO) {
+      if (frontendTeacher.person.category.id === personCategories.SECRETARIO) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.COORDENADOR) {
+      if (frontendTeacher.person.category.id === personCategories.COORDENADOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.VICE_DIRETOR) {
+      if (frontendTeacher.person.category.id === personCategories.VICE_DIRETOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.DIRETOR) {
+      if (frontendTeacher.person.category.id === personCategories.DIRETOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.SUPERVISOR) {
+      if (frontendTeacher.person.category.id === personCategories.SUPERVISOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.ADMINISTRADOR) {
+      if (frontendTeacher.person.category.id === personCategories.ADMINISTRADOR) {
         const canEdit = [personCategories.PROFESSOR, personCategories.MONITOR_DE_INFORMATICA, personCategories.SECRETARIO, personCategories.COORDENADOR, personCategories.VICE_DIRETOR, personCategories.DIRETOR, personCategories.SUPERVISOR, personCategories.ADMINISTRADOR]
-        if(!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
+        if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if(frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
+      if (frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
 
       databaseTeacher.person.name = body.name
       databaseTeacher.person.birth = body.birth
 
-      if(databaseTeacher.person.category.id === personCategories.ADMINISTRADOR || databaseTeacher.person.category.id === personCategories.SUPERVISOR) {
+      if (databaseTeacher.person.category.id === personCategories.ADMINISTRADOR || databaseTeacher.person.category.id === personCategories.SUPERVISOR) {
         await AppDataSource.getRepository(Teacher).save(databaseTeacher)
         return { status: 200, data: databaseTeacher }
       }
@@ -274,7 +277,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
   async teacherCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({where: {id: personCategories.PROFESSOR}}) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: personCategories.PROFESSOR } }) as PersonCategory
   }
   async updateClassRel(teacher: Teacher, body: TeacherBody) {
 
@@ -285,14 +288,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
     })
 
-    for(let relation of teacherClassDisciplines) {
-      if(!body.teacherClasses.includes(relation.classroom.id)) {
+    for (let relation of teacherClassDisciplines) {
+      if (!body.teacherClasses.includes(relation.classroom.id)) {
         relation.endedAt = new Date()
         await teacherClassDisciplineController.save(relation, {})
       }
     }
   }
-  async updateDisciRel(teacher: Teacher, body: TeacherBody){
+  async updateDisciRel(teacher: Teacher, body: TeacherBody) {
 
     await this.createRelation(teacher, body, false)
 
@@ -301,8 +304,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
     })
 
-    for(let relation of teacherClassDisciplines) {
-      if(!body.teacherDisciplines.includes(relation.discipline.id)) {
+    for (let relation of teacherClassDisciplines) {
+      if (!body.teacherDisciplines.includes(relation.discipline.id)) {
         relation.endedAt = new Date()
         await teacherClassDisciplineController.save(relation, {})
       }
@@ -310,20 +313,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
   async createRelation(teacher: Teacher, body: TeacherBody, forClassroom: boolean) {
 
-    const classrooms = await AppDataSource.getRepository(Classroom).findBy({id: In(body.teacherClasses)})
-    const disciplines = await AppDataSource.getRepository(Discipline).findBy({id: In(body.teacherDisciplines)})
+    const classrooms = await AppDataSource.getRepository(Classroom).findBy({ id: In(body.teacherClasses) })
+    const disciplines = await AppDataSource.getRepository(Discipline).findBy({ id: In(body.teacherDisciplines) })
 
-    if(forClassroom) {
+    if (forClassroom) {
 
-      for(let classroom of classrooms) {
+      for (let classroom of classrooms) {
 
         const relationExists = (await teacherClassDisciplineController.findOneByWhere({
           where: { teacher: teacher, classroom: classroom, endedAt: IsNull() }
         })).data as TeacherClassDiscipline
 
-        if(!relationExists) {
+        if (!relationExists) {
 
-          for(let discipline of disciplines) {
+          for (let discipline of disciplines) {
 
             const newTeacherRelations = new TeacherClassDiscipline()
             newTeacherRelations.teacher = teacher
@@ -338,14 +341,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return
     }
 
-    for(let discipline of disciplines) {
+    for (let discipline of disciplines) {
 
       const relationExists = (await teacherClassDisciplineController.findOneByWhere({
         where: { teacher: teacher, discipline: discipline, endedAt: IsNull() }
       })).data as TeacherClassDiscipline
 
-      if(!relationExists) {
-        for(let classroom of classrooms) {
+      if (!relationExists) {
+        for (let classroom of classrooms) {
           const newTeacherRelations = new TeacherClassDiscipline()
           newTeacherRelations.teacher = teacher
           newTeacherRelations.classroom = classroom

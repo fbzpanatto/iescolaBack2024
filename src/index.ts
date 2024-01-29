@@ -1,8 +1,9 @@
 
-if(process.env.NODE_ENV !== 'production') { require('dotenv').config() }
+if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 
 import express from 'express'
 import authorization from "./middleware/authorization";
+
 import { Router } from 'express';
 import { Application } from "express";
 import { AppDataSource } from "./data-source";
@@ -37,8 +38,7 @@ import { TopicRouter } from "./routes/topic";
 import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
-
-
+import { TextGenderGradeReportRouter } from './routes/textGenderGradeReport';
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -47,7 +47,7 @@ const app: Application = express();
 const route = Router()
 
 app.use(bodyParser.json());
-app.use(cors({origin: true}));
+app.use(cors({ origin: true }));
 
 route.use('/bimester', authorization, BimesterRouter);
 route.use('/classroom', authorization, ClassroomRouter);
@@ -71,10 +71,11 @@ route.use('/student', authorization, StudentRouter);
 route.use('/student-question', authorization, StudentQuestionRouter);
 route.use('/teacher', authorization, TeacherRouter);
 route.use('/teacher-class-discipline', authorization, TeacherClassDisciplineRouter);
-route.use('/teacher-classroom', authorization, TeacherClassroomsRouter );
+route.use('/teacher-classroom', authorization, TeacherClassroomsRouter);
 route.use('/test', authorization, TestRouter);
 route.use('/test-category', authorization, TestCategoryRouter);
 route.use('/text-gender-grade', authorization, TextGenderGradeRouter)
+route.use('/text-gender-report', authorization, TextGenderGradeReportRouter)
 route.use('/text-gender-tabs', TextGenderClassroomRouter)
 route.use('/topic', TopicRouter);
 route.use('/transfer', authorization, TransferRouter);
@@ -93,4 +94,4 @@ AppDataSource.initialize()
       console.log('Server running on port 3333', 'env:', process.env.NODE_ENV);
     });
   })
-  .catch((err) => { console.log(err)});
+  .catch((err) => { console.log(err) });

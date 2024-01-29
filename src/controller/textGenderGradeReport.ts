@@ -1,4 +1,4 @@
-import { TextGenderExam } from './../model/TextGenderExam';
+import { TextGenderExam } from '../model/TextGenderExam';
 import { GenericController } from "./genericController";
 import { Brackets, EntityTarget } from "typeorm";
 import { TextGenderGrade } from "../model/TextGenderGrade";
@@ -15,7 +15,7 @@ import e, { Request } from "express";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { School } from "../model/School";
 
-class TextGenderGradeController extends GenericController<EntityTarget<TextGenderGrade>> {
+class TextGenderGradeReportController extends GenericController<EntityTarget<TextGenderGrade>> {
 
   constructor() {
     super(TextGenderGrade);
@@ -174,6 +174,81 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         genders,
         headers: { examLevel, examTier },
         groups: onlySchool
+      }
+
+      return { status: 200, data: result }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getReport(request: Request) {
+
+    const { classroom: classroomNumber, year: yearName, textgender: textGenderId } = request.params
+    const { search } = request.query
+
+    try {
+
+      const [year, examLevel, examTier, textGender] = await Promise.all([
+        this.getYear(yearName),
+        this.getExamLevel(),
+        this.getexamTier(),
+        this.getTextGender(textGenderId)
+      ])
+      if (!year) return { status: 404, message: 'Ano não encontrado.' }
+
+      const allData = await this.getAllData(classroomNumber, textGender, year)
+      const filteredSchool = await this.filteredSchool(classroomNumber, textGender, year, search)
+
+      const arrOfSchools = filteredSchool.map(school => ({
+        id: school.id,
+        name: school.name,
+        shortName: school.shortName,
+        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms),
+        examTotalizer: this.examTotalizer(examLevel, examTier)
+      }))
+
+      const cityHall = {
+        id: 'ITA',
+        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
+        shortName: 'ITA',
+        studentsClassrooms: allData.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms)),
+        examTotalizer: this.examTotalizer(examLevel, examTier)
+      }
+
+      for (let school of arrOfSchools) {
+        for (let oneStudentClassroom of school.studentsClassrooms) {
+          for (let stGrade of oneStudentClassroom.textGenderGrades) {
+
+            const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+
+            if(indexForSchool !== -1) {
+              school.examTotalizer[indexForSchool].total += 1
+              school.examTotalizer[indexForSchool].rate = Math.round((school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100)
+            }
+          }
+        }
+      }
+
+      for (let studentClassroom of cityHall.studentsClassrooms) {
+        for (let stGrade of studentClassroom.textGenderGrades) {
+
+          const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+
+          if(indexForCity !== -1) {
+            cityHall.examTotalizer[indexForCity].total += 1
+            cityHall.examTotalizer[indexForCity].rate = Math.round((cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100)
+          }
+        }
+      }
+
+      const examLevelLabels = this.examTotalizer(examLevel, examTier).map(el => el.graphicLabel)
+
+      const result = {
+        classroomNumber,
+        year,
+        headers: { examLevel, examTier },
+        schools: [...arrOfSchools, cityHall],
+        examLevelLabels
       }
 
       return { status: 200, data: result }
@@ -361,4 +436,4 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
   }
 }
 
-export const textGenderGradeController = new TextGenderGradeController();
+export const textGenderGradeReportController = new TextGenderGradeReportController();

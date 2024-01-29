@@ -59,6 +59,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "textgendergrade",
                 methods: fourthLevelPermissions
             },
+            {
+                entity: "textgenderreport",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "literacyreport",
+                methods: fourthLevelPermissions
+            }
         ]
     },
     {
@@ -112,6 +120,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
                 entity: "textgendergrade",
                 methods: thirdLevelPermissions
             },
+            {
+                entity: "textgenderreport",
+                methods: fourthLevelPermissions
+            },
+            {
+                entity: "literacyreport",
+                methods: fourthLevelPermissions
+            }
         ]
     },
     {

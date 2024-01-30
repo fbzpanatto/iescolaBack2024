@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, In, IsNull, Not, ObjectLiteral} from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, In, IsNull, Not, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -16,16 +16,15 @@ import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import getTimeZone from "../utils/getTimeZone";
-import {Year} from "../model/Year";
-import {Literacy} from "../model/Literacy";
-import {LiteracyTier} from "../model/LiteracyTier";
-import {LiteracyFirst} from "../model/LiteracyFirst";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {TextGender} from "../model/TextGender";
-import {TextGenderExam} from "../model/TextGenderExam";
-import {TextGenderExamTier} from "../model/TextGenderExamTier";
-import {TextGenderClassroom} from "../model/TextGenderClassroom";
-import {TextGenderGrade} from "../model/TextGenderGrade";
+import { Year } from "../model/Year";
+import { Literacy } from "../model/Literacy";
+import { LiteracyTier } from "../model/LiteracyTier";
+import { LiteracyFirst } from "../model/LiteracyFirst";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { TextGenderExam } from "../model/TextGenderExam";
+import { TextGenderExamTier } from "../model/TextGenderExamTier";
+import { TextGenderClassroom } from "../model/TextGenderClassroom";
+import { TextGenderGrade } from "../model/TextGenderGrade";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
@@ -43,7 +42,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const lastYearName = Number(currentYear.name) - 1;
       const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
 
-      if(!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.` } }
+      if (!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.` } }
 
       const preResult = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')
@@ -86,11 +85,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .orderBy('person.name', 'ASC')
         .getMany();
 
-      const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms)}))
+      const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))
 
       return { status: 200, data: result };
 
-    } catch (error: any) {return { status: 500, message: error.message }}
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
@@ -100,7 +99,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
 
       const currentYear = await this.currentYear()
-      if(!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
       const teacher = await this.teacherByUser(user.user)
 
@@ -109,14 +108,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         where: { student: { id: student.id }, endedAt: IsNull() }
       }) as StudentClassroom
 
-      if(activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas`} }
+      if (activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas` } }
 
       const lastYearName = Number(currentYear.name) - 1
       const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
       const oldYearDB = await AppDataSource.getRepository(Year).findOne({ where: { id: oldYear } }) as Year
 
-      if(!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
-      if(!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
+      if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
+      if (!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
 
       const lastYearStudentClassroom = await AppDataSource.getRepository(Student)
         .createQueryBuilder('student')
@@ -142,13 +141,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         })
         .getOne();
 
-      if(lastYearStudentClassroom && lastYearStudentClassroom?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.`} }
+      if (lastYearStudentClassroom && lastYearStudentClassroom?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` } }
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
       const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
 
       const notDigit = /\D/g
-      if(Number(classroom.name.replace(notDigit, '')) < Number(oldClassroomInDatabase.name.replace(notDigit, ''))) {
+      if (Number(classroom.name.replace(notDigit, '')) < Number(oldClassroomInDatabase.name.replace(notDigit, ''))) {
         return { status: 400, message: 'Regressão de sala não é permitido.' }
       }
 
@@ -162,15 +161,39 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const classroomNumber = Number(classroom.shortName.replace(notDigit, ''))
 
-      if(classroomNumber >= 1 && classroomNumber <= 3) {
+      if (classroomNumber >= 1 && classroomNumber <= 3) {
         const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
 
-        for(let tier of literacyTier) {
+        for (let tier of literacyTier) {
 
           await AppDataSource.getRepository(Literacy).save({
             studentClassroom: newStudentClassroom,
             literacyTier: tier
           })
+        }
+      }
+
+      if (classroomNumber === 4 || classroomNumber === 5) {
+        const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
+        const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
+
+        const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
+          where: { classroomNumber: classroomNumber },
+          relations: ['textGender']
+        }) as TextGenderClassroom[]
+
+        for (let tg of textGenderClassroom) {
+          for (let tier of textGenderExamTier) {
+            for (let exam of textGenderExam) {
+              const textGenderGrade = new TextGenderGrade()
+              textGenderGrade.studentClassroom = newStudentClassroom
+              textGenderGrade.textGender = tg.textGender
+              textGenderGrade.textGenderExam = exam
+              textGenderGrade.textGenderExamTier = tier
+
+              await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+            }
+          }
         }
       }
 
@@ -216,7 +239,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const student = this.formartStudentResponse(preStudent)
 
-      if(
+      if (
         teacherClasses.classrooms.length > 0 &&
         !teacherClasses.classrooms.includes(student.classroom.id) &&
         !isAdminSupervisor
@@ -237,10 +260,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const disabilities = await this.disabilities(body.disabilities);
       const person = this.createPerson({ name: body.name, birth: body.birth, category });
 
-      if(!year) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' }}
+      if (!year) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
-      const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } } )
-      if(exists) {
+      const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } })
+      if (exists) {
 
         const lastStudentRegister = await AppDataSource.getRepository(Student)
           .createQueryBuilder('student')
@@ -261,43 +284,31 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const activeStudentClassroom = lastStudentRegister.studentClassrooms.find(sc => sc.endedAt === null) as StudentClassroom
 
-        if(activeStudentClassroom) { preResult = activeStudentClassroom }
+        if (activeStudentClassroom) { preResult = activeStudentClassroom }
         else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
 
-        if(!lastStudentRegister.active) {
+        if (!lastStudentRegister.active) {
           return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano de ${preResult?.year.name}.` }
         }
 
-        return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.`: `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
+        return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
       }
 
-      if(body.user.category === personCategories.PROFESSOR) {
-        if(!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
+      if (body.user.category === personCategories.PROFESSOR) {
+        if (!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
       }
 
       const student = await this.repository.save(this.createStudent(body, person, state));
-      if(!!disabilities.length) {
+      if (!!disabilities.length) {
         await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
           return { student, startedAt: new Date(), disability }
         }))
       }
 
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student,  classroom,  year,  rosterNumber: Number(body.rosterNumber),  startedAt: new Date() }) as StudentClassroom
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student, classroom, year, rosterNumber: Number(body.rosterNumber), startedAt: new Date() }) as StudentClassroom
 
       const notDigit = /\D/g
       const classroomNumber = Number(studentClassroom.classroom.shortName.replace(notDigit, ''))
-
-      if(classroomNumber >= 1 && classroomNumber <= 3) {
-        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
-
-        for(let tier of literacyTier) {
-
-          await AppDataSource.getRepository(Literacy).save({
-            studentClassroom,
-            literacyTier: tier
-          })
-        }
-      }
 
       const newTransfer = new Transfer()
       newTransfer.startedAt = new Date()
@@ -311,14 +322,26 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       newTransfer.year = await this.currentYear()
       await AppDataSource.getRepository(Transfer).save(newTransfer)
 
-      if(classroomNumber >= 1 && classroomNumber <= 3) {
+      if (classroomNumber >= 1 && classroomNumber <= 3) {
+        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+
+        for (let tier of literacyTier) {
+
+          await AppDataSource.getRepository(Literacy).save({
+            studentClassroom,
+            literacyTier: tier
+          })
+        }
+      }
+
+      if (classroomNumber >= 1 && classroomNumber <= 3) {
         const firstLiteracyLevel = new LiteracyFirst()
         firstLiteracyLevel.student = student
 
         await AppDataSource.getRepository(LiteracyFirst).save(firstLiteracyLevel)
       }
 
-      if( classroomNumber === 4 || classroomNumber === 5 ) {
+      if (classroomNumber === 4 || classroomNumber === 5) {
         const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
         const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
 
@@ -327,9 +350,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           relations: ['textGender']
         }) as TextGenderClassroom[]
 
-        for(let tg of textGenderClassroom) {
-          for(let tier of textGenderExamTier) {
-            for(let exam of textGenderExam) {
+        for (let tg of textGenderClassroom) {
+          for (let tier of textGenderExamTier) {
+            for (let exam of textGenderExam) {
               const textGenderGrade = new TextGenderGrade()
               textGenderGrade.studentClassroom = studentClassroom
               textGenderGrade.textGender = tg.textGender
@@ -357,9 +380,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         where: { student: { id: body.studentClassroom.student.id } }
       })
 
-      if(!register) { return { status: 404, message: 'Registro não encontrado' } }
+      if (!register) { return { status: 404, message: 'Registro não encontrado' } }
 
-      if( classroomNumber >= 1 && classroomNumber <=3 && register && register.literacyLevel === null) {
+      if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
 
         register.literacyLevel = body.literacyLevel
         await AppDataSource.getRepository(LiteracyFirst).save(register)
@@ -380,36 +403,36 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const userTeacher = await this.teacherByUser(body.user.user)
 
       const student = await this.repository
-        .findOne({ relations: ['person', 'studentDisabilities.disability', 'state'], where: { id: Number(studentId)} }) as Student;
+        .findOne({ relations: ['person', 'studentDisabilities.disability', 'state'], where: { id: Number(studentId) } }) as Student;
 
       const bodyClassroom = await AppDataSource.getRepository(Classroom)
         .findOne({ where: { id: body.classroom } })
 
       const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
-        .findOne({ relations: ['student', 'classroom'], where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() }}) as StudentClassroom
+        .findOne({ relations: ['student', 'classroom'], where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
 
-      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
-      if(!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
-      if(!bodyClassroom) { return { status: 404, message: 'Sala não encontrada' } }
+      if (!student) { return { status: 404, message: 'Registro não encontrado' } }
+      if (!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
+      if (!bodyClassroom) { return { status: 404, message: 'Sala não encontrada' } }
 
       const composedBodyStudentRa = `${body.ra}${body.dv}`
-      const composedStudentRa  = `${student.ra}${student.dv}`
+      const composedStudentRa = `${student.ra}${student.dv}`
 
-      if(composedStudentRa !== composedBodyStudentRa) {
-        const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv } } )
-        if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
+      if (composedStudentRa !== composedBodyStudentRa) {
+        const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv } })
+        if (exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       }
 
       const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO]
 
-      if(!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
+      if (!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
 
-      if(studentClassroom?.classroom.id != bodyClassroom.id && canChange.includes(userTeacher.person.category.id)) {
+      if (studentClassroom?.classroom.id != bodyClassroom.id && canChange.includes(userTeacher.person.category.id)) {
 
         const newClassroomNumber = Number(bodyClassroom.shortName.replace(/\D/g, ''))
         const oldClassroomNumber = Number(studentClassroom.classroom.shortName.replace(/\D/g, ''))
 
-        if(newClassroomNumber < oldClassroomNumber) { return { status: 404, message: 'Não é possível alterar a sala para uma sala com número menor que a atual.' }}
+        if (newClassroomNumber < oldClassroomNumber) { return { status: 404, message: 'Não é possível alterar a sala para uma sala com número menor que a atual.' } }
 
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
 
@@ -424,15 +447,39 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const notDigit = /\D/g
         const classroomNumber = Number(bodyClassroom.shortName.replace(notDigit, ''))
 
-        if(classroomNumber >= 1 && classroomNumber <= 3) {
+        if (classroomNumber >= 1 && classroomNumber <= 3) {
           const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
 
-          for(let tier of literacyTier) {
+          for (let tier of literacyTier) {
 
             await AppDataSource.getRepository(Literacy).save({
               studentClassroom: newStudentClassroom,
               literacyTier: tier
             })
+          }
+        }
+
+        if (classroomNumber === 4 || classroomNumber === 5) {
+          const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
+          const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
+
+          const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
+            where: { classroomNumber: classroomNumber },
+            relations: ['textGender']
+          }) as TextGenderClassroom[]
+
+          for (let tg of textGenderClassroom) {
+            for (let tier of textGenderExamTier) {
+              for (let exam of textGenderExam) {
+                const textGenderGrade = new TextGenderGrade()
+                textGenderGrade.studentClassroom = newStudentClassroom
+                textGenderGrade.textGender = tg.textGender
+                textGenderGrade.textGenderExam = exam
+                textGenderGrade.textGenderExamTier = tier
+
+                await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+              }
+            }
           }
         }
 
@@ -449,7 +496,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         await AppDataSource.getRepository(Transfer).save(newTransfer)
       }
 
-      if(studentClassroom.classroom.id === bodyClassroom.id) {
+      if (studentClassroom.classroom.id === bodyClassroom.id) {
         await AppDataSource.getRepository(StudentClassroom)
           .save({
             ...studentClassroom,
@@ -475,7 +522,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const result = this.formartStudentResponse(preResult)
 
       return { status: 200, data: result };
-    } catch (error: any) {return { status: 500, message: error.message }}
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {
@@ -483,7 +530,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const create = body.filter((disabilityId) => !currentDisabilities.includes(disabilityId))
 
-    if(create.length) {
+    if (create.length) {
       await AppDataSource.getRepository(StudentDisability).save(create.map(disabilityId => {
         return { student, disability: { id: disabilityId }, startedAt: new Date() }
       }))
@@ -491,10 +538,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const remove = currentDisabilities.filter((disabilityId) => !body.includes(disabilityId))
 
-    if(remove.length) {
-      for(let item of remove) {
+    if (remove.length) {
+      for (let item of remove) {
         const studentDisability = studentDisabilities.find((studentDisability) => studentDisability.disability.id === item)
-        if(studentDisability) {
+        if (studentDisability) {
           studentDisability.endedAt = new Date()
           await AppDataSource.getRepository(StudentDisability).save(studentDisability)
         }
@@ -502,10 +549,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
   async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({ where: {id: personCategories.ALUNO}}) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: personCategories.ALUNO } }) as PersonCategory
   }
   async disabilities(ids: number[]) {
-    return await AppDataSource.getRepository(Disability).findBy({id: In(ids)})
+    return await AppDataSource.getRepository(Disability).findBy({ id: In(ids) })
   }
   async student(studentId: number) {
 
@@ -540,16 +587,16 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
       .leftJoin('studentClassroom.classroom', 'classroom')
       .leftJoin('classroom.school', 'school')
-      .where('student.id = :studentId', {studentId})
+      .where('student.id = :studentId', { studentId })
       .groupBy('studentClassroom.id')
       .getRawOne()
   }
-  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: {id: number, classrooms: number[]}, owner?: string }, isAdminSupervisor:boolean) {
+  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: { id: number, classrooms: number[] }, owner?: string }, isAdminSupervisor: boolean) {
 
     const isOwner = options.owner === ISOWNER.OWNER;
     const yearName = options.year ?? (await this.currentYear()).name;
     let allClassrooms: Classroom[] = []
-    if(isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[]}
+    if (isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[] }
 
     const queryBuilder = AppDataSource.createQueryBuilder();
     queryBuilder
@@ -592,10 +639,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });
       }))
       .andWhere(new Brackets(qb => {
-        if(!isAdminSupervisor) {
-          qb.andWhere(isOwner? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
+        if (!isAdminSupervisor) {
+          qb.andWhere(isOwner ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
         } else {
-          qb.andWhere(isOwner? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: allClassrooms.map(classroom => classroom.id) })
+          qb.andWhere(isOwner ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: allClassrooms.map(classroom => classroom.id) })
         }
       }))
       .orderBy('school.shortName', 'ASC')
@@ -695,14 +742,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return studentClassrooms[maxEndedAtIndex];
   }
 
-  async graduate(studentId: number | string, body: { user: UserInterface, student: { id: number, active: boolean, classroom: Classroom }, year: number } ) {
+  async graduate(studentId: number | string, body: { user: UserInterface, student: { id: number, active: boolean, classroom: Classroom }, year: number }) {
 
     const userTeacher = await this.teacherByUser(body.user.user)
 
     try {
 
       const student = await AppDataSource.getRepository(Student).findOne({ where: { id: Number(studentId) } }) as Student
-      if(!student) { return { status: 404, message: 'Registro não encontrado' } }
+      if (!student) { return { status: 404, message: 'Registro não encontrado' } }
 
       student.active = body.student.active
       await AppDataSource.getRepository(Student).save(student)
@@ -721,7 +768,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return { status: 200, data: student };
 
-    } catch (error: any) {return { status: 500, message: error.message }}
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

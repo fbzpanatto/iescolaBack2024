@@ -400,7 +400,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if(exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       }
 
-      const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR]
+      const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO]
 
       if(!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
 

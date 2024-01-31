@@ -308,7 +308,23 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }))
       }
 
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student, classroom, year, rosterNumber: Number(body.rosterNumber), startedAt: new Date() }) as StudentClassroom
+      const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
+      .find({
+        relations: ['classroom', 'year'],
+        where: {
+          year: { id: year.id },
+          classroom: { id: classroom.id }
+        },
+        order: { rosterNumber: 'DESC' },
+        take: 1
+      })
+
+      let last = 1
+      if(lastRosterNumber[0]?.rosterNumber) {
+        last = lastRosterNumber[0].rosterNumber + 1
+      }
+
+      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student, classroom, year, rosterNumber: last, startedAt: new Date() }) as StudentClassroom
 
       const notDigit = /\D/g
       const classroomNumber = Number(studentClassroom.classroom.shortName.replace(notDigit, ''))
@@ -411,8 +427,20 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const bodyClassroom = await AppDataSource.getRepository(Classroom)
         .findOne({ where: { id: body.classroom } })
 
+      const arrayOfRelations = [
+        'student',
+        'classroom',
+        'literacies.literacyTier',
+        'literacies.literacyLevel',
+        'textGenderGrades.textGender',
+        'textGenderGrades.textGenderExam',
+        'textGenderGrades.textGenderExamTier',
+        'textGenderGrades.textGenderExamLevel',
+        'year'
+      ]
+
       const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
-        .findOne({ relations: ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades', 'year'], where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
+        .findOne({ relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
 
       if (!student) { return { status: 404, message: 'Registro não encontrado' } }
       if (!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
@@ -439,11 +467,29 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
 
+        const currentYear = await this.currentYear()
+
+        const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
+        .find({
+          relations: ['classroom', 'year'],
+          where: {
+            year: { id: currentYear.id },
+            classroom: { id: bodyClassroom.id }
+          },
+          order: { rosterNumber: 'DESC' },
+          take: 1
+        })
+
+        let last = 1
+        if(lastRosterNumber[0]?.rosterNumber) {
+          last = lastRosterNumber[0].rosterNumber + 1
+        }
+
         const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
           student,
           classroom: bodyClassroom,
-          year: await this.currentYear(),
-          rosterNumber: Number(body.rosterNumber),
+          year: currentYear,
+          rosterNumber: last,
           startedAt: new Date()
         }) as StudentClassroom
 
@@ -460,11 +506,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             studentClassroom.year.id === newStudentClassroom.year.id
           ) {
 
-            for(let tier of literacyTier) {
+            for (let tier of literacyTier) {
 
               const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id)
 
-              if(element) {
+              if (element) {
 
                 await AppDataSource.getRepository(Literacy).save({
                   studentClassroom: newStudentClassroom,
@@ -494,22 +540,64 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (classroomNumber === 4 || classroomNumber === 5) {
           const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
           const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
-
           const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
             where: { classroomNumber: classroomNumber },
             relations: ['textGender']
           }) as TextGenderClassroom[]
 
-          for (let tg of textGenderClassroom) {
-            for (let tier of textGenderExamTier) {
-              for (let exam of textGenderExam) {
-                const textGenderGrade = new TextGenderGrade()
-                textGenderGrade.studentClassroom = newStudentClassroom
-                textGenderGrade.textGender = tg.textGender
-                textGenderGrade.textGenderExam = exam
-                textGenderGrade.textGenderExamTier = tier
+          if (
+            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
+            oldClassroomNumber === newClassroomNumber &&
+            studentClassroom.year.id === newStudentClassroom.year.id
+          ) {
 
-                await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+            for (let tg of textGenderClassroom) {
+              for (let tier of textGenderExamTier) {
+                for (let exam of textGenderExam) {
+
+                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id)
+
+                  if(element) {
+
+                    await AppDataSource.getRepository(TextGenderGrade).save({
+                      studentClassroom: newStudentClassroom,
+                      textGender: element.textGender,
+                      textGenderExam: element.textGenderExam,
+                      textGenderExamTier: element.textGenderExamTier,
+                      textGenderExamLevel: element.textGenderExamLevel
+                    })
+                  } else {
+
+                    for (let tg of textGenderClassroom) {
+                      for (let tier of textGenderExamTier) {
+                        for (let exam of textGenderExam) {
+                          const textGenderGrade = new TextGenderGrade()
+                          textGenderGrade.studentClassroom = newStudentClassroom
+                          textGenderGrade.textGender = tg.textGender
+                          textGenderGrade.textGenderExam = exam
+                          textGenderGrade.textGenderExamTier = tier
+          
+                          await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+
+            for (let tg of textGenderClassroom) {
+              for (let tier of textGenderExamTier) {
+                for (let exam of textGenderExam) {
+                  const textGenderGrade = new TextGenderGrade()
+                  textGenderGrade.studentClassroom = newStudentClassroom
+                  textGenderGrade.textGender = tg.textGender
+                  textGenderGrade.textGenderExam = exam
+                  textGenderGrade.textGenderExamTier = tier
+  
+                  await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+                }
               }
             }
           }

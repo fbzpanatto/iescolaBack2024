@@ -8,7 +8,6 @@ import { personCategories } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { StudentClassroom } from "../model/StudentClassroom";
 import { SaveStudent, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";

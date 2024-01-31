@@ -1,3 +1,4 @@
+import { StudentClassroom } from './../model/StudentClassroom';
 import { GenericController } from "./genericController";
 import { Brackets, EntityTarget, FindManyOptions, In, IsNull, Not, ObjectLiteral } from "typeorm";
 import { Student } from "../model/Student";
@@ -93,6 +94,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+
+    // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
 
     const { student, oldYear, newClassroom, oldClassroom, user } = body
 
@@ -409,7 +412,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .findOne({ where: { id: body.classroom } })
 
       const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
-        .findOne({ relations: ['student', 'classroom'], where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
+        .findOne({ relations: ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades', 'year'], where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
 
       if (!student) { return { status: 404, message: 'Registro não encontrado' } }
       if (!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
@@ -448,14 +451,43 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const classroomNumber = Number(bodyClassroom.shortName.replace(notDigit, ''))
 
         if (classroomNumber >= 1 && classroomNumber <= 3) {
+
           const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
 
-          for (let tier of literacyTier) {
+          if (
+            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
+            oldClassroomNumber === newClassroomNumber &&
+            studentClassroom.year.id === newStudentClassroom.year.id
+          ) {
 
-            await AppDataSource.getRepository(Literacy).save({
-              studentClassroom: newStudentClassroom,
-              literacyTier: tier
-            })
+            for(let tier of literacyTier) {
+
+              const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id)
+
+              if(element) {
+
+                await AppDataSource.getRepository(Literacy).save({
+                  studentClassroom: newStudentClassroom,
+                  literacyTier: element.literacyTier,
+                  literacyLevel: element.literacyLevel
+                })
+              } else {
+
+                await AppDataSource.getRepository(Literacy).save({
+                  studentClassroom: newStudentClassroom,
+                  literacyTier: tier
+                })
+              }
+            }
+          } else {
+
+            for (let tier of literacyTier) {
+
+              await AppDataSource.getRepository(Literacy).save({
+                studentClassroom: newStudentClassroom,
+                literacyTier: tier
+              })
+            }
           }
         }
 
@@ -522,7 +554,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const result = this.formartStudentResponse(preResult)
 
       return { status: 200, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {

@@ -130,7 +130,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }
       }
 
-      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, tiersArray: resultArray } }
+      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, resultArray } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

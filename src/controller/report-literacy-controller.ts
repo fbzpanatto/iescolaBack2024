@@ -74,30 +74,68 @@ class ReportLiteracy extends GenericController<School> {
         studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }));
 
-      for (let school of filteredSchoolArray) {
+      interface iLocalSchool {
+        id: number | string,
+        name: string,
+        tiers: {
+          id: number,
+          name: string,
+          total: number,
+          levels: {
+            id: number,
+            name: string,
+            total: number
+          }[]
+        }[]
+      }
 
-        console.log(school.name, '---------------------------------')
+      const finalArray = [...filteredSchoolArray, cityHall]
+      const resultArray = []
+
+      for (let school of finalArray) {
+
+        let localSchool: iLocalSchool = {
+          id: school.id,
+          name: school.name,
+          tiers: [],
+        }
 
         for (let tier of literacyTiers) {
 
           let totalPerTier = 0
+          localSchool.tiers.push({ id: tier.id, name: tier.name, total: totalPerTier, levels: [] })
 
           for (let level of literacyLevels) {
-            console.log(tier.name, level.name)
+
+            let totalPerLevel = 0
+            const localTier = localSchool.tiers.find(tr => tr.id === tier.id)
+            localTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel })
+            
+            const localLevel = localTier?.levels.find(lv => lv.id === level.id)
+
             for (let st of school.studentsClassrooms) {
+
               for (let el of st.literacies) {
+
                 if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id) {
-                  console.log('el', el)
+
+                  totalPerLevel += 1
                   totalPerTier += 1
+
+                  localLevel!.total = totalPerLevel
+                  localTier!.total = totalPerTier
+
                 }
               }
             }
           }
-          console.log('totalPerTier', totalPerTier)
         }
+        resultArray.push(localSchool)
       }
 
-      return { status: 200, data: { literacyTiers, literacyLevels, schools: [...filteredSchoolArray, cityHall], classroomNumber: classroom, year: selectedYear.name } };
+      console.log(resultArray)
+
+      return { status: 200, data: { literacyTiers, literacyLevels, schools: [...filteredSchoolArray, cityHall], classroomNumber: classroom, year: selectedYear.name, resultArray } };
 
     } catch (error: any) {
       console.log(error)

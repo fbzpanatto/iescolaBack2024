@@ -84,7 +84,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }[]
       }
 
-      const tiersArray: iLocalTier[] = []
+      const resultArray: iLocalTier[] = []
 
       for (let tier of literacyTiers) {
 
@@ -97,12 +97,12 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           levels: []
         }
 
-        tiersArray.push(localTier)
+        resultArray.push(localTier)
 
         for (let level of literacyLevels) {
 
           let totalPerLevel = 0
-          const auxLocalTier = tiersArray.find(el => el.id === tier.id)
+          const auxLocalTier = resultArray.find(el => el.id === tier.id)
           auxLocalTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 })
 
           const auxLocalLevel = auxLocalTier?.levels.find(el => el.id === level.id)
@@ -124,13 +124,13 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }
       }
 
-      for (let tier of tiersArray) {
+      for (let tier of resultArray) {
         for (let level of tier.levels) {
           level.rate = Math.round((level.total / tier.total) * 100)
         }
       }
 
-      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, tiersArray } }
+      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, tiersArray: resultArray } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

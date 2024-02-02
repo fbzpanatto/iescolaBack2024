@@ -284,14 +284,14 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         resultArray.push(localClassroom)
       }
 
-      for(let result of resultArray) {
-        for(let tier of result.tiers) {
-          for(let level of tier.levels) {
-            level.rate = Math.round(( level.total / tier.total ) * 100)
+      for (let result of resultArray) {
+        for (let tier of result.tiers) {
+          for (let level of tier.levels) {
+            level.rate = Math.round((level.total / tier.total) * 100)
           }
         }
       }
-      
+
       return { status: 200, data: { ...result, resultArray } }
 
     } catch (error: any) { return { status: 500, message: error.message } }

@@ -187,7 +187,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 201, data: teacher }
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }
@@ -252,7 +251,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 200, data: databaseTeacher }
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }

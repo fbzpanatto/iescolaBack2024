@@ -126,7 +126,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       let response = { ...test, testQuestions, questionGroups, schools: simplifiedArray }
       return { status: 200, data: response };
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }

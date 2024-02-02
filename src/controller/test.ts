@@ -169,7 +169,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }
@@ -492,7 +491,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return { status: 201, data: newTest };
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }

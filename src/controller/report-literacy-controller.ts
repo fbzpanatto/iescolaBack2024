@@ -137,7 +137,6 @@ class ReportLiteracy extends GenericController<School> {
       return { status: 200, data: { literacyTiers, literacyLevels, schools: [...filteredSchoolArray, cityHall], classroomNumber: classroom, year: selectedYear.name, resultArray } };
 
     } catch (error: any) {
-      console.log(error)
       return { status: 500, message: error.message }
     }
   }

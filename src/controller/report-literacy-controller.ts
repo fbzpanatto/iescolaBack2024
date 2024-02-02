@@ -84,7 +84,8 @@ class ReportLiteracy extends GenericController<School> {
           levels: {
             id: number,
             name: string,
-            total: number
+            total: number,
+            rate: number
           }[]
         }[]
       }
@@ -108,8 +109,9 @@ class ReportLiteracy extends GenericController<School> {
           for (let level of literacyLevels) {
 
             let totalPerLevel = 0
+
             const localTier = localSchool.tiers.find(tr => tr.id === tier.id)
-            localTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel })
+            localTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 })
             
             const localLevel = localTier?.levels.find(lv => lv.id === level.id)
 
@@ -124,7 +126,6 @@ class ReportLiteracy extends GenericController<School> {
 
                   localLevel!.total = totalPerLevel
                   localTier!.total = totalPerTier
-
                 }
               }
             }
@@ -132,8 +133,6 @@ class ReportLiteracy extends GenericController<School> {
         }
         resultArray.push(localSchool)
       }
-
-      console.log(resultArray)
 
       return { status: 200, data: { literacyTiers, literacyLevels, schools: [...filteredSchoolArray, cityHall], classroomNumber: classroom, year: selectedYear.name, resultArray } };
 

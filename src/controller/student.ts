@@ -308,18 +308,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-      .find({
-        relations: ['classroom', 'year'],
-        where: {
-          year: { id: year.id },
-          classroom: { id: classroom.id }
-        },
-        order: { rosterNumber: 'DESC' },
-        take: 1
-      })
+        .find({
+          relations: ['classroom', 'year'],
+          where: {
+            year: { id: year.id },
+            classroom: { id: classroom.id }
+          },
+          order: { rosterNumber: 'DESC' },
+          take: 1
+        })
 
       let last = 1
-      if(lastRosterNumber[0]?.rosterNumber) {
+      if (lastRosterNumber[0]?.rosterNumber) {
         last = lastRosterNumber[0].rosterNumber + 1
       }
 
@@ -469,18 +469,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const currentYear = await this.currentYear()
 
         const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-        .find({
-          relations: ['classroom', 'year'],
-          where: {
-            year: { id: currentYear.id },
-            classroom: { id: bodyClassroom.id }
-          },
-          order: { rosterNumber: 'DESC' },
-          take: 1
-        })
+          .find({
+            relations: ['classroom', 'year'],
+            where: {
+              year: { id: currentYear.id },
+              classroom: { id: bodyClassroom.id }
+            },
+            order: { rosterNumber: 'DESC' },
+            take: 1
+          })
 
         let last = 1
-        if(lastRosterNumber[0]?.rosterNumber) {
+        if (lastRosterNumber[0]?.rosterNumber) {
           last = lastRosterNumber[0].rosterNumber + 1
         }
 
@@ -556,7 +556,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
                   const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id)
 
-                  if(element) {
+                  if (element) {
 
                     await AppDataSource.getRepository(TextGenderGrade).save({
                       studentClassroom: newStudentClassroom,
@@ -575,7 +575,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                           textGenderGrade.textGender = tg.textGender
                           textGenderGrade.textGenderExam = exam
                           textGenderGrade.textGenderExamTier = tier
-          
+
                           await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
                         }
                       }
@@ -594,7 +594,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                   textGenderGrade.textGender = tg.textGender
                   textGenderGrade.textGenderExam = exam
                   textGenderGrade.textGenderExamTier = tier
-  
+
                   await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
                 }
               }

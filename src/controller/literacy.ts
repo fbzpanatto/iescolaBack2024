@@ -35,7 +35,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .leftJoin('studentClassroom.literacies', 'literacies')
         .where(new Brackets(qb => {
-          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
@@ -44,7 +44,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere('classroom.active = :active', { active: true })
         .andWhere('year.name = :yearName', { yearName })
         .andWhere(new Brackets(qb => {
-          if(search) {
+          if (search) {
             qb.where("school.name LIKE :search", { search: `%${search}%` })
               .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
           }
@@ -76,7 +76,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getStudentClassroomsWithLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: {id: number, classrooms: number[]}, yearName: string) {
+  async getStudentClassroomsWithLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: { id: number, classrooms: number[] }, yearName: string) {
 
     const classroomNumber = classroom.shortName.replace(/\D/g, '')
     const lastYear = await AppDataSource.getRepository(Year).findOne({ where: { name: String(Number(yearName) - 1) } })
@@ -103,7 +103,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .orderBy('studentClassroom.rosterNumber', 'ASC')
       .getMany()
 
-    if(!lastYear || Number(classroomNumber) === 1) {
+    if (!lastYear || Number(classroomNumber) === 1) {
 
       const result = studentClassrooms.map(async (studentClassroom) => {
 
@@ -114,13 +114,13 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
         return {
           ...studentClassroom,
-          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
+          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' } }
         }
       })
       return await Promise.all(result)
     }
 
-    const result = studentClassrooms.map(async(studentClassroom) => {
+    const result = studentClassrooms.map(async (studentClassroom) => {
       const studentId = studentClassroom.student.id;
 
       const lastLiteracy = await AppDataSource.getRepository(Literacy)
@@ -137,7 +137,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .addOrderBy('literacy.id', 'DESC') // Em caso de empate no ID do literacyTier, usa o ID do literacy
         .getOne();
 
-      if(!lastLiteracy?.literacyLevel) {
+      if (!lastLiteracy?.literacyLevel) {
 
         const literacyFirsts = await AppDataSource.getRepository(LiteracyFirst).findOne({
           where: { student: { id: studentClassroom.student.id } },
@@ -146,13 +146,13 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
         return {
           ...studentClassroom,
-          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
+          literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' } }
         }
       }
 
       return {
         ...studentClassroom,
-        literacyFirsts: { id: lastLiteracy?.id, literacyLevel: lastLiteracy?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' }}
+        literacyFirsts: { id: lastLiteracy?.id, literacyLevel: lastLiteracy?.literacyLevel ?? { id: 'NA', name: 'NA', shortName: 'NA' } }
       };
     });
 
@@ -174,7 +174,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       if (!year) return { status: 404, message: "Ano não encontrado" }
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if (!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
       if (!classroom) return { status: 404, message: "Sala não encontrada" }
@@ -195,7 +195,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
         .andWhere('year.id = :yearId', { yearId: year.id })
         .having('COUNT(studentClassroom.id) > 0')
-        .groupBy( 'classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id')
+        .groupBy('classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id')
         .getMany()
 
       const schoolClassrooms = allClassrooms.filter((cl) => cl.school.id === classroom.school.id)
@@ -234,20 +234,20 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         }[]
       }[] = []
 
-      for(let classroom of result.classrooms) {
+      for (let classroom of result.classrooms) {
 
         let totalOfStudents = classroom.studentClassrooms.length
 
-        for(let tier of result.literacyTiers) {
+        for (let tier of result.literacyTiers) {
 
-          for(let level of result.literacyLevels) {
+          for (let level of result.literacyLevels) {
 
             const preTotal = this.calc({ tier, level }, classroom.studentClassrooms)
             const total = Math.round((preTotal / totalOfStudents) * 100)
 
             const classIndex = totalResult.findIndex((cl) => cl.classId === classroom.id)
 
-            if(classIndex === -1) {
+            if (classIndex === -1) {
               totalResult.push({
                 classId: classroom.id,
                 className: classroom.name,
@@ -256,30 +256,97 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
             } else {
               totalResult[classIndex].scores.push({ tier, level, total })
             }
+          }
+        }
+      }
 
+      interface iLocalClassroom {
+        id: number | string,
+        name: string,
+        tiers: {
+          id: number,
+          name: string,
+          total: number,
+          levels: {
+            id: number,
+            name: string,
+            total: number,
+            rate: number
+          }[]
+        }[]
+      }
+
+      const arrayOfClassrooms = [...schoolClassrooms, cityHall]
+      const resultArray = []
+
+      for (let classroom of arrayOfClassrooms) {
+
+        let localClassroom: iLocalClassroom = {
+          id: classroom.id,
+          name: classroom.name,
+          tiers: []
+        }
+
+        for (let tier of literacyTiers) {
+
+          let totalPerTier = 0
+          localClassroom.tiers.push({ id: tier.id, name: tier.name, total: totalPerTier, levels: [] })
+
+          for (let level of literacyLevels) {
+
+            let totalPerLevel = 0
+
+            const localTier = localClassroom.tiers.find(tr => tr.id === tier.id)
+            localTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 })
+
+            const localLevel = localTier?.levels.find(lv => lv.id === level.id)
+
+            for (let st of classroom.studentClassrooms) {
+
+              for (let el of st.literacies) {
+
+                if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id) {
+
+                  totalPerLevel += 1
+                  totalPerTier += 1
+
+                  localLevel!.total = totalPerLevel
+                  localTier!.total = totalPerTier
+                }
+              }
+            }
+          }
+        }
+        resultArray.push(localClassroom)
+      }
+
+      for(let result of resultArray) {
+        for(let tier of result.tiers) {
+          for(let level of tier.levels) {
+            level.rate = Math.round(( level.total / tier.total ) * 100)
           }
         }
       }
 
       result = { ...result, totals: totalResult }
 
-      return { status: 200, data: result }
+      return { status: 200, data: { ...result, resultArray } }
 
-    } catch (error: any) { return { status: 500, message: error.message }}
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  calc( value: { tier: { id: number, name: string }, level: { id: number, name: string } }, studentClassrooms: StudentClassroom[] ) {
+  calc(value: { tier: { id: number, name: string }, level: { id: number, name: string } }, studentClassrooms: StudentClassroom[]) {
     return studentClassrooms.reduce((total, studentClassroom) => {
-      if(studentClassroom.literacies.length === 0) return total
-      for(let literacy of studentClassroom.literacies) {
-        if(!literacy.literacyLevel) continue
-        if(literacy.literacyTier.id === value.tier.id && literacy.literacyLevel.id === value.level.id) total++
+      if (studentClassroom.literacies.length === 0) return total
+      for (let literacy of studentClassroom.literacies) {
+        if (!literacy.literacyLevel) continue
+        if (literacy.literacyTier.id === value.tier.id && literacy.literacyLevel.id === value.level.id) total++
       }
       return total
     }, 0)
   }
 
-  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface}) {
+  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface }) {
 
     const { studentClassroom, literacyTier, literacyLevel, user } = body
 
@@ -293,7 +360,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoin('studentClassroom.classroom', 'classroom')
         .leftJoin('literacy.literacyTier', 'literacyTier')
         .where(new Brackets(qb => {
-          if(user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
+          if (user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
@@ -301,17 +368,17 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .andWhere('literacy.literacyTier = :literacyTierId', { literacyTierId: literacyTier.id })
         .getOne()
 
-      if(!stLiteracy) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
+      if (!stLiteracy) { return { status: 400, message: 'Não foi possível processar sua requisição' } }
 
       let literacyLevelDb: any
 
-      if(literacyLevel && literacyLevel.id) {
+      if (literacyLevel && literacyLevel.id) {
         literacyLevelDb = await AppDataSource.getRepository(LiteracyLevel).findOne({
           where: { id: literacyLevel.id }
         })
       }
 
-      if(!literacyLevel) { literacyLevelDb = null }
+      if (!literacyLevel) { literacyLevelDb = null }
 
       stLiteracy.literacyLevel = literacyLevelDb
 

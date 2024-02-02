@@ -72,7 +72,65 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       const studentClassrooms = await this.getStudentClassroomsWithLiteracy(classroom, userBody, teacherClasses, yearName)
 
-      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms } }
+      interface iLocalTier {
+        id: number,
+        name: string,
+        total: number,
+        levels: {
+          id: number,
+          name: string,
+          total: number,
+          rate: number
+        }[]
+      }
+
+      const tiersArray: iLocalTier[] = []
+
+      for (let tier of literacyTiers) {
+
+        let totalPerTier = 0
+
+        let localTier: iLocalTier = {
+          id: tier.id,
+          name: tier.name,
+          total: totalPerTier,
+          levels: []
+        }
+
+        tiersArray.push(localTier)
+
+        for (let level of literacyLevels) {
+
+          let totalPerLevel = 0
+          const auxLocalTier = tiersArray.find(el => el.id === tier.id)
+          auxLocalTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 })
+
+          const auxLocalLevel = auxLocalTier?.levels.find(el => el.id === level.id)
+
+          for (let st of studentClassrooms) {
+
+            for (let el of st.literacies) {
+
+              if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id) {
+
+                totalPerLevel += 1
+                totalPerTier += 1
+
+                auxLocalLevel!.total = totalPerLevel
+                auxLocalTier!.total = totalPerTier
+              }
+            }
+          }
+        }
+      }
+
+      for (let tier of tiersArray) {
+        for (let level of tier.levels) {
+          level.rate = Math.round((level.total / tier.total) * 100)
+        }
+      }
+
+      return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, tiersArray } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

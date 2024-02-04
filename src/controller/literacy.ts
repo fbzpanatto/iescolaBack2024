@@ -368,9 +368,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }, 0)
   }
 
-  async updateLiteracy(body: { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface }) {
+  async updateLiteracy(body: { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, toRate:boolean, user: UserInterface }) {
 
-    const { studentClassroom, literacyTier, literacyLevel, user } = body
+    const { studentClassroom, literacyTier, literacyLevel, user, toRate } = body
 
     try {
 
@@ -406,7 +406,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       let result = {}
 
-      if(!studentClassroom.endedAt) {
+      if(!studentClassroom.endedAt && toRate) {
         result = await AppDataSource.getRepository(Literacy).save(stLiteracy)
       }
 

@@ -507,7 +507,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
             for (let tier of literacyTier) {
 
-              const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id)
+              const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id && el.literacyLevel != null)
 
               if (element) {
 

@@ -219,8 +219,6 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
   async getTotals(request: Request) {
 
-    console.log('getTotals HERE')
-
     const yearName = request?.params.year as string
     const userBody = request?.body.user
     const classroomId = request?.params.id as string

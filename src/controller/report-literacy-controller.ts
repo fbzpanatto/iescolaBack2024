@@ -119,7 +119,7 @@ class ReportLiteracy extends GenericController<School> {
 
               for (let el of st.literacies) {
 
-                if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id) {
+                if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id && el.toRate) {
 
                   totalPerLevel += 1
                   totalPerTier += 1

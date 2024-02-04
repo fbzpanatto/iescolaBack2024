@@ -192,7 +192,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
                 await AppDataSource.getRepository(Literacy).save({
                   studentClassroom: newStudentClassroom,
                   literacyTier: element.literacyTier,
-                  literacyLevel: element.literacyLevel
+                  literacyLevel: element.literacyLevel,
+                  toRate: false
                 })
               } else {
 
@@ -241,7 +242,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
                       textGender: element.textGender,
                       textGenderExam: element.textGenderExam,
                       textGenderExamTier: element.textGenderExamTier,
-                      textGenderExamLevel: element.textGenderExamLevel
+                      textGenderExamLevel: element.textGenderExamLevel,
+                      toRate: false
                     })
                   } else {
 

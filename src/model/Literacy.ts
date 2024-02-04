@@ -1,4 +1,4 @@
-import {Column, Entity, ManyToOne, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { LiteracyLevel } from "./LiteracyLevel";
 import { LiteracyTier } from "./LiteracyTier";
 import { StudentClassroom } from "./StudentClassroom";
@@ -20,4 +20,7 @@ export class Literacy {
 
   @Column({ nullable: true })
   observation: string
+
+  @Column({ nullable: false, default: true })
+  toRate: boolean
 }

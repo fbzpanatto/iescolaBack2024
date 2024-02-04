@@ -366,7 +366,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }, 0)
   }
 
-  async updateLiteracy(body: { studentClassroom: { id: number }, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface }) {
+  async updateLiteracy(body: { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, user: UserInterface }) {
 
     const { studentClassroom, literacyTier, literacyLevel, user } = body
 
@@ -402,7 +402,11 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       stLiteracy.literacyLevel = literacyLevelDb
 
-      const result = await AppDataSource.getRepository(Literacy).save(stLiteracy)
+      let result = {}
+
+      if(!studentClassroom.endedAt) {
+        result = await AppDataSource.getRepository(Literacy).save(stLiteracy)
+      }
 
       return { status: 200, data: result }
 

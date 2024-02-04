@@ -514,7 +514,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                 await AppDataSource.getRepository(Literacy).save({
                   studentClassroom: newStudentClassroom,
                   literacyTier: element.literacyTier,
-                  literacyLevel: element.literacyLevel
+                  literacyLevel: element.literacyLevel,
+                  toRate: false
                 })
               } else {
 
@@ -563,7 +564,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                       textGender: element.textGender,
                       textGenderExam: element.textGenderExam,
                       textGenderExamTier: element.textGenderExamTier,
-                      textGenderExamLevel: element.textGenderExamLevel
+                      textGenderExamLevel: element.textGenderExamLevel,
+                      toRate: false
                     })
                   } else {
 

@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { StudentClassroom } from "./StudentClassroom";
 import { TextGender } from "./TextGender";
 import { TextGenderExam } from "./TextGenderExam";
@@ -25,4 +25,7 @@ export class TextGenderGrade {
 
   @ManyToOne(() => TextGenderExamLevel, textGenderExamLevel => textGenderExamLevel.textGenderGrades, { nullable: true })
   textGenderExamLevel: TextGenderExamLevel
+
+  @Column({ nullable: false, default: true })
+  toRate: boolean
 }

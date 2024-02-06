@@ -31,3 +31,10 @@ LiteracyRouter.put('/:id/classroom', havePermission, (req, res) => {
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
+
+LiteracyRouter.put('/many', havePermission, (req, res) => {
+
+  literacyController.updateMany(req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})

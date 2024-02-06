@@ -368,9 +368,6 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
   async updateMany(body: { user: UserInterface, data: { id: number, observation: string }[] }) {
 
-    console.log(body.user)
-    console.log(body.data)
-
     try {
 
       for (let item of body.data) {

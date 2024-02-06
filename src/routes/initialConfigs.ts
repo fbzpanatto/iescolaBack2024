@@ -128,6 +128,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newLiteracyLevel = new LiteracyLevel()
       newLiteracyLevel.name = literacyLevel.name
       newLiteracyLevel.shortName = literacyLevel.shortName
+      newLiteracyLevel.color = literacyLevel.color
       await literacyLevelSource.save(newLiteracyLevel)
     }
 

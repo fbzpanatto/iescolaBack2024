@@ -14,6 +14,9 @@ export class LiteracyLevel {
   @Column()
   shortName: string
 
+  @Column()
+  color: string
+
   @OneToMany(() => Literacy, literacy => literacy.literacyLevel)
   literacies: Literacy[]
 

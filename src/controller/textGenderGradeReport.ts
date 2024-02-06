@@ -7,9 +7,6 @@ import { Classroom } from "../model/Classroom";
 import { Year } from "../model/Year";
 import { TextGender } from "../model/TextGender";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
-import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
-import { personCategories } from "../utils/personCategories";
-import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
 import { Request } from "express";
 import { School } from "../model/School";
 

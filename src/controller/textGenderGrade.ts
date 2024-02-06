@@ -11,7 +11,7 @@ import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
 import { personCategories } from "../utils/personCategories";
 import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
-import e, { Request } from "express";
+import { Request } from "express";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { School } from "../model/School";
 
@@ -22,6 +22,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
   }
 
   async getAll(req: any) {
+
+    console.log('getting here TextGenderGradeController')
 
     const { classroom: classId, year: yearName, gender: genderId } = req.params
 
@@ -79,7 +81,72 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         data: result
       }
 
-      return { status: 200, data: finalResult }
+      interface iLocalExam {
+        id: number,
+        name: string,
+        tiers: {
+          id: number,
+          name: string,
+          total: number,
+          levels: {
+            id: number,
+            name: string,
+            total: number,
+            rate: number
+          }[]
+        }[]
+      }
+
+      const resultArray: iLocalExam[] = []
+
+      for (let exam of examLevel) {
+
+        let localExam: iLocalExam = { id: exam.id, name: exam.name, tiers: [] }
+
+        resultArray.push(localExam)
+
+        for (let tier of examTier) {
+
+          let totalPerTier = 0
+
+          const auxLocalExamLevel = resultArray.find(el => el.id === exam.id)
+          auxLocalExamLevel?.tiers.push({ id: tier.id, name: tier.name, levels: [], total: totalPerTier })
+
+          for (let level of exam.textGenderExamLevelGroups) {
+
+            let totalPerLevel = 0
+
+            const auxLocalTier = auxLocalExamLevel?.tiers.find(el => el.id === tier.id)
+            auxLocalTier?.levels.push({ id: level.textGenderExamLevel.id, name: level.textGenderExamLevel.name, total: totalPerLevel, rate: 0 })
+            const auxLocalTierLevel = auxLocalTier?.levels.find(el => el.id === level.textGenderExamLevel.id)
+
+            for(let st of result) {
+
+              for(let el of st.textGenderGrades) {
+
+                if( el.textGenderExamLevel?.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
+
+                  totalPerTier += 1
+                  totalPerLevel += 1
+
+                  auxLocalTier!.total = totalPerTier
+                  auxLocalTierLevel!.total = totalPerLevel
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for(let exam of resultArray) {
+        for(let tier of exam.tiers) {
+          for(let level of tier.levels) {
+            level.rate = Math.round((level.total / tier.total) * 100)
+          }
+        }
+      }
+
+      return { status: 200, data: { ...finalResult, resultArray } }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -275,7 +342,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
     } as unknown as Classroom
   }
 
-  examTotalizer(examLevel: TextGenderExam[], examTier: TextGenderExamTier[] ) {
+  examTotalizer(examLevel: TextGenderExam[], examTier: TextGenderExamTier[]) {
 
     const examTotalizer: {
       examId: number,
@@ -293,7 +360,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       for (let tier of examTier) {
         for (let examLevel of exam.textGenderExamLevelGroups.flatMap(el => el.textGenderExamLevel)) {
           const index = examTotalizer.findIndex(el => el.examId === exam.id && el.examTierId === tier.id && el.examTierLevelId === examLevel.id)
-          if(index === -1) {
+          if (index === -1) {
             examTotalizer.push({
               examId: exam.id,
               examLabel: exam.name,
@@ -335,29 +402,29 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   async filteredSchool(classroomNumber: string, textGender: TextGender | null, year: Year, search: any) {
     return await AppDataSource.getRepository(School)
-        .createQueryBuilder('school')
-        .leftJoinAndSelect('school.classrooms', 'classroom')
-        .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
-        .leftJoinAndSelect('studentClassrooms.student', 'student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('studentClassrooms.year', 'year')
-        .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
-        .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
-        .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
-        .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
-        .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
-        .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
-        .andWhere('year.id = :yearId', { yearId: year.id })
-        .andWhere('textGenderExamLevel.id IS NOT NULL')
-        .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
-        .andWhere(new Brackets(qb => {
-          if (search) {
-            qb.where("school.name LIKE :search", { search: `%${search}%` })
-              .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
-          }
-        }))
-        .orderBy('school.name', 'ASC')
-        .getMany()
+      .createQueryBuilder('school')
+      .leftJoinAndSelect('school.classrooms', 'classroom')
+      .leftJoinAndSelect('classroom.studentClassrooms', 'studentClassrooms')
+      .leftJoinAndSelect('studentClassrooms.student', 'student')
+      .leftJoinAndSelect('student.person', 'person')
+      .leftJoinAndSelect('studentClassrooms.year', 'year')
+      .leftJoinAndSelect('studentClassrooms.textGenderGrades', 'textGenderGrades')
+      .leftJoinAndSelect('textGenderGrades.textGender', 'textGender')
+      .leftJoinAndSelect('textGenderGrades.textGenderExam', 'textGenderExam')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamTier', 'textGenderExamTier')
+      .leftJoinAndSelect('textGenderGrades.textGenderExamLevel', 'textGenderExamLevel')
+      .where('classroom.shortName LIKE :shortName', { shortName: `%${classroomNumber}%` })
+      .andWhere('year.id = :yearId', { yearId: year.id })
+      .andWhere('textGenderExamLevel.id IS NOT NULL')
+      .andWhere('textGender.id = :textGenderId', { textGenderId: textGender?.id })
+      .andWhere(new Brackets(qb => {
+        if (search) {
+          qb.where("school.name LIKE :search", { search: `%${search}%` })
+            .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+        }
+      }))
+      .orderBy('school.name', 'ASC')
+      .getMany()
   }
 }
 

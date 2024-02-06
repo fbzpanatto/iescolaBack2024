@@ -555,7 +555,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
 
-                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id)
+                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
 
                   if (element) {
 

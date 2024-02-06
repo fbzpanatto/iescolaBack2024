@@ -144,18 +144,18 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         const currentYear = await this.currentYear()
 
         const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-        .find({
-          relations: ['classroom', 'year'],
-          where: {
-            year: { id: currentYear.id },
-            classroom: { id: transfer.requestedClassroom.id }
-          },
-          order: { rosterNumber: 'DESC' },
-          take: 1
-        })
+          .find({
+            relations: ['classroom', 'year'],
+            where: {
+              year: { id: currentYear.id },
+              classroom: { id: transfer.requestedClassroom.id }
+            },
+            order: { rosterNumber: 'DESC' },
+            take: 1
+          })
 
         let last = 1
-        if(lastRosterNumber[0]?.rosterNumber) {
+        if (lastRosterNumber[0]?.rosterNumber) {
           last = lastRosterNumber[0].rosterNumber + 1
         }
 
@@ -233,7 +233,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
 
-                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id)
+                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null)
 
                   if (element) {
 

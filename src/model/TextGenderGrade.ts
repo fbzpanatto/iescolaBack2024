@@ -28,4 +28,7 @@ export class TextGenderGrade {
 
   @Column({ nullable: false, default: true })
   toRate: boolean
+
+  @Column({ nullable: true })
+  observation: string
 }

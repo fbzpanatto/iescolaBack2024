@@ -54,7 +54,7 @@ class TextGenderGradeReportController extends GenericController<EntityTarget<Tex
         for (let oneStudentClassroom of school.studentsClassrooms) {
           for (let stGrade of oneStudentClassroom.textGenderGrades) {
 
-            const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+            const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id && stGrade.toRate)
 
             if (indexForSchool !== -1) {
               school.examTotalizer[indexForSchool].total += 1
@@ -65,13 +65,19 @@ class TextGenderGradeReportController extends GenericController<EntityTarget<Tex
       }
 
       for (let studentClassroom of cityHall.studentsClassrooms) {
+
+        let totalForIndex = 0
+
         for (let stGrade of studentClassroom.textGenderGrades) {
 
-          const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id)
+          const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id && stGrade.toRate)
 
           if (indexForCity !== -1) {
+
+            totalForIndex += 1 
+
             cityHall.examTotalizer[indexForCity].total += 1
-            cityHall.examTotalizer[indexForCity].rate = Math.round((cityHall.examTotalizer[indexForCity].total / cityHall.studentsClassrooms.length) * 100)
+            cityHall.examTotalizer[indexForCity].rate = Math.round((cityHall.examTotalizer[indexForCity].total / totalForIndex) * 100)
           }
         }
       }

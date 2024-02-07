@@ -151,6 +151,8 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   async getTotals(request: Request) {
 
+    console.log('getTotals')
+
     const { user: userBody } = request.body
     const { classroom: classId, year: yearName } = request.params
 
@@ -217,7 +219,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         })
       }
 
-      const onlySchool = allData.map(el => {
+      const schoolAndCity = allData.map(el => {
         return {
           ...el,
           classrooms: el.classrooms.filter(cl => cl.school.id === classroom.school.id)
@@ -226,10 +228,10 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       for (let gender of genders) {
         const cityHall = this.createCityHall()
-        const groupIndex = onlySchool.findIndex(el => el.id === gender.textGender.id)
+        const groupIndex = schoolAndCity.findIndex(el => el.id === gender.textGender.id)
         const preResult = allData.filter(el => el.id === gender.textGender.id)
         cityHall.studentClassrooms = preResult.flatMap(el => el.classrooms.flatMap(st => st.studentClassrooms))
-        onlySchool[groupIndex].classrooms.push(cityHall)
+        schoolAndCity[groupIndex].classrooms.push(cityHall)
       }
 
       const result = {
@@ -238,10 +240,97 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         classroomNumber,
         genders,
         headers: { examLevel, examTier },
-        groups: onlySchool
+        groups: schoolAndCity
       }
 
-      return { status: 200, data: result }
+      interface iLocalGender {
+        id: number,
+        name: string,
+        classrooms: {
+          id: number,
+          name: string,
+          exams: {
+            id: number,
+            name: string,
+            tiers: {
+              id: number,
+              name: string,
+              total: number,
+              levels: {
+                id: number,
+                name: string,
+                total: number,
+                rate: number
+              }[]
+            }[]
+          }[]
+        }[]
+      }
+
+      const resultArray: iLocalGender[] = []
+
+      for(let txtGender of schoolAndCity) {
+
+        let localTxtGender: iLocalGender = { id: txtGender.id, name: txtGender.name, classrooms: [] }
+
+        resultArray.push(localTxtGender)
+
+        for(let classroom of txtGender.classrooms) {
+
+          const auxLocalTextGender = resultArray.find(el => el.id === txtGender.id)
+          auxLocalTextGender?.classrooms.push({ id: classroom.id, name: classroom.name, exams: [] })
+
+          for(let exam of examLevel) {
+
+            const auxLocalClassroom = auxLocalTextGender?.classrooms.find(el => el.id === classroom.id)
+            auxLocalClassroom?.exams.push({ id: exam.id, name: exam.name, tiers: [] })
+
+            for(let tier of examTier) {
+
+              let totalPerTier = 0
+
+              const auxLocalExam = auxLocalClassroom?.exams.find(el => el.id === exam.id)
+              auxLocalExam?.tiers.push({ id: tier.id, name: tier.name, levels: [], total: totalPerTier })
+
+              for(let level of exam.textGenderExamLevelGroups) {
+
+                let totalPerLevel = 0
+
+                const auxLocalTier = auxLocalExam?.tiers.find(el => el.id === tier.id)
+                auxLocalTier?.levels.push({ id: level.textGenderExamLevel.id, name: level.textGenderExamLevel.name, rate: 0, total: totalPerLevel })
+
+                const auxLocalTierLevel = auxLocalTier?.levels.find(el => el.id === level.textGenderExamLevel.id)
+
+                for(let el of classroom.studentClassrooms.flatMap(el => el.textGenderGrades)) {
+
+                  if (el.textGenderExamLevel?.id && el.textGender.id === txtGender.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
+
+                    totalPerTier += 1
+                    totalPerLevel += 1
+  
+                    auxLocalTier!.total = totalPerTier
+                    auxLocalTierLevel!.total = totalPerLevel
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for( let textGender of resultArray ) {
+        for( let classroom of textGender.classrooms ) {
+          for(let exams of classroom.exams) {
+            for(let tier of exams.tiers) {
+              for( let level of tier.levels) {
+                level.rate = Math.round((level.total / tier.total) * 100)
+              }
+            }
+          }
+        }
+      }
+
+      return { status: 200, data: {...result, resultArray} }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

@@ -569,19 +569,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                     })
                   } else {
 
-                    for (let tg of textGenderClassroom) {
-                      for (let tier of textGenderExamTier) {
-                        for (let exam of textGenderExam) {
-                          const textGenderGrade = new TextGenderGrade()
-                          textGenderGrade.studentClassroom = newStudentClassroom
-                          textGenderGrade.textGender = tg.textGender
-                          textGenderGrade.textGenderExam = exam
-                          textGenderGrade.textGenderExamTier = tier
-
-                          await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
-                        }
-                      }
-                    }
+                    await AppDataSource.getRepository(TextGenderGrade).save({
+                      studentClassroom: newStudentClassroom,
+                      textGender: tg.textGender,
+                      textGenderExam: exam,
+                      textGenderExamTier: tier
+                    })
                   }
                 }
               }
@@ -591,13 +584,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             for (let tg of textGenderClassroom) {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
-                  const textGenderGrade = new TextGenderGrade()
-                  textGenderGrade.studentClassroom = newStudentClassroom
-                  textGenderGrade.textGender = tg.textGender
-                  textGenderGrade.textGenderExam = exam
-                  textGenderGrade.textGenderExamTier = tier
 
-                  await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+                  await AppDataSource.getRepository(TextGenderGrade).save({
+                    studentClassroom: newStudentClassroom,
+                    textGender: tg.textGender,
+                    textGenderExam: exam,
+                    textGenderExamTier: tier
+                  })
+                  
                 }
               }
             }

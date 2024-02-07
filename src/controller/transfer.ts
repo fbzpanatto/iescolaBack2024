@@ -233,7 +233,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
 
-                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null)
+                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
 
                   if (element) {
 
@@ -247,19 +247,12 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
                     })
                   } else {
 
-                    for (let tg of textGenderClassroom) {
-                      for (let tier of textGenderExamTier) {
-                        for (let exam of textGenderExam) {
-                          const textGenderGrade = new TextGenderGrade()
-                          textGenderGrade.studentClassroom = newStudentClassroom
-                          textGenderGrade.textGender = tg.textGender
-                          textGenderGrade.textGenderExam = exam
-                          textGenderGrade.textGenderExamTier = tier
-
-                          await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
-                        }
-                      }
-                    }
+                    await AppDataSource.getRepository(TextGenderGrade).save({
+                      studentClassroom: newStudentClassroom,
+                      textGender: tg.textGender,
+                      textGenderExam: exam,
+                      textGenderExamTier: tier
+                    })
                   }
                 }
               }
@@ -269,13 +262,14 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             for (let tg of textGenderClassroom) {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
-                  const textGenderGrade = new TextGenderGrade()
-                  textGenderGrade.studentClassroom = newStudentClassroom
-                  textGenderGrade.textGender = tg.textGender
-                  textGenderGrade.textGenderExam = exam
-                  textGenderGrade.textGenderExamTier = tier
 
-                  await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+                  await AppDataSource.getRepository(TextGenderGrade).save({
+                    studentClassroom: newStudentClassroom,
+                    textGender: tg.textGender,
+                    textGenderExam: exam,
+                    textGenderExamTier: tier
+                  })
+                  
                 }
               }
             }

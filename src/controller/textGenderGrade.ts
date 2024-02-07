@@ -23,8 +23,6 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   async getAll(req: any) {
 
-    console.log('getting here TextGenderGradeController')
-
     const { classroom: classId, year: yearName, gender: genderId } = req.params
 
     try {
@@ -120,11 +118,11 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
             auxLocalTier?.levels.push({ id: level.textGenderExamLevel.id, name: level.textGenderExamLevel.name, total: totalPerLevel, rate: 0 })
             const auxLocalTierLevel = auxLocalTier?.levels.find(el => el.id === level.textGenderExamLevel.id)
 
-            for(let st of result) {
+            for (let st of result) {
 
-              for(let el of st.textGenderGrades) {
+              for (let el of st.textGenderGrades) {
 
-                if( el.textGenderExamLevel?.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
+                if (el.textGenderExamLevel?.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
 
                   totalPerTier += 1
                   totalPerLevel += 1
@@ -138,9 +136,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         }
       }
 
-      for(let exam of resultArray) {
-        for(let tier of exam.tiers) {
-          for(let level of tier.levels) {
+      for (let exam of resultArray) {
+        for (let tier of exam.tiers) {
+          for (let level of tier.levels) {
             level.rate = Math.round((level.total / tier.total) * 100)
           }
         }
@@ -256,7 +254,9 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       textGenderExam,
       textGenderExamTier,
       textGenderExamTierLevel,
-      user } = body
+      toRate,
+      user
+    } = body
 
     try {
 
@@ -293,10 +293,13 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       stTextGenderGrade.textGenderExamLevel = textGenderExamTierLevelDb
 
-      const result = await AppDataSource.getRepository(TextGenderGrade).save(stTextGenderGrade)
+      let result = {}
+
+      if (!studentClassroom.endedAt && toRate) {
+        result = await AppDataSource.getRepository(TextGenderGrade).save(stTextGenderGrade)
+      }
 
       return { status: 200, data: result }
-
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

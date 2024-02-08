@@ -38,48 +38,14 @@ class TextGenderGradeReportController extends GenericController<EntityTarget<Tex
         id: school.id,
         name: school.name,
         shortName: school.shortName,
-        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms),
-        examTotalizer: this.examTotalizer(examLevel, examTier)
+        studentsClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms)
       }))
 
       const cityHall = {
         id: 'ITA',
         name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
         shortName: 'ITA',
-        studentsClassrooms: allData.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms)),
-        examTotalizer: this.examTotalizer(examLevel, examTier)
-      }
-
-      for (let school of arrOfSchools) {
-        for (let oneStudentClassroom of school.studentsClassrooms) {
-          for (let stGrade of oneStudentClassroom.textGenderGrades) {
-
-            const indexForSchool = school.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id && stGrade.toRate)
-
-            if (indexForSchool !== -1) {
-              school.examTotalizer[indexForSchool].total += 1
-              school.examTotalizer[indexForSchool].rate = Math.round((school.examTotalizer[indexForSchool].total / school.studentsClassrooms.length) * 100)
-            }
-          }
-        }
-      }
-
-      for (let studentClassroom of cityHall.studentsClassrooms) {
-
-        let totalForIndex = 0
-
-        for (let stGrade of studentClassroom.textGenderGrades) {
-
-          const indexForCity = cityHall.examTotalizer.findIndex(el => stGrade.textGenderExamLevel !== null && el.examId === stGrade.textGenderExam.id && el.examTierId === stGrade.textGenderExamTier.id && el.examTierLevelId === stGrade.textGenderExamLevel.id && stGrade.toRate)
-
-          if (indexForCity !== -1) {
-
-            totalForIndex += 1 
-
-            cityHall.examTotalizer[indexForCity].total += 1
-            cityHall.examTotalizer[indexForCity].rate = Math.round((cityHall.examTotalizer[indexForCity].total / totalForIndex) * 100)
-          }
-        }
+        studentsClassrooms: allData.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
       }
 
       const examLevelLabels = this.examTotalizer(examLevel, examTier).map(el => el.graphicLabel)
@@ -92,7 +58,95 @@ class TextGenderGradeReportController extends GenericController<EntityTarget<Tex
         examLevelLabels
       }
 
-      return { status: 200, data: result }
+      interface iLocalSchool {
+        id: number | string,
+        name: string,
+        exams: {
+          id: number,
+          name: string,
+          tiers: {
+            id: number,
+            name: string,
+            total: number,
+            levels: {
+              id: number,
+              name: string,
+              total: number,
+              rate: number
+            }[]
+          }[]
+        }[]
+      }
+
+      const finalArray = [...arrOfSchools, cityHall]
+      const resultArray = []
+
+      for (let row of finalArray) {
+
+        let localSchool: iLocalSchool = {
+          id: row.id,
+          name: row.name,
+          exams: []
+        }
+
+        for (let exam of examLevel) {
+
+          localSchool.exams.push({ id: exam.id, name: exam.name, tiers: [] })
+
+          for (let tier of examTier) {
+
+            let totalPerTier = 0
+
+            localSchool.exams.find(el => el.id === exam.id)?.tiers.push({ id: tier.id, name: tier.name, total: totalPerTier, levels: [] })
+
+            for (let level of exam.textGenderExamLevelGroups) {
+
+              let totalPerLevel = 0
+
+              localSchool.exams.find(el => el.id === exam.id)?.tiers.find(el => el.id === tier.id)?.levels.push({ id: level.textGenderExamLevel.id, name: level.textGenderExamLevel.name, rate: 0, total: totalPerLevel })
+
+              for (let st of row.studentsClassrooms) {
+
+                for (let el of st.textGenderGrades) {
+
+                  if (el.textGenderExamLevel?.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
+
+                    totalPerTier += 1
+                    totalPerLevel += 1
+
+                    const auxLocalLevel = localSchool.exams.find(el => el.id === exam.id)?.tiers.find(el => el.id === tier.id)?.levels.find(el => el.id === level.textGenderExamLevel.id)
+                    auxLocalLevel!.total = totalPerLevel
+
+                    const auxLocalTier = localSchool.exams.find(el => el.id === exam.id)?.tiers.find(el => el.id === tier.id)
+                    auxLocalTier!.total = totalPerTier
+                  }
+                }
+              }
+            }
+          }
+        }
+        resultArray.push(localSchool)
+      }
+
+      const totals: number[] = []
+      const rates: number[] = []
+
+      for(let row of resultArray) {
+        for(let exam of row.exams) {
+          for(let tier of exam.tiers) {
+            for(let level of tier.levels) {
+              level.rate = Math.round((level.total / tier.total) * 100)
+
+              if(isNaN(row.id as number)) {
+                totals.push(level.total)
+                rates.push(level.rate)
+              }
+            }
+          }
+        }
+      }
+
+      return { status: 200, data: { ...result, resultArray, totals, rates } }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

@@ -151,8 +151,6 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
   async getTotals(request: Request) {
 
-    console.log('getTotals')
-
     const { user: userBody } = request.body
     const { classroom: classId, year: yearName } = request.params
 
@@ -278,7 +276,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         for(let classroom of txtGender.classrooms) {
 
           const auxLocalTextGender = resultArray.find(el => el.id === txtGender.id)
-          auxLocalTextGender?.classrooms.push({ id: classroom.id, name: classroom.name, exams: [] })
+          auxLocalTextGender?.classrooms.push({ id: classroom.id, name: classroom.shortName, exams: [] })
 
           for(let exam of examLevel) {
 

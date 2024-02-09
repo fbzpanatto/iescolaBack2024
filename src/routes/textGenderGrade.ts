@@ -18,6 +18,13 @@ TextGenderGradeRouter.get('/:classroom/:year', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+TextGenderGradeRouter.put('/many', havePermission, (req, res) => {
+
+  textGenderGradeController.updateMany(req.body)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TextGenderGradeRouter.put('/:studentClassroomId', havePermission, (req, res) => {
 
   textGenderGradeController.updateStudentTextGenderExamGrade(req.body)

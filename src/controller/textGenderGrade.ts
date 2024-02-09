@@ -8,7 +8,7 @@ import { Year } from "../model/Year";
 import { TextGender } from "../model/TextGender";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
-import { BodyTextGenderExamGrade } from "../interfaces/interfaces";
+import { BodyTextGenderExamGrade, UserInterface } from "../interfaces/interfaces";
 import { personCategories } from "../utils/personCategories";
 import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
 import { Request } from "express";
@@ -267,30 +267,30 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
       const resultArray: iLocalGender[] = []
 
-      for(let txtGender of schoolAndCity) {
+      for (let txtGender of schoolAndCity) {
 
         let localTxtGender: iLocalGender = { id: txtGender.id, name: txtGender.name, classrooms: [] }
 
         resultArray.push(localTxtGender)
 
-        for(let classroom of txtGender.classrooms) {
+        for (let classroom of txtGender.classrooms) {
 
           const auxLocalTextGender = resultArray.find(el => el.id === txtGender.id)
           auxLocalTextGender?.classrooms.push({ id: classroom.id, name: classroom.shortName, exams: [] })
 
-          for(let exam of examLevel) {
+          for (let exam of examLevel) {
 
             const auxLocalClassroom = auxLocalTextGender?.classrooms.find(el => el.id === classroom.id)
             auxLocalClassroom?.exams.push({ id: exam.id, name: exam.name, tiers: [] })
 
-            for(let tier of examTier) {
+            for (let tier of examTier) {
 
               let totalPerTier = 0
 
               const auxLocalExam = auxLocalClassroom?.exams.find(el => el.id === exam.id)
               auxLocalExam?.tiers.push({ id: tier.id, name: tier.name, levels: [], total: totalPerTier })
 
-              for(let level of exam.textGenderExamLevelGroups) {
+              for (let level of exam.textGenderExamLevelGroups) {
 
                 let totalPerLevel = 0
 
@@ -299,13 +299,13 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
 
                 const auxLocalTierLevel = auxLocalTier?.levels.find(el => el.id === level.textGenderExamLevel.id)
 
-                for(let el of classroom.studentClassrooms.flatMap(el => el.textGenderGrades)) {
+                for (let el of classroom.studentClassrooms.flatMap(el => el.textGenderGrades)) {
 
                   if (el.textGenderExamLevel?.id && el.textGender.id === txtGender.id && exam.id === el.textGenderExam.id && tier.id === el.textGenderExamTier.id && level.textGenderExamLevel.id === el.textGenderExamLevel.id && el.toRate) {
 
                     totalPerTier += 1
                     totalPerLevel += 1
-  
+
                     auxLocalTier!.total = totalPerTier
                     auxLocalTierLevel!.total = totalPerLevel
                   }
@@ -316,11 +316,11 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         }
       }
 
-      for( let textGender of resultArray ) {
-        for( let classroom of textGender.classrooms ) {
-          for(let exams of classroom.exams) {
-            for(let tier of exams.tiers) {
-              for( let level of tier.levels) {
+      for (let textGender of resultArray) {
+        for (let classroom of textGender.classrooms) {
+          for (let exams of classroom.exams) {
+            for (let tier of exams.tiers) {
+              for (let level of tier.levels) {
                 level.rate = Math.round((level.total / tier.total) * 100)
               }
             }
@@ -328,7 +328,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         }
       }
 
-      return { status: 200, data: {...result, resultArray} }
+      return { status: 200, data: { ...result, resultArray } }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -515,6 +515,24 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       }))
       .orderBy('school.name', 'ASC')
       .getMany()
+  }
+
+  async updateMany(body: { user: UserInterface, data: { id: number, observation: string }[] }) {
+
+    try {
+
+      for (let item of body.data) {
+        await AppDataSource.getRepository(TextGenderGrade).save({ ...item })
+      }
+
+      let result = {}
+
+      return { status: 200, data: result }
+
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 }
 

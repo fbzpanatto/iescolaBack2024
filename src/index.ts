@@ -39,6 +39,7 @@ import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 import { TextGenderGradeReportRouter } from './routes/textGenderGradeReport';
+import { PasswordRouter } from './routes/password';
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -81,6 +82,8 @@ route.use('/topic', TopicRouter);
 route.use('/transfer', authorization, TransferRouter);
 route.use('/user', authorization, UserRouter);
 route.use('/year', authorization, YearRouter);
+
+route.use('/reset-password', PasswordRouter);
 
 route.use('/login', LoginRouter);
 

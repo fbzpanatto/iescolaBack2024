@@ -94,7 +94,7 @@ app.use(route)
 AppDataSource.initialize()
   .then(() => {
     app.listen(process.env.SERVER_PORT, () => {
-      console.log('Server running on port 3333');
+      console.log('Server running:', process.env.SERVER_PORT);
     });
   })
   .catch((err) => { console.log(err) });

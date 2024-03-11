@@ -1,5 +1,5 @@
 
-if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
+// if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 
 import express from 'express'
 import authorization from "./middleware/authorization";
@@ -94,7 +94,7 @@ app.use(route)
 AppDataSource.initialize()
   .then(() => {
     app.listen(3333, () => {
-      console.log('Server running on port 3333', 'env:', process.env.NODE_ENV);
+      console.log('Server running on port 3333');
     });
   })
   .catch((err) => { console.log(err) });

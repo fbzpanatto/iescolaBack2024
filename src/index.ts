@@ -1,5 +1,5 @@
 
-if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
+// if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 
 import express from 'express'
 import authorization from "./middleware/authorization";

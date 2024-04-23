@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node-dev --inspect --transpile-only --ignore-watch node_modules src/index.ts"
+    "start": "nodemon --exec ts-node-dev --inspect --transpile-only --ignore-watch node_modules src/index.ts"
   },
   "keywords": [],
   "author": "",

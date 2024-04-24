@@ -48,7 +48,7 @@ const app: Application = express();
 const route = Router()
 
 app.use(bodyParser.json());
-app.use(cors({ origin: true }));
+// app.use(cors({ origin: true }));
 
 route.use('/api', (req, res) => {
   return res.send('Working')

@@ -97,7 +97,7 @@ AppDataSource.initialize()
     //   console.log('Server running at PORT:', process.env.SERVER_PORT);
     // });
     app.listen(3333, () => {
-      console.log('Server running at PORT:', process.env.SERVER_PORT);
+      console.log('Server running at PORT:', 3333);
     });
   })
   .catch((err) => { console.log(err) });

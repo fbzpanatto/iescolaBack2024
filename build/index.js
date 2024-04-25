@@ -46,8 +46,9 @@ const app = (0, express_1.default)();
 const route = (0, express_2.Router)();
 app.use(body_parser_1.default.json());
 // app.use(cors({ origin: true }));
-route.use('/api', (req, res) => {
-    return res.send('Working');
+app.use(express_1.default.urlencoded({ extended: true }));
+route.use('/', (req, res) => {
+    res.json({ message: "OK" });
 });
 route.use('/bimester', authorization_1.default, bimester_1.BimesterRouter);
 route.use('/classroom', authorization_1.default, classroom_1.ClassroomRouter);
@@ -90,8 +91,8 @@ data_source_1.AppDataSource.initialize()
     // app.listen(process.env.SERVER_PORT, () => {
     //   console.log('Server running at PORT:', process.env.SERVER_PORT);
     // });
-    app.listen(process.env.SERVER_PORT, () => {
-        console.log('Server running at PORT:', process.env.SERVER_PORT);
+    app.listen(3000, () => {
+        console.log('Server running at PORT:', 3000);
     });
 })
     .catch((err) => { console.log(err); });

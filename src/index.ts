@@ -49,9 +49,10 @@ const route = Router()
 
 app.use(bodyParser.json());
 // app.use(cors({ origin: true }));
+app.use(express.urlencoded({extended: true}))
 
-route.use('/api', (req, res) => {
-  return res.send('Working')
+route.use('/', (req, res) => {
+  res.json({ message: "OK" })
 })
 route.use('/bimester', authorization, BimesterRouter);
 route.use('/classroom', authorization, ClassroomRouter);
@@ -99,8 +100,8 @@ AppDataSource.initialize()
     // app.listen(process.env.SERVER_PORT, () => {
     //   console.log('Server running at PORT:', process.env.SERVER_PORT);
     // });
-    app.listen(process.env.SERVER_PORT, () => {
-      console.log('Server running at PORT:', process.env.SERVER_PORT);
+    app.listen(3000, () => {
+      console.log('Server running at PORT:', 3000);
     });
   })
   .catch((err) => { console.log(err) });

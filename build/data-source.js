@@ -24,5 +24,6 @@ exports.AppDataSource = new typeorm_1.DataSource({
     database: "iescoladb2024",
     synchronize: true,
     logging: false,
-    entities: model_1.entities
+    entities: model_1.entities,
+    connectTimeout: 60000
 });

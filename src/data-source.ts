@@ -23,5 +23,6 @@ export const AppDataSource = new DataSource({
   database: "iescoladb2024",
   synchronize: true,
   logging: false,
-  entities: entities
+  entities: entities,
+  connectTimeout: 60000
 })

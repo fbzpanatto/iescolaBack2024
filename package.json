@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "nodemon --exec ts-node-dev --inspect --transpile-only --ignore-watch node_modules src/index.ts",
     "serve": "node dist/index.js",
-    "build": "rimraf ./build && tsc",
-    "sb": "npm run build && node build/index.js",
-    "start": "node build/index.js"
+    "build": "rimraf src/build && tsc",
+    "sb": "npm run build && node src/build/index.js",
+    "start": "node src/build/index.js"
   },
   "keywords": [],
   "author": "",

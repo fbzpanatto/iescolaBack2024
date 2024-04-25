@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "iescolaback2024",
+  "builds": [
+    { "src": "src/build/index.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "src/build/index.js" }
+  ]
+}

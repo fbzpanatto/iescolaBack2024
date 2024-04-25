@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "iescolaback2024",
+  "outputDirectory": "src/build/index.js",
   "builds": [
     { "src": "src/build/index.js", "use": "@vercel/node" }
   ],

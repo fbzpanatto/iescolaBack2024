@@ -48,7 +48,13 @@ const app: Application = express();
 const route = Router()
 
 app.use(bodyParser.json());
-// app.use(cors({ origin: true }));
+app.use(cors(
+  {
+    origin: '*',
+    credentials: true,
+    optionsSuccessStatus: 200
+  }
+));
 app.use(express.urlencoded({ extended: true }));
 
 route.use('/bimester', authorization, BimesterRouter);

@@ -42,10 +42,15 @@ const year_1 = require("./routes/year");
 const textGenderGradeReport_1 = require("./routes/textGenderGradeReport");
 const password_1 = require("./routes/password");
 const body_parser_1 = __importDefault(require("body-parser"));
+const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 const route = (0, express_2.Router)();
 app.use(body_parser_1.default.json());
-// app.use(cors({ origin: true }));
+app.use((0, cors_1.default)({
+    origin: '*',
+    credentials: true,
+    optionsSuccessStatus: 200
+}));
 app.use(express_1.default.urlencoded({ extended: true }));
 route.use('/bimester', authorization_1.default, bimester_1.BimesterRouter);
 route.use('/classroom', authorization_1.default, classroom_1.ClassroomRouter);

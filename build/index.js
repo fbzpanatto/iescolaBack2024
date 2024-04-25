@@ -47,9 +47,6 @@ const route = (0, express_2.Router)();
 app.use(body_parser_1.default.json());
 // app.use(cors({ origin: true }));
 app.use(express_1.default.urlencoded({ extended: true }));
-route.use('/', (req, res) => {
-    res.json({ message: "OK" });
-});
 route.use('/bimester', authorization_1.default, bimester_1.BimesterRouter);
 route.use('/classroom', authorization_1.default, classroom_1.ClassroomRouter);
 route.use('/classroom-category', authorization_1.default, classroomCategory_1.CassroomCategoryRouter);
@@ -85,6 +82,9 @@ route.use('/year', authorization_1.default, year_1.YearRouter);
 route.use('/reset-password', password_1.PasswordRouter);
 route.use('/login', login_1.LoginRouter);
 route.use('/initial-configs', initialConfigs_1.InitialConfigsRouter);
+route.use('/', (req, res) => {
+    return res.json({ message: "OK" });
+});
 app.use(route);
 data_source_1.AppDataSource.initialize()
     .then(() => {

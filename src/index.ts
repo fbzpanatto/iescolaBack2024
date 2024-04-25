@@ -49,11 +49,8 @@ const route = Router()
 
 app.use(bodyParser.json());
 // app.use(cors({ origin: true }));
-app.use(express.urlencoded({extended: true}))
+app.use(express.urlencoded({ extended: true }));
 
-route.use('/', (req, res) => {
-  res.json({ message: "OK" })
-})
 route.use('/bimester', authorization, BimesterRouter);
 route.use('/classroom', authorization, ClassroomRouter);
 route.use('/classroom-category', authorization, CassroomCategoryRouter);
@@ -92,6 +89,10 @@ route.use('/reset-password', PasswordRouter);
 route.use('/login', LoginRouter);
 
 route.use('/initial-configs', InitialConfigsRouter)
+
+route.use('/', (req, res) => {
+  return res.json({ message: "OK" })
+})
 
 app.use(route)
 

@@ -1,11 +1,10 @@
 {
   "version": 2,
   "name": "iescolaback2024",
-  "outputDirectory": "src/build/index.js",
   "builds": [
-    { "src": "src/build/index.js", "use": "@vercel/node" }
+    { "src": "./public/index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "src/build/index.js" }
+    { "src": "/(.*)", "dest": "./public/index.js" }
   ]
 }

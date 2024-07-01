@@ -8,6 +8,12 @@ export const YEAR_SCHEMA: Schema = {
     isBoolean: true,
     toBoolean: true,
   },
+  name: {
+    optional: true,
+    escape: true,
+    isInt: true,
+    toInt: true,
+  },
   createdAt: {
     optional: true,
     escape: true,

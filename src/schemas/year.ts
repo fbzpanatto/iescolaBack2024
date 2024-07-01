@@ -18,7 +18,7 @@ export const YEAR_SCHEMA: Schema = {
     optional: true,
     escape: true,
     custom: {
-      options: (value: any, meta: Meta) => {
+      options: (value: any, _: Meta) => {
         if (typeof value === "string" || value === null) { return true }
         throw new Error("createdAt must be a string or null");
       }
@@ -28,7 +28,7 @@ export const YEAR_SCHEMA: Schema = {
     optional: true,
     escape: true,
     custom: {
-      options: (value: any, meta: Meta) => {
+      options: (value: any, _: Meta) => {
         if (typeof value === "string" || value === null) { return true }
         throw new Error("createdAt must be a string or null");
       }

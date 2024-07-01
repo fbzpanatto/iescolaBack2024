@@ -15,28 +15,28 @@ YearRouter.get('/', havePermission, (req: Request, res: Response) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-YearRouter.get('/:id', havePermission, VALIDATE_ID, (req: Request, res: Response) => {
+YearRouter.get('/:id', VALIDATE_ID, havePermission, (req: Request, res: Response) => {
 
   yearController.findOneById(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
 
-YearRouter.post('/', havePermission, ...CREATE_VALIDATORS, (req: Request, res: Response) => {
+YearRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   yearController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-YearRouter.put('/:id', havePermission, ...UPDATE_VALIDATORS, (req: Request, res: Response) => {
+YearRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   yearController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-YearRouter.delete('/:id', havePermission, VALIDATE_ID, (req: Request, res: Response) => {
+YearRouter.delete('/:id', VALIDATE_ID, havePermission, (req: Request, res: Response) => {
 
   yearController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

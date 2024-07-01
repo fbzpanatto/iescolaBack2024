@@ -1,6 +1,10 @@
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { teacherController } from "../controller/teacher";
+import { VALIDATE_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER} from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
+
+const CREATE_VALIDATORS = [VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
+const UPDATE_VALIDATORS = [VALIDATE_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
 
 export const TeacherRouter = Router();
 
@@ -25,14 +29,14 @@ TeacherRouter.get('/:id', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.post('/', havePermission, (req, res) => {
+TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   teacherController.save(req.body, {})
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.put('/:id', havePermission, (req, res) => {
+TeacherRouter.put('/:id', havePermission, (req: Request, res: Response) => {
 
   teacherController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))

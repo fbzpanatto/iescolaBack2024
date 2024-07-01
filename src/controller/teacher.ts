@@ -9,7 +9,6 @@ import { Person } from "../model/Person";
 import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
-import { personController } from "./person";
 import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
 import { User } from "../model/User";
@@ -117,8 +116,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-
-
   override async save(body: TeacherBody, options: SaveOptions | undefined) {
     try {
 
@@ -190,8 +187,29 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return { status: 500, message: error.message }
     }
   }
+  async getRequestedStudentTransfers(request?: Request) {
+    try {
 
+      const teacherClasses = await this.teacherClassrooms(request?.body.user)
+      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder('studentClassroom')
+        .leftJoin('studentClassroom.classroom', 'classroom')
+        .leftJoin('studentClassroom.student', 'student')
+        .leftJoin('student.person', 'person')
+        .leftJoin('student.transfers', 'transfers')
+        .where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
+        .andWhere('studentClassroom.endedAt IS NULL')
+        .andWhere('transfers.endedAt IS NULL')
+        .andWhere('transfers.status = :status', { status: transferStatus.PENDING })
+        .getCount()
 
+      return { status: 200, data: studentClassrooms }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+  async teacherCategory() {
+    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: personCategories.PROFESSOR } }) as PersonCategory
+  }
 
   override async updateId(id: string, body: TeacherBody) {
     try {
@@ -244,119 +262,60 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return { status: 200, data: databaseTeacher }
       }
 
-      if (body.teacherClasses) { await this.updateClassRel(databaseTeacher, body) }
-      if (body.teacherDisciplines) { await this.updateDisciRel(databaseTeacher, body) }
+      if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(databaseTeacher, body) }
 
       await AppDataSource.getRepository(Teacher).save(databaseTeacher)
 
       return { status: 200, data: databaseTeacher }
-    } catch (error: any) {
-      return { status: 500, message: error.message }
-    }
-  }
-  async getRequestedStudentTransfers(request?: Request) {
-    try {
-
-      const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
-        .createQueryBuilder('studentClassroom')
-        .leftJoin('studentClassroom.classroom', 'classroom')
-        .leftJoin('studentClassroom.student', 'student')
-        .leftJoin('student.person', 'person')
-        .leftJoin('student.transfers', 'transfers')
-        .where('classroom.id IN (:...ids)', { ids: teacherClasses.classrooms })
-        .andWhere('studentClassroom.endedAt IS NULL')
-        .andWhere('transfers.endedAt IS NULL')
-        .andWhere('transfers.status = :status', { status: transferStatus.PENDING })
-        .getCount()
-
-      return { status: 200, data: studentClassrooms }
-
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-  async teacherCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: personCategories.PROFESSOR } }) as PersonCategory
-  }
-  async updateClassRel(teacher: Teacher, body: TeacherBody) {
 
-    await this.createRelation(teacher, body, true)
-
+  async updateRelation(teacher: Teacher, body: TeacherBody) {
     const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
-      relations: ['classroom', 'teacher'],
+      relations: ['teacher', 'classroom', 'discipline'],
       where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
-    })
-
+    });
+  
     for (let relation of teacherClassDisciplines) {
-      if (!body.teacherClasses.includes(relation.classroom.id)) {
-        relation.endedAt = new Date()
-        await teacherClassDisciplineController.save(relation, {})
+      const isDisciplineIncluded = body.teacherDisciplines.includes(relation.discipline.id);
+      const isClassroomIncluded = body.teacherClasses.includes(relation.classroom.id);
+  
+      if (!isDisciplineIncluded || !isClassroomIncluded) {
+        await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() });
       }
     }
+  
+    await this.createRelation(teacher, body);
   }
-  async updateDisciRel(teacher: Teacher, body: TeacherBody) {
-
-    await this.createRelation(teacher, body, false)
-
-    const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
-      relations: ['discipline', 'teacher'],
-      where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
-    })
-
-    for (let relation of teacherClassDisciplines) {
-      if (!body.teacherDisciplines.includes(relation.discipline.id)) {
-        relation.endedAt = new Date()
-        await teacherClassDisciplineController.save(relation, {})
-      }
-    }
-  }
-  async createRelation(teacher: Teacher, body: TeacherBody, forClassroom: boolean) {
-
-    const classrooms = await AppDataSource.getRepository(Classroom).findBy({ id: In(body.teacherClasses) })
-    const disciplines = await AppDataSource.getRepository(Discipline).findBy({ id: In(body.teacherDisciplines) })
-
-    if (forClassroom) {
-
-      for (let classroom of classrooms) {
-
-        const relationExists = (await teacherClassDisciplineController.findOneByWhere({
-          where: { teacher: teacher, classroom: classroom, endedAt: IsNull() }
-        })).data as TeacherClassDiscipline
-
-        if (!relationExists) {
-
-          for (let discipline of disciplines) {
-
-            const newTeacherRelations = new TeacherClassDiscipline()
-            newTeacherRelations.teacher = teacher
-            newTeacherRelations.classroom = classroom
-            newTeacherRelations.discipline = discipline
-            newTeacherRelations.startedAt = new Date()
-
-            await teacherClassDisciplineController.save(newTeacherRelations, {})
+  
+  async createRelation(teacher: Teacher, body: TeacherBody) {
+    const classrooms = await AppDataSource.getRepository(Classroom).findBy({ id: In(body.teacherClasses) });
+    const disciplines = await AppDataSource.getRepository(Discipline).findBy({ id: In(body.teacherDisciplines) });
+  
+    for (let classroom of classrooms) {
+      for (let discipline of disciplines) {
+        const relationExists = await AppDataSource.getRepository(TeacherClassDiscipline).findOne({
+          where: {
+            teacher: { id: teacher.id },
+            classroom: { id: classroom.id },
+            discipline: { id: discipline.id },
+            endedAt: IsNull()
           }
-        }
-      }
-      return
-    }
-
-    for (let discipline of disciplines) {
-
-      const relationExists = (await teacherClassDisciplineController.findOneByWhere({
-        where: { teacher: teacher, discipline: discipline, endedAt: IsNull() }
-      })).data as TeacherClassDiscipline
-
-      if (!relationExists) {
-        for (let classroom of classrooms) {
-          const newTeacherRelations = new TeacherClassDiscipline()
-          newTeacherRelations.teacher = teacher
-          newTeacherRelations.classroom = classroom
-          newTeacherRelations.discipline = discipline
-          newTeacherRelations.startedAt = new Date()
-          await teacherClassDisciplineController.save(newTeacherRelations, {})
+        });
+  
+        if (!relationExists) {
+          const newTeacherRelation = new TeacherClassDiscipline();
+          newTeacherRelation.teacher = teacher;
+          newTeacherRelation.classroom = classroom;
+          newTeacherRelation.discipline = discipline;
+          newTeacherRelation.startedAt = new Date();
+  
+          await teacherClassDisciplineController.save(newTeacherRelation, {});
         }
       }
     }
   }
+
   createTeacher(person: Person, body: TeacherBody) {
     const teacher = new Teacher()
     teacher.person = person

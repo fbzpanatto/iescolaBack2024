@@ -73,8 +73,11 @@ class YearController extends GenericController<EntityTarget<Year>> {
   }
 
   async updateId(id: any, body: any) {
-    try {
 
+    console.log('updateId')
+    console.log('body', body)
+
+    try {
       const { data } = await this.findOneById(id, {});
       const yearToUpdate = data
 

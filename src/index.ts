@@ -104,9 +104,6 @@ app.use(route)
 
 AppDataSource.initialize()
   .then(() => {
-    // app.listen(process.env.SERVER_PORT, () => {
-    //   console.log('Server running at PORT:', process.env.SERVER_PORT);
-    // });
     app.listen(3000, () => {
       console.log('Server running at PORT:', 3000);
     });

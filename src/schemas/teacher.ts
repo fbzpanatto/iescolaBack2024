@@ -40,7 +40,8 @@ export const TEACHER_SCHEMA: Schema = {
   },
   name: {
     optional: true,
-    escape: true
+    escape: true,
+    isLength: { options: { min: 3, max: 100 } }
   },
   register: {
     optional: true,

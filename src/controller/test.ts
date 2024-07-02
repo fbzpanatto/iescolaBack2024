@@ -14,8 +14,6 @@ import { StudentTestStatus } from "../model/StudentTestStatus";
 import { personCategories } from "../utils/personCategories";
 import { Year } from "../model/Year";
 
-interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
-
 class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() {
@@ -474,7 +472,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
 
-      if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em alguma das salas informadas." }
+        console.log('body', body)
+
+        console.log('classes', classes)
+
+      if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
       const newTest = await AppDataSource.getRepository(Test).save({
         name: body.name,

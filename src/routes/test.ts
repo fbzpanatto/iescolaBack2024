@@ -57,7 +57,7 @@ TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: R
     .catch(e => res.status(e.status).json(e))
 });
 
-TestRouter.put('/:id', havePermission, (req, res) => {
+TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   testController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))

@@ -154,7 +154,6 @@ export const TEST_SCHEMA: Schema = {
   },
   testQuestions: {
     optional: true,
-    escape: true,
     custom: {
       options: (value) => {
         if (!value || !Array.isArray(value)) { throw new Error("testQuestions must be an array")}
@@ -164,7 +163,6 @@ export const TEST_SCHEMA: Schema = {
   },
   classroom: {
     optional: true,
-    escape: true,
     custom: {
       options: (value) => {
         if (!value || !Array.isArray(value)) {

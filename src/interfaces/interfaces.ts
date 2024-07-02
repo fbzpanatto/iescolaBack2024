@@ -1,7 +1,7 @@
 import { PersonCategory } from "../model/PersonCategory";
 
 export interface UserInterface { user: number, username: string, category: number, iat: number, exp: number }
-export interface TeacherBody { name: string, email: string, register: number, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory }
+export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory }
 export interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 export interface BodyTextGenderExamGrade { studentClassroom: { id: number, endedAt: Date | null | undefined }, textGender: { id: number }, textGenderExam: { id: number }, textGenderExamTier: { id: number }, textGenderExamTierLevel: { id: number }, toRate:boolean, user: UserInterface }
 

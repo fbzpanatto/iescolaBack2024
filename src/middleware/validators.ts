@@ -5,9 +5,17 @@ import { STUDENT_SCHEMA } from "../schemas/student";
 import { TEACHER_SCHEMA } from "../schemas/teacher";
 import { invalidValues, unexpectedFn } from "../utils/bodyValidations";
 import { TEST_SCHEMA } from '../schemas/test';
+import { STUDENT_QUESTION_SCHEMA } from '../schemas/studentQuestion';
 
 export const VALIDATE_ID = check('id').not().isEmpty().isNumeric()
 export const VALIDATE_YEAR_NAME = check('year').not().isEmpty()
+
+//STUDENT_QUESTION
+export const VALIDATE_STUDENT_QUESTION = checkSchema(STUDENT_QUESTION_SCHEMA)
+export const BODY_VALIDATION_STUDENT_QUESTION = (req: Request, res: Response, next: NextFunction) => {
+  console.log('validationResult', validationResult(req))
+  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, STUDENT_QUESTION_SCHEMA)
+}
 
 //TEST
 export const VALIDATE_TEST = checkSchema(TEST_SCHEMA)

@@ -1,7 +1,8 @@
-import {Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, OneToMany, Column} from "typeorm"
+import { Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, OneToMany, Column } from "typeorm"
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
+import { IsEmail } from 'class-validator';
 
 @Entity()
 export class Teacher {
@@ -9,11 +10,12 @@ export class Teacher {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column({nullable: true})
+  @Column({nullable: true, length: 60})
+  @IsEmail({}, { message: 'Invalid email address.' })
   email: string
 
-  @Column({nullable: true})
-  register: number
+  @Column({ nullable: true, length: 20 })
+  register: string
 
   @OneToOne(() => Person, person => person.teacher, { cascade: true })
   @JoinColumn()

@@ -1,7 +1,37 @@
 import { Schema } from "express-validator";
 import { USER_SCHEMA } from "./user";
 
-export const STUDENT_QUESTION_SCHEMA: Schema = {
+export const STUDENT_QUESTIONSANSWER_SCHEMA: Schema = {
+  id: {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  answer: {
+    exists: true,
+    escape: true,
+    isLength: { options: { max: 2 } }
+  },
+  studentClassroom: { exists: true },
+  testQuestion: { exists: true },
+  'studentClassroom.id': {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  'testQuestion.id': {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  user: { optional: true },
+  ...USER_SCHEMA,
+}
+
+export const STUDENT_QUESTIONSTATUS_SCHEMA: Schema = {
   id: {
     optional: true,
     escape: true,

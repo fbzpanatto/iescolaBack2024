@@ -9,9 +9,6 @@ export const invalidValues = (res: Response, req: Request) => {
 }
 
 export const unexpectedFn = (req: Request, res: Response, next: NextFunction, schema: Object) => {
-
-  console.log('----- req.body -----', req.body)
-
   const msg = 'Campo(s) inesperado(s) no corpo da requisição.'
   const unexpectedFields = Object.keys(req.body).filter(key => !schema.hasOwnProperty(key));
   console.log('unexpectedFields', unexpectedFields);

@@ -22,7 +22,7 @@ TeacherRouter.get('/', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.get('/:id', havePermission, (req, res) => {
+TeacherRouter.get('/:id', VALIDATE_ID, havePermission, (req, res) => {
 
   teacherController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
@@ -36,14 +36,14 @@ TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.put('/:id', havePermission, (req: Request, res: Response) => {
+TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   teacherController.updateId(req.params.id, req.body)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.delete('/:id', havePermission, (req, res) => {
+TeacherRouter.delete('/:id', VALIDATE_ID, havePermission, (req, res) => {
 
   teacherController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

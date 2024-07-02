@@ -271,21 +271,54 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async updateRelation(teacher: Teacher, body: TeacherBody) {
+
     const teacherClassDisciplines = await AppDataSource.getRepository(TeacherClassDiscipline).find({
       relations: ['teacher', 'classroom', 'discipline'],
       where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } }
     });
   
-    for (let relation of teacherClassDisciplines) {
-      const isDisciplineIncluded = body.teacherDisciplines.includes(relation.discipline.id);
-      const isClassroomIncluded = body.teacherClasses.includes(relation.classroom.id);
+    const arrOfDiff: TeacherClassDiscipline[] = [];
+    const classroomsBody = body.teacherClasses.map((el: any) => parseInt(el));
+    const disciplinesBody = body.teacherDisciplines.map((el: any) => parseInt(el));
   
-      if (!isDisciplineIncluded || !isClassroomIncluded) {
-        await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() });
+    const existingRelations = new Set(
+      teacherClassDisciplines.map(relation => `${relation.classroom.id}-${relation.discipline.id}`)
+    );
+
+    const requestedRelations = new Set(
+      classroomsBody.flatMap(classroomId =>
+        disciplinesBody.map(disciplineId => `${classroomId}-${disciplineId}`)
+      )
+    );
+  
+    // Encontrar relações a serem encerradas
+    for (let relation of teacherClassDisciplines) {
+      const relationKey = `${relation.classroom.id}-${relation.discipline.id}`;
+      if (!requestedRelations.has(relationKey)) {
+        arrOfDiff.push(relation);
       }
     }
   
-    await this.createRelation(teacher, body);
+    // Encerrar relações que estão em arrOfDiff
+    for (let relation of arrOfDiff) {
+      await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() });
+    }
+  
+    // Criar novas relações conforme o corpo da requisição
+    for (let classroomId of classroomsBody) {
+      for (let disciplineId of disciplinesBody) {
+        const relationKey = `${classroomId}-${disciplineId}`;
+        if (!existingRelations.has(relationKey)) {
+          const newTeacherRelation = new TeacherClassDiscipline();
+          newTeacherRelation.teacher = teacher;
+          newTeacherRelation.classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: classroomId } }) as Classroom
+          newTeacherRelation.discipline = await AppDataSource.getRepository(Discipline).findOne({ where: { id: disciplineId } })as Discipline
+          newTeacherRelation.startedAt = new Date();
+  
+          await teacherClassDisciplineController.save(newTeacherRelation, {});
+        }
+      }
+    }
   }
   
   async createRelation(teacher: Teacher, body: TeacherBody) {

@@ -20,13 +20,6 @@ export const CATEGORY_SCHEMA: Schema = {
   }
 }
 
-const customOptions = (value: any) => {
-  if (!value || !Array.isArray(value)) { throw new Error("teacherDisciplines must be an array") }
-  value = value.map(element => parseInt(element));
-  if (!value.every(Number.isInteger)) { throw new Error("teacherDisciplines must be an array of integers")}
-  return true;
-}
-
 export const TEACHER_SCHEMA: Schema = {
   birth: {
     optional: true,
@@ -56,12 +49,36 @@ export const TEACHER_SCHEMA: Schema = {
   teacherClasses: {
     optional: true,
     escape: true,
-    custom: { options: customOptions },
+    custom: {
+      options: (value) => {
+        if (!value || !Array.isArray(value)) {
+          throw new Error("disabilities must be an array");
+        }
+        // Apply toInt() to each element to convert to integer
+        value = value.map(element => parseInt(element));
+        if (!value.every(Number.isInteger)) {
+          throw new Error("disabilities must be an array of integers");
+        }
+        return true;
+      },
+    },
   },
   teacherDisciplines: {
     optional: true,
     escape: true,
-    custom: { options: customOptions },
+    custom: {
+      options: (value) => {
+        if (!value || !Array.isArray(value)) {
+          throw new Error("disabilities must be an array");
+        }
+        // Apply toInt() to each element to convert to integer
+        value = value.map(element => parseInt(element));
+        if (!value.every(Number.isInteger)) {
+          throw new Error("disabilities must be an array of integers");
+        }
+        return true;
+      },
+    },
   },
   category: { optional: true },
   user: { optional: true },

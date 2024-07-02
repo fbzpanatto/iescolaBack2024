@@ -1,6 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { testController } from "../controller/test";
+import { VALIDATE_TEST, BODY_VALIDATION_TEST, VALIDATE_ID } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
+
+const CREATE_VALIDATORS = [VALIDATE_TEST, BODY_VALIDATION_TEST]
+const UPDATE_VALIDATORS = [VALIDATE_ID, VALIDATE_TEST, BODY_VALIDATION_TEST]
 
 export const TestRouter = Router();
 
@@ -46,7 +50,7 @@ TestRouter.get('/:id', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.post('/', havePermission, (req, res) => {
+TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
   testController.save(req.body, {})
     .then(r => res.status(r.status).json(r))

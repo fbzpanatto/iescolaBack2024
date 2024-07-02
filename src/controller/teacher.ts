@@ -359,7 +359,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   // TODO: dando problema de usuário duplicado aqui. exe: Professor
   generateUser(person: Person) {
-    const username = person.name.substring(0, 10).replace(/\s/g, '').trim()
+    const username = person.name.substring(0, 20).replace(/\s/g, '').trim()
     const password = this.generatePassword(8);
     return { username, password };
   }

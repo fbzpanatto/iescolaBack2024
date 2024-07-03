@@ -1,3 +1,4 @@
+import morgan from 'morgan';
 
 // if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 
@@ -40,6 +41,7 @@ import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 import { TextGenderGradeReportRouter } from './routes/textGenderGradeReport';
 import { PasswordRouter } from './routes/password';
+import helmet from 'helmet';
 
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -55,6 +57,11 @@ app.use(cors(
     optionsSuccessStatus: 200
   }
 ));
+
+app.use(morgan('tiny'))
+app.use(cors())
+app.use(helmet())
+app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
 route.use('/bimester', authorization, BimesterRouter);

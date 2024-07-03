@@ -9,6 +9,6 @@ export default (req: Request, res: Response, next: NextFunction) => {
     req.body.user = jwt.verify(token, 'SECRET')
     next()
   } catch (error: any) {
-    return res.status(403).json({ message: 'Não foi possível continuar com a sua requisição. Faça o logout no sistema e realize um novo login e tente novamente.' }) 
+    return res.status(401).json({ message: 'Não foi possível continuar com a sua requisição. Faça o logout no sistema e realize um novo login e tente novamente.' }) 
   }
 }

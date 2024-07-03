@@ -32,7 +32,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
       if (!classroom) return { status: 404, message: "Sala não encontrada" }
@@ -143,7 +143,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const teacher = await this.teacherByUser(request?.body.user.user)
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
       const test = await this.getTest(Number(testId), Number(yearName))
 
@@ -402,7 +402,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           where: { id: Number(testId) },
         })
 
-      if( teacher.person.id !== test?.person.id ) return { status: 401, message: "Você não tem permissão para editar esse teste." }
+      if( teacher.person.id !== test?.person.id ) return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
       if (!test) { return { status: 404, message: 'Data not found' } }
 
@@ -509,7 +509,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
 
       if(!test) return { status: 404, message: "Teste não encontrado" }
-      if( teacher.person.id !== test.person.id ) return { status: 401, message: "Você não tem permissão para editar esse teste." }
+      if( teacher.person.id !== test.person.id ) return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
       test.name = body.name
 
@@ -541,7 +541,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
       if (!test) { return { status: 404, message: 'Data not found' } }
 
-      if( teacher.person.id !== test.person.id ) return { status: 401, message: "Você não tem permissão para deletar esse teste." }
+      if( teacher.person.id !== test.person.id ) return { status: 403, message: "Você não tem permissão para deletar esse teste." }
 
       // TODO: Only delete if there is no student with a test result
 

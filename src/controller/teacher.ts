@@ -70,7 +70,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacher = await this.teacherByUser(body.user.user)
       const cannotChange = [personCategories.MONITOR_DE_INFORMATICA, personCategories.PROFESSOR]
 
-      if (teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id)) { return { status: 401, message: 'Você não tem permissão para visualizar este registro.' } }
+      if (teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para visualizar este registro.' } }
 
       const result = await this.repository
         .createQueryBuilder('teacher')
@@ -252,7 +252,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         if (!canEdit.includes(databaseTeacher?.person.category.id)) { return { status: 403, message: 'Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.' } }
       }
 
-      if (frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 401, message: 'Você não tem permissão para editar este registro.' } }
+      if (frontendTeacher.person.category.id === personCategories.PROFESSOR || frontendTeacher.person.category.id === personCategories.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id) { return { status: 403, message: 'Você não tem permissão para editar este registro.' } }
 
       databaseTeacher.person.name = body.name
       databaseTeacher.person.birth = body.birth

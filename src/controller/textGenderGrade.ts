@@ -159,7 +159,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
       const teacher = await this.teacherByUser(userBody.user)
       const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if (!classrooms.includes(Number(classId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if (!classrooms.includes(Number(classId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom)
         .findOne({ relations: ['school'], where: { id: Number(classId) } }) as Classroom

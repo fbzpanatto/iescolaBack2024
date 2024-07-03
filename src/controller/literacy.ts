@@ -232,7 +232,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       if (!year) return { status: 404, message: "Ano não encontrado" }
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
-      if (!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 401, message: "Você não tem permissão para acessar essa sala." }
+      if (!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
       if (!classroom) return { status: 404, message: "Sala não encontrada" }

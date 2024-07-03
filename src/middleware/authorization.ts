@@ -4,11 +4,11 @@ import jwt from 'jsonwebtoken';
 export default (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    if(!authHeader) {
-      return res.status(401).json({ message: 'Credenciais Inválidas' })
-    }
+    if(!authHeader) { return res.status(401).json({ message: 'Credenciais Inválidas' }) }
     const token = authHeader.split(' ')[1];
     req.body.user = jwt.verify(token, 'SECRET')
     next()
-  } catch (error: any) { return res.status(500).json({ message: error.message }) }
+  } catch (error: any) {
+    return res.status(403).json({ message: 'Não foi possível continuar com a sua requisição. Faça o logout no sistema e realize um novo login e tente novamente.' }) 
+  }
 }

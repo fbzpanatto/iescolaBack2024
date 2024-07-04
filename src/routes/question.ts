@@ -3,6 +3,13 @@ import { questionController } from "../controller/question";
 
 export const QuestionRouter = Router();
 
+QuestionRouter.get('/form', (req, res) => {
+
+  questionController.questionForm(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 QuestionRouter.get('/', (req, res) => {
 
   questionController.findAllWhere({}, req)

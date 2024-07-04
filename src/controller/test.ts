@@ -515,7 +515,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       await AppDataSource.getRepository(TestQuestion).save(testQuestions)
 
-      const result = (await this.findOneById(id, req.body)).data
+      const result = (await this.findOneById(id, req)).data
 
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }

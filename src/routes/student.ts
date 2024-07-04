@@ -8,6 +8,13 @@ const UPDATE_VALIDATORS = [VALIDATE_ID, VALIDATE_USER, BODY_VALIDATION_USER]
 
 export const StudentRouter = Router();
 
+StudentRouter.get('/form', havePermission, (req, res) => {
+
+  studentController.studentForm(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 StudentRouter.get('/inactive/:year', VALIDATE_YEAR_NAME, havePermission, (req: Request, res: Response) => {
 
   studentController.getAllInactivates(req)

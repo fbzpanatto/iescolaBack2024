@@ -15,7 +15,6 @@ import { ISOWNER } from "../utils/owner";
 import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
-import getTimeZone from "../utils/getTimeZone";
 import { Year } from "../model/Year";
 import { Literacy } from "../model/Literacy";
 import { LiteracyTier } from "../model/LiteracyTier";
@@ -25,9 +24,24 @@ import { TextGenderExam } from "../model/TextGenderExam";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TextGenderGrade } from "../model/TextGenderGrade";
+import { disabilityController } from './disability';
+import { stateController } from './state';
+import { teacherClassroomsController } from './teacherClassrooms';
+import getTimeZone from "../utils/getTimeZone";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() { super(Student) }
+
+  async studentForm(req: Request) {
+    try {
+
+      const disabilities = (await disabilityController.findAllWhere({}, req)).data
+      const states = (await stateController.findAllWhere({}, req)).data
+      const teacherClassrooms = (await teacherClassroomsController.findAllWhere({}, req)).data
+
+      return { status: 200, data: { disabilities, states, teacherClassrooms } };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 
   async getAllInactivates(request?: Request) {
 

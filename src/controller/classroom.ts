@@ -1,9 +1,9 @@
 import { GenericController } from "./genericController";
-import {Brackets, EntityTarget, FindManyOptions, ObjectLiteral} from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Classroom } from "../model/Classroom";
-import {Request} from "express";
-import {TeacherBody} from "../interfaces/interfaces";
-import {personCategories} from "../utils/personCategories";
+import { Request } from "express";
+import { TeacherBody } from "../interfaces/interfaces";
+import { personCategories } from "../utils/personCategories";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -14,6 +14,8 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const { body } = request as { body: TeacherBody }
+
+    console.log('findAllWhere: classroom')
 
     try {
 

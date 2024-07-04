@@ -1,6 +1,6 @@
 import { GenericController } from "./genericController";
-import { Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { Test } from "../model/Test";
+import { classroomController } from "./classroom";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import { Period } from "../model/Period";
@@ -13,6 +13,7 @@ import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { personCategories } from "../utils/personCategories";
 import { Year } from "../model/Year";
+import { Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -390,11 +391,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async findOneById(testId: number | string, body?: ObjectLiteral) {
+  override async findOneById(testId: number | string, req: Request) {
 
     try {
-
-      const teacher = await this.teacherByUser(body?.user.user)
+      const teacher = await this.teacherByUser(req.body.user.user)
 
       const test = await AppDataSource.getRepository(Test)
         .findOne({
@@ -472,10 +472,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .having("COUNT(studentClassroom.id) > 0")
         .getMany();
 
-        console.log('body', body)
-
-        console.log('classes', classes)
-
       if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
       const newTest = await AppDataSource.getRepository(Test).save({
@@ -497,10 +493,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  override async updateId(id: number | string, body: ObjectLiteral) {
+  override async updateId(id: number | string, req: Request) {
     try {
 
-      const teacher = await this.teacherByUser(body.user.user)
+      const teacher = await this.teacherByUser(req.body.user.user)
 
       const test = await AppDataSource.getRepository(Test)
         .findOne({
@@ -511,15 +507,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!test) return { status: 404, message: "Teste não encontrado" }
       if( teacher.person.id !== test.person.id ) return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
-      test.name = body.name
+      test.name = req.body.name
 
       await AppDataSource.getRepository(Test).save(test)
 
-      const testQuestions = body.testQuestions.map((register: any) => ({ ...register, test: test }))
+      const testQuestions = req.body.testQuestions.map((register: any) => ({ ...register, test: test }))
 
       await AppDataSource.getRepository(TestQuestion).save(testQuestions)
 
-      const result = (await this.findOneById(id, body)).data
+      const result = (await this.findOneById(id, req.body)).data
 
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }

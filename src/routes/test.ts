@@ -45,7 +45,7 @@ TestRouter.post('/:id/:classroom/include', havePermission, (req, res) => {
 
 TestRouter.get('/:id', havePermission, (req, res) => {
 
-  testController.findOneById(req.params.id, req.body)
+  testController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })
@@ -59,7 +59,7 @@ TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: R
 
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
 
-  testController.updateId(req.params.id, req.body)
+  testController.updateId(req.params.id, req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 });

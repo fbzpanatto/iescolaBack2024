@@ -357,6 +357,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentQuestions.id IS NULL")
       .getRawMany() as unknown as { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }[]
   }
+  
+  async getFormData() {
+
+    try {
+
+      return { status: 200, data: {} };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 

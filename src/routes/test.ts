@@ -8,6 +8,13 @@ const UPDATE_VALIDATORS = [VALIDATE_ID, VALIDATE_TEST, BODY_VALIDATION_TEST]
 
 export const TestRouter = Router();
 
+TestRouter.get('/form', havePermission, (req, res) => {
+
+  testController.getFormData()
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TestRouter.get('/:year/all', havePermission, (req, res) => {
 
   testController.findAllWhere({}, req)

@@ -15,8 +15,6 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
     const { body } = request as { body: TeacherBody }
 
-    console.log('findAllWhere: classroom')
-
     try {
 
       const teacher = await this.teacherByUser(body.user.user)

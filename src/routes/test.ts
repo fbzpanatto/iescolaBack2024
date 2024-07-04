@@ -10,7 +10,7 @@ export const TestRouter = Router();
 
 TestRouter.get('/form', havePermission, (req, res) => {
 
-  testController.getFormData()
+  testController.getFormData(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

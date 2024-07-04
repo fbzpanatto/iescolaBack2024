@@ -1,6 +1,10 @@
 import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
+import { disciplineController } from "./discipline";
+import { bimesterController } from "./bimester";
+import { testCategoryController } from "./testCategory";
+import { questionGroupController } from "./questionGroup";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import { Period } from "../model/Period";
@@ -19,6 +23,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() {
     super(Test);
+  }
+
+  async getFormData(req: Request) {
+
+    try {
+
+      const classrooms = (await classroomController.findAllWhere({}, req)).data
+      const disciplines = (await disciplineController.findAllWhere({}, req)).data
+      const bimesters = (await bimesterController.findAllWhere({}, req)).data
+      const testCategories = (await testCategoryController.findAllWhere({}, req)).data
+      const questionGroup = (await questionGroupController.findOneById(1, {})).data
+
+      return { status: 200, data: { classrooms, disciplines, bimesters, testCategories, questionGroup } };
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getGraphic(request: Request) {
@@ -356,14 +374,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("year.name = :yearName", {yearName})
       .andWhere("studentQuestions.id IS NULL")
       .getRawMany() as unknown as { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }[]
-  }
-  
-  async getFormData() {
-
-    try {
-
-      return { status: 200, data: {} };
-    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {

@@ -15,6 +15,13 @@ TeacherRouter.get('/pending-transfer', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+TeacherRouter.get('/form', havePermission, (req, res) => {
+
+  teacherController.teacherForm(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 TeacherRouter.get('/', havePermission, (req, res) => {
 
   teacherController.findAllWhere({}, req)

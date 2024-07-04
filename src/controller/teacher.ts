@@ -9,15 +9,30 @@ import { Person } from "../model/Person";
 import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
-import { personCategories } from "../utils/personCategories";
 import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { transferStatus } from "../utils/transferStatus";
+import { disciplineController } from "./discipline";
+import { classroomController } from "./classroom";
+import { personCategories } from "../utils/personCategories";
+import { personCategoryController } from "./personCategory";
+
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   constructor() { super(Teacher) }
+
+  async teacherForm(req: Request) {
+    try {
+
+      const disciplines = (await disciplineController.findAllWhere({}, req)).data
+      const classrooms = (await classroomController.findAllWhere({}, req)).data
+      const personCategories = (await personCategoryController.findAllWhere({}, req)).data
+
+      return { status: 200, data: { disciplines, classrooms, personCategories } };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 

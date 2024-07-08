@@ -1,32 +1,41 @@
-import { Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, OneToMany, Column } from "typeorm"
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
-import { IsEmail } from 'class-validator';
+import { IsEmail } from "class-validator";
 
 @Entity()
 export class Teacher {
-
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
-  @Column({nullable: true, length: 60})
-  @IsEmail({}, { message: 'Invalid email address.' })
-  email: string
+  @Column({ nullable: true, length: 60 })
+  @IsEmail({}, { message: "Invalid email address." })
+  email: string;
 
   @Column({ nullable: true, length: 20 })
-  register: string
+  register: string;
 
-  @OneToOne(() => Person, person => person.teacher, { cascade: true })
+  @OneToOne(() => Person, (person) => person.teacher, { cascade: true })
   @JoinColumn()
-  person: Person
+  person: Person;
 
-  @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.teacher)
-  teacherClassDiscipline: TeacherClassDiscipline[]
+  @OneToMany(
+    () => TeacherClassDiscipline,
+    (teacherClassDiscipline) => teacherClassDiscipline.teacher,
+  )
+  teacherClassDiscipline: TeacherClassDiscipline[];
 
-  @OneToMany(() => Transfer, transfer => transfer.requester)
-  requester: Transfer[]
+  @OneToMany(() => Transfer, (transfer) => transfer.requester)
+  requester: Transfer[];
 
-  @OneToMany(() => Transfer, transfer => transfer.receiver)
-  receiver: Transfer[]
+  @OneToMany(() => Transfer, (transfer) => transfer.receiver)
+  receiver: Transfer[];
 }

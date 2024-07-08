@@ -7,7 +7,7 @@ export const USER_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
-  'user.username': {
+  'user.email': {
     exists: true,
     escape: true,
     isString: true

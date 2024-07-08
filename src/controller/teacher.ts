@@ -468,6 +468,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   override async save(body: TeacherBody, options: SaveOptions | undefined) {
+
+    console.log(body)
+
     try {
       const user = (await this.teacherByUser(body.user.user)) as Teacher;
 
@@ -484,17 +487,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      // if (body.email) {
-      //   const emailExists = await AppDataSource.getRepository(Teacher).findOne({
-      //     where: { email: body.email },
-      //   });
-      //   if (emailExists) {
-      //     return {
-      //       status: 409,
-      //       message: "Já existe um registro com este email.",
-      //     };
-      //   }
-      // }
+      if (body.email) {
+        const emailExists = await AppDataSource.getRepository(Teacher).findOne({
+          where: { email: body.email },
+        });
+        if (emailExists) {
+          return {
+            status: 409,
+            message: "Já existe um registro com este email.",
+          };
+        }
+      }
 
       if (user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [
@@ -652,7 +655,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       .catch(e => console.log(e));
       
       return { status: 201, data: teacher };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+       return { status: 500, message: error.message } }
   }
 
   createTeacher(person: Person, body: TeacherBody) {

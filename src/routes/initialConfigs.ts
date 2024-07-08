@@ -69,7 +69,8 @@ async function createAdminUser(person: Person) {
   const userSource = new dataSourceController(User).entity
   const user = new User()
   user.username = 'admin'
-  user.password = 'admin'
+  user.email = 'adminiescola@iescola.com.br'
+  user.password = '#Fnp181292dc2w!'
   user.person = person
   await userSource.save(user)
 }

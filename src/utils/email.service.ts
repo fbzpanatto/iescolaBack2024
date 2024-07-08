@@ -20,7 +20,7 @@ export async function mainEmail(email: string, password?: string){
     info = await transporter.sendMail({
       from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
       to: email,
-      subject: "IEscolApp: Lembrete de senha",
+      subject: "IEscolApp: Conta criada com sucesso.",
       html: `
         <p>Olá,</p>
         <p>Uma conta IEscolApp acabou de ser criada para você.</p>
@@ -40,7 +40,7 @@ export async function mainEmail(email: string, password?: string){
     html: `
       <p>Olá,</p>
       <p>Você solicitou um lembrete de senha para sua conta IEscolApp</p>
-      <p>A sua senha é ${password}</p>
+      <p>A sua senha é: <b>${password}</b></p>
       <p>Atenciosamente,</p>
       <p>Equipe IEScola</p>
     `,

@@ -13,19 +13,19 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
   async login(req: Request) {
 
-    const { username, password } = req.body
+    const { email, password } = req.body
 
     try {
       const user = await AppDataSource.getRepository(User).findOne({
         relations: [ 'person.category' ],
-        where: { username: username }
+        where: { email }
       })
 
       if (!user || password !== user.password) { return { status: 401, message: 'Credenciais Inválidas' } }
 
       const payload = {
         user: user.id,
-        username: user.username,
+        email: user.email,
         category: user.person.category.id,
       }
 

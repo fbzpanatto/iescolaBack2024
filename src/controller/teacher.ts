@@ -25,6 +25,7 @@ import { disciplineController } from "./discipline";
 import { classroomController } from "./classroom";
 import { personCategories } from "../utils/personCategories";
 import { personCategoryController } from "./personCategory";
+import { mainEmail } from "../utils/email.service";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
   constructor() {
@@ -475,17 +476,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           Teacher,
         ).findOne({ where: { register: body.register } });
 
-        const emailExists = await AppDataSource.getRepository(Teacher).findOne({
-          where: { register: body.email },
-        });
-
-        if (emailExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este endereço de email.",
-          };
-        }
-
         if (registerExists) {
           return {
             status: 409,
@@ -494,17 +484,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (body.email) {
-        const emailExists = await AppDataSource.getRepository(Teacher).findOne({
-          where: { email: body.email },
-        });
-        if (emailExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este email.",
-          };
-        }
-      }
+      // if (body.email) {
+      //   const emailExists = await AppDataSource.getRepository(Teacher).findOne({
+      //     where: { email: body.email },
+      //   });
+      //   if (emailExists) {
+      //     return {
+      //       status: 409,
+      //       message: "Já existe um registro com este email.",
+      //     };
+      //   }
+      // }
 
       if (user.person.category.id === personCategories.SECRETARIO) {
         const canCreate = [
@@ -658,10 +648,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
+      await mainEmail(body.email)
+      .catch(e => console.log(e));
+      
       return { status: 201, data: teacher };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   createTeacher(person: Person, body: TeacherBody) {

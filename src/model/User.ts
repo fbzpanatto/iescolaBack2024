@@ -14,11 +14,17 @@ export class User extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Max(15)
-  @Column({ unique: true, nullable: false })
+  // @Max(15)
+  // @Column({ unique: true, nullable: false })
+  // username: string;
+
+  @Max(60)
+  @Column({ nullable: true })
+  @IsEmail({}, { message: "Invalid email address." })
   username: string;
 
-  @Column({ nullable: true, length: 60 })
+  @Max(60)
+  @Column({ nullable: true })
   @IsEmail({}, { message: "Invalid email address." })
   email: string;
 

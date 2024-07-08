@@ -9,14 +9,15 @@ import {
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
-import { IsEmail } from "class-validator";
+import { IsEmail, Max } from "class-validator";
 
 @Entity()
 export class Teacher {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ nullable: true, length: 60 })
+  @Max(60)
+  @Column({ nullable: true })
   @IsEmail({}, { message: "Invalid email address." })
   email: string;
 

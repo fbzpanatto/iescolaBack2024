@@ -55,7 +55,6 @@ export const TEACHER_SCHEMA: Schema = {
         if (!value || !Array.isArray(value)) {
           throw new Error("disabilities must be an array");
         }
-        // Apply toInt() to each element to convert to integer
         value = value.map(element => parseInt(element));
         if (!value.every(Number.isInteger)) {
           throw new Error("disabilities must be an array of integers");
@@ -72,7 +71,6 @@ export const TEACHER_SCHEMA: Schema = {
         if (!value || !Array.isArray(value)) {
           throw new Error("disabilities must be an array");
         }
-        // Apply toInt() to each element to convert to integer
         value = value.map(element => parseInt(element));
         if (!value.every(Number.isInteger)) {
           throw new Error("disabilities must be an array of integers");

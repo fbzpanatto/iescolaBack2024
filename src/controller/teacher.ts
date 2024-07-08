@@ -474,10 +474,22 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         const registerExists = await AppDataSource.getRepository(
           Teacher,
         ).findOne({ where: { register: body.register } });
+
+        const emailExists = await AppDataSource.getRepository(Teacher).findOne({
+          where: { register: body.email },
+        });
+
+        if (emailExists) {
+          return {
+            status: 409,
+            message: "Já existe um registro com este endereço de email.",
+          };
+        }
+
         if (registerExists) {
           return {
             status: 409,
-            message: "Já existe um registro com este número de matricula.",
+            message: "Já existe um registro com este número de matrícula.",
           };
         }
       }
@@ -616,12 +628,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         id: In(body.teacherDisciplines),
       });
 
-      const { username, password } = this.generateUser(person);
+      const { username, password, email } = this.generateUser(body);
 
       await AppDataSource.getRepository(User).save({
         person: person,
         username,
         password,
+        email,
       });
 
       if (
@@ -659,21 +672,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return teacher;
   }
 
-  generateUser(person: Person) {
-    const username = person.name.substring(0, 20).replace(/\s/g, "").trim();
-    const password = this.generatePassword(8);
-    return { username, password };
-  }
-
-  generatePassword(length: number) {
-    const charset =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let randomString = "";
-    for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * charset.length);
-      randomString += charset[randomIndex];
-    }
-    return randomString;
+  generateUser(body: TeacherBody) {
+    const username = body.email;
+    const email = body.email;
+    const password = "iescolapass";
+    return { username, password, email };
   }
 }
 

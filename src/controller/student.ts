@@ -1269,7 +1269,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         newTransfer.status = newTransferStatus 
         newTransfer.year = year 
 
-        await conn.save(Transfer, newTransfer)
+        const transferResponse = await conn.save(Transfer, newTransfer)
+
+        return { status: 201, data: transferResponse };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

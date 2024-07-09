@@ -1,11 +1,6 @@
 import { Request, Response, Router } from "express";
 import { studentController } from "../controller/student";
-import {
-  BODY_VALIDATION_USER,
-  VALIDATE_ID,
-  VALIDATE_USER,
-  VALIDATE_YEAR_NAME,
-} from "../middleware/validators";
+import { BODY_VALIDATION_USER, VALIDATE_ID, VALIDATE_USER, VALIDATE_YEAR_NAME } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CREATE_VALIDATORS = [VALIDATE_USER, BODY_VALIDATION_USER];
@@ -91,11 +86,7 @@ StudentRouter.put(
   },
 );
 
-StudentRouter.put(
-  "/:id/graduate",
-  VALIDATE_ID,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.put( "/:id/graduate", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
     studentController
       .graduate(req.params.id, req.body)
       .then((r) => res.status(r.status).json(r))

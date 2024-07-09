@@ -295,9 +295,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
     try {
       const teacher = await this.teacherByUser(userBody.user);
-      const isAdminSupervisor =
-        teacher.person.category.id === pc.ADMINISTRADOR ||
-        teacher.person.category.id === pc.SUPERVISOR;
+      
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
 
       const year = await AppDataSource.getRepository(Year).findOne({
         where: { name: yearName },

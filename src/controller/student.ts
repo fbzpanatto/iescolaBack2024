@@ -42,6 +42,8 @@ import { teacherClassroomsController } from "./teacherClassrooms";
 import getTimeZone from "../utils/getTimeZone";
 import { Teacher } from "../model/Teacher";
 
+interface GraduateBody  { user: UserInterface; student: { id: number; active: boolean; classroom: Classroom }; year: number }
+
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() {
     super(Student);
@@ -662,14 +664,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       let result: any;
 
       await AppDataSource.transaction(async (transaction) => {
-        const student = (await transaction.findOne(Student, {
-          relations: ["person", "studentDisabilities.disability", "state"],
-          where: { id: Number(studentId) },
-        })) as Student;
 
-        const bodyClassroom = await transaction.findOne(Classroom, {
-          where: { id: body.classroom },
-        });
+        const student = await transaction.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
+
+        const bodyClassroom = await transaction.findOne(Classroom, { where: { id: body.classroom } });
 
         const arrayOfRelations = [
           "student",
@@ -683,7 +681,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           "year",
         ];
 
-        const studentClassroom = await transaction.findOne(StudentClassroom, {
+        const stClass = await transaction.findOne(StudentClassroom, {
           relations: arrayOfRelations,
           where: {
             id: Number(body.currentStudentClassroomId),
@@ -695,7 +693,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (!student) {
           return { status: 404, message: "Registro não encontrado" };
         }
-        if (!studentClassroom) {
+        if (!stClass) {
           return { status: 404, message: "Registro não encontrado" };
         }
         if (!bodyClassroom) {
@@ -725,7 +723,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (
           !canChange.includes(userTeacherFromFront.person.category.id) &&
-          studentClassroom?.classroom.id != bodyClassroom.id
+          stClass?.classroom.id != bodyClassroom.id
         ) {
           return {
             status: 403,
@@ -735,17 +733,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }
 
         if (
-          studentClassroom?.classroom.id != bodyClassroom.id &&
+          stClass?.classroom.id != bodyClassroom.id &&
           canChange.includes(userTeacherFromFront.person.category.id)
         ) {
-          const newClassroomNumber = Number(
+          const newNumber = Number(
             bodyClassroom.shortName.replace(/\D/g, ""),
           );
-          const oldClassroomNumber = Number(
-            studentClassroom.classroom.shortName.replace(/\D/g, ""),
+          const oldNumber = Number(
+            stClass.classroom.shortName.replace(/\D/g, ""),
           );
 
-          if (newClassroomNumber < oldClassroomNumber) {
+          if (newNumber < oldNumber) {
             return {
               status: 404,
               message:
@@ -754,7 +752,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           }
 
           await transaction.save(StudentClassroom, {
-            ...studentClassroom,
+            ...stClass,
             endedAt: new Date(),
           });
 
@@ -777,7 +775,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             last = lastRosterNumber[0].rosterNumber + 1;
           }
 
-          const newStudentClassroom = await transaction.save(StudentClassroom, {
+          const newStClass = await transaction.save(StudentClassroom, {
             student,
             classroom: bodyClassroom,
             year: currentYear,
@@ -794,27 +792,27 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             const literacyTier = await transaction.find(LiteracyTier);
 
             if (
-              studentClassroom.classroom.id !=
-                newStudentClassroom.classroom.id &&
-              oldClassroomNumber === newClassroomNumber &&
-              studentClassroom.year.id === newStudentClassroom.year.id
+              stClass.classroom.id !=
+                newStClass.classroom.id &&
+              oldNumber === newNumber &&
+              stClass.year.id === newStClass.year.id
             ) {
               for (let tier of literacyTier) {
-                const element = studentClassroom.literacies.find(
+                const element = stClass.literacies.find(
                   (el) =>
                     el.literacyTier.id === tier.id && el.literacyLevel != null,
                 );
 
                 if (element) {
                   await transaction.save(Literacy, {
-                    studentClassroom: newStudentClassroom,
+                    studentClassroom: newStClass,
                     literacyTier: element.literacyTier,
                     literacyLevel: element.literacyLevel,
                     toRate: false,
                   });
                 } else {
                   await transaction.save(Literacy, {
-                    studentClassroom: newStudentClassroom,
+                    studentClassroom: newStClass,
                     literacyTier: tier,
                   });
                 }
@@ -822,7 +820,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             } else {
               for (let tier of literacyTier) {
                 await transaction.save(Literacy, {
-                  studentClassroom: newStudentClassroom,
+                  studentClassroom: newStClass,
                   literacyTier: tier,
                 });
               }
@@ -841,16 +839,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
               },
             );
 
-            if (
-              studentClassroom.classroom.id !=
-                newStudentClassroom.classroom.id &&
-              oldClassroomNumber === newClassroomNumber &&
-              studentClassroom.year.id === newStudentClassroom.year.id
-            ) {
+            if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
               for (let tg of textGenderClassroom) {
                 for (let tier of textGenderExamTier) {
                   for (let exam of textGenderExam) {
-                    const element = studentClassroom.textGenderGrades.find(
+                    const element = stClass.textGenderGrades.find(
                       (el) =>
                         el.textGender.id === tg.textGender.id &&
                         el.textGenderExam.id === exam.id &&
@@ -860,7 +853,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
                     if (element) {
                       await transaction.save(TextGenderGrade, {
-                        studentClassroom: newStudentClassroom,
+                        studentClassroom: newStClass,
                         textGender: element.textGender,
                         textGenderExam: element.textGenderExam,
                         textGenderExamTier: element.textGenderExamTier,
@@ -869,7 +862,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                       });
                     } else {
                       await transaction.save(TextGenderGrade, {
-                        studentClassroom: newStudentClassroom,
+                        studentClassroom: newStClass,
                         textGender: tg.textGender,
                         textGenderExam: exam,
                         textGenderExamTier: tier,
@@ -883,7 +876,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
                 for (let tier of textGenderExamTier) {
                   for (let exam of textGenderExam) {
                     await transaction.save(TextGenderGrade, {
-                      studentClassroom: newStudentClassroom,
+                      studentClassroom: newStClass,
                       textGender: tg.textGender,
                       textGenderExam: exam,
                       textGenderExamTier: tier,
@@ -899,7 +892,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           newTransfer.endedAt = new Date();
           newTransfer.requester = userTeacherFromFront;
           newTransfer.requestedClassroom = bodyClassroom;
-          newTransfer.currentClassroom = studentClassroom.classroom;
+          newTransfer.currentClassroom = stClass.classroom;
           newTransfer.receiver = userTeacherFromFront;
           newTransfer.student = student;
           newTransfer.status = (await AppDataSource.getRepository(
@@ -914,9 +907,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await AppDataSource.getRepository(Transfer).save(newTransfer);
         }
 
-        if (studentClassroom.classroom.id === bodyClassroom.id) {
+        if (stClass.classroom.id === bodyClassroom.id) {
           await transaction.save(StudentClassroom, {
-            ...studentClassroom,
+            ...stClass,
             rosterNumber: body.rosterNumber,
           });
         }
@@ -1035,18 +1028,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       ])
       .from(Student, "student")
       .leftJoin("student.person", "person")
-      .leftJoin(
-        "student.studentDisabilities",
-        "studentDisabilities",
-        "studentDisabilities.endedAt IS NULL",
-      )
+      .leftJoin("student.studentDisabilities","studentDisabilities","studentDisabilities.endedAt IS NULL")
       .leftJoin("studentDisabilities.disability", "disability")
       .leftJoin("student.state", "state")
-      .leftJoin(
-        "student.studentClassrooms",
-        "studentClassroom",
-        "studentClassroom.endedAt IS NULL",
-      )
+      .leftJoin("student.studentClassrooms","studentClassroom","studentClassroom.endedAt IS NULL")
       .leftJoin("studentClassroom.classroom", "classroom")
       .leftJoin("classroom.school", "school")
       .where("student.id = :studentId", { studentId })
@@ -1248,52 +1233,50 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return studentClassrooms[maxEndedAtIndex];
   }
 
-  async graduate(
-    studentId: number | string,
-    body: {
-      user: UserInterface;
-      student: { id: number; active: boolean; classroom: Classroom };
-      year: number;
-    },
-  ) {
-    const userTeacher = await this.teacherByUser(body.user.user);
+  async graduate( studentId: number | string, body: GraduateBody ) {
 
     try {
-      const student = (await AppDataSource.getRepository(Student).findOne({
-        where: { id: Number(studentId) },
-      })) as Student;
-      if (!student) {
-        return { status: 404, message: "Registro não encontrado" };
-      }
 
-      student.active = body.student.active;
-      await AppDataSource.getRepository(Student).save(student);
+      let student: Student | null = null
 
-      const newTransfer = new Transfer();
-      newTransfer.startedAt = new Date();
-      newTransfer.endedAt = new Date();
-      newTransfer.requester = userTeacher;
-      newTransfer.requestedClassroom = body.student.classroom;
-      newTransfer.currentClassroom = body.student.classroom;
-      newTransfer.receiver = userTeacher;
-      newTransfer.student = student;
-      newTransfer.status = (await AppDataSource.getRepository(
-        TransferStatus,
-      ).findOne({
-        where: {
-          id: 6,
-          name: "Formado",
-        },
-      })) as TransferStatus;
-      newTransfer.year = (await AppDataSource.getRepository(Year).findOne({
-        where: { id: body.year },
-      })) as Year;
-      await AppDataSource.getRepository(Transfer).save(newTransfer);
+      await AppDataSource.transaction(async (conn) => {
 
-      return { status: 200, data: student };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+        const userTeacher = await conn.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } }) as Teacher
+        const isAdminSupervisor = userTeacher.person.category.id === pc.ADMINISTRADOR || userTeacher.person.category.id === pc.SUPERVISOR;
+
+        const { classrooms } = await this.teacherClassrooms(body.user);
+
+        if ( !classrooms.includes(Number(body.student.classroom.id)) && !isAdminSupervisor ) {
+          return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." };
+        }
+        
+        student = await conn.findOne(Student, { where: { id: Number(studentId) } }) as Student;
+
+        if (!student) { return { status: 404, message: "Registro não encontrado" } }
+  
+        student.active = body.student.active;
+
+        await conn.save(Student, student);
+
+        const newTransferStatus = await conn.findOne(TransferStatus, { where: { id: 6, name: "Formado" } }) as TransferStatus
+        const year = await conn.findOne(Year, { where: { id: body.year } }) as Year
+  
+        const newTransfer = new Transfer();
+        newTransfer.startedAt = new Date();
+        newTransfer.endedAt = new Date();
+        newTransfer.requester = userTeacher;
+        newTransfer.requestedClassroom = body.student.classroom;
+        newTransfer.currentClassroom = body.student.classroom;
+        newTransfer.receiver = userTeacher;
+        newTransfer.student = student;
+        newTransfer.status = newTransferStatus 
+        newTransfer.year = year 
+
+        await conn.save(Transfer, newTransfer)
+      })
+
+      return { status: 200, data: student as unknown as Student };
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

@@ -45,14 +45,8 @@ import cors from "cors";
 const app: Application = express();
 const route = Router();
 
-app.use(bodyParser.json());
-app.use(
-  cors({
-    origin: "*",
-    credentials: true,
-    optionsSuccessStatus: 200,
-  }),
-);
+app.use( bodyParser.json() );
+app.use( cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
 
 app.use(morgan("tiny"));
 app.use(cors());
@@ -81,11 +75,7 @@ route.use("/state", authorization, StateRouter);
 route.use("/student", authorization, StudentRouter);
 route.use("/student-question", authorization, StudentQuestionRouter);
 route.use("/teacher", authorization, TeacherRouter);
-route.use(
-  "/teacher-class-discipline",
-  authorization,
-  TeacherClassDisciplineRouter,
-);
+route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRouter );
 route.use("/teacher-classroom", authorization, TeacherClassroomsRouter);
 route.use("/test", authorization, TestRouter);
 route.use("/test-category", authorization, TestCategoryRouter);
@@ -97,24 +87,15 @@ route.use("/transfer", authorization, TransferRouter);
 route.use("/user", authorization, UserRouter);
 route.use("/year", authorization, YearRouter);
 
-route.use("/reset-password", PasswordRouter);
-
 route.use("/login", LoginRouter);
+route.use("/reset-password", PasswordRouter);
 
 route.use("/initial-configs", InitialConfigsRouter);
 
-route.use("/", (req, res) => {
-  return res.json({ message: "OK" });
-});
+route.use("/", (req, res) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 
 AppDataSource.initialize()
-  .then(() => {
-    app.listen(3000, () => {
-      console.log("Server running at PORT:", 3000);
-    });
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+  .then(() => { app.listen(3000, () => { console.log("Server running at PORT:", 3000) }) })
+  .catch((err) => { console.log(err) });

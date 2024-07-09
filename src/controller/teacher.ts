@@ -60,10 +60,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
       const teacher = await this.teacherByUser(body.user.user);
       const teacherClasses = await this.teacherClassrooms(body?.user);
-      const notInCategories = [
-        pc.ADMINISTRADOR,
-        pc.SUPERVISOR,
-      ];
+      const notInCategories = [pc.ADMINISTRADOR, pc.SUPERVISOR];
 
       const newResult = await AppDataSource.getRepository(Teacher)
         .createQueryBuilder("teacher")
@@ -110,10 +107,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     try {
       const teacher = await this.teacherByUser(body.user.user);
-      const cannotChange = [
-        pc.MONITOR_DE_INFORMATICA,
-        pc.PROFESSOR,
-      ];
+      const cannotChange = [pc.MONITOR_DE_INFORMATICA, pc.PROFESSOR];
 
       if (
         teacher.id !== Number(id) &&
@@ -212,12 +206,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     }
   }
 
-  async teacherCategory() {
-    return (await AppDataSource.getRepository(PersonCategory).findOne({
-      where: { id: pc.PROFESSOR },
-    })) as PersonCategory;
-  }
-
   override async updateId(id: string, body: TeacherBody) {
     try {
       const frontendTeacher = await this.teacherByUser(body.user.user);
@@ -233,10 +221,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if (frontendTeacher.person.category.id === pc.SECRETARIO) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-        ];
+        const canEdit = [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
             status: 403,
@@ -261,9 +246,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (
-        frontendTeacher.person.category.id === pc.VICE_DIRETOR
-      ) {
+      if (frontendTeacher.person.category.id === pc.VICE_DIRETOR) {
         const canEdit = [
           pc.PROFESSOR,
           pc.MONITOR_DE_INFORMATICA,
@@ -314,9 +297,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (
-        frontendTeacher.person.category.id === pc.ADMINISTRADOR
-      ) {
+      if (frontendTeacher.person.category.id === pc.ADMINISTRADOR) {
         const canEdit = [
           pc.PROFESSOR,
           pc.MONITOR_DE_INFORMATICA,
@@ -338,8 +319,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if (
         frontendTeacher.person.category.id === pc.PROFESSOR ||
-        (frontendTeacher.person.category.id ===
-          pc.MONITOR_DE_INFORMATICA &&
+        (frontendTeacher.person.category.id === pc.MONITOR_DE_INFORMATICA &&
           frontendTeacher.id !== databaseTeacher.id)
       ) {
         return {
@@ -466,132 +446,79 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-  
+
   async saveTeacher(body: TeacherBody, options: SaveOptions | undefined) {
-
     try {
+      const teacherUserFromFront = (await this.teacherByUser(
+        body.user.user,
+      )) as Teacher;
 
-      const teacherUserFromFront = (await this.teacherByUser(body.user.user)) as Teacher;
-
-      if (teacherUserFromFront.person.category.id === pc.SECRETARIO) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-        ];
-        if (!canCreate.includes(body.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
-          };
-        }
+      if (
+        !this.hasPermissionToCreate(
+          teacherUserFromFront.person.category.id,
+          body.category.id,
+        )
+      ) {
+        return {
+          status: 403,
+          message:
+            "Você não tem permissão para criar uma pessoa com esta categoria.",
+        };
       }
 
-      if (teacherUserFromFront.person.category.id === pc.COORDENADOR) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-        ];
-        if (!canCreate.includes(body.category.id)) {
+      return await AppDataSource.transaction(async (transaction) => {
+        const registerExists = await transaction.findOne(Teacher, {
+          where: { register: body.register },
+        });
+        if (registerExists) {
           return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
+            status: 409,
+            message: "Já existe um registro com este número de matrícula.",
           };
         }
-      }
 
-      if (teacherUserFromFront.person.category.id === pc.VICE_DIRETOR) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-        ];
-        if (!canCreate.includes(body.category.id)) {
+        const emailExists = await transaction.findOne(Teacher, {
+          where: { email: body.email },
+        });
+        if (emailExists) {
           return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
+            status: 409,
+            message: "Já existe um registro com este email.",
           };
         }
-      }
 
-      if (teacherUserFromFront.person.category.id === pc.DIRETOR) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-        ];
-        if (!canCreate.includes(body.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
-          };
-        }
-      }
+        const category = (await transaction.findOne(PersonCategory, {
+          where: { id: body.category.id },
+        })) as PersonCategory;
 
-      if (teacherUserFromFront.person.category.id === pc.SUPERVISOR) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-          pc.DIRETOR,
-        ];
-        if (!canCreate.includes(body.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
-          };
-        }
-      }
+        const person = this.createPerson({
+          name: body.name,
+          birth: body.birth,
+          category,
+        });
 
-      if (teacherUserFromFront.person.category.id === pc.ADMINISTRADOR) {
-        const canCreate = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-          pc.DIRETOR,
-          pc.SUPERVISOR,
-          pc.ADMINISTRADOR,
-        ];
-        if (!canCreate.includes(body.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para criar uma pessoa com esta categoria.",
-          };
-        }
-      }
-      
-      return await AppDataSource.transaction(async transaction => {
-
-        const registerExists = await transaction.findOne(Teacher, { where: { register: body.register } });
-        if (registerExists) { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
-
-        const emailExists = await transaction.findOne(Teacher, { where: { email: body.email } });
-        if (emailExists) { return { status: 409, message: "Já existe um registro com este email." } }
-
-        const category = await transaction.findOne(PersonCategory, { where: { id: body.category.id } }) as PersonCategory
-        const person = this.createPerson({ name: body.name, birth: body.birth, category });
-        const teacher = await transaction.save(Teacher, this.createTeacher(person, body));
+        const teacher = await transaction.save(
+          Teacher,
+          this.createTeacher(person, body),
+        );
 
         const { username, password, email } = this.generateUser(body);
         await transaction.save(User, { person, username, email, password });
 
-        if ( body.category.id === pc.ADMINISTRADOR || body.category.id === pc.SUPERVISOR ) { return { status: 201, data: teacher }}
+        if (
+          body.category.id === pc.ADMINISTRADOR ||
+          body.category.id === pc.SUPERVISOR
+        ) {
+          return { status: 201, data: teacher };
+        }
 
-        const classrooms = await transaction.findBy(Classroom, { id: In(body.teacherClasses) })
-        const disciplines = await transaction.findBy(Discipline, {id: In(body.teacherDisciplines)})
+        const classrooms = await transaction.findBy(Classroom, {
+          id: In(body.teacherClasses),
+        });
+
+        const disciplines = await transaction.findBy(Discipline, {
+          id: In(body.teacherDisciplines),
+        });
 
         for (const classroom of classrooms) {
           for (const discipline of disciplines) {
@@ -603,11 +530,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
             await transaction.save(teacherClassDiscipline);
           }
         }
-        await mainEmail(body.email, password, true).catch(e => console.log(e))
-        
-        return { status: 201, data: teacher }
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
+
+        await mainEmail(body.email, password, true).catch((e) =>
+          console.log(e),
+        );
+
+        return { status: 201, data: teacher };
+      });
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
   createTeacher(person: Person, body: TeacherBody) {
@@ -626,18 +558,78 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   generatePassword() {
-    const lowercaseLetters = 'abcdefghijklmnopqrstuvwxyz';
-    const uppercaseLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const numbers = '0123456789';
+    const lowercaseLetters = "abcdefghijklmnopqrstuvwxyz";
+    const uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const numbers = "0123456789";
     const allCharacters = lowercaseLetters + uppercaseLetters + numbers;
-  
-    let password = '';
+
+    let password = "";
     for (let i = 0; i < 8; i++) {
       const randomIndex = Math.floor(Math.random() * allCharacters.length);
       password += allCharacters[randomIndex];
     }
-  
+
     return password;
+  }
+
+  private hasPermissionToCreate(
+    userCategory: number,
+    bodyTeacherCategory: number,
+  ): boolean {
+    const allowedCategories = [
+      pc.PROFESSOR,
+      pc.MONITOR_DE_INFORMATICA,
+      pc.SECRETARIO,
+      pc.COORDENADOR,
+      pc.VICE_DIRETOR,
+      pc.DIRETOR,
+      pc.SUPERVISOR,
+      pc.ADMINISTRADOR,
+    ];
+
+    let canCreate = allowedCategories.includes(bodyTeacherCategory);
+    if (userCategory === pc.SECRETARIO) {
+      canCreate =
+        canCreate &&
+        [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA].includes(bodyTeacherCategory);
+    } else if (userCategory === pc.COORDENADOR) {
+      canCreate =
+        canCreate &&
+        [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO].includes(
+          bodyTeacherCategory,
+        );
+    } else if (userCategory === pc.VICE_DIRETOR) {
+      canCreate =
+        canCreate &&
+        [
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+        ].includes(bodyTeacherCategory);
+    } else if (userCategory === pc.DIRETOR) {
+      canCreate =
+        canCreate &&
+        [
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+        ].includes(bodyTeacherCategory);
+    } else if (userCategory === pc.SUPERVISOR) {
+      canCreate =
+        canCreate &&
+        [
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+          pc.DIRETOR,
+        ].includes(bodyTeacherCategory);
+    }
+    return canCreate;
   }
 }
 

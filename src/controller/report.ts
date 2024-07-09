@@ -1,53 +1,71 @@
-import { GenericController} from "./genericController";
-import { Brackets, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
-import { Test} from "../model/Test";
-import { AppDataSource} from "../data-source";
-import { StudentClassroom} from "../model/StudentClassroom";
-import { TestQuestion} from "../model/TestQuestion";
-import { Request} from "express";
+import { GenericController } from "./genericController";
+import {
+  Brackets,
+  EntityTarget,
+  FindManyOptions,
+  ObjectLiteral,
+} from "typeorm";
+import { Test } from "../model/Test";
+import { AppDataSource } from "../data-source";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
 import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
 
-interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
-
+interface schoolAsClassroom {
+  id: number;
+  name: string;
+  shortName: string;
+  studentClassrooms: StudentClassroom[];
+}
 
 class ReportController extends GenericController<EntityTarget<Test>> {
-
   constructor() {
     super(Test);
   }
 
-  async getSchoolAvg(request: Request){
+  async getSchoolAvg(request: Request) {
     try {
-      const response = (await this.getReport(request)).data
-      if(!response) return { status: 404, message: "Teste não encontrado" }
+      const response = (await this.getReport(request)).data;
+      if (!response) return { status: 404, message: "Teste não encontrado" };
 
-      const schools = response.schools as {id: number, name: string, shortName: string, qRate: ({id: number, rate: string} | {id: number, rate: number})[]}[]
-      const schoolAvg = schools.map(school => ({
+      const schools = response.schools as {
+        id: number;
+        name: string;
+        shortName: string;
+        qRate: ({ id: number; rate: string } | { id: number; rate: number })[];
+      }[];
+      const schoolAvg = schools.map((school) => ({
         ...school,
-        qRate: school.qRate
-          .reduce((acc, curr) =>
-            (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0) /
-            school.qRate.filter(q => q.rate !== 'N/A').length
-      }))
+        qRate:
+          school.qRate.reduce(
+            (acc, curr) =>
+              curr.rate === "N/A" ? acc : acc + Number(curr.rate),
+            0,
+          ) / school.qRate.filter((q) => q.rate !== "N/A").length,
+      }));
 
-      return { status: 200, data: {...response, schoolAvg } };
-    } catch (error: any) { return { status: 500, message: error.message } }
+      return { status: 200, data: { ...response, schoolAvg } };
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
   async getReport(request: Request) {
-
-    const yearName = request?.params.year
-    const testId = request?.params.id
+    const yearName = request?.params.year;
+    const testId = request?.params.id;
 
     try {
+      const testQuestions = await this.getTestQuestions(Number(testId));
+      if (!testQuestions)
+        return { status: 404, message: "Questões não encontradas" };
 
-      const testQuestions = await this.getTestQuestions(Number(testId))
-      if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
-
-      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-      const questionGroups = await this.getTestQuestionsGroups(Number(testId))
+      const testQuestionsIds = testQuestions.map(
+        (testQuestion) => testQuestion.id,
+      );
+      const questionGroups = await this.getTestQuestionsGroups(Number(testId));
 
       const test = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
@@ -59,9 +77,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.person", "testPerson")
         .where("test.id = :testId", { testId })
         .andWhere("periodYear.name = :yearName", { yearName })
-        .getOne()
+        .getOne();
 
-      if(!test) return { status: 404, message: "Teste não encontrado" }
+      if (!test) return { status: 404, message: "Teste não encontrado" };
 
       const schools = await AppDataSource.getRepository(School)
         .createQueryBuilder("school")
@@ -69,44 +87,78 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
         .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
         .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-        .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
-        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+        .leftJoinAndSelect(
+          "studentClassroom.studentQuestions",
+          "studentQuestions",
+        )
+        .leftJoinAndSelect(
+          "studentQuestions.testQuestion",
+          "testQuestion",
+          "testQuestion.id IN (:...testQuestions)",
+          { testQuestions: testQuestionsIds },
+        )
         .leftJoin("testQuestion.test", "test")
         .leftJoin("studentClassroom.year", "year")
         .where("year.name = :yearName", { yearName })
         .andWhere("test.id = :testId", { testId })
         .andWhere("studentStatusTest.id = :testId", { testId })
-        .andWhere(new Brackets(qb => {
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-          qb.orWhere("studentQuestions.id IS NOT NULL")
-        }))
-        .getMany()
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where("studentClassroom.startedAt < :testCreatedAt", {
+              testCreatedAt: test.createdAt,
+            });
+            qb.orWhere("studentQuestions.id IS NOT NULL");
+          }),
+        )
+        .getMany();
 
-      const simplifiedSchools = schools.map(school => ({
+      const simplifiedSchools = schools.map((school) => ({
         ...school,
-        studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(studentClassroom => ({
-          ...studentClassroom,
-          studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
-            const testQuestion = testQuestions.find(tq => tq.id === studentQuestion.testQuestion.id);
-            const score = (studentQuestion.answer.length === 0) ? 0 : (testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
-            return { ...studentQuestion, score };
-          })
-        })) as StudentClassroom[])
+        studentClassrooms: school.classrooms.flatMap(
+          (classroom) =>
+            classroom.studentClassrooms.map((studentClassroom) => ({
+              ...studentClassroom,
+              studentQuestions: studentClassroom.studentQuestions.map(
+                (studentQuestion) => {
+                  const testQuestion = testQuestions.find(
+                    (tq) => tq.id === studentQuestion.testQuestion.id,
+                  );
+                  const score =
+                    studentQuestion.answer.length === 0
+                      ? 0
+                      : testQuestion?.answer.includes(
+                            studentQuestion.answer.toUpperCase(),
+                          )
+                        ? 1
+                        : 0;
+                  return { ...studentQuestion, score };
+                },
+              ),
+            })) as StudentClassroom[],
+        ),
       }));
 
-      const simplifiedArray = simplifiedSchools.map(school => {
+      const simplifiedArray = simplifiedSchools.map((school) => {
         const { id, name, shortName } = school;
-        const qRate = testQuestions.map(testQuestion => {
+        const qRate = testQuestions.map((testQuestion) => {
           if (!testQuestion.active) {
-            return { id: testQuestion.id, rate: 'N/A' };
+            return { id: testQuestion.id, rate: "N/A" };
           }
           let sum = 0;
           let count = 0;
           school.studentClassrooms
-            .filter(studentClassroom => studentClassroom.studentStatus.find(register => register.test.id === test.id)?.active)
-            .flatMap(studentClassroom => studentClassroom.studentQuestions)
-            .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-            .forEach(studentQuestion => {
+            .filter(
+              (studentClassroom) =>
+                studentClassroom.studentStatus.find(
+                  (register) => register.test.id === test.id,
+                )?.active,
+            )
+            .flatMap((studentClassroom) => studentClassroom.studentQuestions)
+            .filter(
+              (studentQuestion) =>
+                studentQuestion.testQuestion.id === testQuestion.id,
+            )
+            .forEach((studentQuestion) => {
               const studentQuestionAny = studentQuestion as any;
               sum += studentQuestionAny.score;
               count += 1;
@@ -118,15 +170,26 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       });
 
       simplifiedArray.sort((a, b) => {
-        const totalA = a.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
-        const totalB = b.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
+        const totalA = a.qRate.reduce(
+          (acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)),
+          0,
+        );
+        const totalB = b.qRate.reduce(
+          (acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)),
+          0,
+        );
         return totalB - totalA;
       });
 
-      let response = { ...test, testQuestions, questionGroups, schools: simplifiedArray }
+      let response = {
+        ...test,
+        testQuestions,
+        questionGroups,
+        schools: simplifiedArray,
+      };
       return { status: 200, data: response };
     } catch (error: any) {
-      return { status: 500, message: error.message }
+      return { status: 500, message: error.message };
     }
   }
 
@@ -153,16 +216,19 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .getRawMany();
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
-
-    const yearName = request?.params.year as string
-    const search = request?.query.search as string
+  override async findAllWhere(
+    options: FindManyOptions<ObjectLiteral> | undefined,
+    request?: Request,
+  ) {
+    const yearName = request?.params.year as string;
+    const search = request?.query.search as string;
 
     try {
-
-      const teacher = await this.teacherByUser(request?.body.user.user)
-      const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+      const teacher = await this.teacherByUser(request?.body.user.user);
+      const teacherClasses = await this.teacherClassrooms(request?.body.user);
+      const isAdminSupervisor =
+        teacher.person.category.id === pc.ADMINISTRADOR ||
+        teacher.person.category.id === pc.SUPERVISOR;
 
       const testClasses = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")
@@ -174,17 +240,23 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.discipline", "discipline")
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
-        .where(new Brackets(qb => {
-          if(!isAdminSupervisor){
-            qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
-          }
-        }))
+        .where(
+          new Brackets((qb) => {
+            if (!isAdminSupervisor) {
+              qb.where("classroom.id IN (:...teacherClasses)", {
+                teacherClasses: teacherClasses.classrooms,
+              });
+            }
+          }),
+        )
         .andWhere("year.name = :yearName", { yearName })
         .andWhere("test.name LIKE :search", { search: `%${search}%` })
         .getMany();
 
       return { status: 200, data: testClasses };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 }
 

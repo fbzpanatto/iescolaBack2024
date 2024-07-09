@@ -3,7 +3,6 @@ import { EntityTarget } from "typeorm";
 import { Person } from "../model/Person";
 
 class PersonController extends GenericController<EntityTarget<Person>> {
-
   constructor() {
     super(Person);
   }

@@ -1,6 +1,14 @@
-import { StudentClassroom } from './../model/StudentClassroom';
+import { StudentClassroom } from "./../model/StudentClassroom";
 import { GenericController } from "./genericController";
-import { Brackets, EntityTarget, FindManyOptions, In, IsNull, Not, ObjectLiteral } from "typeorm";
+import {
+  Brackets,
+  EntityManager,
+  EntityTarget,
+  FindManyOptions,
+  In,
+  IsNull,
+  ObjectLiteral,
+} from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -8,7 +16,11 @@ import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { SaveStudent, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
+import {
+  SaveStudent,
+  StudentClassroomReturn,
+  UserInterface,
+} from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -24,761 +36,1113 @@ import { TextGenderExam } from "../model/TextGenderExam";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TextGenderGrade } from "../model/TextGenderGrade";
-import { disabilityController } from './disability';
-import { stateController } from './state';
-import { teacherClassroomsController } from './teacherClassrooms';
+import { disabilityController } from "./disability";
+import { stateController } from "./state";
+import { teacherClassroomsController } from "./teacherClassrooms";
 import getTimeZone from "../utils/getTimeZone";
+import { Teacher } from "../model/Teacher";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
-  constructor() { super(Student) }
+  constructor() {
+    super(Student);
+  }
 
   async studentForm(req: Request) {
     try {
-
-      const disabilities = (await disabilityController.findAllWhere({}, req)).data
-      const states = (await stateController.findAllWhere({}, req)).data
-      const teacherClassrooms = (await teacherClassroomsController.findAllWhere({}, req)).data
+      const disabilities = (await disabilityController.findAllWhere({}, req))
+        .data;
+      const states = (await stateController.findAllWhere({}, req)).data;
+      const teacherClassrooms = (
+        await teacherClassroomsController.findAllWhere({}, req)
+      ).data;
 
       return { status: 200, data: { disabilities, states, teacherClassrooms } };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
   async getAllInactivates(request?: Request) {
-
-    const yearName = request?.params.year
-    const search = request?.query.search
+    const yearName = request?.params.year;
+    const search = request?.query.search;
 
     try {
-
       const currentYear = await this.currentYear();
-      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      if (!currentYear) {
+        return {
+          status: 404,
+          message:
+            "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
+        };
+      }
 
       const lastYearName = Number(currentYear.name) - 1;
-      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year;
+      const lastYearDB = (await AppDataSource.getRepository(Year).findOne({
+        where: { name: lastYearName.toString() },
+      })) as Year;
 
-      if (!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.` } }
+      if (!lastYearDB) {
+        return {
+          status: 404,
+          message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`,
+        };
+      }
 
       const preResult = await AppDataSource.getRepository(Student)
-        .createQueryBuilder('student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('student.state', 'state')
-        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
-        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-        .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoinAndSelect('studentClassroom.year', 'year')
-        .where('studentClassroom.endedAt IS NOT NULL')
-        .andWhere('student.active = 1')
-        .andWhere(new Brackets(qb => {
-          qb.where('person.name LIKE :search', { search: `%${search}%` })
-            .orWhere('student.ra LIKE :search', { search: `%${search}%` });
-        }))
-        .andWhere('year.name = :yearName', { yearName })
-        .andWhere(qb => {
+        .createQueryBuilder("student")
+        .leftJoinAndSelect("student.person", "person")
+        .leftJoinAndSelect("student.state", "state")
+        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+        .leftJoinAndSelect("classroom.school", "school")
+        .leftJoinAndSelect("studentClassroom.year", "year")
+        .where("studentClassroom.endedAt IS NOT NULL")
+        .andWhere("student.active = 1")
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where("person.name LIKE :search", {
+              search: `%${search}%`,
+            }).orWhere("student.ra LIKE :search", { search: `%${search}%` });
+          }),
+        )
+        .andWhere("year.name = :yearName", { yearName })
+        .andWhere((qb) => {
           const subQueryNoCurrentYear = qb
             .subQuery()
-            .select('1')
-            .from('student_classroom', 'sc1')
-            .where('sc1.studentId = student.id')
-            .andWhere('sc1.yearId = :currentYearId', { currentYearId: currentYear.id })
-            .andWhere('sc1.endedAt IS NULL')
+            .select("1")
+            .from("student_classroom", "sc1")
+            .where("sc1.studentId = student.id")
+            .andWhere("sc1.yearId = :currentYearId", {
+              currentYearId: currentYear.id,
+            })
+            .andWhere("sc1.endedAt IS NULL")
             .getQuery();
 
           return `NOT EXISTS ${subQueryNoCurrentYear}`;
         })
-        .andWhere(qb => {
+        .andWhere((qb) => {
           const subQueryLastYearOrOlder = qb
             .subQuery()
-            .select('MAX(sc2.endedAt)')
-            .from('student_classroom', 'sc2')
-            .where('sc2.studentId = student.id')
-            .andWhere('sc2.yearId <= :lastYearId', { lastYearId: lastYearDB.id })
+            .select("MAX(sc2.endedAt)")
+            .from("student_classroom", "sc2")
+            .where("sc2.studentId = student.id")
+            .andWhere("sc2.yearId <= :lastYearId", {
+              lastYearId: lastYearDB.id,
+            })
             .getQuery();
 
           return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`;
         })
-        .orderBy('person.name', 'ASC')
+        .orderBy("person.name", "ASC")
         .getMany();
 
-      const result = preResult.map(student => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))
+      const result = preResult.map((student) => ({
+        ...student,
+        studentClassrooms: this.getOneClassroom(student.studentClassrooms),
+      }));
 
       return { status: 200, data: result };
-
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
-  async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
-
+  async setInactiveNewClassroom(body: {
+    student: Student;
+    oldYear: number;
+    newClassroom: { id: number; name: string; school: string };
+    oldClassroom: { id: number; name: string; school: string };
+    user: { user: number; username: string; category: number };
+  }) {
     // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
 
-    const { student, oldYear, newClassroom, oldClassroom, user } = body
+    const { student, oldYear, newClassroom, oldClassroom, user } = body;
 
     try {
+      const currentYear = await this.currentYear();
+      if (!currentYear) {
+        return {
+          status: 404,
+          message:
+            "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
+        };
+      }
 
-      const currentYear = await this.currentYear()
-      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      const userTeacherFromFront = await this.teacherByUser(user.user);
 
-      const teacher = await this.teacherByUser(user.user)
+      const activeStudentClassroom = (await AppDataSource.getRepository(
+        StudentClassroom,
+      ).findOne({
+        relations: ["classroom.school", "student.person", "year"],
+        where: { student: { id: student.id }, endedAt: IsNull() },
+      })) as StudentClassroom;
 
-      const activeStudentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
-        relations: ['classroom.school', 'student.person', 'year'],
-        where: { student: { id: student.id }, endedAt: IsNull() }
-      }) as StudentClassroom
+      if (activeStudentClassroom) {
+        return {
+          status: 409,
+          message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas`,
+        };
+      }
 
-      if (activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas` } }
+      const lastYearName = Number(currentYear.name) - 1;
+      const lastYearDB = (await AppDataSource.getRepository(Year).findOne({
+        where: { name: lastYearName.toString() },
+      })) as Year;
+      const oldYearDB = (await AppDataSource.getRepository(Year).findOne({
+        where: { id: oldYear },
+      })) as Year;
 
-      const lastYearName = Number(currentYear.name) - 1
-      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
-      const oldYearDB = await AppDataSource.getRepository(Year).findOne({ where: { id: oldYear } }) as Year
+      if (!lastYearDB) {
+        return {
+          status: 404,
+          message: "Não foi possível encontrar o ano letivo anterior.",
+        };
+      }
+      if (!oldYearDB) {
+        return {
+          status: 404,
+          message: "Não foi possível encontrar o ano letivo informado.",
+        };
+      }
 
-      if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
-      if (!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
-
-      const lastYearStudentClassroom = await AppDataSource.getRepository(Student)
-        .createQueryBuilder('student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('student.state', 'state')
-        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
-        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-        .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoinAndSelect('studentClassroom.year', 'year')
-        .where('studentClassroom.endedAt IS NOT NULL')
-        .andWhere('student.id = :studentId', { studentId: student.id })
-        .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
-        .andWhere(qb => {
+      const lastYearStudentClassroom = await AppDataSource.getRepository(
+        Student,
+      )
+        .createQueryBuilder("student")
+        .leftJoinAndSelect("student.person", "person")
+        .leftJoinAndSelect("student.state", "state")
+        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+        .leftJoinAndSelect("classroom.school", "school")
+        .leftJoinAndSelect("studentClassroom.year", "year")
+        .where("studentClassroom.endedAt IS NOT NULL")
+        .andWhere("student.id = :studentId", { studentId: student.id })
+        .andWhere("year.id = :yearId", { yearId: lastYearDB.id })
+        .andWhere((qb) => {
           const subQueryMaxEndedAt = qb
             .subQuery()
-            .select('MAX(sc2.endedAt)')
-            .from('student_classroom', 'sc2')
-            .where('sc2.studentId = student.id')
-            .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
+            .select("MAX(sc2.endedAt)")
+            .from("student_classroom", "sc2")
+            .where("sc2.studentId = student.id")
+            .andWhere("sc2.yearId = :yearId", { yearId: lastYearDB.id })
             .getQuery();
 
           return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
         })
         .getOne();
 
-      if (lastYearStudentClassroom && lastYearStudentClassroom?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` } }
-
-      const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
-      const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
-
-      const notDigit = /\D/g
-      if (Number(classroom.name.replace(notDigit, '')) < Number(oldClassroomInDatabase.name.replace(notDigit, ''))) {
-        return { status: 400, message: 'Regressão de sala não é permitido.' }
+      if (
+        lastYearStudentClassroom &&
+        lastYearStudentClassroom?.studentClassrooms.length > 0 &&
+        Number(currentYear.name) - Number(oldYearDB.name) > 1
+      ) {
+        return {
+          status: 409,
+          message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.`,
+        };
       }
 
-      const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
-        student: student,
-        classroom: classroom,
-        year: currentYear,
-        rosterNumber: 99,
-        startedAt: new Date()
-      }) as StudentClassroom
+      const classroom = (await AppDataSource.getRepository(Classroom).findOne({
+        where: { id: newClassroom.id },
+      })) as Classroom;
+      const oldClassroomInDatabase = (await AppDataSource.getRepository(
+        Classroom,
+      ).findOne({ where: { id: oldClassroom.id } })) as Classroom;
 
-      const classroomNumber = Number(classroom.shortName.replace(notDigit, ''))
+      const notDigit = /\D/g;
+      if (
+        Number(classroom.name.replace(notDigit, "")) <
+        Number(oldClassroomInDatabase.name.replace(notDigit, ""))
+      ) {
+        return { status: 400, message: "Regressão de sala não é permitido." };
+      }
 
-      if (classroomNumber >= 1 && classroomNumber <= 3) {
-        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
+      let newStudentClassroom: StudentClassroom | null = null;
 
-        for (let tier of literacyTier) {
+      await AppDataSource.transaction(async (transaction) => {
+        newStudentClassroom = (await AppDataSource.getRepository(
+          StudentClassroom,
+        ).save({
+          student: student,
+          classroom: classroom,
+          year: currentYear,
+          rosterNumber: 99,
+          startedAt: new Date(),
+        })) as StudentClassroom;
 
-          await AppDataSource.getRepository(Literacy).save({
-            studentClassroom: newStudentClassroom,
-            literacyTier: tier
-          })
+        const classroomNumber = Number(
+          classroom.shortName.replace(notDigit, ""),
+        );
+
+        if (classroomNumber >= 1 && classroomNumber <= 3) {
+          const literacyTier = (await AppDataSource.getRepository(
+            LiteracyTier,
+          ).find()) as LiteracyTier[];
+
+          for (let tier of literacyTier) {
+            await transaction.save(Literacy, {
+              studentClassroom: newStudentClassroom,
+              literacyTier: tier,
+            });
+          }
         }
-      }
 
-      if (classroomNumber === 4 || classroomNumber === 5) {
-        const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
-        const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
+        if (classroomNumber === 4 || classroomNumber === 5) {
+          const textGenderExam = (await AppDataSource.getRepository(
+            TextGenderExam,
+          ).find()) as TextGenderExam[];
+          const textGenderExamTier = (await AppDataSource.getRepository(
+            TextGenderExamTier,
+          ).find()) as TextGenderExamTier[];
 
-        const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
-          where: { classroomNumber: classroomNumber },
-          relations: ['textGender']
-        }) as TextGenderClassroom[]
+          const textGenderClassroom = (await AppDataSource.getRepository(
+            TextGenderClassroom,
+          ).find({
+            where: { classroomNumber: classroomNumber },
+            relations: ["textGender"],
+          })) as TextGenderClassroom[];
 
-        for (let tg of textGenderClassroom) {
-          for (let tier of textGenderExamTier) {
-            for (let exam of textGenderExam) {
-              const textGenderGrade = new TextGenderGrade()
-              textGenderGrade.studentClassroom = newStudentClassroom
-              textGenderGrade.textGender = tg.textGender
-              textGenderGrade.textGenderExam = exam
-              textGenderGrade.textGenderExamTier = tier
+          for (let tg of textGenderClassroom) {
+            for (let tier of textGenderExamTier) {
+              for (let exam of textGenderExam) {
+                const textGenderGrade = new TextGenderGrade();
+                textGenderGrade.studentClassroom = newStudentClassroom;
+                textGenderGrade.textGender = tg.textGender;
+                textGenderGrade.textGenderExam = exam;
+                textGenderGrade.textGenderExamTier = tier;
 
-              await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+                await transaction.save(TextGenderGrade, { ...textGenderGrade });
+              }
             }
           }
         }
-      }
 
-      await AppDataSource.getRepository(Transfer).save({
-        startedAt: new Date(),
-        endedAt: new Date(),
-        requester: teacher,
-        requestedClassroom: classroom,
-        currentClassroom: oldClassroomInDatabase,
-        receiver: teacher,
-        student: student,
-        status: await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
-        year: currentYear
-      })
+        await transaction.save(Transfer, {
+          startedAt: new Date(),
+          endedAt: new Date(),
+          requester: userTeacherFromFront,
+          requestedClassroom: classroom,
+          currentClassroom: oldClassroomInDatabase,
+          receiver: userTeacherFromFront,
+          student: student,
+          status: (await AppDataSource.getRepository(TransferStatus).findOne({
+            where: { id: 1, name: "Aceitada" },
+          })) as TransferStatus,
+          year: currentYear,
+        });
+      });
 
       return { status: 200, data: newStudentClassroom };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
-
-    const owner = request?.query.owner as string
-    const search = request?.query.search as string
-    const year = request?.params.year as string
+  override async findAllWhere(
+    options: FindManyOptions<ObjectLiteral> | undefined,
+    request?: Request,
+  ) {
+    const owner = request?.query.owner as string;
+    const search = request?.query.search as string;
+    const year = request?.params.year as string;
 
     try {
-      const teacher = await this.teacherByUser(request?.body.user.user)
-      const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
-      const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }, isAdminSupervisor) as StudentClassroomReturn[]
+      const teacher = await this.teacherByUser(request?.body.user.user);
+      const teacherClasses = await this.teacherClassrooms(request?.body.user);
+      const isAdminSupervisor =
+        teacher.person.category.id === pc.ADMINISTRADOR ||
+        teacher.person.category.id === pc.SUPERVISOR;
+      const studentsClassrooms = (await this.studentsClassrooms(
+        {
+          search,
+          year,
+          teacherClasses,
+          owner,
+        },
+        isAdminSupervisor,
+      )) as StudentClassroomReturn[];
       return { status: 200, data: studentsClassrooms };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 
-  override async findOneById(id: string | number, body?: ObjectLiteral) {
+  async findOneStudentById(id: string | number, body?: ObjectLiteral) {
+    let student;
+
     try {
-      const teacher = await this.teacherByUser(body?.user.user)
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
-      const teacherClasses = await this.teacherClassrooms(body?.user)
-      const preStudent = await this.student(Number(id));
+      await AppDataSource.transaction(async (transaction) => {
+        const userTeacherFromFront = (await transaction.findOne(Teacher, {
+          relations: ["person.category"],
+          where: { person: { user: { id: body?.user.user } } },
+        })) as Teacher;
 
-      if (!preStudent) { return { status: 404, message: 'Registro não encontrado' } }
+        const isAdminSupervisor =
+          userTeacherFromFront.person.category.id === pc.ADMINISTRADOR ||
+          userTeacherFromFront.person.category.id === pc.SUPERVISOR;
+        const teacherClasses = await this.teacherClassrooms(body?.user);
+        const preStudent = await this.student(Number(id), transaction);
 
-      const student = this.formartStudentResponse(preStudent)
+        if (!preStudent) {
+          return { status: 404, message: "Registro não encontrado" };
+        }
 
-      if (
-        teacherClasses.classrooms.length > 0 &&
-        !teacherClasses.classrooms.includes(student.classroom.id) &&
-        !isAdminSupervisor
-      ) { return { status: 403, message: 'Você não tem permissão para acessar esse registro.' } }
+        student = this.formartStudentResponse(preStudent);
 
-
+        if (
+          teacherClasses.classrooms.length > 0 &&
+          !teacherClasses.classrooms.includes(student.classroom.id) &&
+          !isAdminSupervisor
+        ) {
+          return {
+            status: 403,
+            message: "Você não tem permissão para acessar esse registro.",
+          };
+        }
+      });
       return { status: 200, data: student };
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
+
   override async save(body: SaveStudent) {
     try {
-      const teacher = await this.teacherByUser(body.user.user)
-      const teacherClasses = await this.teacherClassrooms(body.user)
+      const teacher = await this.teacherByUser(body.user.user);
+      const teacherClasses = await this.teacherClassrooms(body.user);
       const year = await this.currentYear();
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);
       const category = await this.studentCategory();
       const disabilities = await this.disabilities(body.disabilities);
-      const person = this.createPerson({ name: body.name, birth: body.birth, category });
+      const person = this.createPerson({
+        name: body.name,
+        birth: body.birth,
+        category,
+      });
 
-      if (!year) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      if (!year) {
+        return {
+          status: 404,
+          message:
+            "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
+        };
+      }
 
-      const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } })
+      const exists = await AppDataSource.getRepository(Student).findOne({
+        where: { ra: body.ra, dv: body.dv },
+      });
       if (exists) {
+        const lastStudentRegister = (await AppDataSource.getRepository(Student)
+          .createQueryBuilder("student")
+          .leftJoinAndSelect("student.person", "person")
+          .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .leftJoinAndSelect("studentClassroom.year", "year")
+          .where("student.ra = :ra", { ra: body.ra })
+          .andWhere("student.dv = :dv", { dv: body.dv })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where("studentClassroom.endedAt IS NULL").orWhere(
+                "studentClassroom.endedAt < :currentDate",
+                { currentDate: new Date() },
+              );
+            }),
+          )
+          .getOne()) as Student;
 
-        const lastStudentRegister = await AppDataSource.getRepository(Student)
-          .createQueryBuilder('student')
-          .leftJoinAndSelect('student.person', 'person')
-          .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
-          .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-          .leftJoinAndSelect('classroom.school', 'school')
-          .leftJoinAndSelect('studentClassroom.year', 'year')
-          .where('student.ra = :ra', { ra: body.ra })
-          .andWhere('student.dv = :dv', { dv: body.dv })
-          .andWhere(new Brackets(qb => {
-            qb.where('studentClassroom.endedAt IS NULL')
-              .orWhere('studentClassroom.endedAt < :currentDate', { currentDate: new Date() })
-          }))
-          .getOne() as Student;
+        let preResult: StudentClassroom;
 
-        let preResult: StudentClassroom
+        const activeStudentClassroom =
+          lastStudentRegister.studentClassrooms.find(
+            (sc) => sc.endedAt === null,
+          ) as StudentClassroom;
 
-        const activeStudentClassroom = lastStudentRegister.studentClassrooms.find(sc => sc.endedAt === null) as StudentClassroom
-
-        if (activeStudentClassroom) { preResult = activeStudentClassroom }
-        else { preResult = lastStudentRegister.studentClassrooms.find(sc => getTimeZone(sc.endedAt) === Math.max(...lastStudentRegister.studentClassrooms.map(sc => getTimeZone(sc.endedAt)))) as StudentClassroom }
-
-        if (!lastStudentRegister.active) {
-          return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano de ${preResult?.year.name}.` }
+        if (activeStudentClassroom) {
+          preResult = activeStudentClassroom;
+        } else {
+          preResult = lastStudentRegister.studentClassrooms.find(
+            (sc) =>
+              getTimeZone(sc.endedAt) ===
+              Math.max(
+                ...lastStudentRegister.studentClassrooms.map((sc) =>
+                  getTimeZone(sc.endedAt),
+                ),
+              ),
+          ) as StudentClassroom;
         }
 
-        return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
+        if (!lastStudentRegister.active) {
+          return {
+            status: 409,
+            message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano de ${preResult?.year.name}.`,
+          };
+        }
+
+        return {
+          status: 409,
+          message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}`,
+        };
       }
 
       if (body.user.category === pc.PROFESSOR) {
-        if (!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
-      }
-
-      const student = await this.repository.save(this.createStudent(body, person, state));
-      if (!!disabilities.length) {
-        await AppDataSource.getRepository(StudentDisability).save(disabilities.map(disability => {
-          return { student, startedAt: new Date(), disability }
-        }))
-      }
-
-      const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-        .find({
-          relations: ['classroom', 'year'],
-          where: {
-            year: { id: year.id },
-            classroom: { id: classroom.id }
-          },
-          order: { rosterNumber: 'DESC' },
-          take: 1
-        })
-
-      let last = 1
-      if (lastRosterNumber[0]?.rosterNumber) {
-        last = lastRosterNumber[0].rosterNumber + 1
-      }
-
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom).save({ student, classroom, year, rosterNumber: last, startedAt: new Date() }) as StudentClassroom
-
-      const notDigit = /\D/g
-      const classroomNumber = Number(studentClassroom.classroom.shortName.replace(notDigit, ''))
-
-      const newTransfer = new Transfer()
-      newTransfer.startedAt = new Date()
-      newTransfer.endedAt = new Date()
-      newTransfer.requester = teacher
-      newTransfer.requestedClassroom = classroom
-      newTransfer.currentClassroom = classroom
-      newTransfer.receiver = teacher
-      newTransfer.student = student
-      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 5, name: 'Novo' } }) as TransferStatus
-      newTransfer.year = await this.currentYear()
-      await AppDataSource.getRepository(Transfer).save(newTransfer)
-
-      if (classroomNumber >= 1 && classroomNumber <= 3) {
-        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
-
-        for (let tier of literacyTier) {
-
-          await AppDataSource.getRepository(Literacy).save({
-            studentClassroom,
-            literacyTier: tier
-          })
+        if (!teacherClasses.classrooms.includes(classroom.id)) {
+          return {
+            status: 403,
+            message: "Você não tem permissão para criar um aluno nesta sala.",
+          };
         }
       }
 
-      if (classroomNumber >= 1 && classroomNumber <= 3) {
-        const firstLiteracyLevel = new LiteracyFirst()
-        firstLiteracyLevel.student = student
+      let student: Student | null = null;
 
-        await AppDataSource.getRepository(LiteracyFirst).save(firstLiteracyLevel)
-      }
+      await AppDataSource.transaction(async (transaction) => {
+        student = await transaction.save(
+          Student,
+          this.createStudent(body, person, state),
+        );
 
-      if (classroomNumber === 4 || classroomNumber === 5) {
-        const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
-        const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
-
-        const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
-          where: { classroomNumber: classroomNumber },
-          relations: ['textGender']
-        }) as TextGenderClassroom[]
-
-        for (let tg of textGenderClassroom) {
-          for (let tier of textGenderExamTier) {
-            for (let exam of textGenderExam) {
-              const textGenderGrade = new TextGenderGrade()
-              textGenderGrade.studentClassroom = studentClassroom
-              textGenderGrade.textGender = tg.textGender
-              textGenderGrade.textGenderExam = exam
-              textGenderGrade.textGenderExamTier = tier
-
-              await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
-            }
-          }
+        if (!!disabilities.length) {
+          const mappedDisabilities = disabilities.map((disability) => {
+            return {
+              student: student as Student,
+              startedAt: new Date(),
+              disability,
+            };
+          });
+          await transaction.save(StudentDisability, mappedDisabilities);
         }
-      }
 
-      return { status: 201, data: student };
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
+        const lastRosterNumber = await transaction.find(StudentClassroom, {
+          relations: ["classroom", "year"],
+          where: { year: { id: year.id }, classroom: { id: classroom.id } },
+          order: { rosterNumber: "DESC" },
+          take: 1,
+        });
 
-  async putLiteracyBeforeLevel(body: { user: { user: number, username: string, category: number, iat: number, exp: number }, studentClassroom: StudentClassroom, literacyLevel: LiteracyLevel }) {
-
-    try {
-
-      const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ''))
-
-      const register = await AppDataSource.getRepository(LiteracyFirst).findOne({
-        relations: ['literacyLevel'],
-        where: { student: { id: body.studentClassroom.student.id } }
-      })
-
-      if (!register) { return { status: 404, message: 'Registro não encontrado' } }
-
-      if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
-
-        register.literacyLevel = body.literacyLevel
-        await AppDataSource.getRepository(LiteracyFirst).save(register)
-
-        return { status: 201, data: {} }
-
-      }
-
-      return { status: 201, data: {} }
-    } catch (error: any) { return { status: 500, message: error.message } }
-
-  }
-
-  override async updateId(studentId: number | string, body: any) {
-
-    try {
-
-      const userTeacher = await this.teacherByUser(body.user.user)
-
-      const student = await this.repository
-        .findOne({ relations: ['person', 'studentDisabilities.disability', 'state'], where: { id: Number(studentId) } }) as Student;
-
-      const bodyClassroom = await AppDataSource.getRepository(Classroom)
-        .findOne({ where: { id: body.classroom } })
-
-      const arrayOfRelations = [
-        'student',
-        'classroom',
-        'literacies.literacyTier',
-        'literacies.literacyLevel',
-        'textGenderGrades.textGender',
-        'textGenderGrades.textGenderExam',
-        'textGenderGrades.textGenderExamTier',
-        'textGenderGrades.textGenderExamLevel',
-        'year'
-      ]
-
-      const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
-        .findOne({ relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } }) as StudentClassroom
-
-      if (!student) { return { status: 404, message: 'Registro não encontrado' } }
-      if (!studentClassroom) { return { status: 404, message: 'Registro não encontrado' } }
-      if (!bodyClassroom) { return { status: 404, message: 'Sala não encontrada' } }
-
-      const composedBodyStudentRa = `${body.ra}${body.dv}`
-      const composedStudentRa = `${student.ra}${student.dv}`
-
-      if (composedStudentRa !== composedBodyStudentRa) {
-        const exists = await this.repository.findOne({ where: { ra: body.ra, dv: body.dv } })
-        if (exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
-      }
-
-      const canChange = [pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR, pc.COORDENADOR, pc.SECRETARIO]
-
-      if (!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
-
-      if (studentClassroom?.classroom.id != bodyClassroom.id && canChange.includes(userTeacher.person.category.id)) {
-
-        const newClassroomNumber = Number(bodyClassroom.shortName.replace(/\D/g, ''))
-        const oldClassroomNumber = Number(studentClassroom.classroom.shortName.replace(/\D/g, ''))
-
-        if (newClassroomNumber < oldClassroomNumber) { return { status: 404, message: 'Não é possível alterar a sala para uma sala com número menor que a atual.' } }
-
-        await AppDataSource.getRepository(StudentClassroom).save({ ...studentClassroom, endedAt: new Date() })
-
-        const currentYear = await this.currentYear()
-
-        const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-          .find({
-            relations: ['classroom', 'year'],
-            where: {
-              year: { id: currentYear.id },
-              classroom: { id: bodyClassroom.id }
-            },
-            order: { rosterNumber: 'DESC' },
-            take: 1
-          })
-
-        let last = 1
+        let last = 1;
         if (lastRosterNumber[0]?.rosterNumber) {
-          last = lastRosterNumber[0].rosterNumber + 1
+          last = lastRosterNumber[0].rosterNumber + 1;
         }
 
-        const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
+        const studentClassroom = (await transaction.save(StudentClassroom, {
           student,
-          classroom: bodyClassroom,
-          year: currentYear,
+          classroom,
+          year,
           rosterNumber: last,
-          startedAt: new Date()
-        }) as StudentClassroom
+          startedAt: new Date(),
+        })) as StudentClassroom;
 
-        const notDigit = /\D/g
-        const classroomNumber = Number(bodyClassroom.shortName.replace(notDigit, ''))
+        const notDigit = /\D/g;
+        const classroomNumber = Number(
+          studentClassroom.classroom.shortName.replace(notDigit, ""),
+        );
+
+        const newTransferStatus = (await transaction.findOne(TransferStatus, {
+          where: {
+            id: 5,
+            name: "Novo",
+          },
+        })) as TransferStatus;
+
+        const newTransfer = new Transfer();
+        newTransfer.startedAt = new Date();
+        newTransfer.endedAt = new Date();
+        newTransfer.requester = teacher;
+        newTransfer.requestedClassroom = classroom;
+        newTransfer.currentClassroom = classroom;
+        newTransfer.receiver = teacher;
+        newTransfer.student = student;
+        newTransfer.status = newTransferStatus;
+        newTransfer.year = await this.currentYear();
+
+        await transaction.save(Transfer, newTransfer);
 
         if (classroomNumber >= 1 && classroomNumber <= 3) {
+          const literacyTier = (await transaction.find(
+            LiteracyTier,
+          )) as LiteracyTier[];
 
-          const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
-
-          if (
-            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
-            oldClassroomNumber === newClassroomNumber &&
-            studentClassroom.year.id === newStudentClassroom.year.id
-          ) {
-
-            for (let tier of literacyTier) {
-
-              const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id && el.literacyLevel != null)
-
-              if (element) {
-
-                await AppDataSource.getRepository(Literacy).save({
-                  studentClassroom: newStudentClassroom,
-                  literacyTier: element.literacyTier,
-                  literacyLevel: element.literacyLevel,
-                  toRate: false
-                })
-              } else {
-
-                await AppDataSource.getRepository(Literacy).save({
-                  studentClassroom: newStudentClassroom,
-                  literacyTier: tier
-                })
-              }
-            }
-          } else {
-
-            for (let tier of literacyTier) {
-
-              await AppDataSource.getRepository(Literacy).save({
-                studentClassroom: newStudentClassroom,
-                literacyTier: tier
-              })
-            }
+          for (let tier of literacyTier) {
+            await transaction.save(Literacy, {
+              studentClassroom,
+              literacyTier: tier,
+            });
           }
+        }
+
+        if (classroomNumber >= 1 && classroomNumber <= 3) {
+          const firstLiteracyLevel = new LiteracyFirst();
+          firstLiteracyLevel.student = student;
+
+          await transaction.save(LiteracyFirst, firstLiteracyLevel);
         }
 
         if (classroomNumber === 4 || classroomNumber === 5) {
-          const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
-          const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
-          const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
-            where: { classroomNumber: classroomNumber },
-            relations: ['textGender']
-          }) as TextGenderClassroom[]
+          const textGenderExam = await transaction.find(TextGenderExam);
+          const textGenderExamTier = await transaction.find(TextGenderExamTier);
+          const textGenderClassroom = await transaction.find(
+            TextGenderClassroom,
+            {
+              where: { classroomNumber: classroomNumber },
+              relations: ["textGender"],
+            },
+          );
 
-          if (
-            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
-            oldClassroomNumber === newClassroomNumber &&
-            studentClassroom.year.id === newStudentClassroom.year.id
-          ) {
+          for (let tg of textGenderClassroom) {
+            for (let tier of textGenderExamTier) {
+              for (let exam of textGenderExam) {
+                const textGenderGrade = new TextGenderGrade();
+                textGenderGrade.studentClassroom = studentClassroom;
+                textGenderGrade.textGender = tg.textGender;
+                textGenderGrade.textGenderExam = exam;
+                textGenderGrade.textGenderExamTier = tier;
 
-            for (let tg of textGenderClassroom) {
-              for (let tier of textGenderExamTier) {
-                for (let exam of textGenderExam) {
+                await transaction.save(TextGenderGrade, textGenderGrade);
+              }
+            }
+          }
+        }
+      });
 
-                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
+      return { status: 201, data: student as unknown as Student };
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
+  }
 
-                  if (element) {
+  async putLiteracyBeforeLevel(body: {
+    user: {
+      user: number;
+      username: string;
+      category: number;
+      iat: number;
+      exp: number;
+    };
+    studentClassroom: StudentClassroom;
+    literacyLevel: LiteracyLevel;
+  }) {
+    try {
+      await AppDataSource.transaction(async (transaction) => {
+        const classroomNumber = Number(
+          body.studentClassroom.classroom.shortName.replace(/\D/g, ""),
+        );
 
-                    await AppDataSource.getRepository(TextGenderGrade).save({
-                      studentClassroom: newStudentClassroom,
-                      textGender: element.textGender,
-                      textGenderExam: element.textGenderExam,
-                      textGenderExamTier: element.textGenderExamTier,
-                      textGenderExamLevel: element.textGenderExamLevel,
-                      toRate: false
-                    })
-                  } else {
+        const register = await transaction.findOne(LiteracyFirst, {
+          relations: ["literacyLevel"],
+          where: { student: { id: body.studentClassroom.student.id } },
+        });
 
-                    await AppDataSource.getRepository(TextGenderGrade).save({
+        if (!register) {
+          return { status: 404, message: "Registro não encontrado" };
+        }
+
+        if (
+          classroomNumber >= 1 &&
+          classroomNumber <= 3 &&
+          register &&
+          register.literacyLevel === null
+        ) {
+          register.literacyLevel = body.literacyLevel;
+          await transaction.save(LiteracyFirst, register);
+          return { status: 201, data: {} };
+        }
+      });
+      return { status: 201, data: {} };
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
+  }
+
+  override async updateId(studentId: number | string, body: any) {
+    try {
+      const userTeacherFromFront = await this.teacherByUser(body.user.user);
+
+      let result: any;
+
+      await AppDataSource.transaction(async (transaction) => {
+        const student = (await transaction.findOne(Student, {
+          relations: ["person", "studentDisabilities.disability", "state"],
+          where: { id: Number(studentId) },
+        })) as Student;
+
+        const bodyClassroom = await transaction.findOne(Classroom, {
+          where: { id: body.classroom },
+        });
+
+        const arrayOfRelations = [
+          "student",
+          "classroom",
+          "literacies.literacyTier",
+          "literacies.literacyLevel",
+          "textGenderGrades.textGender",
+          "textGenderGrades.textGenderExam",
+          "textGenderGrades.textGenderExamTier",
+          "textGenderGrades.textGenderExamLevel",
+          "year",
+        ];
+
+        const studentClassroom = await transaction.findOne(StudentClassroom, {
+          relations: arrayOfRelations,
+          where: {
+            id: Number(body.currentStudentClassroomId),
+            student: { id: student.id },
+            endedAt: IsNull(),
+          },
+        });
+
+        if (!student) {
+          return { status: 404, message: "Registro não encontrado" };
+        }
+        if (!studentClassroom) {
+          return { status: 404, message: "Registro não encontrado" };
+        }
+        if (!bodyClassroom) {
+          return { status: 404, message: "Sala não encontrada" };
+        }
+
+        const composedBodyStudentRa = `${body.ra}${body.dv}`;
+        const composedStudentRa = `${student.ra}${student.dv}`;
+
+        if (composedStudentRa !== composedBodyStudentRa) {
+          const exists = await transaction.findOne(Student, {
+            where: { ra: body.ra, dv: body.dv },
+          });
+          if (exists) {
+            return { status: 409, message: "Já existe um aluno com esse RA" };
+          }
+        }
+
+        const canChange = [
+          pc.ADMINISTRADOR,
+          pc.SUPERVISOR,
+          pc.DIRETOR,
+          pc.VICE_DIRETOR,
+          pc.COORDENADOR,
+          pc.SECRETARIO,
+        ];
+
+        if (
+          !canChange.includes(userTeacherFromFront.person.category.id) &&
+          studentClassroom?.classroom.id != bodyClassroom.id
+        ) {
+          return {
+            status: 403,
+            message:
+              "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.",
+          };
+        }
+
+        if (
+          studentClassroom?.classroom.id != bodyClassroom.id &&
+          canChange.includes(userTeacherFromFront.person.category.id)
+        ) {
+          const newClassroomNumber = Number(
+            bodyClassroom.shortName.replace(/\D/g, ""),
+          );
+          const oldClassroomNumber = Number(
+            studentClassroom.classroom.shortName.replace(/\D/g, ""),
+          );
+
+          if (newClassroomNumber < oldClassroomNumber) {
+            return {
+              status: 404,
+              message:
+                "Não é possível alterar a sala para uma sala com número menor que a atual.",
+            };
+          }
+
+          await transaction.save(StudentClassroom, {
+            ...studentClassroom,
+            endedAt: new Date(),
+          });
+
+          const currentYear = (await transaction.findOne(Year, {
+            where: { endedAt: IsNull(), active: true },
+          })) as Year;
+
+          const lastRosterNumber = await transaction.find(StudentClassroom, {
+            relations: ["classroom", "year"],
+            where: {
+              year: { id: currentYear.id },
+              classroom: { id: bodyClassroom.id },
+            },
+            order: { rosterNumber: "DESC" },
+            take: 1,
+          });
+
+          let last = 1;
+          if (lastRosterNumber[0]?.rosterNumber) {
+            last = lastRosterNumber[0].rosterNumber + 1;
+          }
+
+          const newStudentClassroom = await transaction.save(StudentClassroom, {
+            student,
+            classroom: bodyClassroom,
+            year: currentYear,
+            rosterNumber: last,
+            startedAt: new Date(),
+          });
+
+          const notDigit = /\D/g;
+          const classroomNumber = Number(
+            bodyClassroom.shortName.replace(notDigit, ""),
+          );
+
+          if (classroomNumber >= 1 && classroomNumber <= 3) {
+            const literacyTier = await transaction.find(LiteracyTier);
+
+            if (
+              studentClassroom.classroom.id !=
+                newStudentClassroom.classroom.id &&
+              oldClassroomNumber === newClassroomNumber &&
+              studentClassroom.year.id === newStudentClassroom.year.id
+            ) {
+              for (let tier of literacyTier) {
+                const element = studentClassroom.literacies.find(
+                  (el) =>
+                    el.literacyTier.id === tier.id && el.literacyLevel != null,
+                );
+
+                if (element) {
+                  await transaction.save(Literacy, {
+                    studentClassroom: newStudentClassroom,
+                    literacyTier: element.literacyTier,
+                    literacyLevel: element.literacyLevel,
+                    toRate: false,
+                  });
+                } else {
+                  await transaction.save(Literacy, {
+                    studentClassroom: newStudentClassroom,
+                    literacyTier: tier,
+                  });
+                }
+              }
+            } else {
+              for (let tier of literacyTier) {
+                await transaction.save(Literacy, {
+                  studentClassroom: newStudentClassroom,
+                  literacyTier: tier,
+                });
+              }
+            }
+          }
+
+          if (classroomNumber === 4 || classroomNumber === 5) {
+            const textGenderExam = await transaction.find(TextGenderExam);
+            const textGenderExamTier =
+              await transaction.find(TextGenderExamTier);
+            const textGenderClassroom = await transaction.find(
+              TextGenderClassroom,
+              {
+                where: { classroomNumber: classroomNumber },
+                relations: ["textGender"],
+              },
+            );
+
+            if (
+              studentClassroom.classroom.id !=
+                newStudentClassroom.classroom.id &&
+              oldClassroomNumber === newClassroomNumber &&
+              studentClassroom.year.id === newStudentClassroom.year.id
+            ) {
+              for (let tg of textGenderClassroom) {
+                for (let tier of textGenderExamTier) {
+                  for (let exam of textGenderExam) {
+                    const element = studentClassroom.textGenderGrades.find(
+                      (el) =>
+                        el.textGender.id === tg.textGender.id &&
+                        el.textGenderExam.id === exam.id &&
+                        el.textGenderExamTier.id === tier.id &&
+                        el.textGenderExamLevel != null,
+                    );
+
+                    if (element) {
+                      await transaction.save(TextGenderGrade, {
+                        studentClassroom: newStudentClassroom,
+                        textGender: element.textGender,
+                        textGenderExam: element.textGenderExam,
+                        textGenderExamTier: element.textGenderExamTier,
+                        textGenderExamLevel: element.textGenderExamLevel,
+                        toRate: false,
+                      });
+                    } else {
+                      await transaction.save(TextGenderGrade, {
+                        studentClassroom: newStudentClassroom,
+                        textGender: tg.textGender,
+                        textGenderExam: exam,
+                        textGenderExamTier: tier,
+                      });
+                    }
+                  }
+                }
+              }
+            } else {
+              for (let tg of textGenderClassroom) {
+                for (let tier of textGenderExamTier) {
+                  for (let exam of textGenderExam) {
+                    await transaction.save(TextGenderGrade, {
                       studentClassroom: newStudentClassroom,
                       textGender: tg.textGender,
                       textGenderExam: exam,
-                      textGenderExamTier: tier
-                    })
+                      textGenderExamTier: tier,
+                    });
                   }
                 }
               }
             }
-          } else {
-
-            for (let tg of textGenderClassroom) {
-              for (let tier of textGenderExamTier) {
-                for (let exam of textGenderExam) {
-
-                  await AppDataSource.getRepository(TextGenderGrade).save({
-                    studentClassroom: newStudentClassroom,
-                    textGender: tg.textGender,
-                    textGenderExam: exam,
-                    textGenderExamTier: tier
-                  })
-                  
-                }
-              }
-            }
           }
+
+          const newTransfer = new Transfer();
+          newTransfer.startedAt = new Date();
+          newTransfer.endedAt = new Date();
+          newTransfer.requester = userTeacherFromFront;
+          newTransfer.requestedClassroom = bodyClassroom;
+          newTransfer.currentClassroom = studentClassroom.classroom;
+          newTransfer.receiver = userTeacherFromFront;
+          newTransfer.student = student;
+          newTransfer.status = (await AppDataSource.getRepository(
+            TransferStatus,
+          ).findOne({
+            where: {
+              id: 1,
+              name: "Aceitada",
+            },
+          })) as TransferStatus;
+          newTransfer.year = await this.currentYear();
+          await AppDataSource.getRepository(Transfer).save(newTransfer);
         }
 
-        const newTransfer = new Transfer()
-        newTransfer.startedAt = new Date()
-        newTransfer.endedAt = new Date()
-        newTransfer.requester = userTeacher
-        newTransfer.requestedClassroom = bodyClassroom
-        newTransfer.currentClassroom = studentClassroom.classroom
-        newTransfer.receiver = userTeacher
-        newTransfer.student = student
-        newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus
-        newTransfer.year = await this.currentYear()
-        await AppDataSource.getRepository(Transfer).save(newTransfer)
-      }
-
-      if (studentClassroom.classroom.id === bodyClassroom.id) {
-        await AppDataSource.getRepository(StudentClassroom)
-          .save({
+        if (studentClassroom.classroom.id === bodyClassroom.id) {
+          await transaction.save(StudentClassroom, {
             ...studentClassroom,
-            rosterNumber: body.rosterNumber
-          })
-      }
+            rosterNumber: body.rosterNumber,
+          });
+        }
 
-      student.ra = body.ra;
-      student.dv = body.dv;
-      student.state = await this.state(body.state);
-      student.observationOne = body.observationOne;
-      student.observationTwo = body.observationTwo;
-      student.person.name = body.name;
-      student.person.birth = body.birth;
-      const register = await this.repository.save(student) as Student;
+        const studentState = (await transaction.findOne(State, {
+          where: { id: body.state },
+        })) as State;
 
-      const stDisabilities = student.studentDisabilities
-        .filter((studentDisability) => !studentDisability.endedAt);
+        student.ra = body.ra;
+        student.dv = body.dv;
+        student.state = studentState;
+        student.observationOne = body.observationOne;
+        student.observationTwo = body.observationTwo;
+        student.person.name = body.name;
+        student.person.birth = body.birth;
 
-      await this.setDisabilities(register, stDisabilities, body.disabilities);
+        const register = await transaction.save(Student, student);
 
-      const preResult = await this.student(Number(studentId));
-      const result = this.formartStudentResponse(preResult)
+        const stDisabilities = student.studentDisabilities.filter(
+          (studentDisability) => !studentDisability.endedAt,
+        );
 
+        await this.setDisabilities(
+          register,
+          stDisabilities,
+          body.disabilities,
+          transaction,
+        );
+
+        const preResult = await this.student(Number(studentId), transaction);
+        result = this.formartStudentResponse(preResult);
+      });
       return { status: 200, data: result };
     } catch (error: any) {
-      return { status: 500, message: error.message }
+      return { status: 500, message: error.message };
     }
   }
 
-  async setDisabilities(student: Student, studentDisabilities: StudentDisability[], body: number[]) {
-    const currentDisabilities = studentDisabilities.map((studentDisability) => studentDisability.disability.id)
+  async setDisabilities(
+    student: Student,
+    studentDisabilities: StudentDisability[],
+    body: number[],
+    transaction: EntityManager,
+  ) {
+    const currentDisabilities = studentDisabilities.map(
+      (studentDisability) => studentDisability.disability.id,
+    );
 
-    const create = body.filter((disabilityId) => !currentDisabilities.includes(disabilityId))
+    const create = body.filter(
+      (disabilityId) => !currentDisabilities.includes(disabilityId),
+    );
 
     if (create.length) {
-      await AppDataSource.getRepository(StudentDisability).save(create.map(disabilityId => {
-        return { student, disability: { id: disabilityId }, startedAt: new Date() }
-      }))
+      const disabilities = create.map((disabilityId) => {
+        return {
+          student,
+          disability: { id: disabilityId },
+          startedAt: new Date(),
+        };
+      });
+      await transaction.save(StudentDisability, disabilities);
     }
 
-    const remove = currentDisabilities.filter((disabilityId) => !body.includes(disabilityId))
+    const remove = currentDisabilities.filter(
+      (disabilityId) => !body.includes(disabilityId),
+    );
 
     if (remove.length) {
       for (let item of remove) {
-        const studentDisability = studentDisabilities.find((studentDisability) => studentDisability.disability.id === item)
+        const studentDisability = studentDisabilities.find(
+          (studentDisability) => studentDisability.disability.id === item,
+        );
         if (studentDisability) {
-          studentDisability.endedAt = new Date()
-          await AppDataSource.getRepository(StudentDisability).save(studentDisability)
+          studentDisability.endedAt = new Date();
+          await transaction.save(StudentDisability, studentDisability);
         }
       }
     }
   }
-  async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: pc.ALUNO } }) as PersonCategory
-  }
-  async disabilities(ids: number[]) {
-    return await AppDataSource.getRepository(Disability).findBy({ id: In(ids) })
-  }
-  async student(studentId: number) {
 
-    return await AppDataSource
+  async studentCategory() {
+    return (await AppDataSource.getRepository(PersonCategory).findOne({
+      where: { id: pc.ALUNO },
+    })) as PersonCategory;
+  }
+
+  async disabilities(ids: number[]) {
+    return await AppDataSource.getRepository(Disability).findBy({
+      id: In(ids),
+    });
+  }
+
+  async student(studentId: number, transaction: EntityManager) {
+    return await transaction
       .createQueryBuilder()
       .select([
-        'student.id',
-        'student.ra',
-        'student.dv',
-        'student.observationOne',
-        'student.observationTwo',
-        'state.id',
-        'state.acronym',
-        'person.id',
-        'person.name',
-        'person.birth',
-        'studentClassroom.id',
-        'studentClassroom.rosterNumber',
-        'studentClassroom.startedAt',
-        'studentClassroom.endedAt',
-        'classroom.id',
-        'classroom.shortName',
-        'school.id',
-        'school.shortName',
-        'GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities',
+        "student.id",
+        "student.ra",
+        "student.dv",
+        "student.observationOne",
+        "student.observationTwo",
+        "state.id",
+        "state.acronym",
+        "person.id",
+        "person.name",
+        "person.birth",
+        "studentClassroom.id",
+        "studentClassroom.rosterNumber",
+        "studentClassroom.startedAt",
+        "studentClassroom.endedAt",
+        "classroom.id",
+        "classroom.shortName",
+        "school.id",
+        "school.shortName",
+        "GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities",
       ])
-      .from(Student, 'student')
-      .leftJoin('student.person', 'person')
-      .leftJoin('student.studentDisabilities', 'studentDisabilities', 'studentDisabilities.endedAt IS NULL')
-      .leftJoin('studentDisabilities.disability', 'disability')
-      .leftJoin('student.state', 'state')
-      .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
-      .leftJoin('studentClassroom.classroom', 'classroom')
-      .leftJoin('classroom.school', 'school')
-      .where('student.id = :studentId', { studentId })
-      .groupBy('studentClassroom.id')
-      .getRawOne()
+      .from(Student, "student")
+      .leftJoin("student.person", "person")
+      .leftJoin(
+        "student.studentDisabilities",
+        "studentDisabilities",
+        "studentDisabilities.endedAt IS NULL",
+      )
+      .leftJoin("studentDisabilities.disability", "disability")
+      .leftJoin("student.state", "state")
+      .leftJoin(
+        "student.studentClassrooms",
+        "studentClassroom",
+        "studentClassroom.endedAt IS NULL",
+      )
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoin("classroom.school", "school")
+      .where("student.id = :studentId", { studentId })
+      .groupBy("studentClassroom.id")
+      .getRawOne();
   }
-  async studentsClassrooms(options: { search?: string, year?: string, teacherClasses?: { id: number, classrooms: number[] }, owner?: string }, isAdminSupervisor: boolean) {
 
+  async studentsClassrooms(
+    options: {
+      search?: string;
+      year?: string;
+      teacherClasses?: { id: number; classrooms: number[] };
+      owner?: string;
+    },
+    isAdminSupervisor: boolean,
+  ) {
     const isOwner = options.owner === ISOWNER.OWNER;
     const yearName = options.year ?? (await this.currentYear()).name;
-    let allClassrooms: Classroom[] = []
-    if (isAdminSupervisor) { allClassrooms = await AppDataSource.getRepository(Classroom).find() as Classroom[] }
+    let allClassrooms: Classroom[] = [];
+    if (isAdminSupervisor) {
+      allClassrooms = (await AppDataSource.getRepository(
+        Classroom,
+      ).find()) as Classroom[];
+    }
 
     const queryBuilder = AppDataSource.createQueryBuilder();
     queryBuilder
       .select([
-        'studentClassroom.id',
-        'studentClassroom.rosterNumber',
-        'studentClassroom.startedAt',
-        'studentClassroom.endedAt',
-        'student.id',
-        'student.ra',
-        'student.dv',
-        'state.id',
-        'state.acronym',
-        'person.id',
-        'person.name',
-        'person.birth',
-        'classroom.id',
-        'classroom.shortName',
-        'school.id',
-        'school.shortName',
-        'transfers.id',
-        'transfers.startedAt',
-        'requesterPerson.name',
-        'transfersStatus.name'
+        "studentClassroom.id",
+        "studentClassroom.rosterNumber",
+        "studentClassroom.startedAt",
+        "studentClassroom.endedAt",
+        "student.id",
+        "student.ra",
+        "student.dv",
+        "state.id",
+        "state.acronym",
+        "person.id",
+        "person.name",
+        "person.birth",
+        "classroom.id",
+        "classroom.shortName",
+        "school.id",
+        "school.shortName",
+        "transfers.id",
+        "transfers.startedAt",
+        "requesterPerson.name",
+        "transfersStatus.name",
       ])
-      .from(Student, 'student')
-      .leftJoin('student.person', 'person')
-      .leftJoin('student.state', 'state')
-      .leftJoin('student.transfers', 'transfers', 'transfers.endedAt IS NULL')
-      .leftJoin('transfers.status', 'transfersStatus')
-      .leftJoin('transfers.requester', 'requester')
-      .leftJoin('requester.person', 'requesterPerson')
-      .leftJoin('student.studentClassrooms', 'studentClassroom', 'studentClassroom.endedAt IS NULL')
-      .leftJoin('studentClassroom.classroom', 'classroom')
-      .leftJoin('classroom.school', 'school')
-      .leftJoin('studentClassroom.year', 'year')
-      .where('year.name = :yearName', { yearName })
-      .andWhere(new Brackets(qb => {
-        qb.where('person.name LIKE :search', { search: `%${options.search}%` })
-          .orWhere('student.ra LIKE :search', { search: `%${options.search}%` });
-      }))
-      .andWhere(new Brackets(qb => {
-        if (!isAdminSupervisor) {
-          qb.andWhere(isOwner ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: options.teacherClasses?.classrooms })
-        } else {
-          qb.andWhere(isOwner ? 'classroom.id IN (:...classrooms)' : 'classroom.id NOT IN (:...classrooms)', { classrooms: allClassrooms.map(classroom => classroom.id) })
-        }
-      }))
-      .orderBy('school.shortName', 'ASC')
-      .addOrderBy('classroom.shortName', 'ASC')
-      .addOrderBy('person.name', 'ASC')
+      .from(Student, "student")
+      .leftJoin("student.person", "person")
+      .leftJoin("student.state", "state")
+      .leftJoin("student.transfers", "transfers", "transfers.endedAt IS NULL")
+      .leftJoin("transfers.status", "transfersStatus")
+      .leftJoin("transfers.requester", "requester")
+      .leftJoin("requester.person", "requesterPerson")
+      .leftJoin(
+        "student.studentClassrooms",
+        "studentClassroom",
+        "studentClassroom.endedAt IS NULL",
+      )
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoin("classroom.school", "school")
+      .leftJoin("studentClassroom.year", "year")
+      .where("year.name = :yearName", { yearName })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where("person.name LIKE :search", {
+            search: `%${options.search}%`,
+          }).orWhere("student.ra LIKE :search", {
+            search: `%${options.search}%`,
+          });
+        }),
+      )
+      .andWhere(
+        new Brackets((qb) => {
+          if (!isAdminSupervisor) {
+            qb.andWhere(
+              isOwner
+                ? "classroom.id IN (:...classrooms)"
+                : "classroom.id NOT IN (:...classrooms)",
+              { classrooms: options.teacherClasses?.classrooms },
+            );
+          } else {
+            qb.andWhere(
+              isOwner
+                ? "classroom.id IN (:...classrooms)"
+                : "classroom.id NOT IN (:...classrooms)",
+              { classrooms: allClassrooms.map((classroom) => classroom.id) },
+            );
+          }
+        }),
+      )
+      .orderBy("school.shortName", "ASC")
+      .addOrderBy("classroom.shortName", "ASC")
+      .addOrderBy("person.name", "ASC");
 
     const preResult = await queryBuilder.getRawMany();
 
@@ -801,16 +1165,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             name: item.person_name,
             birth: item.person_birth,
           },
-          transfer: item.transfers_id ? {
-            id: item.transfers_id,
-            startedAt: item.transfers_startedAt,
-            status: {
-              name: item.transfersStatus_name,
-            },
-            requester: {
-              name: item.requesterPerson_name,
-            }
-          } : false,
+          transfer: item.transfers_id
+            ? {
+                id: item.transfers_id,
+                startedAt: item.transfers_startedAt,
+                status: {
+                  name: item.transfersStatus_name,
+                },
+                requester: {
+                  name: item.requesterPerson_name,
+                },
+              }
+            : false,
         },
         classroom: {
           id: item.classroom_id,
@@ -821,19 +1187,21 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             shortName: item.school_shortName,
           },
         },
-      }
-    })
+      };
+    });
   }
+
   createStudent(body: SaveStudent, person: Person, state: State) {
-    const student = new Student()
-    student.person = person
-    student.ra = body.ra
-    student.dv = body.dv
-    student.state = state
-    student.observationOne = body.observationOne
-    student.observationTwo = body.observationTwo
-    return student
+    const student = new Student();
+    student.person = person;
+    student.ra = body.ra;
+    student.dv = body.dv;
+    student.state = state;
+    student.observationOne = body.observationOne;
+    student.observationTwo = body.observationTwo;
+    return student;
   }
+
   formartStudentResponse(student: any) {
     return {
       id: student.studentClassroom_id,
@@ -848,14 +1216,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         observationTwo: student.student_observationTwo,
         state: {
           id: student.state_id,
-          acronym: student.state_acronym
+          acronym: student.state_acronym,
         },
         person: {
           id: student.person_id,
           name: student.person_name,
           birth: student.person_birth,
         },
-        disabilities: student.disabilities?.split(',').map((disabilityId: string) => Number(disabilityId)) ?? [],
+        disabilities:
+          student.disabilities
+            ?.split(",")
+            .map((disabilityId: string) => Number(disabilityId)) ?? [],
       },
       classroom: {
         id: student.classroom_id,
@@ -863,43 +1234,66 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         school: {
           id: student.school_id,
           shortName: student.school_shortName,
-        }
-      }
-    }
+        },
+      },
+    };
   }
 
   getOneClassroom(studentClassrooms: StudentClassroom[]) {
-    const maxEndedAtIndex = studentClassrooms.findIndex(sc => getTimeZone(sc.endedAt) === Math.max(...studentClassrooms.map(sc => getTimeZone(sc.endedAt))));
+    const maxEndedAtIndex = studentClassrooms.findIndex(
+      (sc) =>
+        getTimeZone(sc.endedAt) ===
+        Math.max(...studentClassrooms.map((sc) => getTimeZone(sc.endedAt))),
+    );
     return studentClassrooms[maxEndedAtIndex];
   }
 
-  async graduate(studentId: number | string, body: { user: UserInterface, student: { id: number, active: boolean, classroom: Classroom }, year: number }) {
-
-    const userTeacher = await this.teacherByUser(body.user.user)
+  async graduate(
+    studentId: number | string,
+    body: {
+      user: UserInterface;
+      student: { id: number; active: boolean; classroom: Classroom };
+      year: number;
+    },
+  ) {
+    const userTeacher = await this.teacherByUser(body.user.user);
 
     try {
+      const student = (await AppDataSource.getRepository(Student).findOne({
+        where: { id: Number(studentId) },
+      })) as Student;
+      if (!student) {
+        return { status: 404, message: "Registro não encontrado" };
+      }
 
-      const student = await AppDataSource.getRepository(Student).findOne({ where: { id: Number(studentId) } }) as Student
-      if (!student) { return { status: 404, message: 'Registro não encontrado' } }
+      student.active = body.student.active;
+      await AppDataSource.getRepository(Student).save(student);
 
-      student.active = body.student.active
-      await AppDataSource.getRepository(Student).save(student)
-
-      const newTransfer = new Transfer()
-      newTransfer.startedAt = new Date()
-      newTransfer.endedAt = new Date()
-      newTransfer.requester = userTeacher
-      newTransfer.requestedClassroom = body.student.classroom
-      newTransfer.currentClassroom = body.student.classroom
-      newTransfer.receiver = userTeacher
-      newTransfer.student = student
-      newTransfer.status = await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 6, name: 'Formado' } }) as TransferStatus
-      newTransfer.year = await AppDataSource.getRepository(Year).findOne({ where: { id: body.year } }) as Year
-      await AppDataSource.getRepository(Transfer).save(newTransfer)
+      const newTransfer = new Transfer();
+      newTransfer.startedAt = new Date();
+      newTransfer.endedAt = new Date();
+      newTransfer.requester = userTeacher;
+      newTransfer.requestedClassroom = body.student.classroom;
+      newTransfer.currentClassroom = body.student.classroom;
+      newTransfer.receiver = userTeacher;
+      newTransfer.student = student;
+      newTransfer.status = (await AppDataSource.getRepository(
+        TransferStatus,
+      ).findOne({
+        where: {
+          id: 6,
+          name: "Formado",
+        },
+      })) as TransferStatus;
+      newTransfer.year = (await AppDataSource.getRepository(Year).findOne({
+        where: { id: body.year },
+      })) as Year;
+      await AppDataSource.getRepository(Transfer).save(newTransfer);
 
       return { status: 200, data: student };
-
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      return { status: 500, message: error.message };
+    }
   }
 }
 

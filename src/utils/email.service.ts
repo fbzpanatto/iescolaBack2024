@@ -1,22 +1,25 @@
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
-export async function mainEmail(email: string, password: string, post: boolean){
+export async function mainEmail(
+  email: string,
+  password: string,
+  post: boolean,
+) {
+  const url = "http://localhost:4200/home";
+  let info: SMTPTransport.SentMessageInfo;
 
-  const url = 'http://localhost:4200/home'
-  let info: SMTPTransport.SentMessageInfo
-  
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: "smtp.gmail.com",
     port: 465,
     secure: true,
     auth: {
-      user: 'appescola7@gmail.com',
-      pass: 'paev fpmr arym prsb',
-    }
-  })
+      user: "appescola7@gmail.com",
+      pass: "paev fpmr arym prsb",
+    },
+  });
 
-  if(post) {
+  if (post) {
     info = await transporter.sendMail({
       from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
       to: email,
@@ -30,8 +33,9 @@ export async function mainEmail(email: string, password: string, post: boolean){
         <p>Atenciosamente,</p>
         <p>Equipe IEScola</p>
       `,
-    })
-    return
+    });
+    console.log("Message sent: " + info.messageId);
+    return;
   }
 
   info = await transporter.sendMail({
@@ -46,7 +50,7 @@ export async function mainEmail(email: string, password: string, post: boolean){
       <p>Atenciosamente,</p>
       <p>Equipe IEScola</p>
     `,
-  })
-  
-  console.log('Message sent: ' + info.messageId);
+  });
+
+  console.log("Message sent: " + info.messageId);
 }

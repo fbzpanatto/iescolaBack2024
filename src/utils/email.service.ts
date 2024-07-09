@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
-export async function mainEmail(email: string, password?: string){
+export async function mainEmail(email: string, password: string, post: boolean){
 
   const url = 'http://localhost:4200/home'
   let info: SMTPTransport.SentMessageInfo
@@ -16,7 +16,7 @@ export async function mainEmail(email: string, password?: string){
     }
   })
 
-  if(!password) {
+  if(post) {
     info = await transporter.sendMail({
       from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
       to: email,
@@ -24,8 +24,9 @@ export async function mainEmail(email: string, password?: string){
       html: `
         <p>Olá,</p>
         <p>Uma conta IEscolApp acabou de ser criada para você.</p>
-        <p>Clique no link abaixo para criar uma nova senha:</p>
-        <a href="${url}">Redefinir Senha</a>
+        <p>Usuário: <b>${email}</b></p>
+        <p>Senha: <b>${password}</b></p>
+        <a href="${url}">Clique aqui para fazer login.</a>
         <p>Atenciosamente,</p>
         <p>Equipe IEScola</p>
       `,
@@ -40,7 +41,8 @@ export async function mainEmail(email: string, password?: string){
     html: `
       <p>Olá,</p>
       <p>Você solicitou um lembrete de senha para sua conta IEscolApp</p>
-      <p>A sua senha é: <b>${password}</b></p>
+      <p>Usuário: <b>${email}</b></p>
+      <p>Senha: <b>${password}</b></p>
       <p>Atenciosamente,</p>
       <p>Equipe IEScola</p>
     `,

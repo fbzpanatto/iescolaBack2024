@@ -17,7 +17,7 @@ class PasswordController {
 
       if(!teacher) { return { status: 404, message: 'Não foi possível encontrar o usuário informado.' } }
 
-      await mainEmail(body.email, teacher.person.user.password)
+      await mainEmail(body.email, teacher.person.user.password, false)
       .catch(e => console.log(e));
 
       return { status: 200, data: { message: "Email enviado com sucesso. Confira sua caixa de entrada."  } };

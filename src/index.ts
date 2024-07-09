@@ -109,6 +109,10 @@ route.use('/', (req, res) => {
 
 app.use(route)
 
+// app.listen(3000, () => {
+//   console.log('Server running at PORT:', 3000);
+// });
+
 AppDataSource.initialize()
   .then(() => {
     app.listen(3000, () => {

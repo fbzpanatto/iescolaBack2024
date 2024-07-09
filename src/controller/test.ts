@@ -15,7 +15,7 @@ import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
 import { Brackets, DeepPartial, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
 
@@ -48,7 +48,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
 
       const teacher = await this.teacherByUser(request?.body.user.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -160,7 +160,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
 
       const teacher = await this.teacherByUser(request?.body.user.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
@@ -397,7 +397,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
         .where(new Brackets(qb => {
-          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          if(userBody.category != pc.ADMINISTRADOR && userBody.category != pc.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))

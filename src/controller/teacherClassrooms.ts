@@ -4,7 +4,7 @@ import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import {Request} from "express";
 import {TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
-import {personCategories} from "../utils/personCategories";
+import {pc} from "../utils/personCategories";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -19,7 +19,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
 
       if(isAdminSupervisor) {
 

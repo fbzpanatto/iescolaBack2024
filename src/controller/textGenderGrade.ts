@@ -9,7 +9,7 @@ import { TextGender } from "../model/TextGender";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { BodyTextGenderExamGrade, UserInterface } from "../interfaces/interfaces";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
 import { Request } from "express";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
@@ -157,7 +157,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
     try {
 
       const teacher = await this.teacherByUser(userBody.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if (!classrooms.includes(Number(classId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
@@ -357,7 +357,7 @@ class TextGenderGradeController extends GenericController<EntityTarget<TextGende
         .leftJoin('textGenderGrade.textGenderExam', 'textGenderExam')
         .leftJoin('textGenderGrade.textGenderExamTier', 'textGenderExamTier')
         .where(new Brackets(qb => {
-          if (user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
+          if (user.category != pc.ADMINISTRADOR && user.category != pc.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))

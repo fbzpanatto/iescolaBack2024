@@ -1,4 +1,4 @@
-export const personCategories = {
+export const pc = {
   ADMINISTRADOR: 1,
   SUPERVISOR: 2,
   DIRETOR: 3,

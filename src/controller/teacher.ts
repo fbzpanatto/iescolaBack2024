@@ -23,7 +23,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { transferStatus } from "../utils/transferStatus";
 import { disciplineController } from "./discipline";
 import { classroomController } from "./classroom";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { personCategoryController } from "./personCategory";
 import { mainEmail } from "../utils/email.service";
 
@@ -61,8 +61,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacher = await this.teacherByUser(body.user.user);
       const teacherClasses = await this.teacherClassrooms(body?.user);
       const notInCategories = [
-        personCategories.ADMINISTRADOR,
-        personCategories.SUPERVISOR,
+        pc.ADMINISTRADOR,
+        pc.SUPERVISOR,
       ];
 
       const newResult = await AppDataSource.getRepository(Teacher)
@@ -73,14 +73,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoin("teacherClassDiscipline.classroom", "classroom")
         .where(
           new Brackets((qb) => {
-            if (teacher.person.category.id === personCategories.PROFESSOR) {
+            if (teacher.person.category.id === pc.PROFESSOR) {
               qb.where("teacher.id = :teacherId", { teacherId: teacher.id });
               return;
             }
 
             if (
-              teacher.person.category.id != personCategories.ADMINISTRADOR &&
-              teacher.person.category.id != personCategories.SUPERVISOR
+              teacher.person.category.id != pc.ADMINISTRADOR &&
+              teacher.person.category.id != pc.SUPERVISOR
             ) {
               qb.where("category.id NOT IN (:...categoryIds)", {
                 categoryIds: notInCategories,
@@ -111,8 +111,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
       const teacher = await this.teacherByUser(body.user.user);
       const cannotChange = [
-        personCategories.MONITOR_DE_INFORMATICA,
-        personCategories.PROFESSOR,
+        pc.MONITOR_DE_INFORMATICA,
+        pc.PROFESSOR,
       ];
 
       if (
@@ -214,7 +214,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async teacherCategory() {
     return (await AppDataSource.getRepository(PersonCategory).findOne({
-      where: { id: personCategories.PROFESSOR },
+      where: { id: pc.PROFESSOR },
     })) as PersonCategory;
   }
 
@@ -232,10 +232,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return { status: 404, message: "Data not found" };
       }
 
-      if (frontendTeacher.person.category.id === personCategories.SECRETARIO) {
+      if (frontendTeacher.person.category.id === pc.SECRETARIO) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -246,11 +246,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (frontendTeacher.person.category.id === personCategories.COORDENADOR) {
+      if (frontendTeacher.person.category.id === pc.COORDENADOR) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -262,13 +262,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if (
-        frontendTeacher.person.category.id === personCategories.VICE_DIRETOR
+        frontendTeacher.person.category.id === pc.VICE_DIRETOR
       ) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -279,13 +279,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (frontendTeacher.person.category.id === personCategories.DIRETOR) {
+      if (frontendTeacher.person.category.id === pc.DIRETOR) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -296,14 +296,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (frontendTeacher.person.category.id === personCategories.SUPERVISOR) {
+      if (frontendTeacher.person.category.id === pc.SUPERVISOR) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
-          personCategories.DIRETOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+          pc.DIRETOR,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -315,17 +315,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if (
-        frontendTeacher.person.category.id === personCategories.ADMINISTRADOR
+        frontendTeacher.person.category.id === pc.ADMINISTRADOR
       ) {
         const canEdit = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
-          personCategories.DIRETOR,
-          personCategories.SUPERVISOR,
-          personCategories.ADMINISTRADOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+          pc.DIRETOR,
+          pc.SUPERVISOR,
+          pc.ADMINISTRADOR,
         ];
         if (!canEdit.includes(databaseTeacher?.person.category.id)) {
           return {
@@ -337,9 +337,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if (
-        frontendTeacher.person.category.id === personCategories.PROFESSOR ||
+        frontendTeacher.person.category.id === pc.PROFESSOR ||
         (frontendTeacher.person.category.id ===
-          personCategories.MONITOR_DE_INFORMATICA &&
+          pc.MONITOR_DE_INFORMATICA &&
           frontendTeacher.id !== databaseTeacher.id)
       ) {
         return {
@@ -352,8 +352,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       databaseTeacher.person.birth = body.birth;
 
       if (
-        databaseTeacher.person.category.id === personCategories.ADMINISTRADOR ||
-        databaseTeacher.person.category.id === personCategories.SUPERVISOR
+        databaseTeacher.person.category.id === pc.ADMINISTRADOR ||
+        databaseTeacher.person.category.id === pc.SUPERVISOR
       ) {
         await AppDataSource.getRepository(Teacher).save(databaseTeacher);
         return { status: 200, data: databaseTeacher };
@@ -466,43 +466,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
   }
-
-  override async save(body: TeacherBody, options: SaveOptions | undefined) {
-
-    console.log(body)
+  
+  async saveTeacher(body: TeacherBody, options: SaveOptions | undefined) {
 
     try {
-      const user = (await this.teacherByUser(body.user.user)) as Teacher;
 
-      if (body.register) {
-        const registerExists = await AppDataSource.getRepository(
-          Teacher,
-        ).findOne({ where: { register: body.register } });
+      const teacherUserFromFront = (await this.teacherByUser(body.user.user)) as Teacher;
 
-        if (registerExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este número de matrícula.",
-          };
-        }
-      }
-
-      if (body.email) {
-        const emailExists = await AppDataSource.getRepository(Teacher).findOne({
-          where: { email: body.email },
-        });
-        if (emailExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este email.",
-          };
-        }
-      }
-
-      if (user.person.category.id === personCategories.SECRETARIO) {
+      if (teacherUserFromFront.person.category.id === pc.SECRETARIO) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -513,11 +487,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (user.person.category.id === personCategories.COORDENADOR) {
+      if (teacherUserFromFront.person.category.id === pc.COORDENADOR) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -528,12 +502,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (user.person.category.id === personCategories.VICE_DIRETOR) {
+      if (teacherUserFromFront.person.category.id === pc.VICE_DIRETOR) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -544,13 +518,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (user.person.category.id === personCategories.DIRETOR) {
+      if (teacherUserFromFront.person.category.id === pc.DIRETOR) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -561,14 +535,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (user.person.category.id === personCategories.SUPERVISOR) {
+      if (teacherUserFromFront.person.category.id === pc.SUPERVISOR) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
-          personCategories.DIRETOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+          pc.DIRETOR,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -579,16 +553,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         }
       }
 
-      if (user.person.category.id === personCategories.ADMINISTRADOR) {
+      if (teacherUserFromFront.person.category.id === pc.ADMINISTRADOR) {
         const canCreate = [
-          personCategories.PROFESSOR,
-          personCategories.MONITOR_DE_INFORMATICA,
-          personCategories.SECRETARIO,
-          personCategories.COORDENADOR,
-          personCategories.VICE_DIRETOR,
-          personCategories.DIRETOR,
-          personCategories.SUPERVISOR,
-          personCategories.ADMINISTRADOR,
+          pc.PROFESSOR,
+          pc.MONITOR_DE_INFORMATICA,
+          pc.SECRETARIO,
+          pc.COORDENADOR,
+          pc.VICE_DIRETOR,
+          pc.DIRETOR,
+          pc.SUPERVISOR,
+          pc.ADMINISTRADOR,
         ];
         if (!canCreate.includes(body.category.id)) {
           return {
@@ -598,66 +572,42 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           };
         }
       }
-
-      const category = (await AppDataSource.getRepository(
-        PersonCategory,
-      ).findOne({ where: { id: body.category.id } })) as PersonCategory;
-
-      const person = this.createPerson({
-        name: body.name,
-        birth: body.birth,
-        category,
-      });
-
-      const teacher = await this.repository.save(
-        this.createTeacher(person, body),
-      );
-
-      const classrooms = await AppDataSource.getRepository(Classroom).findBy({
-        id: In(body.teacherClasses),
-      });
-
-      const disciplines = await AppDataSource.getRepository(Discipline).findBy({
-        id: In(body.teacherDisciplines),
-      });
-
-      const { username, password, email } = this.generateUser(body);
-
-      await AppDataSource.getRepository(User).save({
-        person: person,
-        username,
-        password,
-        email,
-      });
-
-      if (
-        body.category.id === personCategories.ADMINISTRADOR ||
-        body.category.id === personCategories.SUPERVISOR
-      ) {
-        return { status: 201, data: teacher };
-      }
-
-      for (let classroom of classrooms) {
-        for (let discipline of disciplines) {
-          const teacherClassDiscipline = new TeacherClassDiscipline();
-          teacherClassDiscipline.teacher = teacher;
-          teacherClassDiscipline.classroom = classroom;
-          teacherClassDiscipline.discipline = discipline;
-          teacherClassDiscipline.startedAt = new Date();
-          await teacherClassDisciplineController.save(
-            teacherClassDiscipline,
-            options,
-          );
-        }
-      }
-
-      await mainEmail(body.email)
-      .catch(e => console.log(e));
       
-      return { status: 201, data: teacher };
-    } catch (error: any) {
-      console.log(error)
-       return { status: 500, message: error.message } }
+      return await AppDataSource.transaction(async transaction => {
+
+        const registerExists = await transaction.findOne(Teacher, { where: { register: body.register } });
+        if (registerExists) { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
+
+        const emailExists = await transaction.findOne(Teacher, { where: { email: body.email } });
+        if (emailExists) { return { status: 409, message: "Já existe um registro com este email." } }
+
+        const category = await transaction.findOne(PersonCategory, { where: { id: body.category.id } }) as PersonCategory
+        const person = this.createPerson({ name: body.name, birth: body.birth, category });
+        const teacher = await transaction.save(Teacher, this.createTeacher(person, body));
+
+        const { username, password, email } = this.generateUser(body);
+        await transaction.save(User, { person, username, email, password });
+
+        if ( body.category.id === pc.ADMINISTRADOR || body.category.id === pc.SUPERVISOR ) { return { status: 201, data: teacher }}
+
+        const classrooms = await transaction.findBy(Classroom, { id: In(body.teacherClasses) })
+        const disciplines = await transaction.findBy(Discipline, {id: In(body.teacherDisciplines)})
+
+        for (const classroom of classrooms) {
+          for (const discipline of disciplines) {
+            const teacherClassDiscipline = new TeacherClassDiscipline();
+            teacherClassDiscipline.teacher = teacher;
+            teacherClassDiscipline.classroom = classroom;
+            teacherClassDiscipline.discipline = discipline;
+            teacherClassDiscipline.startedAt = new Date();
+            await transaction.save(teacherClassDiscipline);
+          }
+        }
+        await mainEmail(body.email, password, true).catch(e => console.log(e))
+        
+        return { status: 201, data: teacher }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   createTeacher(person: Person, body: TeacherBody) {
@@ -671,8 +621,23 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   generateUser(body: TeacherBody) {
     const username = body.email;
     const email = body.email;
-    const password = "iescolapass";
+    const password = this.generatePassword();
     return { username, password, email };
+  }
+
+  generatePassword() {
+    const lowercaseLetters = 'abcdefghijklmnopqrstuvwxyz';
+    const uppercaseLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    const allCharacters = lowercaseLetters + uppercaseLetters + numbers;
+  
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      const randomIndex = Math.floor(Math.random() * allCharacters.length);
+      password += allCharacters[randomIndex];
+    }
+  
+    return password;
   }
 }
 

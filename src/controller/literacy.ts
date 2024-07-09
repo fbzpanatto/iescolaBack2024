@@ -3,7 +3,7 @@ import { Brackets, EntityTarget } from "typeorm";
 import { Literacy } from "../model/Literacy";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { Classroom } from "../model/Classroom";
 import { classroomCategory } from "../utils/classroomCategory";
 import { StudentClassroom } from "../model/StudentClassroom";
@@ -35,7 +35,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .leftJoin('studentClassroom.literacies', 'literacies')
         .where(new Brackets(qb => {
-          if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          if (userBody.category != pc.ADMINISTRADOR && userBody.category != pc.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
@@ -151,7 +151,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
       .leftJoinAndSelect('classroom.school', 'school')
       .where(new Brackets(qb => {
-        if (userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+        if (userBody.category != pc.ADMINISTRADOR && userBody.category != pc.SUPERVISOR) {
           qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
         }
       }))
@@ -226,7 +226,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     try {
 
       const teacher = await this.teacherByUser(userBody.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
 
       const year = await AppDataSource.getRepository(Year).findOne({ where: { name: yearName } })
       if (!year) return { status: 404, message: "Ano não encontrado" }
@@ -395,7 +395,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .leftJoin('studentClassroom.classroom', 'classroom')
         .leftJoin('literacy.literacyTier', 'literacyTier')
         .where(new Brackets(qb => {
-          if (user.category != personCategories.ADMINISTRADOR && user.category != personCategories.SUPERVISOR) {
+          if (user.category != pc.ADMINISTRADOR && user.category != pc.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))

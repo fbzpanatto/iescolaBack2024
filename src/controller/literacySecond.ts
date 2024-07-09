@@ -4,7 +4,7 @@ import { Request } from "express";
 import { TextGenderGrade } from "../model/TextGenderGrade";
 import { AppDataSource } from "../data-source";
 import { Classroom } from "../model/Classroom";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { classroomCategory } from "../utils/classroomCategory";
 
 class LiteracySecondController extends GenericController<EntityTarget<TextGenderGrade>> {
@@ -29,7 +29,7 @@ class LiteracySecondController extends GenericController<EntityTarget<TextGender
         .leftJoinAndSelect('studentClassroom.year', 'year')
         .leftJoin('studentClassroom.textGenderGrades', 'textGenderGrades')
         .where(new Brackets(qb => {
-          if(userBody.category != personCategories.ADMINISTRADOR && userBody.category != personCategories.SUPERVISOR) {
+          if(userBody.category != pc.ADMINISTRADOR && userBody.category != pc.SUPERVISOR) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))

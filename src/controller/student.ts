@@ -4,7 +4,7 @@ import { Brackets, EntityTarget, FindManyOptions, In, IsNull, Not, ObjectLiteral
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
@@ -238,7 +238,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       const teacher = await this.teacherByUser(request?.body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
       const studentsClassrooms = await this.studentsClassrooms({ search, year, teacherClasses, owner }, isAdminSupervisor) as StudentClassroomReturn[]
       return { status: 200, data: studentsClassrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -247,7 +247,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   override async findOneById(id: string | number, body?: ObjectLiteral) {
     try {
       const teacher = await this.teacherByUser(body?.user.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
       const teacherClasses = await this.teacherClassrooms(body?.user)
       const preStudent = await this.student(Number(id));
 
@@ -310,7 +310,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         return { status: 409, message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}` }
       }
 
-      if (body.user.category === personCategories.PROFESSOR) {
+      if (body.user.category === pc.PROFESSOR) {
         if (!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message: 'Você não tem permissão para criar um aluno neste sala.' } }
       }
 
@@ -467,7 +467,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (exists) { return { status: 409, message: 'Já existe um aluno com esse RA' } }
       }
 
-      const canChange = [personCategories.ADMINISTRADOR, personCategories.SUPERVISOR, personCategories.DIRETOR, personCategories.VICE_DIRETOR, personCategories.COORDENADOR, personCategories.SECRETARIO]
+      const canChange = [pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR, pc.COORDENADOR, pc.SECRETARIO]
 
       if (!canChange.includes(userTeacher.person.category.id) && studentClassroom?.classroom.id != bodyClassroom.id) { return { status: 403, message: 'Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.' } }
 
@@ -680,7 +680,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
   async studentCategory() {
-    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: personCategories.ALUNO } }) as PersonCategory
+    return await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: pc.ALUNO } }) as PersonCategory
   }
   async disabilities(ids: number[]) {
     return await AppDataSource.getRepository(Disability).findBy({ id: In(ids) })

@@ -3,7 +3,7 @@ import {Brackets, EntityTarget, FindManyOptions, ObjectLiteral} from "typeorm";
 import { Discipline } from "../model/Discipline";
 import {Request} from "express";
 import {TeacherBody} from "../interfaces/interfaces";
-import {personCategories} from "../utils/personCategories";
+import {pc} from "../utils/personCategories";
 
 class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
@@ -28,7 +28,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
           'discipline.shortName as shortName',
         ])
         .where(new Brackets(qb => {
-          if(!(teacher.person.category.id === personCategories.PROFESSOR)) {
+          if(!(teacher.person.category.id === pc.PROFESSOR)) {
             qb.where('discipline.id > 0')
             return
           }

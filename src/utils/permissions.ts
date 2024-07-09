@@ -1,4 +1,4 @@
-import { personCategories } from "./personCategories";
+import { pc } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
 
@@ -9,7 +9,7 @@ const fourthLevelPermissions: Permission = { GET: true, POST: true, PUT: true, D
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
   {
-    category: personCategories.ADMINISTRADOR,
+    category: pc.ADMINISTRADOR,
     permissions: [
       {
         entity: "classroom",
@@ -70,7 +70,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.SUPERVISOR,
+    category: pc.SUPERVISOR,
     permissions: [
       {
         entity: "year",
@@ -131,7 +131,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.DIRETOR,
+    category: pc.DIRETOR,
     permissions: [
       {
         entity: "year",
@@ -180,7 +180,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.VICE_DIRETOR,
+    category: pc.VICE_DIRETOR,
     permissions: [
       {
         entity: "year",
@@ -229,7 +229,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.COORDENADOR,
+    category: pc.COORDENADOR,
     permissions: [
       {
         entity: "year",
@@ -278,7 +278,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.SECRETARIO,
+    category: pc.SECRETARIO,
     permissions: [
       {
         entity: "year",
@@ -327,7 +327,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.MONITOR_DE_INFORMATICA,
+    category: pc.MONITOR_DE_INFORMATICA,
     permissions: [
       {
         entity: "year",
@@ -376,7 +376,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: personCategories.PROFESSOR,
+    category: pc.PROFESSOR,
     permissions: [
       {
         entity: "classroom",

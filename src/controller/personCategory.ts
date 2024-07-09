@@ -3,7 +3,7 @@ import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
 
@@ -13,7 +13,7 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
-    let excludeIds = [personCategories.ALUNO]
+    let excludeIds = [pc.ALUNO]
     const userBody = request?.body.user
 
     try {

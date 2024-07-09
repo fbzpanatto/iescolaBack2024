@@ -7,7 +7,7 @@ import { TestQuestion} from "../model/TestQuestion";
 import { Request} from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
 import { School } from "../model/School";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 
 interface schoolAsClassroom { id: number, name: string, shortName: string, studentClassrooms: StudentClassroom[] }
 
@@ -162,7 +162,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       const teacher = await this.teacherByUser(request?.body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
 
       const testClasses = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")

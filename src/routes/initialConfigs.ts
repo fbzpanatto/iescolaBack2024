@@ -31,7 +31,7 @@ import { TOPIC } from "../mock/topic";
 import { DESCRIPTOR } from "../mock/descriptor";
 import { Descriptor } from "../model/Descriptor";
 import { Teacher } from "../model/Teacher";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { LITERACYTIER } from "../mock/literacyTier";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { LiteracyLevel } from "../model/LiteracyLevel";
@@ -77,7 +77,7 @@ async function createAdminUser(person: Person) {
 
 async function createAdminPerson() {
   const adminCategorySource = new dataSourceController(PersonCategory).entity
-  const adminCategory = await adminCategorySource.findOneBy({ id: personCategories.ADMINISTRADOR }) as PersonCategory
+  const adminCategory = await adminCategorySource.findOneBy({ id: pc.ADMINISTRADOR }) as PersonCategory
   const personSource = new dataSourceController(Person).entity
   const person = new Person()
   person.name = 'Administrador'

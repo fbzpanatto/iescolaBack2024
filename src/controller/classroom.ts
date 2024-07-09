@@ -3,7 +3,7 @@ import { Brackets, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm"
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -19,7 +19,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const teacher = await this.teacherByUser(body.user.user)
       const teacherClasses = await this.teacherClassrooms(request?.body.user)
-      const isAdminSupervisor = teacher.person.category.id === personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
 
       let result = await this.repository
         .createQueryBuilder('classroom')

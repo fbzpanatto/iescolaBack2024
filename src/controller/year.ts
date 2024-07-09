@@ -5,7 +5,7 @@ import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
-import { personCategories } from "../utils/personCategories";
+import { pc } from "../utils/personCategories";
 import { StudentClassroom } from "../model/StudentClassroom";
 
 class YearController extends GenericController<EntityTarget<Year>> {
@@ -32,7 +32,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const canCreate = [personCategories.ADMINISTRADOR]
+      const canCreate = [pc.ADMINISTRADOR]
 
       if (!canCreate.includes(teacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }

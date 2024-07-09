@@ -36,11 +36,9 @@ TeacherRouter.get('/:id', VALIDATE_ID, havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-
-  teacherController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+  const response = await teacherController.saveTeacher(req.body, {})
+  return res.status(response?.status as number).json(response)
 });
 
 TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {

@@ -86,13 +86,10 @@ StudentRouter.put(
   },
 );
 
-StudentRouter.put( "/:id/graduate", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
-    studentController
-      .graduate(req.params.id, req.body)
-      .then((r) => res.status(r.status).json(r))
-      .catch((e) => res.status(e.status).json(e));
-  },
-);
+StudentRouter.put( "/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
+  const response = await studentController.graduate(req.params.id, req.body)
+  return res.status(response?.status as number).json(response)
+})
 
 StudentRouter.put(
   "/:id",

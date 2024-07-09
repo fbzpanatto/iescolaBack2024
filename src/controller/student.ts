@@ -1239,16 +1239,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       let student: Student | null = null
 
-      await AppDataSource.transaction(async (conn) => {
+      return await AppDataSource.transaction(async (conn) => {
 
         const userTeacher = await conn.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } }) as Teacher
         const isAdminSupervisor = userTeacher.person.category.id === pc.ADMINISTRADOR || userTeacher.person.category.id === pc.SUPERVISOR;
 
         const { classrooms } = await this.teacherClassrooms(body.user);
-
-        if ( !classrooms.includes(Number(body.student.classroom.id)) && !isAdminSupervisor ) {
-          return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." };
-        }
+        if (!classrooms.includes(Number(body.student.classroom.id)) && !isAdminSupervisor) { return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." } }
         
         student = await conn.findOne(Student, { where: { id: Number(studentId) } }) as Student;
 
@@ -1274,8 +1271,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await conn.save(Transfer, newTransfer)
       })
-
-      return { status: 200, data: student as unknown as Student };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 }

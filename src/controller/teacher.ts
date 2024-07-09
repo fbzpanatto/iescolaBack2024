@@ -449,76 +449,33 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async saveTeacher(body: TeacherBody, options: SaveOptions | undefined) {
     try {
-      const teacherUserFromFront = (await this.teacherByUser(
-        body.user.user,
-      )) as Teacher;
+      const teacherUserFromFront = (await this.teacherByUser(body.user.user )) as Teacher;
 
-      if (
-        !this.hasPermissionToCreate(
-          teacherUserFromFront.person.category.id,
-          body.category.id,
-        )
-      ) {
-        return {
-          status: 403,
-          message:
-            "Você não tem permissão para criar uma pessoa com esta categoria.",
-        };
-      }
+      const message = "Você não tem permissão para criar uma pessoa com esta categoria."
+      if (!this.hasPermissionToCreate(teacherUserFromFront.person.category.id,body.category.id)) { return { status: 403, message }}
 
       return await AppDataSource.transaction(async (transaction) => {
-        const registerExists = await transaction.findOne(Teacher, {
-          where: { register: body.register },
-        });
-        if (registerExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este número de matrícula.",
-          };
-        }
+        const registerExists = await transaction.findOne(Teacher, { where: { register: body.register } });
 
-        const emailExists = await transaction.findOne(Teacher, {
-          where: { email: body.email },
-        });
-        if (emailExists) {
-          return {
-            status: 409,
-            message: "Já existe um registro com este email.",
-          };
-        }
+        const message = "Já existe um registro com este número de matrícula."
+        if (registerExists) { return { status: 409,  message } }
 
-        const category = (await transaction.findOne(PersonCategory, {
-          where: { id: body.category.id },
-        })) as PersonCategory;
+        const emailExists = await transaction.findOne(Teacher, {where: { email: body.email }});
+        if (emailExists) {return {status: 409,message: "Já existe um registro com este email."}}
 
-        const person = this.createPerson({
-          name: body.name,
-          birth: body.birth,
-          category,
-        });
+        const category = (await transaction.findOne(PersonCategory, {where: { id: body.category.id }})) as PersonCategory;
 
-        const teacher = await transaction.save(
-          Teacher,
-          this.createTeacher(person, body),
-        );
+        const person = this.createPerson({name: body.name,birth: body.birth,category});
+
+        const teacher = await transaction.save(Teacher,this.createTeacher(person, body));
 
         const { username, password, email } = this.generateUser(body);
         await transaction.save(User, { person, username, email, password });
 
-        if (
-          body.category.id === pc.ADMINISTRADOR ||
-          body.category.id === pc.SUPERVISOR
-        ) {
-          return { status: 201, data: teacher };
-        }
+        if (body.category.id === pc.ADMINISTRADOR || body.category.id === pc.SUPERVISOR ) { return { status: 201, data: teacher } }
 
-        const classrooms = await transaction.findBy(Classroom, {
-          id: In(body.teacherClasses),
-        });
-
-        const disciplines = await transaction.findBy(Discipline, {
-          id: In(body.teacherDisciplines),
-        });
+        const classrooms = await transaction.findBy(Classroom, {id: In(body.teacherClasses) });
+        const disciplines = await transaction.findBy(Discipline, { id: In(body.teacherDisciplines) });
 
         for (const classroom of classrooms) {
           for (const discipline of disciplines) {
@@ -531,15 +488,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           }
         }
 
-        await mainEmail(body.email, password, true).catch((e) =>
-          console.log(e),
-        );
-
+        await mainEmail(body.email, password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   createTeacher(person: Person, body: TeacherBody) {

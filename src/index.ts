@@ -67,7 +67,7 @@ route.use("/literacy-second", authorization, LiteracySecondRouter);
 route.use("/login", LoginRouter);
 route.use("/person", authorization, PersonRouter);
 route.use("/person-category", authorization, PersonCategoryRouter);
-route.use("/question", QuestionRouter);
+route.use("/question", authorization, QuestionRouter);
 route.use("/question-group", QuestionGroupRouter);
 route.use("/report", authorization, ReportRouter);
 route.use("/school", authorization, SchoolRouter);

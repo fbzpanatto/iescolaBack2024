@@ -10,6 +10,13 @@ QuestionRouter.get('/form', (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
+QuestionRouter.get('/owner/:id', (req, res) => {
+
+  questionController.isOwner(req)
+    .then(r => res.status(r.status).json(r))
+    .catch(e => res.status(e.status).json(e))
+})
+
 QuestionRouter.get('/', (req, res) => {
 
   questionController.findAllWhere({}, req)

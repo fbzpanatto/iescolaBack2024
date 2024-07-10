@@ -11,17 +11,30 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     super(Question);
   }
 
+  async isOwner(req: Request) {
+
+    const { id: questionId } = req.params
+
+    try {
+
+      const { person } = await this.teacherByUser(req.body.user.user)
+
+      const question = await AppDataSource.getRepository(Question).findOne({
+        relations: ["person"],
+        where: { id: parseInt(questionId as string) }
+      })
+
+      return { status: 200, data: { isOwner: person.id === question?.person.id } };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   async questionForm(req: Request) {
     try {
-      const classroomCategories = (
-        await classroomCategoryController.findAllWhere({}, req)
-      ).data;
+      const classroomCategories = (await classroomCategoryController.findAllWhere({}, req)).data;
       const groups = (await questionGroupController.findAllWhere({}, req)).data;
 
       return { status: 200, data: { classroomCategories, groups } };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {

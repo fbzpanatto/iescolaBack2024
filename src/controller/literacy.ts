@@ -476,77 +476,50 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }
   }
 
-  async updateLiteracy(body: {
-    studentClassroom: StudentClassroom;
-    literacyTier: { id: number };
-    literacyLevel: { id: number } | null;
-    toRate: boolean;
-    user: UserInterface;
-  }) {
-    const { studentClassroom, literacyTier, literacyLevel, user, toRate } =
-      body;
+  async updateLiteracy(body: { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, toRate: boolean, user: UserInterface }) {
+
+    const { studentClassroom, literacyTier, literacyLevel, user, toRate } = body
 
     try {
-      const teacherClasses = await this.teacherClassrooms(user);
-
-      const stLiteracy = await AppDataSource.getRepository(Literacy)
-        .createQueryBuilder("literacy")
-        .leftJoin("literacy.studentClassroom", "studentClassroom")
-        .leftJoin("studentClassroom.classroom", "classroom")
-        .leftJoin("literacy.literacyTier", "literacyTier")
-        .where(
-          new Brackets((qb) => {
-            if (
-              user.category != pc.ADMINISTRADOR &&
-              user.category != pc.SUPERVISOR
-            ) {
-              qb.where("classroom.id IN (:...teacherClasses)", {
-                teacherClasses: teacherClasses.classrooms,
-              });
-            }
-          }),
-        )
-        .andWhere("studentClassroom.id = :studentClassroomId", {
-          studentClassroomId: studentClassroom.id,
-        })
-        .andWhere("literacy.literacyTier = :literacyTierId", {
-          literacyTierId: literacyTier.id,
-        })
-        .getOne();
-
-      if (!stLiteracy) {
-        return {
-          status: 400,
-          message: "Não foi possível processar sua requisição",
-        };
-      }
-
-      let literacyLevelDb: any;
-
-      if (literacyLevel && literacyLevel.id) {
-        literacyLevelDb = await AppDataSource.getRepository(
-          LiteracyLevel,
-        ).findOne({
-          where: { id: literacyLevel.id },
-        });
-      }
-
-      if (!literacyLevel) {
-        literacyLevelDb = null;
-      }
-
-      stLiteracy.literacyLevel = literacyLevelDb;
 
       let result = {};
 
-      if (!studentClassroom.endedAt && toRate) {
-        result = await AppDataSource.getRepository(Literacy).save(stLiteracy);
-      }
+      await AppDataSource.transaction(async (transaction) => {
+
+        const teacherClasses = await this.teacherClassrooms(user, transaction);
+
+        const stLiteracy = await transaction.getRepository(Literacy)
+          .createQueryBuilder("literacy")
+          .leftJoin("literacy.studentClassroom", "studentClassroom")
+          .leftJoin("studentClassroom.classroom", "classroom")
+          .leftJoin("literacy.literacyTier", "literacyTier")
+          .where(
+            new Brackets((qb) => {
+              if ( user.category != pc.ADMINISTRADOR && user.category != pc.SUPERVISOR ) {
+                qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms }) 
+              }
+            }),
+          )
+          .andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId: studentClassroom.id })
+          .andWhere("literacy.literacyTier = :literacyTierId", { literacyTierId: literacyTier.id })
+          .getOne();
+  
+        if (!stLiteracy) { return { status: 400, message: "Não foi possível processar sua requisição" } }
+  
+        let literacyLevelDb: any;
+  
+        if (literacyLevel && literacyLevel.id) { literacyLevelDb = await transaction.findOne(LiteracyLevel, { where: { id: literacyLevel.id } })}
+  
+        if (!literacyLevel) { literacyLevelDb = null }
+  
+        stLiteracy.literacyLevel = literacyLevelDb;
+  
+        if (!studentClassroom.endedAt && toRate) { result = await transaction.save(Literacy, stLiteracy) }
+      })
 
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

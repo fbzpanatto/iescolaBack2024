@@ -7,23 +7,13 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
-  constructor() {
-    super(Question);
-  }
+  constructor() { super(Question) }
 
   async isOwner(req: Request) {
-
     const { id: questionId } = req.params
-
     try {
-
       const { person } = await this.teacherByUser(req.body.user.user)
-
-      const question = await AppDataSource.getRepository(Question).findOne({
-        relations: ["person"],
-        where: { id: parseInt(questionId as string) }
-      })
-
+      const question = await AppDataSource.getRepository(Question).findOne({ relations: ["person"], where: { id: parseInt(questionId as string) } })
       return { status: 200, data: { isOwner: person.id === question?.person.id } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

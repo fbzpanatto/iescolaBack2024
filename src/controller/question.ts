@@ -24,15 +24,15 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     }
   }
 
-  override async findAllWhere(
-    options: FindManyOptions<ObjectLiteral> | undefined,
-    request?: Request,
-  ) {
+  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {
+
     const id = request?.query.discipline as string;
 
     try {
+
       const questions = await AppDataSource.getRepository(Question)
         .createQueryBuilder("question")
+        .leftJoinAndSelect("question.person", "person")
         .leftJoinAndSelect("question.descriptor", "descriptor")
         .leftJoinAndSelect("descriptor.topic", "topic")
         .leftJoinAndSelect("topic.discipline", "discipline")
@@ -41,9 +41,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
         .getMany();
 
       return { status: 200, data: questions };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

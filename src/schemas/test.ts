@@ -94,31 +94,6 @@ export const TEST_QUESTIONS_SCHEMA: Schema = {
   },
 };
 
-interface TestQuestions {
-  order: number;
-  answer: string;
-  questionGroup: { id: number; name: string };
-  active: boolean;
-  question: {
-    title: string;
-    descriptor: {
-      id: number;
-      code: string;
-      name: string;
-      topic: {
-        id: number;
-        name: string;
-        description: string;
-        classroomCategory: {
-          id: number;
-          name: string;
-          active: boolean;
-        };
-      };
-    };
-  };
-}
-
 export const TEST_SCHEMA: Schema = {
   bimester: { optional: true },
   'bimester.id': {
@@ -153,24 +128,10 @@ export const TEST_SCHEMA: Schema = {
     escape: true,
   },
   testQuestions: {
-    optional: true,
-    custom: {
-      options: (value) => {
-        if (!value || !Array.isArray(value)) { throw new Error("testQuestions must be an array")}
-        return true;
-      },
-    },
+    optional: true
   },
   classroom: {
-    optional: true,
-    custom: {
-      options: (value) => {
-        if (!value || !Array.isArray(value)) {
-          throw new Error("classroom must be an array");
-        }
-        return true;
-      },
-    },
+    optional: true
   },
   user: { optional: true },
   ...USER_SCHEMA,

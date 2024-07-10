@@ -57,11 +57,9 @@ TestRouter.get('/:id', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-
-  testController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+  const response = await testController.saveTest(req.body)
+  return res.status(response.status).json(response)
 });
 
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {

@@ -486,7 +486,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       await AppDataSource.transaction(async (transaction) => {
 
-        const teacherClasses = await this.teacherClassrooms(user, transaction);
+        const teacherClasses = await this.teacherClassrooms(user);
 
         const stLiteracy = await transaction.getRepository(Literacy)
           .createQueryBuilder("literacy")

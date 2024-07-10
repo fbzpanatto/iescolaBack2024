@@ -12,6 +12,7 @@ import { PersonCategory } from "./PersonCategory";
 import { Teacher } from "./Teacher";
 import { User } from "./User";
 import { Test } from "./Test";
+import { Question } from "./Question";
 
 @Entity()
 export class Person {
@@ -33,6 +34,9 @@ export class Person {
 
   @OneToMany(() => Test, (test) => test.person)
   tests: Test[];
+
+  @OneToMany(() => Question, (question) => question.person)
+  questions: Question[];
 
   @ManyToOne((type) => PersonCategory, (c) => c.persons)
   category: PersonCategory;

@@ -49,7 +49,7 @@ export class GenericController<T> {
     }
   }
 
-  async findOneById(id: number | string, body: ObjectLiteral) {
+  async findOneById(id: number | string, body: ObjectLiteral, transaction?: EntityManager) {
     try {
       const result = await this.repository.findOneBy({ id: id });
       if (!result) {
@@ -134,11 +134,9 @@ export class GenericController<T> {
     })) as TransferStatus;
   }
 
-  async teacherByUser(userId: number) {
-    return (await AppDataSource.getRepository(Teacher).findOne({
-      relations: ["person.category"],
-      where: { person: { user: { id: userId } } },
-    })) as Teacher;
+  async teacherByUser(userId: number, transaction?: EntityManager) {
+    if(!transaction) { return (await AppDataSource.getRepository(Teacher).findOne({ relations: ["person.category"], where: { person: { user: { id: userId } } } })) as Teacher }
+    return await transaction.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: userId } } } }) as Teacher
   }
 
   async teacherClassrooms(body: { user: number }) {

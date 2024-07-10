@@ -62,11 +62,9 @@ TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, 
   return res.status(response.status).json(response)
 });
 
-TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-
-  testController.updateId(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+  const response = await testController.updateTestById(req.params.id, req)
+  return res.status(response?.status as number).json(response)
 });
 
 TestRouter.delete('/:id', havePermission, (req, res) => {

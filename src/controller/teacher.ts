@@ -20,7 +20,7 @@ import { personCategoryController } from "./personCategory";
 import { mainEmail } from "../utils/email.service";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
-  
+
   constructor() { super(Teacher) }
 
   async teacherForm(req: Request) {
@@ -185,189 +185,57 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   override async updateId(id: string, body: TeacherBody) {
     try {
-      const frontendTeacher = await this.teacherByUser(body.user.user);
-      const databaseTeacher = await AppDataSource.getRepository(
-        Teacher,
-      ).findOne({
-        relations: ["person.category"],
-        where: { id: Number(id) },
-      });
+      const frontendTeacher = await this.teacherByUser(body.user.user)
 
-      if (!databaseTeacher) {
-        return { status: 404, message: "Data not found" };
-      }
+      const databaseTeacher = await AppDataSource.getRepository(Teacher).findOne({relations: ["person.category"],where: { id: Number(id) }})
 
-      if (frontendTeacher.person.category.id === pc.SECRETARIO) {
-        const canEdit = [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
+      if (!databaseTeacher) {return { status: 404, message: "Data not found" }}
 
-      if (frontendTeacher.person.category.id === pc.COORDENADOR) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-        ];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
+      const message = "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu."
+      if (!this.hasPermissionToCreate(frontendTeacher.person.category.id, databaseTeacher.person.category.id)) { return { status: 403, message }}
 
-      if (frontendTeacher.person.category.id === pc.VICE_DIRETOR) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-        ];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
-
-      if (frontendTeacher.person.category.id === pc.DIRETOR) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-        ];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
-
-      if (frontendTeacher.person.category.id === pc.SUPERVISOR) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-          pc.DIRETOR,
-        ];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
-
-      if (frontendTeacher.person.category.id === pc.ADMINISTRADOR) {
-        const canEdit = [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-          pc.DIRETOR,
-          pc.SUPERVISOR,
-          pc.ADMINISTRADOR,
-        ];
-        if (!canEdit.includes(databaseTeacher?.person.category.id)) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu.",
-          };
-        }
-      }
-
-      if (
-        frontendTeacher.person.category.id === pc.PROFESSOR ||
-        (frontendTeacher.person.category.id === pc.MONITOR_DE_INFORMATICA &&
-          frontendTeacher.id !== databaseTeacher.id)
-      ) {
-        return {
-          status: 403,
-          message: "Você não tem permissão para editar este registro.",
-        };
+      if (frontendTeacher.person.category.id === pc.PROFESSOR || (frontendTeacher.person.category.id === pc.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id)) {
+        return { status: 403, message: "Você não tem permissão para editar este registro." };
       }
 
       databaseTeacher.person.name = body.name;
       databaseTeacher.person.birth = body.birth;
 
-      if (
-        databaseTeacher.person.category.id === pc.ADMINISTRADOR ||
-        databaseTeacher.person.category.id === pc.SUPERVISOR
-      ) {
+      if ( databaseTeacher.person.category.id === pc.ADMINISTRADOR || databaseTeacher.person.category.id === pc.SUPERVISOR ) {
         await AppDataSource.getRepository(Teacher).save(databaseTeacher);
         return { status: 200, data: databaseTeacher };
       }
 
-      if (body.teacherClasses || body.teacherDisciplines) {
-        await this.updateRelation(databaseTeacher, body);
-      }
+      if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(databaseTeacher, body) }
 
       await AppDataSource.getRepository(Teacher).save(databaseTeacher);
 
       return { status: 200, data: databaseTeacher };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch ( error: any ) { return { status: 500, message: error.message } }
   }
 
   async updateRelation(teacher: Teacher, body: TeacherBody) {
-    const teacherClassDisciplines = await AppDataSource.getRepository(
-      TeacherClassDiscipline,
-    ).find({
-      relations: ["teacher", "classroom", "discipline"],
-      where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } },
-    });
+
+    const teacherClassDisciplines = await AppDataSource
+    .getRepository(TeacherClassDiscipline)
+    .find({ relations: ["teacher", "classroom", "discipline"], where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } } });
 
     const arrOfDiff: TeacherClassDiscipline[] = [];
     const classroomsBody = body.teacherClasses.map((el: any) => parseInt(el));
-    const disciplinesBody = body.teacherDisciplines.map((el: any) =>
-      parseInt(el),
-    );
+    const disciplinesBody = body.teacherDisciplines.map((el: any) => parseInt(el) );
 
-    const existingRelations = new Set(
-      teacherClassDisciplines.map(
-        (relation) => `${relation.classroom.id}-${relation.discipline.id}`,
-      ),
-    );
+    const existingRelations = new Set(teacherClassDisciplines.map((relation) => `${relation.classroom.id}-${relation.discipline.id}`));
 
-    const requestedRelations = new Set(
-      classroomsBody.flatMap((classroomId) =>
-        disciplinesBody.map((disciplineId) => `${classroomId}-${disciplineId}`),
-      ),
-    );
+    const requestedRelations = new Set(classroomsBody.flatMap((classroomId) => disciplinesBody.map((disciplineId) => `${classroomId}-${disciplineId}`) ) );
 
     // Encontrar relações a serem encerradas
     for (let relation of teacherClassDisciplines) {
       const relationKey = `${relation.classroom.id}-${relation.discipline.id}`;
-      if (!requestedRelations.has(relationKey)) {
-        arrOfDiff.push(relation);
-      }
+      if (!requestedRelations.has(relationKey)) { arrOfDiff.push(relation) }
     }
 
     // Encerrar relações que estão em arrOfDiff
-    for (let relation of arrOfDiff) {
-      await teacherClassDisciplineController.updateId(relation.id, {
-        endedAt: new Date(),
-      });
-    }
+    for (let relation of arrOfDiff) { await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() }) }
 
     // Criar novas relações conforme o corpo da requisição
     for (let classroomId of classroomsBody) {
@@ -376,14 +244,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         if (!existingRelations.has(relationKey)) {
           const newTeacherRelation = new TeacherClassDiscipline();
           newTeacherRelation.teacher = teacher;
-          newTeacherRelation.classroom = (await AppDataSource.getRepository(
-            Classroom,
-          ).findOne({ where: { id: classroomId } })) as Classroom;
-          newTeacherRelation.discipline = (await AppDataSource.getRepository(
-            Discipline,
-          ).findOne({ where: { id: disciplineId } })) as Discipline;
+          newTeacherRelation.classroom = (await AppDataSource.getRepository(Classroom).findOne({ where: { id: classroomId } })) as Classroom;
+          newTeacherRelation.discipline = (await AppDataSource.getRepository(Discipline).findOne({ where: { id: disciplineId } })) as Discipline;
           newTeacherRelation.startedAt = new Date();
-
           await teacherClassDisciplineController.save(newTeacherRelation, {});
         }
       }
@@ -391,25 +254,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async createRelation(teacher: Teacher, body: TeacherBody) {
-    const classrooms = await AppDataSource.getRepository(Classroom).findBy({
-      id: In(body.teacherClasses),
-    });
-    const disciplines = await AppDataSource.getRepository(Discipline).findBy({
-      id: In(body.teacherDisciplines),
-    });
+    const classrooms = await AppDataSource.getRepository(Classroom).findBy({ id: In(body.teacherClasses) });
+    const disciplines = await AppDataSource.getRepository(Discipline).findBy({ id: In(body.teacherDisciplines) });
 
     for (let classroom of classrooms) {
       for (let discipline of disciplines) {
-        const relationExists = await AppDataSource.getRepository(
-          TeacherClassDiscipline,
-        ).findOne({
-          where: {
-            teacher: { id: teacher.id },
-            classroom: { id: classroom.id },
-            discipline: { id: discipline.id },
-            endedAt: IsNull(),
-          },
-        });
+
+        const relationExists = await AppDataSource
+          .getRepository( TeacherClassDiscipline )
+          .findOne({ where: { teacher: { id: teacher.id }, classroom: { id: classroom.id }, discipline: { id: discipline.id }, endedAt: IsNull() } });
 
         if (!relationExists) {
           const newTeacherRelation = new TeacherClassDiscipline();
@@ -501,10 +354,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return password;
   }
 
-  private hasPermissionToCreate(
-    userCategory: number,
-    bodyTeacherCategory: number,
-  ): boolean {
+  private hasPermissionToCreate( userTeacherCategory: number, teacherDatabaseCategory: number ): boolean {
+
     const allowedCategories = [
       pc.PROFESSOR,
       pc.MONITOR_DE_INFORMATICA,
@@ -516,47 +367,18 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       pc.ADMINISTRADOR,
     ];
 
-    let canCreate = allowedCategories.includes(bodyTeacherCategory);
-    if (userCategory === pc.SECRETARIO) {
-      canCreate =
-        canCreate &&
-        [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA].includes(bodyTeacherCategory);
-    } else if (userCategory === pc.COORDENADOR) {
-      canCreate =
-        canCreate &&
-        [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO].includes(
-          bodyTeacherCategory,
-        );
-    } else if (userCategory === pc.VICE_DIRETOR) {
-      canCreate =
-        canCreate &&
-        [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-        ].includes(bodyTeacherCategory);
-    } else if (userCategory === pc.DIRETOR) {
-      canCreate =
-        canCreate &&
-        [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-        ].includes(bodyTeacherCategory);
-    } else if (userCategory === pc.SUPERVISOR) {
-      canCreate =
-        canCreate &&
-        [
-          pc.PROFESSOR,
-          pc.MONITOR_DE_INFORMATICA,
-          pc.SECRETARIO,
-          pc.COORDENADOR,
-          pc.VICE_DIRETOR,
-          pc.DIRETOR,
-        ].includes(bodyTeacherCategory);
+    let canCreate = allowedCategories.includes(teacherDatabaseCategory);
+
+    if (userTeacherCategory === pc.SECRETARIO) {
+      canCreate = canCreate && [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA].includes(teacherDatabaseCategory);
+    } else if (userTeacherCategory === pc.COORDENADOR) {
+      canCreate = canCreate && [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO].includes(teacherDatabaseCategory );
+    } else if (userTeacherCategory === pc.VICE_DIRETOR) {
+      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR].includes(teacherDatabaseCategory);
+    } else if (userTeacherCategory === pc.DIRETOR) {
+      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR, pc.VICE_DIRETOR ].includes(teacherDatabaseCategory);
+    } else if (userTeacherCategory === pc.SUPERVISOR) {
+      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR, pc.VICE_DIRETOR, pc.DIRETOR].includes(teacherDatabaseCategory);
     }
     return canCreate;
   }

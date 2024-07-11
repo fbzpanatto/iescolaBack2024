@@ -15,11 +15,7 @@ StudentRouter.get("/form", havePermission, (req, res) => {
     .catch((e) => res.status(e.status).json(e));
 });
 
-StudentRouter.get(
-  "/inactive/:year",
-  VALIDATE_YEAR_NAME,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.get("/inactive/:year", VALIDATE_YEAR_NAME, havePermission, (req: Request, res: Response) => {
     studentController
       .getAllInactivates(req)
       .then((r) => res.status(r.status).json(r))
@@ -27,10 +23,7 @@ StudentRouter.get(
   },
 );
 
-StudentRouter.post(
-  "/inactive",
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.post("/inactive", havePermission, (req: Request, res: Response) => {
     studentController
       .setInactiveNewClassroom(req.body)
       .then((r) => res.status(r.status).json(r))
@@ -38,11 +31,7 @@ StudentRouter.post(
   },
 );
 
-StudentRouter.get(
-  "/:year/all",
-  VALIDATE_YEAR_NAME,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.get("/:year/all", VALIDATE_YEAR_NAME, havePermission, (req: Request, res: Response) => {
     studentController
       .findAllWhere({}, req)
       .then((r) => res.status(r.status).json(r))
@@ -50,11 +39,7 @@ StudentRouter.get(
   },
 );
 
-StudentRouter.get(
-  "/:id",
-  VALIDATE_ID,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.get("/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
     studentController
       .findOneStudentById(req.params.id, req.body)
       .then((r) => res.status(r.status).json(r))
@@ -62,11 +47,7 @@ StudentRouter.get(
   },
 );
 
-StudentRouter.post(
-  "/",
-  ...CREATE_VALIDATORS,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
     studentController
       .save(req.body)
       .then((r) => res.status(r.status).json(r))
@@ -74,11 +55,7 @@ StudentRouter.post(
   },
 );
 
-StudentRouter.put(
-  "/literacy-first/:id",
-  VALIDATE_ID,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
     studentController
       .putLiteracyBeforeLevel(req.body)
       .then((r) => res.status(r.status).json(r))
@@ -86,16 +63,12 @@ StudentRouter.put(
   },
 );
 
-StudentRouter.put( "/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
+StudentRouter.put("/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
   const response = await studentController.graduate(req.params.id, req.body)
   return res.status(response?.status as number).json(response)
 })
 
-StudentRouter.put(
-  "/:id",
-  ...UPDATE_VALIDATORS,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
     studentController
       .updateId(req.params.id, req.body)
       .then((r) => res.status(r.status).json(r))
@@ -103,11 +76,7 @@ StudentRouter.put(
   },
 );
 
-StudentRouter.delete(
-  "/:id",
-  VALIDATE_ID,
-  havePermission,
-  (req: Request, res: Response) => {
+StudentRouter.delete("/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
     studentController
       .deleteId(req.params.id)
       .then((r) => res.status(r.status).json(r))

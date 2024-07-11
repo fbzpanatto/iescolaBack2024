@@ -1,12 +1,11 @@
-import {Column, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import { Length } from "class-validator";
+import { Column, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Period } from "./Period";
-import {Discipline} from "./Discipline";
-import {Classroom} from "./Classroom";
-import {TestCategory} from "./TestCategory";
-import {Person} from "./Person";
-import {TestQuestion} from "./TestQuestion";
-import {StudentTestStatus} from "./StudentTestStatus";
+import { Discipline } from "./Discipline";
+import { Classroom } from "./Classroom";
+import { TestCategory } from "./TestCategory";
+import { Person } from "./Person";
+import { TestQuestion } from "./TestQuestion";
+import { StudentTestStatus } from "./StudentTestStatus";
 
 @Entity()
 export class Test {
@@ -29,9 +28,6 @@ export class Test {
   @ManyToOne(() => Person, person => person.tests)
   person: Person
 
-  @Column({ nullable: true })
-  createdAt: Date
-
   @OneToMany(() => Test, test => test.testQuestions)
   testQuestions: TestQuestion[]
 
@@ -41,4 +37,16 @@ export class Test {
   @ManyToMany(() => Classroom, { cascade: true })
   @JoinTable({ name: "test_classroom" })
   classrooms: Classroom[]
+
+  @Column()
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column()
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

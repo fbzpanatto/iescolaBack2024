@@ -548,8 +548,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
     try {
       return await AppDataSource.transaction(async (transaction) => {
-        const userPerson = await transaction.findOne(Person, { where: { user: { id: body.user.user } } })
-        if(!userPerson) return { status: 404, message: "Usuário inexistente" }
+
+        const uTeacher = await this.teacherByUser(body.user.user);
+        if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
 
         const checkYear = await transaction.findOne(Year, { where: { id: body.year.id } })
         if(!checkYear) return { status: 404, message: "Ano não encontrado" }
@@ -577,13 +578,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           name: body.name,
           category: body.category,
           discipline: body.discipline,
-          person: userPerson,
+          person: uTeacher.person,
           period: period,
           classrooms: classes,
           createdAt: new Date(),
+          createdByUser: uTeacher.person.user.id
         });
 
-        const testQuestions = body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || userPerson }, test: newTest }));
+        const testQuestions = body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || uTeacher.person }, test: newTest }));
 
         await transaction.save(TestQuestion, testQuestions)
         return { status: 201, data: newTest };
@@ -595,18 +597,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async (transaction) => {
 
-        const teacher = await this.teacherByUser(req.body.user.user, transaction) as Teacher
-        const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
+        const uTeacher = await this.teacherByUser(req.body.user.user, transaction) as Teacher
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
         const test = await transaction.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
   
         if(!test) return { status: 404, message: "Teste não encontrado" }
-        if(teacher.person.id !== test.person.id && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+        if(uTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
   
         test.name = req.body.name
+        test.updatedAt = new Date()
+        test.updatedByUser = uTeacher.person.user.id
   
         await transaction.save(Test, test)
 
-        const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || teacher.person }, test }));
+        const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || uTeacher.person }, test }));
   
         await transaction.save(TestQuestion, testQuestions)
   

@@ -43,11 +43,11 @@ class PersonCategoryController extends GenericController<
       }
 
       if(userTeacherFromFront.person.category.id === pc.DIRETOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR]
+        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR]
       }
 
       if(userTeacherFromFront.person.category.id === pc.VICE_DIRETOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR]
+        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR]
       }
 
       if(userTeacherFromFront.person.category.id === pc.COORDENADOR){

@@ -40,6 +40,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   override async findAllWhere( _: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {
+
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
 
@@ -56,11 +57,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoin("teacherClassDiscipline.classroom", "classroom")
         .where(
           new Brackets((qb) => {
-            if (teacher.person.category.id === pc.PROFESSOR) {
-              qb.where("teacher.id = :teacherId", { teacherId: teacher.id });
-              return;
-            }
-
+            if (teacher.person.category.id === pc.PROFESSOR) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
             if ( teacher.person.category.id != pc.ADMINISTRADOR && teacher.person.category.id != pc.SUPERVISOR ) {
               qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
                 .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
@@ -80,21 +77,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   // TODO: check this
   // @ts-ignore
   override async findOneById(id: string | number, request?: Request) {
+    
     const body = request?.body as TeacherBody;
 
     try {
+
       const teacher = await this.teacherByUser(body.user.user);
       const cannotChange = [pc.MONITOR_DE_INFORMATICA, pc.PROFESSOR];
 
-      if (
-        teacher.id !== Number(id) &&
-        cannotChange.includes(teacher.person.category.id)
-      ) {
-        return {
-          status: 403,
-          message: "Você não tem permissão para visualizar este registro.",
-        };
-      }
+      if ( teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
       const result = await this.repository
         .createQueryBuilder("teacher")
@@ -106,64 +97,36 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .addSelect("person.birth", "person_birth")
         .addSelect("category.id", "category_id")
         .addSelect("category.name", "category_name")
-        .addSelect(
-          "GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)",
-          "classroom_ids",
-        )
-        .addSelect(
-          "GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)",
-          "discipline_ids",
-        )
+        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)","classroom_ids")
+        .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)","discipline_ids")
         .leftJoin("teacher.person", "person")
         .leftJoin("person.category", "category")
         .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
         .leftJoin("teacherClassDiscipline.classroom", "classroom")
         .leftJoin("teacherClassDiscipline.discipline", "discipline")
-        .where(
-          "teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL",
-          { teacherId: id },
-        )
+        .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
         .getRawOne();
 
-      if (!result) {
-        return { status: 404, message: "Data not found" };
-      }
+      if (!result) { return { status: 404, message: "Dado não encontrado" } }
 
       let newResult = {
         id: result.teacher_id,
         email: result.teacher_email,
         register: result.teacher_register,
-        person: {
-          id: result.person_id,
-          name: result.person_name,
-          birth: result.person_birth,
-          category: {
-            id: result.category_id,
-            name: result.category_name,
-          },
-        },
-        teacherClasses:
-          result.classroom_ids
-            ?.split(",")
-            .map((item: string) => parseInt(item)) ?? [],
-        teacherDisciplines:
-          result.discipline_ids
-            ?.split(",")
-            .map((item: string) => parseInt(item)) ?? [],
+        person: { id: result.person_id, name: result.person_name, birth: result.person_birth, category: { id: result.category_id, name: result.category_name } },
+        teacherClasses:result.classroom_ids?.split(",").map((item: string) => parseInt(item)) ?? [],
+        teacherDisciplines:result.discipline_ids?.split(",").map((item: string) => parseInt(item)) ?? [] 
       } as TeacherResponse;
 
       return { status: 200, data: newResult };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getRequestedStudentTransfers(request?: Request) {
     try {
+
       const teacherClasses = await this.teacherClassrooms(request?.body.user);
-      const studentClassrooms = await AppDataSource.getRepository(
-        StudentClassroom,
-      )
+      const studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
         .createQueryBuilder("studentClassroom")
         .leftJoin("studentClassroom.classroom", "classroom")
         .leftJoin("studentClassroom.student", "student")
@@ -172,15 +135,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms })
         .andWhere("studentClassroom.endedAt IS NULL")
         .andWhere("transfers.endedAt IS NULL")
-        .andWhere("transfers.status = :status", {
-          status: transferStatus.PENDING,
-        })
+        .andWhere("transfers.status = :status", { status: transferStatus.PENDING })
         .getCount();
 
-      return { status: 200, data: studentClassrooms };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+      return { status: 200, data: studentClassrooms }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async updateId(id: string, body: TeacherBody) {
@@ -198,12 +157,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return { status: 403, message: "Você não tem permissão para editar este registro." };
       }
 
-      databaseTeacher.person.name = body.name;
-      databaseTeacher.person.birth = body.birth;
+      databaseTeacher.person.name = body.name; databaseTeacher.person.birth = body.birth;
 
       if ( databaseTeacher.person.category.id === pc.ADMINISTRADOR || databaseTeacher.person.category.id === pc.SUPERVISOR ) {
-        await AppDataSource.getRepository(Teacher).save(databaseTeacher);
-        return { status: 200, data: databaseTeacher };
+        await AppDataSource.getRepository(Teacher).save(databaseTeacher); return { status: 200, data: databaseTeacher }
       }
 
       if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(databaseTeacher, body) }
@@ -346,11 +303,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const allCharacters = lowercaseLetters + uppercaseLetters + numbers;
 
     let password = "";
-    for (let i = 0; i < 8; i++) {
-      const randomIndex = Math.floor(Math.random() * allCharacters.length);
-      password += allCharacters[randomIndex];
-    }
-
+    for (let i = 0; i < 8; i++) { const randomIndex = Math.floor(Math.random() * allCharacters.length); password += allCharacters[randomIndex] }
     return password;
   }
 

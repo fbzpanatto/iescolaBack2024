@@ -88,6 +88,12 @@ async function createAdminPerson() {
   const teacherSource = new dataSourceController(Teacher).entity
   const teacher = new Teacher()
   teacher.person = result
+  teacher.email = 'adminiescola@iescola.com.br'
+  teacher.createdAt = new Date()
+  teacher.updatedAt = new Date()
+  teacher.createdByUser = 1
+  teacher.updatedByUser = 1
+  teacher.register = 'AdmR'
   await teacherSource.save(teacher)
   await createAdminUser(result)
 }

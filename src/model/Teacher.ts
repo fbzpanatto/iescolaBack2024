@@ -1,11 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  OneToMany,
-  OneToOne,
-  PrimaryGeneratedColumn,
-} from "typeorm";
+import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
@@ -17,7 +10,7 @@ export class Teacher {
   id: number;
 
   @Max(60)
-  @Column({ nullable: true })
+  @Column()
   @IsEmail({}, { message: "Invalid email address." })
   email: string;
 
@@ -28,10 +21,19 @@ export class Teacher {
   @JoinColumn()
   person: Person;
 
-  @OneToMany(
-    () => TeacherClassDiscipline,
-    (teacherClassDiscipline) => teacherClassDiscipline.teacher,
-  )
+  @Column()
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column()
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
+
+  @OneToMany(() => TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher )
   teacherClassDiscipline: TeacherClassDiscipline[];
 
   @OneToMany(() => Transfer, (transfer) => transfer.requester)

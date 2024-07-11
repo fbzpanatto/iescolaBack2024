@@ -234,7 +234,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     }
   }
 
-  async saveTeacher(body: TeacherBody, options: SaveOptions | undefined) {
+  async saveTeacher(body: TeacherBody) {
     try {
       const teacherUserFromFront = (await this.teacherByUser(body.user.user )) as Teacher;
 

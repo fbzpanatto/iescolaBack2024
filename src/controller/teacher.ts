@@ -77,7 +77,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   // TODO: check this
   // @ts-ignore
   override async findOneById(id: string | number, request?: Request) {
-    
+  
     const body = request?.body as TeacherBody;
 
     try {
@@ -283,7 +283,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     teacher.createdByUser = userId;
     teacher.createdAt = new Date();
-    
     teacher.person = person;
     teacher.email = body.email;
     teacher.register = body.register;

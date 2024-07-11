@@ -124,23 +124,19 @@ export class GenericController<T> {
     })) as State;
   }
 
-  async transferStatus(id: number) {
-    return (await AppDataSource.getRepository(TransferStatus).findOne({
-      where: { id: id },
-    })) as TransferStatus;
-  }
+  async transferStatus(id: number) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
 
   async teacherByUser(userId: number, conn?: EntityManager) {
-    
+
     const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }
 
     if(!conn) { return (await AppDataSource.getRepository(Teacher).findOne(options)) as Teacher }
     return await conn.findOne(Teacher, options) as Teacher
   }
 
-  async teacherClassrooms(body: { user: number }, transaction?: EntityManager) {
+  async teacherClassrooms(body: { user: number }, conn?: EntityManager) {
 
-    if(!transaction) {
+    if(!conn) {
       const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")
       .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
@@ -156,7 +152,7 @@ export class GenericController<T> {
       return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
     }
 
-    const result = (await transaction.createQueryBuilder()
+    const result = (await conn.createQueryBuilder()
     .select("teacher.id", "teacher")
     .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
     .from(Teacher, "teacher")

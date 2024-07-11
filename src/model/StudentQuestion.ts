@@ -1,7 +1,6 @@
-import {Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn} from "typeorm";
-import { Student } from "./Student";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { TestQuestion } from "./TestQuestion";
-import {StudentClassroom} from "./StudentClassroom";
+import { StudentClassroom } from "./StudentClassroom";
 
 @Entity()
 export class StudentQuestion {
@@ -17,4 +16,16 @@ export class StudentQuestion {
 
   @Column({ nullable: true })
   answer: string
+
+  @Column({ nullable: true })
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

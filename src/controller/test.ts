@@ -6,25 +6,25 @@ import { bimesterController } from "./bimester";
 import { testCategoryController } from "./testCategory";
 import { questionGroupController } from "./questionGroup";
 import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
 import { Period } from "../model/Period";
 import { Classroom } from "../model/Classroom";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
+import { StudentQuestion as SQues } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
-import { Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { Teacher } from "../model/Teacher";
+
+interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
+interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
-  constructor() {
-    super(Test);
-  }
+  constructor() { super(Test) }
 
   async getFormData(req: Request) {
 
@@ -57,7 +57,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] })
       if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
-      const testQuestions = await this.getTestQuestions(Number(testId))
+      const testQuestions = await this.getTQuestions(Number(testId))
       if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 
       const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
@@ -125,12 +125,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)
       } as unknown as Classroom
 
-      // for(let el of allClasses) {
-      //   for(let student of el.studentClassrooms) {
-      //     cityHall.studentClassrooms.push(student)
-      //   }
-      // }
-
       response.classrooms = [ ...filteredClasses, cityHall ]
 
       const newReturn = {
@@ -152,7 +146,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getAllClassroomStudents(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+  async getAllClassroomStudents(request?: Request) {
 
     const testId = parseInt(request?.params.id as string)
     const classroomId = parseInt(request?.params.classroom as string)
@@ -160,59 +154,42 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
-      console.log('chegando aqui.....................................')
-      
-      const teacher = await this.teacherByUser(request?.body.user.user)
+      return await AppDataSource.transaction(async (conn) => {
 
-      console.log('teacher', teacher)
+        const uTeacher = await this.teacherByUser(request?.body.user.user, conn)
 
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
+        const isAdminSupervisor = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
 
-      console.log('isAdminSupervisor', isAdminSupervisor)
+        const { classrooms } = await this.teacherClassrooms(request?.body.user, conn)
 
-      const { classrooms } = await this.teacherClassrooms(request?.body.user)
+        const message = "Você não tem permissão para acessar essa sala."
+        if(!classrooms.includes(classroomId) && !isAdminSupervisor) { return { status: 403, message } }
 
-      console.log('classrooms', classrooms)
+        const test = await this.getTest(testId, yearName)
 
-      if(!classrooms.includes(classroomId) && !isAdminSupervisor) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+        if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const test = await this.getTest(testId, yearName)
+        const questionGroups = await this.getTestQuestionsGroups(testId)
 
-      console.log('test', test)
+        const testQuestions = await this.getTQuestions(testId)
 
-      if(!test) return { status: 404, message: "Teste não encontrado" }
+        const classroom = await AppDataSource.getRepository(Classroom)
+          .createQueryBuilder("classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .where("classroom.id = :classroomId", { classroomId })
+          .getOne();
 
-      const questionGroups = await this.getTestQuestionsGroups(testId)
+        const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearName as string)
 
-      console.log('questionGroups', questionGroups)
+        await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, conn)
 
-      const testQuestions = await this.getTestQuestions(testId)
+        const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearName as string)
 
-      console.log('testQuestions', testQuestions)
+        let data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
 
-      const classroom = await AppDataSource.getRepository(Classroom)
-        .createQueryBuilder("classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .where("classroom.id = :classroomId", { classroomId })
-        .getOne();
-
-      console.log('classroom', classroom)
-
-      const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearName as string)
-
-      console.log('studentClassrooms', studentClassrooms)
-
-      await this.linkStudentToTest(studentClassrooms, test, testQuestions)
-
-      const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearName as string)
-
-      console.log('studentClassroomsWithQuestions', studentClassroomsWithQuestions)
-
-      return { status: 200, data: { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups  } };
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+        return { status: 200, data };
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string) {
@@ -276,20 +253,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  // async getTestQuestions(testId: number) {
-  //   return await AppDataSource.getRepository(TestQuestion)
-  //     .createQueryBuilder("testQuestion")
-  //     .leftJoinAndSelect("testQuestion.question", "question")
-  //     .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-  //     .leftJoin("testQuestion.test", "test")
-  //     .where("testQuestion.test = :testId", { testId })
-  //     .orderBy("questionGroup.id", "ASC")
-  //     .addOrderBy("testQuestion.order", "ASC")
-  //     .getMany();
-  // }
+  async getTQuestions(testId: number, conn?: EntityManager) {
+    if(!conn) {
+      return await AppDataSource.getRepository(TestQuestion)
+      .createQueryBuilder("testQuestion")
+      .leftJoinAndSelect("testQuestion.question", "question")
+      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+      .where("testQuestion.test = :testId", { testId })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
+    }
 
-  async getTestQuestions(testId: number) {
-    return await AppDataSource.getRepository(TestQuestion)
+    return await conn.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
       .leftJoinAndSelect("testQuestion.question", "question")
       .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
@@ -317,87 +293,76 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const yearName = request.params.year
 
     try {
-
-      const test = await this.getTest(Number(testId), Number(yearName))
-      if(!test) return { status: 404, message: "Teste não encontrado" }
-
-      const response = await this.getStudentsThatAreNotIncluded(test, Number(classroomId), Number(yearName) )
-
-      return { status: 200, data: response };
-
+      return await AppDataSource.transaction(async (conn) => {
+        const test = await this.getTest(Number(testId), Number(yearName), conn)
+        if(!test) return { status: 404, message: "Teste não encontrado" }
+        const response = await this.notIncluded(test, Number(classroomId), Number(yearName), conn)
+        return { status: 200, data: response };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async linkStudentToTest(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[]) {
+  async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, conn: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
 
-      const studentTestStatus = await AppDataSource.getRepository(StudentTestStatus)
-        .findOne({
-          where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } },
-        }) as StudentTestStatus
+      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
+      const stStatus = await conn.findOne(StudentTestStatus, options)
 
-      if(!studentTestStatus) {
-        await AppDataSource.getRepository(StudentTestStatus).save({
-          active: true,
-          test: test,
-          studentClassroom: studentClassroom,
-          observation: '',
-        })
-      }
+      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+      if(!stStatus) { await conn.save(StudentTestStatus, el) }
 
       for(let testQuestion of testQuestions) {
-        const studentQuestion = await AppDataSource.getRepository(StudentQuestion)
-          .findOne({
-            where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } },
-          }) as StudentQuestion
 
-        if(!studentQuestion) {
-          await AppDataSource.getRepository(StudentQuestion).save({
-            answer: '',
-            testQuestion: testQuestion,
-            studentClassroom: studentClassroom,
-          })
-        }
+        const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } } }
+        const sQuestion = await conn.findOne(SQues, options) as SQues
+
+        if(!sQuestion) { await conn.save(SQues, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId })}
       }
     }
   }
 
-  async insertStudents(body: {user: ObjectLiteral, studentClassrooms: number[], test: {id: number}, year: number, classroom: {id: number}}) {
+  async insertStudents(req: Request) {
+
+    const body = req.body as insertStudentsBody
 
     try {
 
-      const test = await this.getTest(body.test.id, body.year)
-      if(!test) return { status: 404, message: "Teste não encontrado" }
+      return await AppDataSource.transaction(async (conn) => {
 
-      const studentClassrooms = await this.getStudentsThatAreNotIncluded(test, body.classroom.id, body.year )
-      if(!studentClassrooms || studentClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+        const uTeacher = await this.teacherByUser(body.user.user, conn)
 
-      const testQuestions = await this.getTestQuestions(test.id)
+        const test = await this.getTest(body.test.id, body.year, conn)
+        if(!test) return { status: 404, message: "Teste não encontrado" }
 
-      const filteredStudentClassrooms = studentClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
+        const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, conn)
+        if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
 
-      await this.linkStudentToTest(filteredStudentClassrooms, test, testQuestions)
+        const tQuestions = await this.getTQuestions(test.id, conn)
 
-      let result = {}
+        const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
 
-      return { status: 200, data: result };
-
+        await this.createLink(filteredSC, test, tQuestions, uTeacher.person.user.id, conn)
+        return { status: 200, data: {} };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getStudentsThatAreNotIncluded(test: Test, classroomId: number, yearName: number) {
+  async notIncluded(test: Test, classroomId: number, yearName: number, conn?: EntityManager) {
 
-    return await AppDataSource.getRepository(StudentClassroom)
+    const arrOfFields = [
+      'studentClassroom.id AS id',
+      'studentClassroom.rosterNumber AS rosterNumber',
+      'studentClassroom.startedAt AS startedAt',
+      'studentClassroom.endedAt AS endedAt',
+      'person.name AS name',
+      'student.ra AS ra',
+      'student.dv AS dv',
+    ]
+
+    if(!conn) {
+      return await AppDataSource.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
-      .select([
-        'studentClassroom.id AS id',
-        'studentClassroom.rosterNumber AS rosterNumber',
-        'studentClassroom.startedAt AS startedAt',
-        'studentClassroom.endedAt AS endedAt',
-        'person.name AS name',
-        'student.ra AS ra',
-        'student.dv AS dv',
-      ])
+      .select(arrOfFields)
       .leftJoin("studentClassroom.year", "year")
       .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
@@ -409,10 +374,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentClassroom.endedAt IS NULL")
       .andWhere("year.name = :yearName", {yearName})
       .andWhere("studentQuestions.id IS NULL")
-      .getRawMany() as unknown as { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }[]
+      .getRawMany() as unknown as notIncludedInterface[]
+    }
+
+    return await conn.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .select(arrOfFields)
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", {classroomId})
+      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+      .andWhere("studentClassroom.endedAt IS NULL")
+      .andWhere("year.name = :yearName", {yearName})
+      .andWhere("studentQuestions.id IS NULL")
+      .getRawMany() as unknown as notIncludedInterface[]
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+  override async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
 
     const yearName = request?.params.year
     const search = request?.query.search as string
@@ -447,40 +429,42 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   override async findOneById(testId: number | string, req: Request, transaction?: EntityManager) {
 
+    const selectFields = [
+      "testQuestion.id",
+      "testQuestion.order",
+      "testQuestion.answer",
+      "testQuestion.active",
+      "question.id",
+      "question.title",
+      "person.id",
+      "question.person",
+      "descriptor.id",
+      "descriptor.code",
+      "descriptor.name",
+      "topic.id",
+      "topic.name",
+      "topic.description",
+      "classroomCategory.id",
+      "classroomCategory.name",
+      "questionGroup.id",
+      "questionGroup.name",
+    ]
+
     try {
       if(!transaction) {
         const teacher = await this.teacherByUser(req.body.user.user)
 
         const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
-  
+
         const test = await AppDataSource.getRepository(Test).findOne({ relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
-  
+
         if( teacher.person.id !== test?.person.id && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para editar esse teste." }
-  
+
         if (!test) { return { status: 404, message: 'Data not found' } }
-  
+
         const testQuestions = await AppDataSource.getRepository(TestQuestion)
           .createQueryBuilder("testQuestion")
-          .select([
-            "testQuestion.id",
-            "testQuestion.order",
-            "testQuestion.answer",
-            "testQuestion.active",
-            "question.id",
-            "question.title",
-            "person.id",
-            "question.person",
-            "descriptor.id",
-            "descriptor.code",
-            "descriptor.name",
-            "topic.id",
-            "topic.name",
-            "topic.description",
-            "classroomCategory.id",
-            "classroomCategory.name",
-            "questionGroup.id",
-            "questionGroup.name",
-          ])
+          .select(selectFields)
           .leftJoin("testQuestion.question", "question")
           .leftJoin("question.person", "person")
           .leftJoin("question.descriptor", "descriptor")
@@ -492,8 +476,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .addOrderBy("testQuestion.order", "ASC")
           .getMany();
 
-        console.log('testQuestions', testQuestions)
-  
         return { status: 200, data: { ...test, testQuestions } };
       }
 
@@ -503,32 +485,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const test = await transaction.findOne(Test, { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
 
-      if( teacher.person.id !== test?.person.id && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+      if(teacher.person.id !== test?.person.id && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
       if (!test) { return { status: 404, message: 'Data not found' } }
 
       const testQuestions = await transaction.getRepository(TestQuestion)
         .createQueryBuilder("testQuestion")
-        .select([
-          "testQuestion.id",
-          "testQuestion.order",
-          "testQuestion.answer",
-          "testQuestion.active",
-          "question.id",
-          "question.title",
-          "person.id",
-          "question.person",
-          "descriptor.id",
-          "descriptor.code",
-          "descriptor.name",
-          "topic.id",
-          "topic.name",
-          "topic.description",
-          "classroomCategory.id",
-          "classroomCategory.name",
-          "questionGroup.id",
-          "questionGroup.name",
-        ])
+        .select(selectFields)
         .leftJoin("testQuestion.question", "question")
         .leftJoin("question.person", "person")
         .leftJoin("question.descriptor", "descriptor")
@@ -545,21 +508,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async saveTest(body: DeepPartial<ObjectLiteral>) {
+
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
+
     try {
-      return await AppDataSource.transaction(async (transaction) => {
+      return await AppDataSource.transaction(async (conn) => {
 
         const uTeacher = await this.teacherByUser(body.user.user);
         if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
 
-        const checkYear = await transaction.findOne(Year, { where: { id: body.year.id } })
+        const checkYear = await conn.findOne(Year, { where: { id: body.year.id } })
         if(!checkYear) return { status: 404, message: "Ano não encontrado" }
         if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
 
-        const period = await transaction.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } })
+        const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } }
+        const period = await conn.findOne(Period, option)
         if(!period) return { status: 404, message: "Period não encontrado" }
 
-        const classes = await transaction.getRepository(Classroom)
+        const classes = await conn.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
           .leftJoin("classroom.studentClassrooms", "studentClassroom")
@@ -574,7 +540,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
-        const newTest = await transaction.save(Test, {
+        const test = await conn.save(Test, {
           name: body.name,
           category: body.category,
           discipline: body.discipline,
@@ -585,12 +551,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
           createdByUser: uTeacher.person.user.id
         });
 
-        const testQuestions = body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || uTeacher.person }, test: newTest }));
+        // TODO: add createdAt and createdBy into question
+        const tQts = body.testQuestions.map((el: any) => ({ ...el, createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person }, test }));
 
-        await transaction.save(TestQuestion, testQuestions)
-        return { status: 201, data: newTest };
+        await conn.save(TestQuestion, tQts)
+        return { status: 201, data: test };
       })
-    } catch (error: any) { return { status: 500, message: error.message } } 
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateTestById(id: number | string, req: Request) {
@@ -600,22 +567,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const uTeacher = await this.teacherByUser(req.body.user.user, transaction) as Teacher
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
         const test = await transaction.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
-  
+
         if(!test) return { status: 404, message: "Teste não encontrado" }
         if(uTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
-  
+
         test.name = req.body.name
         test.updatedAt = new Date()
         test.updatedByUser = uTeacher.person.user.id
-  
+
         await transaction.save(Test, test)
 
         const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || uTeacher.person }, test }));
-  
+
         await transaction.save(TestQuestion, testQuestions)
-  
+
         const result = (await this.findOneById(id, req, transaction)).data
-        
+
         return { status: 200, data: result };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -659,8 +626,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getTest(testId:number , yearName: number | string) {
-    return await AppDataSource.getRepository(Test)
+  async getTest(testId:number , yearName: number | string, conn?: EntityManager) {
+    if(!conn) {
+      return await AppDataSource.getRepository(Test)
+      .createQueryBuilder("test")
+      .leftJoinAndSelect("test.person", "person")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.bimester", "bimester")
+      .leftJoinAndSelect("period.year", "year")
+      .leftJoinAndSelect("test.discipline", "discipline")
+      .leftJoinAndSelect("test.category", "category")
+      .where("test.id = :testId", {testId})
+      .andWhere("year.name = :yearName", {yearName})
+      .getOne()
+    }
+
+    return conn.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.person", "person")
       .leftJoinAndSelect("test.period", "period")

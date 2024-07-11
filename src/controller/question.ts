@@ -5,6 +5,7 @@ import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Question } from "../model/Question";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
+import { pc } from "../utils/personCategories";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
   constructor() { super(Question) }
@@ -12,9 +13,12 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
   async isOwner(req: Request) {
     const { id: questionId } = req.params
     try {
-      const { person } = await this.teacherByUser(req.body.user.user)
+      const teacher = await this.teacherByUser(req.body.user.user)
+
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+
       const question = await AppDataSource.getRepository(Question).findOne({ relations: ["person"], where: { id: parseInt(questionId as string) } })
-      return { status: 200, data: { isOwner: person.id === question?.person.id } };
+      return { status: 200, data: { isOwner: teacher.person.id === question?.person.id || isAdminSupervisor } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

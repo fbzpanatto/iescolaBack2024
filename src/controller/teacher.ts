@@ -1,14 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import {
-  Brackets,
-  EntityTarget,
-  FindManyOptions,
-  In,
-  IsNull,
-  ObjectLiteral,
-  SaveOptions,
-} from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
@@ -28,32 +20,26 @@ import { personCategoryController } from "./personCategory";
 import { mainEmail } from "../utils/email.service";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
-  constructor() {
-    super(Teacher);
-  }
+  
+  constructor() { super(Teacher) }
 
   async teacherForm(req: Request) {
-    try {
-      const disciplines = (await disciplineController.findAllWhere({}, req))
-        .data;
-      const classrooms = (await classroomController.findAllWhere({}, req)).data;
-      const personCategories = (
-        await personCategoryController.findAllWhere({}, req)
-      ).data;
 
-      return {
-        status: 200,
-        data: { disciplines, classrooms, personCategories },
-      };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    let disciplines; let classrooms; let personCategories;
+
+    try {
+
+      await AppDataSource.transaction(async (transaction) => {
+        disciplines = (await disciplineController.getAllDisciplines(req, transaction)).data;
+        classrooms = (await classroomController.findAllWhere({}, req, transaction)).data;
+        personCategories = (await personCategoryController.findAllWhere({}, req, transaction)).data;
+      })
+
+      return { status: 200, data: { disciplines, classrooms, personCategories } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async findAllWhere(
-    _: FindManyOptions<ObjectLiteral> | undefined,
-    request?: Request,
-  ) {
+  override async findAllWhere( _: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
 
@@ -75,16 +61,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
               return;
             }
 
-            if (
-              teacher.person.category.id != pc.ADMINISTRADOR &&
-              teacher.person.category.id != pc.SUPERVISOR
-            ) {
-              qb.where("category.id NOT IN (:...categoryIds)", {
-                categoryIds: notInCategories,
-              })
-                .andWhere("classroom.id IN (:...classroomIds)", {
-                  classroomIds: teacherClasses.classrooms,
-                })
+            if ( teacher.person.category.id != pc.ADMINISTRADOR && teacher.person.category.id != pc.SUPERVISOR ) {
+              qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
+                .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
                 .andWhere("teacherClassDiscipline.endedAt IS NULL");
               return;
             }
@@ -95,9 +74,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .getMany();
 
       return { status: 200, data: newResult };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   // TODO: check this

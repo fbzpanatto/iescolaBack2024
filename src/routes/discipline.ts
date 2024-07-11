@@ -5,7 +5,7 @@ export const DisciplineRouter = Router();
 
 DisciplineRouter.get('/', (req, res) => {
 
-  disciplineController.findAllWhere({}, req)
+  disciplineController.getAllDisciplines(req)
     .then(r => res.status(r.status).json(r))
     .catch(e => res.status(e.status).json(e))
 })

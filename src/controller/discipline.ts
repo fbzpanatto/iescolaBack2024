@@ -1,56 +1,67 @@
 import { GenericController } from "./genericController";
-import {
-  Brackets,
-  EntityTarget,
-  FindManyOptions,
-  ObjectLiteral,
-} from "typeorm";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
 import { Discipline } from "../model/Discipline";
 import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
 import { pc } from "../utils/personCategories";
+import { AppDataSource } from "../data-source";
 
 class DisciplineController extends GenericController<EntityTarget<Discipline>> {
-  constructor() {
-    super(Discipline);
-  }
 
-  override async findAllWhere(
-    options: FindManyOptions<ObjectLiteral> | undefined,
-    request?: Request,
-  ) {
+  constructor() { super(Discipline) }
+
+  async getAllDisciplines(request: Request, transaction?: EntityManager) {
+
     const body = request?.body as TeacherBody;
 
     try {
-      const teacher = await this.teacherByUser(body.user.user);
-      const teacherDisciplines = await this.teacherDisciplines(
-        request?.body.user,
-      );
 
-      let result = await this.repository
-        .createQueryBuilder("discipline")
-        .select([
-          "discipline.id as id",
-          "discipline.name as name",
-          "discipline.shortName as shortName",
-        ])
-        .where(
-          new Brackets((qb) => {
-            if (!(teacher.person.category.id === pc.PROFESSOR)) {
-              qb.where("discipline.id > 0");
-              return;
-            }
-            qb.where("discipline.id IN (:...ids)", {
-              ids: teacherDisciplines.disciplines,
-            });
-          }),
-        )
+      if(!transaction){
+        const teacher = await this.teacherByUser(body.user.user);
+        const teacherDisciplines = await this.teacherDisciplines(request?.body.user);
+  
+        let result = await this.repository
+          .createQueryBuilder("discipline")
+          .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
+          .where(
+            new Brackets((qb) => {
+              if (!(teacher.person.category.id === pc.PROFESSOR)) {
+                qb.where("discipline.id > 0");
+                return;
+              }
+              qb.where("discipline.id IN (:...ids)", { ids: teacherDisciplines.disciplines });
+            }),
+          )
+          .getRawMany();
+  
+        return { status: 200, data: result };
+      }
+
+      let result
+
+      await AppDataSource.transaction(async (transaction) => {
+
+        const teacher = await this.teacherByUser(body.user.user, transaction);
+        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, transaction);
+
+        result = await transaction.getRepository(Discipline)
+          .createQueryBuilder("discipline") 
+          .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
+          .where(
+            new Brackets((qb) => {
+              if (!(teacher.person.category.id === pc.PROFESSOR)) {
+                qb.where("discipline.id > 0");
+                return;
+              }
+              qb.where("discipline.id IN (:...ids)", { ids: teacherDisciplines.disciplines });
+            }),
+          )
         .getRawMany();
+      })
 
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

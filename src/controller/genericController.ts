@@ -21,44 +21,40 @@ import { Teacher } from "../model/Teacher";
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
-  get repository() {
-    return AppDataSource.getRepository(this.entity);
-  }
+  get repository() { return AppDataSource.getRepository(this.entity) }
 
-  async findAllWhere(
-    options: FindManyOptions<ObjectLiteral> | undefined,
-    request?: Request,
-  ) {
+  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, transaction?: EntityManager ) {
     try {
-      const result = await this.repository.find();
-      return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+
+      if(!transaction){ const result = await this.repository.find(); return { status: 200, data: result } }
+
+      const result = await transaction.find(this.entity); return { status: 200, data: result }
+
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
     try {
-      const result = await this.repository.findOne(options);
-      if (!result) {
-        return { status: 404, message: "Data not found" };
-      }
+      const result = await this.repository.findOne(options)
+      if (!result) { return { status: 404, message: "Data not found" } }
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async findOneById(id: number | string, body: ObjectLiteral, transaction?: EntityManager) {
     try {
-      const result = await this.repository.findOneBy({ id: id });
-      if (!result) {
-        return { status: 404, message: "Data not found" };
+
+      if(!transaction) {
+        const result = await this.repository.findOneBy({ id: id });
+        if (!result) { return { status: 404, message: "Data not found" } }
+        return { status: 200, data: result };
       }
+
+      const result = await transaction.findOneBy(this.entity, { id: id });
+      if (!result) { return { status: 404, message: "Data not found" } }
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+      
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async save(
@@ -139,57 +135,68 @@ export class GenericController<T> {
     return await transaction.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: userId } } } }) as Teacher
   }
 
-  async teacherClassrooms(body: { user: number }) {
-    const result = (await AppDataSource.createQueryBuilder()
+  async teacherClassrooms(body: { user: number }, transaction?: EntityManager) {
+
+    if(!transaction) {
+      const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")
-      .addSelect(
-        "GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)",
-        "classrooms",
-      )
+      .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
       .from(Teacher, "teacher")
       .leftJoin("teacher.person", "person")
       .leftJoin("person.user", "user")
       .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
       .leftJoin("teacherClassDiscipline.classroom", "classroom")
-      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", {
-        userId: body.user,
-      })
+      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
       .groupBy("teacher.id")
       .getRawOne()) as { teacher: number; classrooms: string };
 
-    return {
-      id: result.teacher,
-      classrooms:
-        result.classrooms
-          ?.split(",")
-          .map((classroomId: string) => Number(classroomId)) ?? [],
-    };
+      return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
+    }
+
+    const result = (await transaction.createQueryBuilder()
+    .select("teacher.id", "teacher")
+    .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
+    .from(Teacher, "teacher")
+    .leftJoin("teacher.person", "person")
+    .leftJoin("person.user", "user")
+    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+    .leftJoin("teacherClassDiscipline.classroom", "classroom")
+    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+    .groupBy("teacher.id")
+    .getRawOne()) as { teacher: number; classrooms: string };
+
+    return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
   }
 
-  async teacherDisciplines(body: { user: number }) {
-    const result = (await AppDataSource.createQueryBuilder()
+  async teacherDisciplines(body: { user: number }, transaction?: EntityManager) {
+    if(!transaction) {
+      const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")
-      .addSelect(
-        "GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)",
-        "disciplines",
-      )
+      .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
       .from(Teacher, "teacher")
       .leftJoin("teacher.person", "person")
       .leftJoin("person.user", "user")
       .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
       .leftJoin("teacherClassDiscipline.discipline", "discipline")
-      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", {
-        userId: body.user,
-      })
+      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
       .groupBy("teacher.id")
       .getRawOne()) as { teacher: number; disciplines: string };
 
-    return {
-      id: result.teacher,
-      disciplines:
-        result.disciplines
-          ?.split(",")
-          .map((disciplineId: string) => Number(disciplineId)) ?? [],
-    };
+      return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] };
+    }
+
+    const result = (await transaction.createQueryBuilder()
+    .select("teacher.id", "teacher")
+    .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
+    .from(Teacher, "teacher")
+    .leftJoin("teacher.person", "person")
+    .leftJoin("person.user", "user")
+    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+    .leftJoin("teacherClassDiscipline.discipline", "discipline")
+    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+    .groupBy("teacher.id")
+    .getRawOne()) as { teacher: number; disciplines: string };
+    
+    return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
   }
 }

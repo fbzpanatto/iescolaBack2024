@@ -150,7 +150,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       if (!databaseTeacher) {return { status: 404, message: "Data not found" }}
 
-      const message = "Você não tem permissão para editar uma pessoa dessa categoria. Solicite a alguém com cargo um cargo superior ao seu."
+      const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
       if (!this.hasPermissionToCreate(frontendTeacher.person.category.id, databaseTeacher.person.category.id)) { return { status: 403, message }}
 
       if (frontendTeacher.person.category.id === pc.PROFESSOR || (frontendTeacher.person.category.id === pc.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id)) {

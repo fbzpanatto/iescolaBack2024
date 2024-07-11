@@ -410,8 +410,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async save(body: SaveStudent) {
     try {
-      const teacher = await this.teacherByUser(body.user.user);
-      const teacherClasses = await this.teacherClassrooms(body.user);
+      const uTeacher = await this.teacherByUser(body.user.user);
+      const tClasses = await this.teacherClassrooms(body.user);
       const year = await this.currentYear();
       const state = await this.state(body.state);
       const classroom = await this.classroom(body.classroom);
@@ -453,13 +453,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       const message = "Você não tem permissão para criar um aluno nesta sala."
-      if (body.user.category === pc.PROF) { if (!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
+      if (body.user.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
 
       let student: Student | null = null;
 
       await AppDataSource.transaction(async (transaction) => {
          
-        student = await transaction.save(Student, this.createStudent(body, person, state));
+        student = await transaction.save(Student, this.createStudent(body, person, state, uTeacher.person.user.id));
 
         if (!!disabilities.length) {
           const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability } });
@@ -479,10 +479,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const transfer = new Transfer();
         transfer.startedAt = new Date();
         transfer.endedAt = new Date();
-        transfer.requester = teacher;
+        transfer.requester = uTeacher;
         transfer.requestedClassroom = classroom;
         transfer.currentClassroom = classroom;
-        transfer.receiver = teacher;
+        transfer.receiver = uTeacher;
         transfer.student = student;
         transfer.status = tStatus;
         transfer.year = await this.currentYear();
@@ -567,294 +567,137 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   override async updateId(studentId: number | string, body: any) {
+
     try {
-      const userTeacherFromFront = await this.teacherByUser(body.user.user);
+
+      const uTeacher = await this.teacherByUser(body.user.user);
 
       let result: any;
 
-      await AppDataSource.transaction(async (transaction) => {
+      await AppDataSource.transaction(async (conn) => {
 
-        const student = await transaction.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
+        const student = await conn.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
 
-        const bodyClassroom = await transaction.findOne(Classroom, { where: { id: body.classroom } });
+        const bodyClassroom = await conn.findOne(Classroom, { where: { id: body.classroom } });
 
-        const arrayOfRelations = [
-          "student",
-          "classroom",
-          "literacies.literacyTier",
-          "literacies.literacyLevel",
-          "textGenderGrades.textGender",
-          "textGenderGrades.textGenderExam",
-          "textGenderGrades.textGenderExamTier",
-          "textGenderGrades.textGenderExamLevel",
-          "year",
-        ];
+        const arrayOfRelations = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year" ];
 
-        const stClass = await transaction.findOne(StudentClassroom, {
-          relations: arrayOfRelations,
-          where: {
-            id: Number(body.currentStudentClassroomId),
-            student: { id: student.id },
-            endedAt: IsNull(),
-          },
-        });
+        const stClass = await conn.findOne(StudentClassroom, { relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } })
 
-        if (!student) {
-          return { status: 404, message: "Registro não encontrado" };
-        }
-        if (!stClass) {
-          return { status: 404, message: "Registro não encontrado" };
-        }
-        if (!bodyClassroom) {
-          return { status: 404, message: "Sala não encontrada" };
-        }
+        if (!student) { return { status: 404, message: "Registro não encontrado" } }
+        if (!stClass) { return { status: 404, message: "Registro não encontrado" } }
+        if (!bodyClassroom) { return { status: 404, message: "Sala não encontrada" } }
 
-        const composedBodyStudentRa = `${body.ra}${body.dv}`;
-        const composedStudentRa = `${student.ra}${student.dv}`;
+        const cBodySRA = `${body.ra}${body.dv}`;
+        const cSRA = `${student.ra}${student.dv}`;
 
-        if (composedStudentRa !== composedBodyStudentRa) {
-          const exists = await transaction.findOne(Student, {
-            where: { ra: body.ra, dv: body.dv },
-          });
-          if (exists) {
-            return { status: 409, message: "Já existe um aluno com esse RA" };
-          }
-        }
+        if (cSRA !== cBodySRA) { const exists = await conn.findOne(Student, { where: { ra: body.ra, dv: body.dv } }); if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }}
 
-        const canChange = [
-          pc.ADMN,
-          pc.SUPE,
-          pc.DIRE,
-          pc.VICE,
-          pc.COOR,
-          pc.SECR,
-        ];
+        const canChange = [ pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
-        if (
-          !canChange.includes(userTeacherFromFront.person.category.id) &&
-          stClass?.classroom.id != bodyClassroom.id
-        ) {
-          return {
-            status: 403,
-            message:
-              "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.",
-          };
-        }
+        const message = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS."
+        if (!canChange.includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClassroom.id ) { return { status: 403, message } }
 
-        if (
-          stClass?.classroom.id != bodyClassroom.id &&
-          canChange.includes(userTeacherFromFront.person.category.id)
-        ) {
-          const newNumber = Number(
-            bodyClassroom.shortName.replace(/\D/g, ""),
-          );
-          const oldNumber = Number(
-            stClass.classroom.shortName.replace(/\D/g, ""),
-          );
+        if (stClass?.classroom.id != bodyClassroom.id && canChange.includes(uTeacher.person.category.id)) {
 
-          if (newNumber < oldNumber) {
-            return {
-              status: 404,
-              message:
-                "Não é possível alterar a sala para uma sala com número menor que a atual.",
-            };
-          }
+          const newNumber = Number(bodyClassroom.shortName.replace(/\D/g, ""));
+          const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ""));
 
-          await transaction.save(StudentClassroom, {
-            ...stClass,
-            endedAt: new Date(),
-          });
+          if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
 
-          const currentYear = (await transaction.findOne(Year, {
-            where: { endedAt: IsNull(), active: true },
-          })) as Year;
+          await conn.save(StudentClassroom, { ...stClass, endedAt: new Date() });
 
-          const lastRosterNumber = await transaction.find(StudentClassroom, {
-            relations: ["classroom", "year"],
-            where: {
-              year: { id: currentYear.id },
-              classroom: { id: bodyClassroom.id },
-            },
-            order: { rosterNumber: "DESC" },
-            take: 1,
-          });
+          const currentYear = (await conn.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
 
-          let last = 1;
-          if (lastRosterNumber[0]?.rosterNumber) {
-            last = lastRosterNumber[0].rosterNumber + 1;
-          }
+          const lastRosterNumber = await conn.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClassroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
-          const newStClass = await transaction.save(StudentClassroom, {
-            student,
-            classroom: bodyClassroom,
-            year: currentYear,
-            rosterNumber: last,
-            startedAt: new Date(),
-          });
+          let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 };
 
-          const notDigit = /\D/g;
-          const classroomNumber = Number(
-            bodyClassroom.shortName.replace(notDigit, ""),
-          );
+          const newStClass = await conn.save(StudentClassroom, { student, classroom: bodyClassroom, year: currentYear, rosterNumber: last, startedAt: new Date() });
+
+          const notDigit = /\D/g; const classroomNumber = Number( bodyClassroom.shortName.replace(notDigit, "") );
 
           if (classroomNumber >= 1 && classroomNumber <= 3) {
-            const literacyTier = await transaction.find(LiteracyTier);
 
-            if (
-              stClass.classroom.id !=
-                newStClass.classroom.id &&
-              oldNumber === newNumber &&
-              stClass.year.id === newStClass.year.id
-            ) {
-              for (let tier of literacyTier) {
-                const element = stClass.literacies.find(
-                  (el) =>
-                    el.literacyTier.id === tier.id && el.literacyLevel != null,
-                );
+            const literacyTier = await conn.find(LiteracyTier);
 
-                if (element) {
-                  await transaction.save(Literacy, {
-                    studentClassroom: newStClass,
-                    literacyTier: element.literacyTier,
-                    literacyLevel: element.literacyLevel,
-                    toRate: false,
-                  });
-                } else {
-                  await transaction.save(Literacy, {
-                    studentClassroom: newStClass,
-                    literacyTier: tier,
-                  });
-                }
-              }
-            } else {
+            if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
               for (let tier of literacyTier) {
-                await transaction.save(Literacy, {
-                  studentClassroom: newStClass,
-                  literacyTier: tier,
-                });
+                const element = stClass.literacies.find((el) => el.literacyTier.id === tier.id && el.literacyLevel != null )
+
+                if (element) { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: element.literacyTier, literacyLevel: element.literacyLevel, toRate: false })} 
+                else { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: tier }) }
               }
             }
+
+            else { for (let tier of literacyTier) { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: tier })}}
           }
 
           if (classroomNumber === 4 || classroomNumber === 5) {
-            const textGenderExam = await transaction.find(TextGenderExam);
-            const textGenderExamTier =
-              await transaction.find(TextGenderExamTier);
-            const textGenderClassroom = await transaction.find(
-              TextGenderClassroom,
-              {
-                where: { classroomNumber: classroomNumber },
-                relations: ["textGender"],
-              },
-            );
+
+            const tgExam = await conn.find(TextGenderExam);
+            const tgExamTier = await conn.find(TextGenderExamTier);
+            const tgClassroom = await conn.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] } );
 
             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
-              for (let tg of textGenderClassroom) {
-                for (let tier of textGenderExamTier) {
-                  for (let exam of textGenderExam) {
-                    const element = stClass.textGenderGrades.find(
-                      (el) =>
-                        el.textGender.id === tg.textGender.id &&
-                        el.textGenderExam.id === exam.id &&
-                        el.textGenderExamTier.id === tier.id &&
-                        el.textGenderExamLevel != null,
-                    );
 
-                    if (element) {
-                      await transaction.save(TextGenderGrade, {
-                        studentClassroom: newStClass,
-                        textGender: element.textGender,
-                        textGenderExam: element.textGenderExam,
-                        textGenderExamTier: element.textGenderExamTier,
-                        textGenderExamLevel: element.textGenderExamLevel,
-                        toRate: false,
-                      });
-                    } else {
-                      await transaction.save(TextGenderGrade, {
-                        studentClassroom: newStClass,
-                        textGender: tg.textGender,
-                        textGenderExam: exam,
-                        textGenderExamTier: tier,
-                      });
-                    }
+              for (let tg of tgClassroom) {
+                for (let tier of tgExamTier) {
+                  for (let exam of tgExam) {
+
+                    const element = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
+
+                    if (element) { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: element.textGender, textGenderExam: element.textGenderExam, textGenderExamTier: element.textGenderExamTier, textGenderExamLevel: element.textGenderExamLevel, toRate: false })}
+                    else { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier }) }
                   }
                 }
               }
-            } else {
-              for (let tg of textGenderClassroom) {
-                for (let tier of textGenderExamTier) {
-                  for (let exam of textGenderExam) {
-                    await transaction.save(TextGenderGrade, {
-                      studentClassroom: newStClass,
-                      textGender: tg.textGender,
-                      textGenderExam: exam,
-                      textGenderExamTier: tier,
-                    });
-                  }
+            }
+
+            else {
+              for (let tg of tgClassroom) {
+                for (let tier of tgExamTier) {
+                  for (let exam of tgExam) { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
                 }
               }
             }
           }
 
-          const newTransfer = new Transfer();
-          newTransfer.startedAt = new Date();
-          newTransfer.endedAt = new Date();
-          newTransfer.requester = userTeacherFromFront;
-          newTransfer.requestedClassroom = bodyClassroom;
-          newTransfer.currentClassroom = stClass.classroom;
-          newTransfer.receiver = userTeacherFromFront;
-          newTransfer.student = student;
-          newTransfer.status = (await AppDataSource.getRepository(
-            TransferStatus,
-          ).findOne({
-            where: {
-              id: 1,
-              name: "Aceitada",
-            },
-          })) as TransferStatus;
-          newTransfer.year = await this.currentYear();
-          await AppDataSource.getRepository(Transfer).save(newTransfer);
+          const trfr = new Transfer();
+          trfr.startedAt = new Date();
+          trfr.endedAt = new Date();
+          trfr.requester = uTeacher;
+          trfr.requestedClassroom = bodyClassroom;
+          trfr.currentClassroom = stClass.classroom;
+          trfr.receiver = uTeacher;
+          trfr.student = student;
+          trfr.status = (await conn.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }})) as TransferStatus;
+          trfr.year = await conn.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
+
+          await conn.save(Transfer, trfr);
         }
 
-        if (stClass.classroom.id === bodyClassroom.id) {
-          await transaction.save(StudentClassroom, {
-            ...stClass,
-            rosterNumber: body.rosterNumber,
-          });
-        }
-
-        const studentState = (await transaction.findOne(State, {
-          where: { id: body.state },
-        })) as State;
+        if (stClass.classroom.id === bodyClassroom.id) { await conn.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber })}
 
         student.ra = body.ra;
         student.dv = body.dv;
-        student.state = studentState;
-        student.observationOne = body.observationOne;
-        student.observationTwo = body.observationTwo;
+        student.updatedAt = new Date();
+        student.updatedByUser = uTeacher.person.user.id;
         student.person.name = body.name;
         student.person.birth = body.birth;
+        student.observationOne = body.observationOne;
+        student.observationTwo = body.observationTwo;
+        student.state = await conn.findOne(State, { where: { id: body.state } }) as State;
 
-        const register = await transaction.save(Student, student);
+        const stDisabilities = student.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
 
-        const stDisabilities = student.studentDisabilities.filter(
-          (studentDisability) => !studentDisability.endedAt,
-        );
+        await this.setDisabilities(await conn.save(Student, student), stDisabilities, body.disabilities, conn);
 
-        await this.setDisabilities(
-          register,
-          stDisabilities,
-          body.disabilities,
-          transaction,
-        );
+        result = this.formartStudentResponse(await this.student(Number(studentId), conn));
+      })
 
-        const preResult = await this.student(Number(studentId), transaction);
-        result = this.formartStudentResponse(preResult);
-      });
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async setDisabilities(
@@ -1085,12 +928,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     });
   }
 
-  createStudent(body: SaveStudent, person: Person, state: State) {
+  createStudent(body: SaveStudent, person: Person, state: State, userId: number) {
     const student = new Student();
     student.person = person;
     student.ra = body.ra;
     student.dv = body.dv;
     student.state = state;
+    student.createdByUser = userId,
+    student.createdAt = new Date()
     student.observationOne = body.observationOne;
     student.observationTwo = body.observationTwo;
     return student;

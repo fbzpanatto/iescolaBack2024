@@ -417,25 +417,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const classroom = await this.classroom(body.classroom);
       const category = await this.studentCategory();
       const disabilities = await this.disabilities(body.disabilities);
-      const person = this.createPerson({
-        name: body.name,
-        birth: body.birth,
-        category,
-      });
+      const person = this.createPerson({ name: body.name, birth: body.birth, category });
 
-      if (!year) {
-        return {
-          status: 404,
-          message:
-            "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
-        };
-      }
+      if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
-      const exists = await AppDataSource.getRepository(Student).findOne({
-        where: { ra: body.ra, dv: body.dv },
-      });
+      const exists = await AppDataSource.getRepository(Student).findOne({ where: { ra: body.ra, dv: body.dv } })
+
       if (exists) {
-        const lastStudentRegister = (await AppDataSource.getRepository(Student)
+        const el = (await AppDataSource.getRepository(Student)
           .createQueryBuilder("student")
           .leftJoinAndSelect("student.person", "person")
           .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
@@ -444,134 +433,66 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           .leftJoinAndSelect("studentClassroom.year", "year")
           .where("student.ra = :ra", { ra: body.ra })
           .andWhere("student.dv = :dv", { dv: body.dv })
-          .andWhere(
-            new Brackets((qb) => {
-              qb.where("studentClassroom.endedAt IS NULL").orWhere(
-                "studentClassroom.endedAt < :currentDate",
-                { currentDate: new Date() },
-              );
-            }),
-          )
+          .andWhere( new Brackets((qb) => { qb.where("studentClassroom.endedAt IS NULL").orWhere("studentClassroom.endedAt < :currentDate", { currentDate: new Date() })}) )
           .getOne()) as Student;
 
-        let preResult: StudentClassroom;
+        let preR: StudentClassroom;
 
-        const activeStudentClassroom =
-          lastStudentRegister.studentClassrooms.find(
-            (sc) => sc.endedAt === null,
-          ) as StudentClassroom;
+        const actStClassroom = el.studentClassrooms.find((sc) => sc.endedAt === null) as StudentClassroom;
 
-        if (activeStudentClassroom) {
-          preResult = activeStudentClassroom;
-        } else {
-          preResult = lastStudentRegister.studentClassrooms.find(
-            (sc) =>
-              getTimeZone(sc.endedAt) ===
-              Math.max(
-                ...lastStudentRegister.studentClassrooms.map((sc) =>
-                  getTimeZone(sc.endedAt),
-                ),
-              ),
-          ) as StudentClassroom;
-        }
+        if (actStClassroom) { preR = actStClassroom }
+        else { preR = el.studentClassrooms.find((sc) => getTimeZone(sc.endedAt) === Math.max(...el.studentClassrooms.map((sc) => getTimeZone(sc.endedAt)))) as StudentClassroom }
 
-        if (!lastStudentRegister.active) {
-          return {
-            status: 409,
-            message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} se formou em: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano de ${preResult?.year.name}.`,
-          };
-        }
+        const message = `RA existente. ${el.person.name} se formou em: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano de ${preR?.year.name}.`
+        if (!el.active) { return { status: 409, message }}
 
         return {
           status: 409,
-          message: `Já existe um aluno com o RA informado. ${lastStudentRegister.person.name} tem como último registro: ${preResult?.classroom.shortName} ${preResult?.classroom.school.shortName} no ano ${preResult?.year.name}. ${preResult.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preResult.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preResult.year.name}.`}`,
+          message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano ${preR?.year.name}. ${preR.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preR.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}`,
         };
       }
 
-      if (body.user.category === pc.PROF) {
-        if (!teacherClasses.classrooms.includes(classroom.id)) {
-          return {
-            status: 403,
-            message: "Você não tem permissão para criar um aluno nesta sala.",
-          };
-        }
-      }
+      const message = "Você não tem permissão para criar um aluno nesta sala."
+      if (body.user.category === pc.PROF) { if (!teacherClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
 
       let student: Student | null = null;
 
       await AppDataSource.transaction(async (transaction) => {
-        student = await transaction.save(
-          Student,
-          this.createStudent(body, person, state),
-        );
+         
+        student = await transaction.save(Student, this.createStudent(body, person, state));
 
         if (!!disabilities.length) {
-          const mappedDisabilities = disabilities.map((disability) => {
-            return {
-              student: student as Student,
-              startedAt: new Date(),
-              disability,
-            };
-          });
-          await transaction.save(StudentDisability, mappedDisabilities);
+          const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability } });
+          await transaction.save(StudentDisability, mappDis);
         }
 
-        const lastRosterNumber = await transaction.find(StudentClassroom, {
-          relations: ["classroom", "year"],
-          where: { year: { id: year.id }, classroom: { id: classroom.id } },
-          order: { rosterNumber: "DESC" },
-          take: 1,
-        });
+        const stClassroom = await transaction.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: year.id }, classroom: { id: classroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
-        let last = 1;
-        if (lastRosterNumber[0]?.rosterNumber) {
-          last = lastRosterNumber[0].rosterNumber + 1;
-        }
+        let last = 1; if (stClassroom[0]?.rosterNumber) { last = stClassroom[0].rosterNumber + 1 };
 
-        const studentClassroom = (await transaction.save(StudentClassroom, {
-          student,
-          classroom,
-          year,
-          rosterNumber: last,
-          startedAt: new Date(),
-        })) as StudentClassroom;
+        const stObject = (await transaction.save(StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date() })) as StudentClassroom;
 
-        const notDigit = /\D/g;
-        const classroomNumber = Number(
-          studentClassroom.classroom.shortName.replace(notDigit, ""),
-        );
+        const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
-        const newTransferStatus = (await transaction.findOne(TransferStatus, {
-          where: {
-            id: 5,
-            name: "Novo",
-          },
-        })) as TransferStatus;
+        const tStatus = (await transaction.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-        const newTransfer = new Transfer();
-        newTransfer.startedAt = new Date();
-        newTransfer.endedAt = new Date();
-        newTransfer.requester = teacher;
-        newTransfer.requestedClassroom = classroom;
-        newTransfer.currentClassroom = classroom;
-        newTransfer.receiver = teacher;
-        newTransfer.student = student;
-        newTransfer.status = newTransferStatus;
-        newTransfer.year = await this.currentYear();
+        const transfer = new Transfer();
+        transfer.startedAt = new Date();
+        transfer.endedAt = new Date();
+        transfer.requester = teacher;
+        transfer.requestedClassroom = classroom;
+        transfer.currentClassroom = classroom;
+        transfer.receiver = teacher;
+        transfer.student = student;
+        transfer.status = tStatus;
+        transfer.year = await this.currentYear();
 
-        await transaction.save(Transfer, newTransfer);
+        await transaction.save(Transfer, transfer);
 
         if (classroomNumber >= 1 && classroomNumber <= 3) {
-          const literacyTier = (await transaction.find(
-            LiteracyTier,
-          )) as LiteracyTier[];
+          const literacyTier = (await transaction.find(LiteracyTier)) as LiteracyTier[];
 
-          for (let tier of literacyTier) {
-            await transaction.save(Literacy, {
-              studentClassroom,
-              literacyTier: tier,
-            });
-          }
+          for (let tier of literacyTier) { await transaction.save(Literacy, { studentClassroom: stObject, literacyTier: tier }) }
         }
 
         if (classroomNumber >= 1 && classroomNumber <= 3) {
@@ -584,34 +505,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (classroomNumber === 4 || classroomNumber === 5) {
           const textGenderExam = await transaction.find(TextGenderExam);
           const textGenderExamTier = await transaction.find(TextGenderExamTier);
-          const textGenderClassroom = await transaction.find(
-            TextGenderClassroom,
-            {
-              where: { classroomNumber: classroomNumber },
-              relations: ["textGender"],
-            },
-          );
+          const textGenderClassroom = await transaction.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
 
           for (let tg of textGenderClassroom) {
             for (let tier of textGenderExamTier) {
               for (let exam of textGenderExam) {
-                const textGenderGrade = new TextGenderGrade();
-                textGenderGrade.studentClassroom = studentClassroom;
-                textGenderGrade.textGender = tg.textGender;
-                textGenderGrade.textGenderExam = exam;
-                textGenderGrade.textGenderExamTier = tier;
-
-                await transaction.save(TextGenderGrade, textGenderGrade);
+                const el = new TextGenderGrade();
+                el.studentClassroom = stObject; el.textGender = tg.textGender; el.textGenderExam = exam; el.textGenderExamTier = tier;
+                await transaction.save(TextGenderGrade, el);
               }
             }
           }
         }
-      });
+      })
 
       return { status: 201, data: student as unknown as Student };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async putLiteracyBeforeLevel(body: {

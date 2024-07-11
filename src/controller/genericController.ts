@@ -131,8 +131,8 @@ export class GenericController<T> {
   }
 
   async teacherByUser(userId: number, transaction?: EntityManager) {
-    if(!transaction) { return (await AppDataSource.getRepository(Teacher).findOne({ relations: ["person.category"], where: { person: { user: { id: userId } } } })) as Teacher }
-    return await transaction.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: userId } } } }) as Teacher
+    if(!transaction) { return (await AppDataSource.getRepository(Teacher).findOne({ relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } })) as Teacher }
+    return await transaction.findOne(Teacher, { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }) as Teacher
   }
 
   async teacherClassrooms(body: { user: number }, transaction?: EntityManager) {

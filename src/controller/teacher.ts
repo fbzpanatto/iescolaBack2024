@@ -236,10 +236,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async saveTeacher(body: TeacherBody) {
     try {
-      const teacherUserFromFront = (await this.teacherByUser(body.user.user )) as Teacher;
+      const teacherUserFromFront = (await this.teacherByUser(body.user.user)) as Teacher;
 
       const message = "Você não tem permissão para criar uma pessoa com esta categoria."
-      if (!this.hasPermissionToCreate(teacherUserFromFront.person.category.id,body.category.id)) { return { status: 403, message }}
+      if (!this.hasPermissionToCreate(teacherUserFromFront.person.category.id, body.category.id)) { return { status: 403, message }}
 
       return await AppDataSource.transaction(async (transaction) => {
         const registerExists = await transaction.findOne(Teacher, { where: { register: body.register } });
@@ -254,7 +254,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const person = this.createPerson({name: body.name,birth: body.birth,category});
 
-        const teacher = await transaction.save(Teacher,this.createTeacher(person, body));
+        const teacher = await transaction.save(Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
 
         const { username, password, email } = this.generateUser(body);
         await transaction.save(User, { person, username, email, password });
@@ -281,8 +281,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  createTeacher(person: Person, body: TeacherBody) {
+  createTeacher(userId: number, person: Person, body: TeacherBody) {
     const teacher = new Teacher();
+
+    teacher.createdByUser = userId;
+    teacher.createdAt = new Date();
+    
     teacher.person = person;
     teacher.email = body.email;
     teacher.register = body.register;

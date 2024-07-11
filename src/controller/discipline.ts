@@ -25,7 +25,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
           .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
           .where(
             new Brackets((qb) => {
-              if (!(teacher.person.category.id === pc.PROFESSOR)) {
+              if (!(teacher.person.category.id === pc.PROF)) {
                 qb.where("discipline.id > 0");
                 return;
               }
@@ -49,7 +49,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
           .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
           .where(
             new Brackets((qb) => {
-              if (!(teacher.person.category.id === pc.PROFESSOR)) {
+              if (!(teacher.person.category.id === pc.PROF)) {
                 qb.where("discipline.id > 0");
                 return;
               }

@@ -9,7 +9,7 @@ const fourthLevelPermissions: Permission = { GET: true, POST: true, PUT: true, D
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
   {
-    category: pc.ADMINISTRADOR,
+    category: pc.ADMN,
     permissions: [
       {
         entity: "classroom",
@@ -70,7 +70,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.SUPERVISOR,
+    category: pc.SUPE,
     permissions: [
       {
         entity: "year",
@@ -131,7 +131,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.DIRETOR,
+    category: pc.DIRE,
     permissions: [
       {
         entity: "year",
@@ -180,7 +180,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.VICE_DIRETOR,
+    category: pc.VICE,
     permissions: [
       {
         entity: "year",
@@ -229,7 +229,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.COORDENADOR,
+    category: pc.COOR,
     permissions: [
       {
         entity: "year",
@@ -278,7 +278,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.SECRETARIO,
+    category: pc.SECR,
     permissions: [
       {
         entity: "year",
@@ -327,7 +327,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.MONITOR_DE_INFORMATICA,
+    category: pc.MONI,
     permissions: [
       {
         entity: "year",
@@ -376,7 +376,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.PROFESSOR,
+    category: pc.PROF,
     permissions: [
       {
         entity: "classroom",

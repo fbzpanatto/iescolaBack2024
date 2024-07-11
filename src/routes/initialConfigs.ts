@@ -77,7 +77,7 @@ async function createAdminUser(person: Person) {
 
 async function createAdminPerson() {
   const adminCategorySource = new dataSourceController(PersonCategory).entity
-  const adminCategory = await adminCategorySource.findOneBy({ id: pc.ADMINISTRADOR }) as PersonCategory
+  const adminCategory = await adminCategorySource.findOneBy({ id: pc.ADMN }) as PersonCategory
   const personSource = new dataSourceController(Person).entity
   const person = new Person()
   person.name = 'Administrador'

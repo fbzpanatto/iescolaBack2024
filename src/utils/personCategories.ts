@@ -1,11 +1,11 @@
 export const pc = {
-  ADMINISTRADOR: 1,
-  SUPERVISOR: 2,
-  DIRETOR: 3,
-  VICE_DIRETOR: 4,
-  COORDENADOR: 5,
-  SECRETARIO: 6,
-  MONITOR_DE_INFORMATICA: 7,
-  PROFESSOR: 8,
-  ALUNO: 9
+  ADMN: 1,
+  SUPE: 2,
+  DIRE: 3,
+  VICE: 4,
+  COOR: 5,
+  SECR: 6,
+  MONI: 7,
+  PROF: 8,
+  ALUN: 9
 }

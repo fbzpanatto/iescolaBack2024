@@ -32,8 +32,8 @@ class LiteracySecondController extends GenericController<
         .where(
           new Brackets((qb) => {
             if (
-              userBody.category != pc.ADMINISTRADOR &&
-              userBody.category != pc.SUPERVISOR
+              userBody.category != pc.ADMN &&
+              userBody.category != pc.SUPE
             ) {
               qb.where("classroom.id IN (:...teacherClasses)", {
                 teacherClasses: teacherClasses.classrooms,

@@ -49,7 +49,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
 
       const teacher = await this.teacherByUser(request?.body.user.user)
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
 
       const { classrooms } = await this.teacherClassrooms(request?.body.user)
       if(!classrooms.includes(Number(classroomId)) && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -166,7 +166,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       console.log('teacher', teacher)
 
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
 
       console.log('isAdminSupervisor', isAdminSupervisor)
 
@@ -433,7 +433,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.classrooms", "classroom")
         .leftJoinAndSelect("classroom.school", "school")
         .where(new Brackets(qb => {
-          if(userBody.category != pc.ADMINISTRADOR && userBody.category != pc.SUPERVISOR) {
+          if(userBody.category != pc.ADMN && userBody.category != pc.SUPE) {
             qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
           }
         }))
@@ -451,7 +451,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!transaction) {
         const teacher = await this.teacherByUser(req.body.user.user)
 
-        const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
+        const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
   
         const test = await AppDataSource.getRepository(Test).findOne({ relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
   
@@ -499,7 +499,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const teacher = await this.teacherByUser(req.body.user.user, transaction)
 
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
 
       const test = await transaction.findOne(Test, { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
 
@@ -596,7 +596,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (transaction) => {
 
         const teacher = await this.teacherByUser(req.body.user.user, transaction) as Teacher
-        const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+        const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
         const test = await transaction.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
   
         if(!test) return { status: 404, message: "Teste não encontrado" }

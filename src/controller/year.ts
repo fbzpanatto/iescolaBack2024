@@ -32,7 +32,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const canCreate = [pc.ADMINISTRADOR]
+      const canCreate = [pc.ADMN]
 
       if (!canCreate.includes(teacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }

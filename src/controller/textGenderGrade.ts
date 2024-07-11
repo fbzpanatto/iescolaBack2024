@@ -189,8 +189,8 @@ class TextGenderGradeController extends GenericController<
     try {
       const teacher = await this.teacherByUser(userBody.user);
       const isAdminSupervisor =
-        teacher.person.category.id === pc.ADMINISTRADOR ||
-        teacher.person.category.id === pc.SUPERVISOR;
+        teacher.person.category.id === pc.ADMN ||
+        teacher.person.category.id === pc.SUPE;
       const { classrooms } = await this.teacherClassrooms(request?.body.user);
       if (!classrooms.includes(Number(classId)) && !isAdminSupervisor)
         return {
@@ -464,8 +464,8 @@ class TextGenderGradeController extends GenericController<
         .where(
           new Brackets((qb) => {
             if (
-              user.category != pc.ADMINISTRADOR &&
-              user.category != pc.SUPERVISOR
+              user.category != pc.ADMN &&
+              user.category != pc.SUPE
             ) {
               qb.where("classroom.id IN (:...teacherClasses)", {
                 teacherClasses: teacherClasses.classrooms,

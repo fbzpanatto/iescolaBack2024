@@ -352,8 +352,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const teacher = await this.teacherByUser(request?.body.user.user);
       const teacherClasses = await this.teacherClassrooms(request?.body.user);
       const isAdminSupervisor =
-        teacher.person.category.id === pc.ADMINISTRADOR ||
-        teacher.person.category.id === pc.SUPERVISOR;
+        teacher.person.category.id === pc.ADMN ||
+        teacher.person.category.id === pc.SUPE;
       const studentsClassrooms = (await this.studentsClassrooms(
         {
           search,
@@ -380,8 +380,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         })) as Teacher;
 
         const isAdminSupervisor =
-          userTeacherFromFront.person.category.id === pc.ADMINISTRADOR ||
-          userTeacherFromFront.person.category.id === pc.SUPERVISOR;
+          userTeacherFromFront.person.category.id === pc.ADMN ||
+          userTeacherFromFront.person.category.id === pc.SUPE;
         const teacherClasses = await this.teacherClassrooms(body?.user);
         const preStudent = await this.student(Number(id), transaction);
 
@@ -488,7 +488,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         };
       }
 
-      if (body.user.category === pc.PROFESSOR) {
+      if (body.user.category === pc.PROF) {
         if (!teacherClasses.classrooms.includes(classroom.id)) {
           return {
             status: 403,
@@ -713,12 +713,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }
 
         const canChange = [
-          pc.ADMINISTRADOR,
-          pc.SUPERVISOR,
-          pc.DIRETOR,
-          pc.VICE_DIRETOR,
-          pc.COORDENADOR,
-          pc.SECRETARIO,
+          pc.ADMN,
+          pc.SUPE,
+          pc.DIRE,
+          pc.VICE,
+          pc.COOR,
+          pc.SECR,
         ];
 
         if (
@@ -992,7 +992,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async studentCategory() {
     return (await AppDataSource.getRepository(PersonCategory).findOne({
-      where: { id: pc.ALUNO },
+      where: { id: pc.ALUN },
     })) as PersonCategory;
   }
 
@@ -1242,7 +1242,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async (conn) => {
 
         const userTeacher = await conn.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } }) as Teacher
-        const isAdminSupervisor = userTeacher.person.category.id === pc.ADMINISTRADOR || userTeacher.person.category.id === pc.SUPERVISOR;
+        const isAdminSupervisor = userTeacher.person.category.id === pc.ADMN || userTeacher.person.category.id === pc.SUPE;
 
         const { classrooms } = await this.teacherClassrooms(body.user);
         if (!classrooms.includes(Number(body.student.classroom.id)) && !isAdminSupervisor) { return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." } }

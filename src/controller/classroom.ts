@@ -18,7 +18,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
       if(!transaction){
         const teacher = await this.teacherByUser(body.user.user);
         const teacherClasses = await this.teacherClassrooms(request?.body.user);
-        const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
+        const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
   
         let result = await this.repository
           .createQueryBuilder("classroom")
@@ -39,7 +39,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const teacher = await this.teacherByUser(body.user.user, transaction);
       const teacherClasses = await this.teacherClassrooms(request?.body.user, transaction);
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
 
       let result = await transaction.getRepository(Classroom)
         .createQueryBuilder("classroom")

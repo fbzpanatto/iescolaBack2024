@@ -19,7 +19,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
 
       if(isAdminSupervisor) {
 

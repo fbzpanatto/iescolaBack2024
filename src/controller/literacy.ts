@@ -36,8 +36,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .where(
           new Brackets((qb) => {
             if (
-              userBody.category != pc.ADMINISTRADOR &&
-              userBody.category != pc.SUPERVISOR
+              userBody.category != pc.ADMN &&
+              userBody.category != pc.SUPE
             ) {
               qb.where("classroom.id IN (:...teacherClasses)", {
                 teacherClasses: teacherClasses.classrooms,
@@ -195,8 +195,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .where(
         new Brackets((qb) => {
           if (
-            userBody.category != pc.ADMINISTRADOR &&
-            userBody.category != pc.SUPERVISOR
+            userBody.category != pc.ADMN &&
+            userBody.category != pc.SUPE
           ) {
             qb.where("classroom.id IN (:...teacherClasses)", {
               teacherClasses: teacherClasses.classrooms,
@@ -296,7 +296,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     try {
       const teacher = await this.teacherByUser(userBody.user);
       
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR;
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
 
       const year = await AppDataSource.getRepository(Year).findOne({
         where: { name: yearName },
@@ -495,7 +495,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           .leftJoin("literacy.literacyTier", "literacyTier")
           .where(
             new Brackets((qb) => {
-              if ( user.category != pc.ADMINISTRADOR && user.category != pc.SUPERVISOR ) {
+              if ( user.category != pc.ADMN && user.category != pc.SUPE ) {
                 qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms }) 
               }
             }),

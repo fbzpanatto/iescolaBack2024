@@ -15,7 +15,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     try {
       const teacher = await this.teacherByUser(req.body.user.user)
 
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMINISTRADOR || teacher.person.category.id === pc.SUPERVISOR
+      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
 
       const question = await AppDataSource.getRepository(Question).findOne({ relations: ["person"], where: { id: parseInt(questionId as string) } })
       return { status: 200, data: { isOwner: teacher.person.id === question?.person.id || isAdminSupervisor } };

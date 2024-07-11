@@ -14,7 +14,7 @@ class PersonCategoryController extends GenericController<
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, transaction?: EntityManager) {
     
-    let excludeIds = [pc.ALUNO];
+    let excludeIds = [pc.ALUN];
     const userBody = request?.body.user;
 
     try {
@@ -38,32 +38,32 @@ class PersonCategoryController extends GenericController<
       if (!userTeacherFromFront) { return { status: 404, message: "Usuário não encontrado" } }  
       if (userTeacherFromFront.person.category.id != userBody.category) { return { status: 403, message: "Usuário não autorizado" } }
 
-      if(userTeacherFromFront.person.category.id === pc.SUPERVISOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR]
+      if(userTeacherFromFront.person.category.id === pc.SUPE){
+        excludeIds = [...excludeIds, pc.ADMN]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.DIRETOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR]
+      if(userTeacherFromFront.person.category.id === pc.DIRE){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.VICE_DIRETOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR]
+      if(userTeacherFromFront.person.category.id === pc.VICE){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.COORDENADOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR]
+      if(userTeacherFromFront.person.category.id === pc.COOR){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.SECRETARIO){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR, pc.COORDENADOR]
+      if(userTeacherFromFront.person.category.id === pc.SECR){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.MONITOR_DE_INFORMATICA){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR, pc.COORDENADOR, pc.SECRETARIO, pc.MONITOR_DE_INFORMATICA]
+      if(userTeacherFromFront.person.category.id === pc.MONI){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI]
       }
 
-      if(userTeacherFromFront.person.category.id === pc.PROFESSOR){
-        excludeIds = [...excludeIds, pc.ADMINISTRADOR, pc.SUPERVISOR, pc.DIRETOR, pc.VICE_DIRETOR, pc.COORDENADOR, pc.SECRETARIO, pc.MONITOR_DE_INFORMATICA]
+      if(userTeacherFromFront.person.category.id === pc.PROF){
+        excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI]
       }
 
       const result = await transaction.getRepository(PersonCategory)

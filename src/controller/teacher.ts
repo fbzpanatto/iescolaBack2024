@@ -1,13 +1,13 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
+import { Brackets, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
 import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
-import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
+import { TeacherClassDiscipline as TCDRelation } from "../model/TeacherClassDiscipline";
 import { teacherClassDisciplineController } from "./teacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
@@ -47,7 +47,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
       const teacher = await this.teacherByUser(body.user.user);
       const teacherClasses = await this.teacherClassrooms(body?.user);
-      const notInCategories = [pc.ADMINISTRADOR, pc.SUPERVISOR];
+      const notInCategories = [pc.ADMN, pc.SUPE];
 
       const newResult = await AppDataSource.getRepository(Teacher)
         .createQueryBuilder("teacher")
@@ -57,8 +57,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .leftJoin("teacherClassDiscipline.classroom", "classroom")
         .where(
           new Brackets((qb) => {
-            if (teacher.person.category.id === pc.PROFESSOR) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
-            if ( teacher.person.category.id != pc.ADMINISTRADOR && teacher.person.category.id != pc.SUPERVISOR ) {
+            if (teacher.person.category.id === pc.PROF) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
+            if ( teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE ) {
               qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
                 .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
                 .andWhere("teacherClassDiscipline.endedAt IS NULL");
@@ -83,11 +83,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       const teacher = await this.teacherByUser(body.user.user);
-      const cannotChange = [pc.MONITOR_DE_INFORMATICA, pc.PROFESSOR];
+      const cannotChange = [pc.MONI, pc.PROF];
 
       if ( teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
-      const result = await this.repository
+      const el = await this.repository
         .createQueryBuilder("teacher")
         .select("teacher.id", "teacher_id")
         .addSelect("teacher.email", "teacher_email")
@@ -107,15 +107,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
         .getRawOne();
 
-      if (!result) { return { status: 404, message: "Dado não encontrado" } }
+      if (!el) { return { status: 404, message: "Dado não encontrado" } }
 
       let newResult = {
-        id: result.teacher_id,
-        email: result.teacher_email,
-        register: result.teacher_register,
-        person: { id: result.person_id, name: result.person_name, birth: result.person_birth, category: { id: result.category_id, name: result.category_name } },
-        teacherClasses:result.classroom_ids?.split(",").map((item: string) => parseInt(item)) ?? [],
-        teacherDisciplines:result.discipline_ids?.split(",").map((item: string) => parseInt(item)) ?? [] 
+        id: el.teacher_id,
+        email: el.teacher_email,
+        register: el.teacher_register,
+        person: { id: el.person_id, name: el.person_name, birth: el.person_birth, category: { id: el.category_id, name: el.category_name } },
+        teacherClasses:el.classroom_ids?.split(",").map((item: string) => parseInt(item)) ?? [],
+        teacherDisciplines:el.discipline_ids?.split(",").map((item: string) => parseInt(item)) ?? [] 
       } as TeacherResponse;
 
       return { status: 200, data: newResult };
@@ -144,49 +144,50 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   override async updateId(id: string, body: TeacherBody) {
     try {
-      const frontendTeacher = await this.teacherByUser(body.user.user)
+      const tUser = await this.teacherByUser(body.user.user)
 
-      const databaseTeacher = await AppDataSource.getRepository(Teacher).findOne({relations: ["person.category"],where: { id: Number(id) }})
+      const teacher = await AppDataSource.getRepository(Teacher).findOne({relations: ["person.category"], where: { id: Number(id) }})
 
-      if (!databaseTeacher) {return { status: 404, message: "Data not found" }}
+      if (!teacher) { return { status: 404, message: "Data not found" } }
 
       const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
-      if (!this.hasPermissionToCreate(frontendTeacher.person.category.id, databaseTeacher.person.category.id)) { return { status: 403, message }}
+      if (!this.canChange(tUser.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
 
-      if (frontendTeacher.person.category.id === pc.PROFESSOR || (frontendTeacher.person.category.id === pc.MONITOR_DE_INFORMATICA && frontendTeacher.id !== databaseTeacher.id)) {
+      if (tUser.person.category.id === pc.PROF || (tUser.person.category.id === pc.MONI && tUser.id !== teacher.id)) {
         return { status: 403, message: "Você não tem permissão para editar este registro." };
       }
 
-      databaseTeacher.person.name = body.name; databaseTeacher.person.birth = body.birth;
+      teacher.person.name = body.name; teacher.person.birth = body.birth;
+      teacher.updatedAt = new Date(); teacher.updatedByUser = tUser.person.user.id
 
-      if ( databaseTeacher.person.category.id === pc.ADMINISTRADOR || databaseTeacher.person.category.id === pc.SUPERVISOR ) {
-        await AppDataSource.getRepository(Teacher).save(databaseTeacher); return { status: 200, data: databaseTeacher }
+      if ( teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE ) {
+        await AppDataSource.getRepository(Teacher).save(teacher); return { status: 200, data: teacher }
       }
 
-      if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(databaseTeacher, body) }
+      if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(teacher, body) }
 
-      await AppDataSource.getRepository(Teacher).save(databaseTeacher);
+      await AppDataSource.getRepository(Teacher).save(teacher);
 
-      return { status: 200, data: databaseTeacher };
+      return { status: 200, data: teacher };
     } catch ( error: any ) { return { status: 500, message: error.message } }
   }
 
   async updateRelation(teacher: Teacher, body: TeacherBody) {
 
-    const teacherClassDisciplines = await AppDataSource
-    .getRepository(TeacherClassDiscipline)
+    const tcd = await AppDataSource
+    .getRepository(TCDRelation)
     .find({ relations: ["teacher", "classroom", "discipline"], where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } } });
 
-    const arrOfDiff: TeacherClassDiscipline[] = [];
-    const classroomsBody = body.teacherClasses.map((el: any) => parseInt(el));
-    const disciplinesBody = body.teacherDisciplines.map((el: any) => parseInt(el) );
+    const arrOfDiff: TCDRelation[] = [];
+    const cBody = body.teacherClasses.map((el: any) => parseInt(el));
+    const dBody = body.teacherDisciplines.map((el: any) => parseInt(el) );
 
-    const existingRelations = new Set(teacherClassDisciplines.map((relation) => `${relation.classroom.id}-${relation.discipline.id}`));
+    const existingRelations = new Set(tcd.map((relation) => `${relation.classroom.id}-${relation.discipline.id}`));
 
-    const requestedRelations = new Set(classroomsBody.flatMap((classroomId) => disciplinesBody.map((disciplineId) => `${classroomId}-${disciplineId}`) ) );
+    const requestedRelations = new Set(cBody.flatMap((classroomId) => dBody.map((disciplineId) => `${classroomId}-${disciplineId}`) ) );
 
     // Encontrar relações a serem encerradas
-    for (let relation of teacherClassDisciplines) {
+    for (let relation of tcd) {
       const relationKey = `${relation.classroom.id}-${relation.discipline.id}`;
       if (!requestedRelations.has(relationKey)) { arrOfDiff.push(relation) }
     }
@@ -195,16 +196,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     for (let relation of arrOfDiff) { await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() }) }
 
     // Criar novas relações conforme o corpo da requisição
-    for (let classroomId of classroomsBody) {
-      for (let disciplineId of disciplinesBody) {
+    for (let classroomId of cBody) {
+      for (let disciplineId of dBody) {
         const relationKey = `${classroomId}-${disciplineId}`;
         if (!existingRelations.has(relationKey)) {
-          const newTeacherRelation = new TeacherClassDiscipline();
-          newTeacherRelation.teacher = teacher;
-          newTeacherRelation.classroom = (await AppDataSource.getRepository(Classroom).findOne({ where: { id: classroomId } })) as Classroom;
-          newTeacherRelation.discipline = (await AppDataSource.getRepository(Discipline).findOne({ where: { id: disciplineId } })) as Discipline;
-          newTeacherRelation.startedAt = new Date();
-          await teacherClassDisciplineController.save(newTeacherRelation, {});
+          const el = new TCDRelation();
+          el.teacher = teacher;
+          el.classroom = (await AppDataSource.getRepository(Classroom).findOne({ where: { id: classroomId } })) as Classroom;
+          el.discipline = (await AppDataSource.getRepository(Discipline).findOne({ where: { id: disciplineId } })) as Discipline;
+          el.startedAt = new Date();
+          await teacherClassDisciplineController.save(el, {});
         }
       }
     }
@@ -218,17 +219,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       for (let discipline of disciplines) {
 
         const relationExists = await AppDataSource
-          .getRepository( TeacherClassDiscipline )
+          .getRepository(TCDRelation)
           .findOne({ where: { teacher: { id: teacher.id }, classroom: { id: classroom.id }, discipline: { id: discipline.id }, endedAt: IsNull() } });
 
         if (!relationExists) {
-          const newTeacherRelation = new TeacherClassDiscipline();
-          newTeacherRelation.teacher = teacher;
-          newTeacherRelation.classroom = classroom;
-          newTeacherRelation.discipline = discipline;
-          newTeacherRelation.startedAt = new Date();
-
-          await teacherClassDisciplineController.save(newTeacherRelation, {});
+          const el = new TCDRelation();
+          el.teacher = teacher; el.classroom = classroom; el.discipline = discipline; el.startedAt = new Date();
+          await teacherClassDisciplineController.save(el, {});
         }
       }
     }
@@ -239,7 +236,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const teacherUserFromFront = (await this.teacherByUser(body.user.user)) as Teacher;
 
       const message = "Você não tem permissão para criar uma pessoa com esta categoria."
-      if (!this.hasPermissionToCreate(teacherUserFromFront.person.category.id, body.category.id)) { return { status: 403, message }}
+      if (!this.canChange(teacherUserFromFront.person.category.id, body.category.id)) { return { status: 403, message }}
 
       return await AppDataSource.transaction(async (transaction) => {
         const registerExists = await transaction.findOne(Teacher, { where: { register: body.register } });
@@ -259,19 +256,19 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         const { username, password, email } = this.generateUser(body);
         await transaction.save(User, { person, username, email, password });
 
-        if (body.category.id === pc.ADMINISTRADOR || body.category.id === pc.SUPERVISOR ) { return { status: 201, data: teacher } }
+        if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }
 
         const classrooms = await transaction.findBy(Classroom, {id: In(body.teacherClasses) });
         const disciplines = await transaction.findBy(Discipline, { id: In(body.teacherDisciplines) });
 
         for (const classroom of classrooms) {
           for (const discipline of disciplines) {
-            const teacherClassDiscipline = new TeacherClassDiscipline();
-            teacherClassDiscipline.teacher = teacher;
-            teacherClassDiscipline.classroom = classroom;
-            teacherClassDiscipline.discipline = discipline;
-            teacherClassDiscipline.startedAt = new Date();
-            await transaction.save(teacherClassDiscipline);
+            const el = new TCDRelation();
+            el.teacher = teacher;
+            el.classroom = classroom;
+            el.discipline = discipline;
+            el.startedAt = new Date();
+            await transaction.save(el);
           }
         }
 
@@ -301,43 +298,28 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   generatePassword() {
-    const lowercaseLetters = "abcdefghijklmnopqrstuvwxyz";
-    const uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowerLetters = "abcdefghijklmnopqrstuvwxyz";
+    const upperLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const numbers = "0123456789";
-    const allCharacters = lowercaseLetters + uppercaseLetters + numbers;
+    const allChar = lowerLetters + upperLetters + numbers;
 
     let password = "";
-    for (let i = 0; i < 8; i++) { const randomIndex = Math.floor(Math.random() * allCharacters.length); password += allCharacters[randomIndex] }
+    for (let i = 0; i < 8; i++) { const randomI = Math.floor(Math.random() * allChar.length); password += allChar[randomI] }
     return password;
   }
 
-  private hasPermissionToCreate( userTeacherCategory: number, teacherDatabaseCategory: number ): boolean {
+  private canChange( uCategory: number, tCategory: number ): boolean {
 
-    const allowedCategories = [
-      pc.PROFESSOR,
-      pc.MONITOR_DE_INFORMATICA,
-      pc.SECRETARIO,
-      pc.COORDENADOR,
-      pc.VICE_DIRETOR,
-      pc.DIRETOR,
-      pc.SUPERVISOR,
-      pc.ADMINISTRADOR,
-    ];
+    const allowedCat = [pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE, pc.SUPE, pc.ADMN ];
 
-    let canCreate = allowedCategories.includes(teacherDatabaseCategory);
+    let canPost = allowedCat.includes(tCategory);
 
-    if (userTeacherCategory === pc.SECRETARIO) {
-      canCreate = canCreate && [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA].includes(teacherDatabaseCategory);
-    } else if (userTeacherCategory === pc.COORDENADOR) {
-      canCreate = canCreate && [pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO].includes(teacherDatabaseCategory );
-    } else if (userTeacherCategory === pc.VICE_DIRETOR) {
-      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR].includes(teacherDatabaseCategory);
-    } else if (userTeacherCategory === pc.DIRETOR) {
-      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR, pc.VICE_DIRETOR ].includes(teacherDatabaseCategory);
-    } else if (userTeacherCategory === pc.SUPERVISOR) {
-      canCreate = canCreate && [ pc.PROFESSOR, pc.MONITOR_DE_INFORMATICA, pc.SECRETARIO, pc.COORDENADOR, pc.VICE_DIRETOR, pc.DIRETOR].includes(teacherDatabaseCategory);
-    }
-    return canCreate;
+    if (uCategory === pc.SECR) { canPost = canPost && [pc.PROF, pc.MONI].includes(tCategory) }
+    else if (uCategory === pc.COOR) { canPost = canPost && [pc.PROF, pc.MONI, pc.SECR].includes(tCategory ) }
+    else if (uCategory === pc.VICE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR].includes(tCategory) }
+    else if (uCategory === pc.DIRE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE ].includes(tCategory) }
+    else if (uCategory === pc.SUPE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE].includes(tCategory) }
+    return canPost;
   }
 }
 

@@ -227,8 +227,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const teacher = await this.teacherByUser(request?.body.user.user);
       const teacherClasses = await this.teacherClassrooms(request?.body.user);
       const isAdminSupervisor =
-        teacher.person.category.id === pc.ADMINISTRADOR ||
-        teacher.person.category.id === pc.SUPERVISOR;
+        teacher.person.category.id === pc.ADMN ||
+        teacher.person.category.id === pc.SUPE;
 
       const testClasses = await AppDataSource.getRepository(Test)
         .createQueryBuilder("test")

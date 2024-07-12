@@ -576,7 +576,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await transaction.save(Test, test)
 
-        const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id }, test }));
+        const testQuestions = req.body.testQuestions.map((el: TestQuestion) => ({ ...el, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id }, test }));
 
         await transaction.save(TestQuestion, testQuestions)
 

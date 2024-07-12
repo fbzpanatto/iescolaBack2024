@@ -11,7 +11,7 @@ export class ClassroomCategory {
   @Column({ unique: true })
   name: string
 
-  @Column({default: true})
+  @Column({default: true, select: false})
   active: boolean
 
   @OneToMany(() => Classroom, classroom => classroom.category)
@@ -19,4 +19,16 @@ export class ClassroomCategory {
 
   @OneToMany(() => Topic, topic => topic.classroomCategory)
   topics: Topic[]
+
+  @Column({ nullable: true, select: false })
+  createdAt: Date
+
+  @Column({ nullable: true, select: false })
+  updatedAt: Date
+
+  @Column({ nullable: true, select: false })
+  createdByUser: number
+
+  @Column({ nullable: true, select: false })
+  updatedByUser: number
 }

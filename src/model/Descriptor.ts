@@ -21,4 +21,16 @@ export class Descriptor {
 
   @ManyToOne(() => Topic, topic => topic.descriptors, { nullable: true })
   topic: Topic
+
+  @Column({ nullable: true, select: false })
+  createdAt: Date
+
+  @Column({ nullable: true, select: false })
+  updatedAt: Date
+
+  @Column({ nullable: true, select: false })
+  createdByUser: number
+
+  @Column({ nullable: true, select: false })
+  updatedByUser: number
 }

@@ -18,6 +18,10 @@ import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
 import { Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Teacher } from "../model/Teacher";
+import { Question } from "../model/Question";
+import { Descriptor } from "../model/Descriptor";
+import { Topic } from "../model/Topic";
+import { ClassroomCategory } from "../model/ClassroomCategory";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -547,14 +551,99 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const bodyTq = req.body.testQuestions as TestQuestion[]
         const dataTq = await this.getTestQuestions(test.id, CONN)
 
+        const hasDifferences = (original: any, current: any): boolean => {
+          if (original === current) return false;
+          if (typeof original !== 'object' || original === null || current === null) return original !== current;
+        
+          const originalKeys = Object.keys(original);
+          const currentKeys = Object.keys(current);
+        
+          if (originalKeys.length !== currentKeys.length) return true;
+        
+          for (let key of originalKeys) {
+            if (!currentKeys.includes(key)) return true; // Chave faltando em `current`
+            if (hasDifferences(original[key], current[key])) {
+              console.log('--------------------------------------------------------')
+              console.log(`Difference found in key: ${key}`);
+              console.log(`------> Original: ${JSON.stringify(original[key])}`);
+              console.log(`------> Current: ${JSON.stringify(current[key])}`);
+              return true;
+            }
+          }
+        
+          return false;
+        };
+        
+
         for (let next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
-          if (!curr) { await CONN.save(TestQuestion, { ...next, createdAt: new Date(), createdByUser: userId, question: { ...next.question, person: next.question.person || uTeacher.person, createdAt: new Date(), createdByUser: userId }, test }) }
-          else {
-            const condition = curr.order !== next.order || curr.answer !== next.answer || curr.active !== next.active;
-            if (condition) { await CONN.save(TestQuestion, { ...next, updatedAt: new Date(), updatedByUser: userId }) }
+        
+          if (!curr) {
+            await CONN.save(TestQuestion, {
+              ...next,
+              createdAt: new Date(),
+              createdByUser: userId,
+              question: {
+                ...next.question,
+                person: next.question.person || uTeacher.person,
+                createdAt: new Date(),
+                createdByUser: userId,
+              },
+              test,
+            });
+          } else {
+            const testQuestionCondition = hasDifferences(curr, next);
+        
+            if (testQuestionCondition) {
+              await CONN.save(TestQuestion, {
+                ...next,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
+        
+            if (hasDifferences(curr.question, next.question)) {
+              await CONN.save(Question, {
+                ...next.question,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
+        
+            if (hasDifferences(curr.question.descriptor, next.question.descriptor)) {
+              await CONN.save(Descriptor, {
+                ...next.question.descriptor,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
+        
+            if (hasDifferences(curr.question.descriptor.topic, next.question.descriptor.topic)) {
+              await CONN.save(Topic, {
+                ...next.question.descriptor.topic,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
+        
+            if (hasDifferences(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
+              await CONN.save(ClassroomCategory, {
+                ...next.question.descriptor.topic.classroomCategory,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
+        
+            if (hasDifferences(curr.questionGroup, next.questionGroup)) {
+              await CONN.save(QuestionGroup, {
+                ...next.questionGroup,
+                updatedAt: new Date(),
+                updatedByUser: userId,
+              });
+            }
           }
         }
+        
 
         const result = (await this.findOneById(id, req, CONN)).data
 

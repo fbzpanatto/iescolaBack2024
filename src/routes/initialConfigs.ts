@@ -46,8 +46,8 @@ import { TEXTGENDEREXAMTIER } from "../mock/textGenderExamTier";
 import { TEXTGENDEREXAMLEVEL } from "../mock/textGenderExamLevel";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
-import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
-import {TEXTGENDEREXAMLEVELGROUP} from "../mock/textGenderExamLevelGroup";
+import { TextGenderExamLevelGroup } from "../model/TextGenderExamLevelGroup";
+import { TEXTGENDEREXAMLEVELGROUP } from "../mock/textGenderExamLevelGroup";
 
 export const InitialConfigsRouter = Router();
 
@@ -147,6 +147,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     for(let questionGroup of QUESTION_GROUP) {
       const newQuestionGroup = new QuestionGroup()
+      newQuestionGroup.createdAt = new Date()
+      newQuestionGroup.createdByUser = 1
+      newQuestionGroup.updatedAt = new Date()
+      newQuestionGroup.updatedByUser = 1
       newQuestionGroup.name = questionGroup.name
       await questionGroupSource.save(newQuestionGroup)
     }
@@ -200,6 +204,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
       const newClassCategory = new ClassroomCategory()
       newClassCategory.name = classroomCategory.name
       newClassCategory.active = classroomCategory.active
+      newClassCategory.createdAt = new Date()
+      newClassCategory.createdByUser = 1
+      newClassCategory.updatedAt = new Date()
+      newClassCategory.updatedByUser = 1
       await classCategorySource.save(newClassCategory)
     }
 
@@ -241,6 +249,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     for(let topic of TOPIC) {
       const newTopic = new Topic()
+      newTopic.createdAt = new Date()
+      newTopic.createdByUser = 1
+      newTopic.updatedAt = new Date()
+      newTopic.updatedByUser = 1
       newTopic.name = topic.name
       newTopic.description = topic.description
       newTopic.discipline = await disciplineSource.findOneBy({ id: topic.discipline.id }) as Discipline
@@ -250,6 +262,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     for(let descriptor of DESCRIPTOR) {
       const newDescriptor = new Descriptor()
+      newDescriptor.createdAt = new Date()
+      newDescriptor.createdByUser = 1
+      newDescriptor.updatedAt = new Date()
+      newDescriptor.updatedByUser = 1
       newDescriptor.name = descriptor.name
       newDescriptor.code = descriptor.code
       newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic

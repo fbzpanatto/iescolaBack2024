@@ -428,7 +428,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async findOneById(testId: number | string, req: Request, transaction?: EntityManager) {
+  override async findOneById(testId: number | string, req: Request, CONN?: EntityManager) {
 
     const selectFields = [
       "testQuestion.id",
@@ -452,7 +452,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     ]
 
     try {
-      if(!transaction) {
+      if(!CONN) {
         const teacher = await this.teacherByUser(req.body.user.user)
 
         const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
@@ -480,29 +480,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: { ...test, testQuestions } };
       }
 
-      const teacher = await this.teacherByUser(req.body.user.user, transaction)
+      const teacher = await this.teacherByUser(req.body.user.user, CONN)
 
       const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
 
-      const test = await transaction.findOne(Test, { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
+      const test = await CONN.findOne(Test, { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } })
 
       if(teacher.person.id !== test?.person.id && !isAdminSupervisor) return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
       if (!test) { return { status: 404, message: 'Data not found' } }
 
-      const testQuestions = await transaction.getRepository(TestQuestion)
-        .createQueryBuilder("testQuestion")
-        .select(selectFields)
-        .leftJoin("testQuestion.question", "question")
-        .leftJoin("question.person", "person")
-        .leftJoin("question.descriptor", "descriptor")
-        .leftJoin("descriptor.topic", "topic")
-        .leftJoin("topic.classroomCategory", "classroomCategory")
-        .leftJoin("testQuestion.questionGroup", "questionGroup")
-        .where("testQuestion.test = :testId", { testId: test.id })
-        .orderBy("questionGroup.id", "ASC")
-        .addOrderBy("testQuestion.order", "ASC")
-        .getMany();
+      const testQuestions = await this.getTestQuestions(test, CONN)
 
       return { status: 200, data: { ...test, testQuestions } };
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -652,6 +640,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("test.id = :testId", {testId})
       .andWhere("year.name = :yearName", {yearName})
       .getOne()
+  }
+
+  async getTestQuestions(test: Test, CONN: EntityManager) {
+    return await CONN.getRepository(TestQuestion)
+      .createQueryBuilder("testQuestion")
+      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
+      .leftJoin("testQuestion.question", "question")
+      .leftJoin("question.person", "person")
+      .leftJoin("question.descriptor", "descriptor")
+      .leftJoin("descriptor.topic", "topic")
+      .leftJoin("topic.classroomCategory", "classroomCategory")
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+      .where("testQuestion.test = :testId", { testId: test.id })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
   }
 }
 

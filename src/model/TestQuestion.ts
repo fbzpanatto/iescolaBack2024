@@ -1,9 +1,8 @@
-import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import { Descriptor } from "./Descriptor";
-import {Test} from "./Test";
-import {Question} from "./Question";
-import {QuestionGroup} from "./QuestionGroup";
-import {StudentQuestion} from "./StudentQuestion";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Test } from "./Test";
+import { Question } from "./Question";
+import { QuestionGroup } from "./QuestionGroup";
+import { StudentQuestion } from "./StudentQuestion";
 
 @Entity()
 export class TestQuestion {

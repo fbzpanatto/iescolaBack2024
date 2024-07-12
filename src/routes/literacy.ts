@@ -25,13 +25,5 @@ LiteracyRouter.get('/:id/:year/totals', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-LiteracyRouter.put('/:id/classroom', havePermission, (req, res) => {
-
-  literacyController.updateLiteracy(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-LiteracyRouter.put('/many', havePermission, async (req, res) => {
-  const response = await literacyController.updateMany(req.body); return res.status(response.status).json(response)
-})
+LiteracyRouter.put('/:id/classroom', havePermission, async (req, res) => { const response = await literacyController.updateLiteracy(req.body); return res.status(response.status).json(response) })
+LiteracyRouter.put('/many', havePermission, async (req, res) => { const response = await literacyController.updateMany(req.body); return res.status(response.status).json(response) })

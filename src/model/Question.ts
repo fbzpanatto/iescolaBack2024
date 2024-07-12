@@ -20,4 +20,19 @@ export class Question {
 
   @ManyToOne(() => Person, person => person.tests, { nullable: true })
   person: Person
+
+  @Column({ default: true })
+  active: boolean
+
+  @Column({ nullable: true })
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

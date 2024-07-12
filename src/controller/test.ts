@@ -551,8 +551,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           createdByUser: uTeacher.person.user.id
         });
 
-        // TODO: add createdAt and createdBy into question
-        const tQts = body.testQuestions.map((el: any) => ({ ...el, createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person }, test }));
+        const tQts = body.testQuestions.map((el: any) => ({ ...el, createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }, test }));
 
         await conn.save(TestQuestion, tQts)
         return { status: 201, data: test };
@@ -577,7 +576,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await transaction.save(Test, test)
 
-        const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, question: { ...el.question, person: el.question.person || uTeacher.person }, test }));
+        const testQuestions = req.body.testQuestions.map((el: any) => ({ ...el, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id }, test }));
 
         await transaction.save(TestQuestion, testQuestions)
 

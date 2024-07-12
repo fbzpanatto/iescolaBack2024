@@ -12,6 +12,7 @@ import { TextGenderExam } from "../model/TextGenderExam";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TextGenderGrade } from "../model/TextGenderGrade";
+import { TransferStatus } from '../model/TransferStatus';
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -86,7 +87,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       transfer.requestedClassroom = body.classroom;
       transfer.year = await this.currentYear()
       transfer.currentClassroom = body.currentClassroom;
-      transfer.status = await this.transferStatus(transferStatus.PENDING)
+      transfer.status = await this.transferStatus(transferStatus.PENDING) as TransferStatus
 
       const result = await this.repository.save(transfer)
 
@@ -107,13 +108,13 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         return { status: 403, message: 'Você não tem permissão para alterar este registro.' }
       }
       if (body.cancel) {
-        transfer.status = await this.transferStatus(transferStatus.CANCELED)
+        transfer.status = await this.transferStatus(transferStatus.CANCELED) as TransferStatus
         transfer.endedAt = new Date()
         await AppDataSource.getRepository(Transfer).save(transfer)
         return { status: 200, data: 'Cancelada com sucesso.' }
       }
       if (body.reject) {
-        transfer.status = await this.transferStatus(transferStatus.REFUSED)
+        transfer.status = await this.transferStatus(transferStatus.REFUSED) as TransferStatus
         transfer.endedAt = new Date()
         transfer.receiver = teacher
         await AppDataSource.getRepository(Transfer).save(transfer)
@@ -269,7 +270,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
                     textGenderExam: exam,
                     textGenderExamTier: tier
                   })
-                  
+
                 }
               }
             }
@@ -281,7 +282,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           endedAt: new Date()
         })
 
-        transfer.status = await this.transferStatus(transferStatus.ACCEPTED)
+        transfer.status = await this.transferStatus(transferStatus.ACCEPTED) as TransferStatus
         transfer.endedAt = new Date()
         transfer.receiver = teacher
         await AppDataSource.getRepository(Transfer).save(transfer)

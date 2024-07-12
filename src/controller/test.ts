@@ -597,8 +597,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (testQuestionCondition) {
               await CONN.save(TestQuestion, {
                 ...next,
-                createdAt: curr.createdAt, // Preserve the original createdAt
-                createdByUser: curr.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.createdAt,
+                createdByUser: curr.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
@@ -607,8 +607,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (hasDifferences(curr.question, next.question)) {
               await CONN.save(Question, {
                 ...next.question,
-                createdAt: curr.question.createdAt, // Preserve the original createdAt
-                createdByUser: curr.question.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.question.createdAt,
+                createdByUser: curr.question.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
@@ -617,8 +617,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (hasDifferences(curr.question.descriptor, next.question.descriptor)) {
               await CONN.save(Descriptor, {
                 ...next.question.descriptor,
-                createdAt: curr.question.descriptor.createdAt, // Preserve the original createdAt
-                createdByUser: curr.question.descriptor.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.question.descriptor.createdAt,
+                createdByUser: curr.question.descriptor.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
@@ -627,8 +627,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (hasDifferences(curr.question.descriptor.topic, next.question.descriptor.topic)) {
               await CONN.save(Topic, {
                 ...next.question.descriptor.topic,
-                createdAt: curr.question.descriptor.topic.createdAt, // Preserve the original createdAt
-                createdByUser: curr.question.descriptor.topic.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.question.descriptor.topic.createdAt,
+                createdByUser: curr.question.descriptor.topic.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
@@ -637,8 +637,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (hasDifferences(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
               await CONN.save(ClassroomCategory, {
                 ...next.question.descriptor.topic.classroomCategory,
-                createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, // Preserve the original createdAt
-                createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.question.descriptor.topic.classroomCategory.createdAt,
+                createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
@@ -647,8 +647,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (hasDifferences(curr.questionGroup, next.questionGroup)) {
               await CONN.save(QuestionGroup, {
                 ...next.questionGroup,
-                createdAt: curr.questionGroup.createdAt, // Preserve the original createdAt
-                createdByUser: curr.questionGroup.createdByUser, // Preserve the original createdByUser
+                createdAt: curr.questionGroup.createdAt,
+                createdByUser: curr.questionGroup.createdByUser,
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });

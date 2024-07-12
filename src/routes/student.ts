@@ -44,12 +44,10 @@ StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Reques
   }
 )
 
-StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
-    studentController.putLiteracyBeforeLevel(req.body)
-      .then((r) => res.status(r.status).json(r))
-      .catch((e) => res.status(e.status).json(e));
-  },
-);
+StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
+    const response = await studentController.putLiteracyBeforeLevel(req.body); return res.status(response.status as number).json(response)
+  }
+)
 
 StudentRouter.put("/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
   const response = await studentController.graduate(req.params.id, req.body); return res.status(response?.status as number).json(response)

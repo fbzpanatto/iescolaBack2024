@@ -1,11 +1,10 @@
-import {Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, Column, OneToMany, ManyToOne, Index} from "typeorm"
+import { Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, Column, OneToMany, ManyToOne, Index } from "typeorm"
 import { Person } from "./Person";
 import { StudentDisability } from "./StudentDisability";
 import { StudentClassroom } from "./StudentClassroom";
 import { State } from "./State";
-import {Transfer} from "./Transfer";
-import {StudentQuestion} from "./StudentQuestion";
-import {LiteracyFirst} from "./LiteracyFirst";
+import { Transfer} from "./Transfer";
+import { LiteracyFirst } from "./LiteracyFirst";
 
 @Index(["ra", "dv"], { unique: true })
 @Entity()
@@ -48,13 +47,13 @@ export class Student {
   @OneToOne(() => LiteracyFirst, literacyfirst => literacyfirst.student, { cascade: true })
   literacyFirst: LiteracyFirst
 
-  @Column()
+  @Column({ nullable: true })
   createdAt: Date
 
   @Column({ nullable: true })
   updatedAt: Date
 
-  @Column()
+  @Column({ nullable: true })
   createdByUser: number
 
   @Column({ nullable: true })

@@ -32,6 +32,7 @@ import getTimeZone from "../utils/getTimeZone";
 
 interface GraduateBody  { user: UserInterface; student: { id: number; active: boolean; classroom: Classroom }; year: number }
 interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
+interface LiteracyBeforeLevel { user: { user: number; username: string; category: number; iat: number; exp: number }; studentClassroom: StudentClassroom; literacyLevel: LiteracyLevel }
 
 class StudentController extends GenericController<EntityTarget<Student>> {
   constructor() {
@@ -397,47 +398,30 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async putLiteracyBeforeLevel(body: {
-    user: {
-      user: number;
-      username: string;
-      category: number;
-      iat: number;
-      exp: number;
-    };
-    studentClassroom: StudentClassroom;
-    literacyLevel: LiteracyLevel;
-  }) {
+  async putLiteracyBeforeLevel(body: LiteracyBeforeLevel) {
     try {
-      await AppDataSource.transaction(async (transaction) => {
-        const classroomNumber = Number(
-          body.studentClassroom.classroom.shortName.replace(/\D/g, ""),
-        );
+      return await AppDataSource.transaction(async (CONN) => {
 
-        const register = await transaction.findOne(LiteracyFirst, {
-          relations: ["literacyLevel"],
-          where: { student: { id: body.studentClassroom.student.id } },
-        });
+        const uTeacher = await this.teacherByUser(body.user.user);
 
-        if (!register) {
-          return { status: 404, message: "Registro não encontrado" };
+        const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ""))
+
+        const register = await CONN.findOne(LiteracyFirst, { relations: ["literacyLevel"], where: { student: { id: body.studentClassroom.student.id } }})
+
+        if (!register) { return { status: 404, message: "Registro não encontrado" } }
+
+        if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
+
+          register.literacyLevel = body.literacyLevel
+          register.updatedAt = new Date()
+          register.updatedByUser = uTeacher.person.user.id
+
+          await CONN.save(LiteracyFirst, register)
+          return { status: 201, data: {} }
         }
-
-        if (
-          classroomNumber >= 1 &&
-          classroomNumber <= 3 &&
-          register &&
-          register.literacyLevel === null
-        ) {
-          register.literacyLevel = body.literacyLevel;
-          await transaction.save(LiteracyFirst, register);
-          return { status: 201, data: {} };
-        }
-      });
-      return { status: 201, data: {} };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+        return { status: 201, data: {} }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async updateId(studentId: number | string, body: any) {
@@ -865,37 +849,27 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       let student: Student | null = null
 
-      return await AppDataSource.transaction(async (conn) => {
+      return await AppDataSource.transaction(async (CONN) => {
 
-        const userTeacher = await conn.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } }) as Teacher
-        const isAdminSupervisor = userTeacher.person.category.id === pc.ADMN || userTeacher.person.category.id === pc.SUPE;
+        const uTeacher = await CONN.findOne(Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } }) as Teacher
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE;
 
-        const { classrooms } = await this.teacherClassrooms(body.user);
-        if (!classrooms.includes(Number(body.student.classroom.id)) && !isAdminSupervisor) { return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." } }
-        
-        student = await conn.findOne(Student, { where: { id: Number(studentId) } }) as Student;
+        const { classrooms } = await this.teacherClassrooms(body.user, CONN);
+        if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) { return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." } }
+
+        student = await CONN.findOne(Student, { where: { id: Number(studentId) } }) as Student;
 
         if (!student) { return { status: 404, message: "Registro não encontrado" } }
-  
+
         student.active = body.student.active;
+        student.updatedAt = new Date();
+        student.updatedByUser = uTeacher.person.user.id;
 
-        await conn.save(Student, student);
+        await CONN.save(Student, student);
 
-        const newTransferStatus = await conn.findOne(TransferStatus, { where: { id: 6, name: "Formado" } }) as TransferStatus
-        const year = await conn.findOne(Year, { where: { id: body.year } }) as Year
-  
-        const newTransfer = new Transfer();
-        newTransfer.startedAt = new Date();
-        newTransfer.endedAt = new Date();
-        newTransfer.requester = userTeacher;
-        newTransfer.requestedClassroom = body.student.classroom;
-        newTransfer.currentClassroom = body.student.classroom;
-        newTransfer.receiver = userTeacher;
-        newTransfer.student = student;
-        newTransfer.status = newTransferStatus 
-        newTransfer.year = year 
-
-        const transferResponse = await conn.save(Transfer, newTransfer)
+        const status = await CONN.findOne(TransferStatus, { where: { id: 6, name: "Formado" } }) as TransferStatus
+        const year = await CONN.findOne(Year, { where: { id: body.year } }) as Year
+        const transferResponse = await CONN.save(Transfer, { status, year, student, receiver: uTeacher, createdByUser: uTeacher.person.user.id, updatedByUser: uTeacher.person.user.id, startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: body.student.classroom, currentClassroom: body.student.classroom  })
 
         return { status: 201, data: transferResponse };
       })

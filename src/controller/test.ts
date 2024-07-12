@@ -561,7 +561,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           if (originalKeys.length !== currentKeys.length) return true;
 
           for (let key of originalKeys) {
-            if (!currentKeys.includes(key)) return true; // Chave faltando em `current`
+            if (!currentKeys.includes(key)) return true;
             if (hasDifferences(original[key], current[key])) {
               console.log('--------------------------------------------------------')
               console.log(`Difference found in key: ${key}`);

@@ -428,28 +428,27 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
-      const uTeacher = await this.teacherByUser(body.user.user);
-
       let result: any;
 
-      await AppDataSource.transaction(async (conn) => {
+      return await AppDataSource.transaction(async (CONN) => {
 
-        const student = await conn.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
 
-        const bodyClassroom = await conn.findOne(Classroom, { where: { id: body.classroom } });
+        const databaseStudent = await CONN.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
+
+        const bodyClassroom = await CONN.findOne(Classroom, { where: { id: body.classroom } });
 
         const arrayOfRelations = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year" ];
 
-        const stClass = await conn.findOne(StudentClassroom, { relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: student.id }, endedAt: IsNull() } })
+        const stClass = await CONN.findOne(StudentClassroom, { relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: databaseStudent.id }, endedAt: IsNull() } })
 
-        if (!student) { return { status: 404, message: "Registro não encontrado" } }
+        if (!databaseStudent) { return { status: 404, message: "Registro não encontrado" } }
         if (!stClass) { return { status: 404, message: "Registro não encontrado" } }
         if (!bodyClassroom) { return { status: 404, message: "Sala não encontrada" } }
 
-        const cBodySRA = `${body.ra}${body.dv}`;
-        const cSRA = `${student.ra}${student.dv}`;
+        const cBodySRA = `${body.ra}${body.dv}`; const cSRA = `${databaseStudent.ra}${databaseStudent.dv}`;
 
-        if (cSRA !== cBodySRA) { const exists = await conn.findOne(Student, { where: { ra: body.ra, dv: body.dv } }); if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }}
+        if (cSRA !== cBodySRA) { const exists = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } }); if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }}
 
         const canChange = [ pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
@@ -463,138 +462,110 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
 
-          await conn.save(StudentClassroom, { ...stClass, endedAt: new Date() });
+          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id });
 
-          const currentYear = (await conn.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
+          const currentYear = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
 
-          const lastRosterNumber = await conn.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClassroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
+          const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClassroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
           let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 };
 
-          const newStClass = await conn.save(StudentClassroom, { student, classroom: bodyClassroom, year: currentYear, rosterNumber: last, startedAt: new Date() });
+          const newStClass = await CONN.save(StudentClassroom, { student: databaseStudent, classroom: bodyClassroom, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
 
           const notDigit = /\D/g; const classroomNumber = Number( bodyClassroom.shortName.replace(notDigit, "") );
 
           if (classroomNumber >= 1 && classroomNumber <= 3) {
 
-            const literacyTier = await conn.find(LiteracyTier);
+            const literacyTier = await CONN.find(LiteracyTier);
 
             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
               for (let tier of literacyTier) {
-                const element = stClass.literacies.find((el) => el.literacyTier.id === tier.id && el.literacyLevel != null )
+                const literacy = stClass.literacies.find((el) => el.literacyTier.id === tier.id && el.literacyLevel != null )
 
-                if (element) { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: element.literacyTier, literacyLevel: element.literacyLevel, toRate: false })} 
-                else { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: tier }) }
+                if (literacy) { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: literacy.literacyTier, literacyLevel: literacy.literacyLevel, toRate: false, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}
+                else { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id }) }
               }
             }
-
-            else { for (let tier of literacyTier) { await conn.save(Literacy, { studentClassroom: newStClass, literacyTier: tier })}}
+            else { for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}
           }
 
           if (classroomNumber === 4 || classroomNumber === 5) {
 
-            const tgExam = await conn.find(TextGenderExam);
-            const tgExamTier = await conn.find(TextGenderExamTier);
-            const tgClassroom = await conn.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] } );
+            const tgExam = await CONN.find(TextGenderExam);
+            const tgExamTier = await CONN.find(TextGenderExamTier);
+            const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] } );
 
             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
-
-              for (let tg of tgClassroom) {
-                for (let tier of tgExamTier) {
-                  for (let exam of tgExam) {
-
-                    const element = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
-
-                    if (element) { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: element.textGender, textGenderExam: element.textGenderExam, textGenderExamTier: element.textGenderExamTier, textGenderExamLevel: element.textGenderExamLevel, toRate: false })}
-                    else { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier }) }
-                  }
-                }
-              }
+              for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+                const textGenderGrade = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
+                if (textGenderGrade) { await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: textGenderGrade.textGender, textGenderExam: textGenderGrade.textGenderExam, textGenderExamTier: textGenderGrade.textGenderExamTier, textGenderExamLevel: textGenderGrade.textGenderExamLevel, toRate: false } as TextGenderGrade)}
+                else { await CONN.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
+              }}}
             }
-
             else {
-              for (let tg of tgClassroom) {
-                for (let tier of tgExamTier) {
-                  for (let exam of tgExam) { await conn.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
-                }
-              }
+              for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+                await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier } as TextGenderGrade )
+              }}}
             }
           }
 
           const trfr = new Transfer();
+          trfr.createdByUser = uTeacher.person.user.id;
           trfr.startedAt = new Date();
           trfr.endedAt = new Date();
           trfr.requester = uTeacher;
           trfr.requestedClassroom = bodyClassroom;
           trfr.currentClassroom = stClass.classroom;
           trfr.receiver = uTeacher;
-          trfr.student = student;
-          trfr.status = (await conn.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }})) as TransferStatus;
-          trfr.year = await conn.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
+          trfr.student = databaseStudent;
+          trfr.status = (await CONN.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }})) as TransferStatus;
+          trfr.year = await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
 
-          await conn.save(Transfer, trfr);
+          await CONN.save(Transfer, trfr);
         }
 
-        if (stClass.classroom.id === bodyClassroom.id) { await conn.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber })}
+        if (stClass.classroom.id === bodyClassroom.id) { await CONN.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: uTeacher.person.user.id } as StudentClassroom )}
 
-        student.ra = body.ra;
-        student.dv = body.dv;
-        student.updatedAt = new Date();
-        student.updatedByUser = uTeacher.person.user.id;
-        student.person.name = body.name;
-        student.person.birth = body.birth;
-        student.observationOne = body.observationOne;
-        student.observationTwo = body.observationTwo;
-        student.state = await conn.findOne(State, { where: { id: body.state } }) as State;
+        databaseStudent.ra = body.ra;
+        databaseStudent.dv = body.dv;
+        databaseStudent.updatedAt = new Date();
+        databaseStudent.updatedByUser = uTeacher.person.user.id;
+        databaseStudent.person.name = body.name;
+        databaseStudent.person.birth = body.birth;
+        databaseStudent.observationOne = body.observationOne;
+        databaseStudent.observationTwo = body.observationTwo;
+        databaseStudent.state = await CONN.findOne(State, { where: { id: body.state } }) as State;
 
-        const stDisabilities = student.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
+        const stDisabilities = databaseStudent.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
 
-        await this.setDisabilities(await conn.save(Student, student), stDisabilities, body.disabilities, conn);
+        await this.setDisabilities(uTeacher.person.user.id, await CONN.save(Student, databaseStudent), stDisabilities, body.disabilities, CONN);
 
-        result = this.formartStudentResponse(await this.student(Number(studentId), conn));
+        result = this.formartStudentResponse(await this.student(Number(studentId), CONN));
+
+        return { status: 200, data: result };
       })
-
-      return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async setDisabilities(
-    student: Student,
-    studentDisabilities: StudentDisability[],
-    body: number[],
-    transaction: EntityManager,
-  ) {
-    const currentDisabilities = studentDisabilities.map(
-      (studentDisability) => studentDisability.disability.id,
-    );
+  async setDisabilities(uTeacherId:number, student: Student, studentDisabilities: StudentDisability[], body: number[], CONN: EntityManager ) {
+    const currentDisabilities = studentDisabilities.map((studentDisability) => studentDisability.disability.id);
 
-    const create = body.filter(
-      (disabilityId) => !currentDisabilities.includes(disabilityId),
-    );
+    const create = body.filter((disabilityId) => !currentDisabilities.includes(disabilityId));
 
     if (create.length) {
-      const disabilities = create.map((disabilityId) => {
-        return {
-          student,
-          disability: { id: disabilityId },
-          startedAt: new Date(),
-        };
-      });
-      await transaction.save(StudentDisability, disabilities);
+      const disabilities = create.map((disabilityId) => { return { createdByUser: uTeacherId, student, disability: { id: disabilityId }, startedAt: new Date() } as StudentDisability });
+      await CONN.save(StudentDisability, disabilities);
     }
 
-    const remove = currentDisabilities.filter(
-      (disabilityId) => !body.includes(disabilityId),
-    );
+    const remove = currentDisabilities.filter((disabilityId) => !body.includes(disabilityId));
 
     if (remove.length) {
       for (let item of remove) {
-        const studentDisability = studentDisabilities.find(
-          (studentDisability) => studentDisability.disability.id === item,
-        );
+        const studentDisability = studentDisabilities.find((studentDisability) => studentDisability.disability.id === item);
         if (studentDisability) {
           studentDisability.endedAt = new Date();
-          await transaction.save(StudentDisability, studentDisability);
+          studentDisability.updatedByUser = uTeacherId
+          await CONN.save(StudentDisability, studentDisability);
         }
       }
     }
@@ -610,30 +581,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return await CONN.findBy(Disability, { id: In(ids) })
   }
 
-  async student(studentId: number, transaction: EntityManager) {
-    return await transaction
+  async student(studentId: number, CONN: EntityManager) {
+    return await CONN
       .createQueryBuilder()
-      .select([
-        "student.id",
-        "student.ra",
-        "student.dv",
-        "student.observationOne",
-        "student.observationTwo",
-        "state.id",
-        "state.acronym",
-        "person.id",
-        "person.name",
-        "person.birth",
-        "studentClassroom.id",
-        "studentClassroom.rosterNumber",
-        "studentClassroom.startedAt",
-        "studentClassroom.endedAt",
-        "classroom.id",
-        "classroom.shortName",
-        "school.id",
-        "school.shortName",
-        "GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities",
-      ])
+      .select(["student.id", "student.ra", "student.dv", "student.observationOne", "student.observationTwo", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "studentClassroom.id", "studentClassroom.rosterNumber", "studentClassroom.startedAt", "studentClassroom.endedAt", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "GROUP_CONCAT(DISTINCT disability.id ORDER BY disability.id ASC) AS disabilities"])
       .from(Student, "student")
       .leftJoin("student.person", "person")
       .leftJoin("student.studentDisabilities","studentDisabilities","studentDisabilities.endedAt IS NULL")

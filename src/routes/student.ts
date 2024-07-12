@@ -50,19 +50,10 @@ StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, async (req
 )
 
 StudentRouter.put("/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
-  const response = await studentController.graduate(req.params.id, req.body); return res.status(response?.status as number).json(response)
+  const response = await studentController.graduate(req.params.id, req.body); return res.status(response.status as number).json(response)
 })
 
-StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-    studentController.updateId(req.params.id, req.body)
-      .then((r) => res.status(r.status).json(r))
-      .catch((e) => res.status(e.status).json(e));
+StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+    const response = await studentController.updateId(req.params.id, req.body); return res.status(response.status as number).json(response)
   },
-);
-
-StudentRouter.delete("/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
-    studentController.deleteId(req.params.id)
-      .then((r) => res.status(r.status).json(r))
-      .catch((e) => res.status(e.status).json(e));
-  },
-);
+)

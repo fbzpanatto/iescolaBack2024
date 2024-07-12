@@ -12,4 +12,16 @@ export class Disability {
 
   @OneToMany(() => StudentDisability, sd => sd.disability)
   studentDisabilities: StudentDisability[]
+
+  @Column({ nullable: true })
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

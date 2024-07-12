@@ -3,7 +3,7 @@ import { Teacher } from "./Teacher";
 import { Student } from "./Student";
 import { TransferStatus } from "./TransferStatus";
 import { Classroom } from "./Classroom";
-import {Year} from "./Year";
+import { Year } from "./Year";
 
 @Entity()
 export class Transfer {

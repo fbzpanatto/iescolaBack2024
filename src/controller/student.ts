@@ -321,11 +321,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
         const person = this.createPerson({ name: body.name, birth: body.birth, category });
-  
+
         if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
-  
+
         const exists = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } })
-  
+
         if (exists) {
           const el = (await CONN.getRepository(Student)
             .createQueryBuilder("student")
@@ -338,29 +338,29 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             .andWhere("student.dv = :dv", { dv: body.dv })
             .andWhere( new Brackets((qb) => { qb.where("studentClassroom.endedAt IS NULL").orWhere("studentClassroom.endedAt < :currentDate", { currentDate: new Date() })}) )
             .getOne()) as Student;
-  
+
           let preR: StudentClassroom;
-  
+
           const actStClassroom = el.studentClassrooms.find((sc) => sc.endedAt === null) as StudentClassroom;
-  
+
           if (actStClassroom) { preR = actStClassroom }
           else { preR = el.studentClassrooms.find((sc) => getTimeZone(sc.endedAt) === Math.max(...el.studentClassrooms.map((sc) => getTimeZone(sc.endedAt)))) as StudentClassroom }
-  
+
           const message = `RA existente. ${el.person.name} se formou em: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano de ${preR?.year.name}.`
           if (!el.active) { return { status: 409, message }}
-  
+
           return { status: 409, message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano ${preR?.year.name}. ${preR.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preR.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}`};
         }
-  
+
         const message = "Você não tem permissão para criar um aluno nesta sala."
         if (body.user.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
-  
+
         let student: Student | null = null;
-  
+
         student = await CONN.save(Student, this.createStudent(body, person, state, uTeacher.person.user.id));
-  
+
         if (!!disabilities.length) {
-          const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability } });
+          const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability, createdByUser: uTeacher.person.user.id } as StudentDisability })
           await CONN.save(StudentDisability, mappDis);
         }
 
@@ -368,52 +368,29 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         let last = 1; if (stClassroom[0]?.rosterNumber) { last = stClassroom[0].rosterNumber + 1 };
 
-        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date() })) as StudentClassroom;
+        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
 
         const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
         const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-        const transfer = new Transfer();
-        transfer.startedAt = new Date();
-        transfer.endedAt = new Date();
-        transfer.requester = uTeacher;
-        transfer.requestedClassroom = classroom;
-        transfer.currentClassroom = classroom;
-        transfer.receiver = uTeacher;
-        transfer.student = student;
-        transfer.status = tStatus;
-        transfer.year = await this.currentYear(CONN);
+        const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
 
         await CONN.save(Transfer, transfer);
 
         if (classroomNumber >= 1 && classroomNumber <= 3) {
-          const literacyTier = (await CONN.find(LiteracyTier)) as LiteracyTier[];
-
-          for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier }) }
-        }
-
-        if (classroomNumber >= 1 && classroomNumber <= 3) {
-          const firstLiteracyLevel = new LiteracyFirst();
-          firstLiteracyLevel.student = student;
-
-          await CONN.save(LiteracyFirst, firstLiteracyLevel);
+          const literacyTier = await CONN.find(LiteracyTier)
+          for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() } as Literacy) }
+          await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
         }
 
         if (classroomNumber === 4 || classroomNumber === 5) {
+
           const tgExam = await CONN.find(TextGenderExam);
           const tgExamTier = await CONN.find(TextGenderExamTier);
           const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
 
-          for (let tg of tgClassroom) {
-            for (let tier of tgExamTier) {
-              for (let exam of tgExam) {
-                const el = new TextGenderGrade();
-                el.studentClassroom = stObject; el.textGender = tg.textGender; el.textGenderExam = exam; el.textGenderExamTier = tier;
-                await CONN.save(TextGenderGrade, el);
-              }
-            }
-          }
+          for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) { await CONN.save(TextGenderGrade, { studentClassroom: stObject, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}}
         }
         return { status: 201, data: student as unknown as Student }
       })

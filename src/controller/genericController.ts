@@ -1,13 +1,4 @@
-import {
-  DeepPartial,
-  EntityManager,
-  EntityTarget,
-  FindManyOptions,
-  FindOneOptions,
-  IsNull,
-  ObjectLiteral,
-  SaveOptions,
-} from "typeorm";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import { SavePerson } from "../interfaces/interfaces";
@@ -41,61 +32,46 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneById(id: number | string, body: ObjectLiteral, transaction?: EntityManager) {
+  async findOneById(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
     try {
 
-      if(!transaction) {
+      if(!CONN) {
         const result = await this.repository.findOneBy({ id: id });
         if (!result) { return { status: 404, message: "Data not found" } }
         return { status: 200, data: result };
       }
 
-      const result = await transaction.findOneBy(this.entity, { id: id });
+      const result = await CONN.findOneBy(this.entity, { id: id });
       if (!result) { return { status: 404, message: "Data not found" } }
       return { status: 200, data: result };
-      
+
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async save(
-    body: DeepPartial<ObjectLiteral>,
-    options: SaveOptions | undefined,
-  ) {
+  async save( body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined ) {
     try {
       const result = await this.repository.save(body, options);
       return { status: 201, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateId(id: number | string, body: ObjectLiteral) {
     try {
       const dataInDataBase = await this.repository.findOneBy({ id: id });
-      if (!dataInDataBase) {
-        return { status: 404, message: "Data not found" };
-      }
-      for (const key in body) {
-        dataInDataBase[key] = body[key];
-      }
+      if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
+      for (const key in body) { dataInDataBase[key] = body[key] }
       const result = await this.repository.save(dataInDataBase);
-      return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+      return { status: 200, data: result }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async deleteId(id: any) {
     try {
       const dataToDelete = await this.repository.findOneBy({ id: id });
-      if (!dataToDelete) {
-        return { status: 404, message: "Data not found" };
-      }
+      if (!dataToDelete) { return { status: 404, message: "Data not found" } }
       const result = await this.repository.delete(dataToDelete);
       return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   createPerson(body: SavePerson) {
@@ -121,17 +97,20 @@ export class GenericController<T> {
     return await CONN.findOne(State, { where: { id: id } }) as State
   }
 
-  async transferStatus(id: number) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
-
-  async teacherByUser(userId: number, conn?: EntityManager) {
-    const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }
-    if(!conn) { return (await AppDataSource.getRepository(Teacher).findOne(options)) as Teacher }
-    return await conn.findOne(Teacher, options) as Teacher
+  async transferStatus(id: number, CONN?: EntityManager) {
+    if(!CONN) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
+    return await CONN.findOne(TransferStatus, { where: { id: id } })
   }
 
-  async teacherClassrooms(body: { user: number }, conn?: EntityManager) {
+  async teacherByUser(userId: number, CONN?: EntityManager) {
+    const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }
+    if(!CONN) { return (await AppDataSource.getRepository(Teacher).findOne(options)) as Teacher }
+    return await CONN.findOne(Teacher, options) as Teacher
+  }
 
-    if(!conn) {
+  async teacherClassrooms(body: { user: number }, CONN?: EntityManager) {
+
+    if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")
       .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
@@ -147,7 +126,7 @@ export class GenericController<T> {
       return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
     }
 
-    const result = (await conn.createQueryBuilder()
+    const result = (await CONN.createQueryBuilder()
     .select("teacher.id", "teacher")
     .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
     .from(Teacher, "teacher")
@@ -162,8 +141,8 @@ export class GenericController<T> {
     return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
   }
 
-  async teacherDisciplines(body: { user: number }, transaction?: EntityManager) {
-    if(!transaction) {
+  async teacherDisciplines(body: { user: number }, CONN?: EntityManager) {
+    if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")
       .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
@@ -179,7 +158,7 @@ export class GenericController<T> {
       return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] };
     }
 
-    const result = (await transaction.createQueryBuilder()
+    const result = (await CONN.createQueryBuilder()
     .select("teacher.id", "teacher")
     .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
     .from(Teacher, "teacher")
@@ -190,7 +169,7 @@ export class GenericController<T> {
     .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
     .groupBy("teacher.id")
     .getRawOne()) as { teacher: number; disciplines: string };
-    
+
     return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
   }
 }

@@ -1,4 +1,4 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Student } from "./Student";
 import { Disability } from "./Disability";
 
@@ -19,4 +19,10 @@ export class StudentDisability {
 
   @Column( { nullable: true })
   endedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

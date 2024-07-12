@@ -32,9 +32,6 @@ LiteracyRouter.put('/:id/classroom', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-LiteracyRouter.put('/many', havePermission, (req, res) => {
-
-  literacyController.updateMany(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+LiteracyRouter.put('/many', havePermission, async (req, res) => {
+  const response = await literacyController.updateMany(req.body); return res.status(response.status).json(response)
 })

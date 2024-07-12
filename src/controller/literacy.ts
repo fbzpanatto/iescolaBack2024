@@ -457,23 +457,14 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     }
   }
 
-  async updateMany(body: {
-    user: UserInterface;
-    data: { id: number; observation: string }[];
-  }) {
+  async updateMany(body: { user: UserInterface; data: { id: number; observation: string }[] }) {
     try {
-      await AppDataSource.transaction(async (transaction) => {
-        for (let item of body.data) {
-          await transaction.save(Literacy, { ...item });
-        }
-      });
-
-      let result = {};
-
-      return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+      return await AppDataSource.transaction(async (CONN) => {
+        const uTeacher = this.teacherByUser(body.user.user)
+        for (let item of body.data) { await CONN.save(Literacy, { ...item, updatedAt: new Date(), updatedByUser: (await uTeacher).person.user.id } as Literacy ) }
+        return { status: 200, data: {} }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateLiteracy(body: { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, toRate: boolean, user: UserInterface }) {

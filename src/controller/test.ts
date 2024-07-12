@@ -563,10 +563,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
           for (let key of originalKeys) {
             if (!currentKeys.includes(key)) return true;
             if (hasDifferences(original[key], current[key])) {
-              console.log('--------------------------------------------------------')
-              console.log(`Difference found in key: ${key}`);
-              console.log(`------> Original: ${JSON.stringify(original[key])}`);
-              console.log(`------> Current: ${JSON.stringify(current[key])}`);
+              // console.log(`Difference found in key: ${key}`);
+              // console.log(`------> Original: ${JSON.stringify(original[key])}`);
+              // console.log(`------> Current: ${JSON.stringify(current[key])}`);
               return true;
             }
           }

@@ -15,15 +15,15 @@ export class LiteracyFirst {
   @ManyToOne(() => LiteracyLevel, literacyLevel => literacyLevel.literacyFirsts, { nullable: true })
   literacyLevel: LiteracyLevel
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   createdAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   createdByUser: number
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

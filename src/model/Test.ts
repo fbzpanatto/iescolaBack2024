@@ -38,15 +38,15 @@ export class Test {
   @JoinTable({ name: "test_classroom" })
   classrooms: Classroom[]
 
-  @Column()
+  @Column({ nullable: true, select: false })
   createdAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedAt: Date
 
-  @Column()
+  @Column({ nullable: true, select: false })
   createdByUser: number
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

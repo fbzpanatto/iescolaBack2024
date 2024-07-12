@@ -17,15 +17,15 @@ export class StudentQuestion {
   @Column({ nullable: true })
   answer: string
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   createdAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   createdByUser: number
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

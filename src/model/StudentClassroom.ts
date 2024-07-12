@@ -44,9 +44,9 @@ export class StudentClassroom {
   @Column({ nullable: true })
   endedAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   createdByUser: number
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

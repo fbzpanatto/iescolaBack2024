@@ -30,15 +30,15 @@ export class Teacher {
   @OneToMany(() => Transfer, (transfer) => transfer.receiver)
   receiver: Transfer[];
 
-  @Column()
+  @Column({ nullable: true, select: false })
   createdAt: Date
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedAt: Date
 
-  @Column()
+  @Column({ nullable: true, select: false })
   createdByUser: number
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

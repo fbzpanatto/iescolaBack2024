@@ -33,18 +33,6 @@ export class Student {
   @Column({ nullable: true })
   observationTwo: string;
 
-  @Column()
-  createdAt: Date
-
-  @Column({ nullable: true })
-  updatedAt: Date
-
-  @Column()
-  createdByUser: number
-
-  @Column({ nullable: true })
-  updatedByUser: number
-
   @OneToMany(() => StudentDisability, sd => sd.student)
   studentDisabilities: StudentDisability[]
 
@@ -59,4 +47,16 @@ export class Student {
 
   @OneToOne(() => LiteracyFirst, literacyfirst => literacyfirst.student, { cascade: true })
   literacyFirst: LiteracyFirst
+
+  @Column()
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column()
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

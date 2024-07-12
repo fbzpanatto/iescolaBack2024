@@ -37,4 +37,10 @@ export class Transfer {
 
   @ManyToOne(() => Year, year => year.transfers)
   year: Year
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

@@ -31,4 +31,16 @@ export class TextGenderGrade {
 
   @Column({ nullable: true })
   observation: string
+
+  @Column({ nullable: true })
+  createdAt: Date
+
+  @Column({ nullable: true })
+  updatedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

@@ -21,6 +21,15 @@ export class Teacher {
   @JoinColumn()
   person: Person;
 
+  @OneToMany(() => TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher )
+  teacherClassDiscipline: TeacherClassDiscipline[];
+
+  @OneToMany(() => Transfer, (transfer) => transfer.requester)
+  requester: Transfer[];
+
+  @OneToMany(() => Transfer, (transfer) => transfer.receiver)
+  receiver: Transfer[];
+
   @Column()
   createdAt: Date
 
@@ -32,13 +41,4 @@ export class Teacher {
 
   @Column({ nullable: true })
   updatedByUser: number
-
-  @OneToMany(() => TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher )
-  teacherClassDiscipline: TeacherClassDiscipline[];
-
-  @OneToMany(() => Transfer, (transfer) => transfer.requester)
-  requester: Transfer[];
-
-  @OneToMany(() => Transfer, (transfer) => transfer.receiver)
-  receiver: Transfer[];
 }

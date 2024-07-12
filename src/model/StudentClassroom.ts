@@ -5,8 +5,7 @@ import { Year} from "./Year";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
 import { Literacy } from "./Literacy";
-import { LiteracyFirst } from "./LiteracyFirst";
-import {TextGenderGrade} from "./TextGenderGrade";
+import { TextGenderGrade } from "./TextGenderGrade";
 
 @Entity()
 export class StudentClassroom {
@@ -44,4 +43,10 @@ export class StudentClassroom {
 
   @Column({ nullable: true })
   endedAt: Date
+
+  @Column({ nullable: true })
+  createdByUser: number
+
+  @Column({ nullable: true })
+  updatedByUser: number
 }

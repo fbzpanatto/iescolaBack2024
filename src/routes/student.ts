@@ -36,16 +36,13 @@ StudentRouter.get("/:id", VALIDATE_ID, havePermission, (req: Request, res: Respo
 );
 
 StudentRouter.post("/inactive", havePermission, async (req: Request, res: Response) => {
-  const response = await studentController.setInactiveNewClassroom(req.body)
-  return res.status(response.status as number).json(response)
-});
+  const response = await studentController.inactiveNewClass(req.body); return res.status(response.status as number).json(response)
+})
 
-StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-    studentController.save(req.body)
-      .then((r) => res.status(r.status).json(r))
-      .catch((e) => res.status(e.status).json(e));
-  },
-);
+StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+    const response = await studentController.save(req.body); return res.status(response.status as number).json(response)
+  }
+)
 
 StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, (req: Request, res: Response) => {
     studentController.putLiteracyBeforeLevel(req.body)
@@ -55,8 +52,7 @@ StudentRouter.put("/literacy-first/:id", VALIDATE_ID, havePermission, (req: Requ
 );
 
 StudentRouter.put("/:id/graduate", VALIDATE_ID, havePermission, async (req: Request, res: Response) => {
-  const response = await studentController.graduate(req.params.id, req.body)
-  return res.status(response?.status as number).json(response)
+  const response = await studentController.graduate(req.params.id, req.body); return res.status(response?.status as number).json(response)
 })
 
 StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {

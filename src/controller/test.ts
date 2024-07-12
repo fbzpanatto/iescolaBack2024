@@ -513,20 +513,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
 
     try {
-      return await AppDataSource.transaction(async (conn) => {
+      return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user);
         if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
 
-        const checkYear = await conn.findOne(Year, { where: { id: body.year.id } })
+        const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })
         if(!checkYear) return { status: 404, message: "Ano não encontrado" }
         if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
 
         const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } }
-        const period = await conn.findOne(Period, option)
+        const period = await CONN.findOne(Period, option)
         if(!period) return { status: 404, message: "Period não encontrado" }
 
-        const classes = await conn.getRepository(Classroom)
+        const classes = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
           .leftJoin("classroom.studentClassrooms", "studentClassroom")
@@ -541,7 +541,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
-        const test = await conn.save(Test, {
+        const test = await CONN.save(Test, {
           name: body.name,
           category: body.category,
           discipline: body.discipline,
@@ -554,7 +554,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const tQts = body.testQuestions.map((el: any) => ({ ...el, createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }, test }));
 
-        await conn.save(TestQuestion, tQts)
+        await CONN.save(TestQuestion, tQts)
         return { status: 201, data: test };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -562,11 +562,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async updateTestById(id: number | string, req: Request) {
     try {
-      return await AppDataSource.transaction(async (transaction) => {
+      return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.teacherByUser(req.body.user.user, transaction) as Teacher
+        const uTeacher = await this.teacherByUser(req.body.user.user, CONN) as Teacher
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
-        const test = await transaction.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
+        const test = await CONN.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
 
         if(!test) return { status: 404, message: "Teste não encontrado" }
         if(uTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
@@ -575,13 +575,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.updatedAt = new Date()
         test.updatedByUser = uTeacher.person.user.id
 
-        await transaction.save(Test, test)
+        await CONN.save(Test, test)
 
         const testQuestions = req.body.testQuestions.map((el: TestQuestion) => ({ ...el, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id, question: { ...el.question, person: el.question.person || uTeacher.person, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id }, test }));
 
-        await transaction.save(TestQuestion, testQuestions)
+        await CONN.save(TestQuestion, testQuestions)
 
-        const result = (await this.findOneById(id, req, transaction)).data
+        const result = (await this.findOneById(id, req, CONN)).data
 
         return { status: 200, data: result };
       })

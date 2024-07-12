@@ -35,12 +35,10 @@ StudentRouter.get("/:id", VALIDATE_ID, havePermission, (req: Request, res: Respo
   },
 );
 
-StudentRouter.post("/inactive", havePermission, (req: Request, res: Response) => {
-  studentController.setInactiveNewClassroom(req.body)
-    .then((r) => res.status(r.status).json(r))
-    .catch((e) => res.status(e.status).json(e));
-},
-);
+StudentRouter.post("/inactive", havePermission, async (req: Request, res: Response) => {
+  const response = await studentController.setInactiveNewClassroom(req.body)
+  return res.status(response.status as number).json(response)
+});
 
 StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
     studentController.save(req.body)

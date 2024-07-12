@@ -106,30 +106,19 @@ export class GenericController<T> {
     return person;
   }
 
-  async currentYear() {
-    return (await AppDataSource.getRepository(Year).findOne({
-      where: { endedAt: IsNull(), active: true },
-    })) as Year;
+  async currentYear(CONN?: EntityManager) {
+    if(!CONN) { return (await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } })) as Year }
+    return await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
   }
 
-  async classroom(id: number) {
-    return (await AppDataSource.getRepository(Classroom).findOne({
-      where: { id: id },
-    })) as Classroom;
-  }
+  async classroom(id: number) { return (await AppDataSource.getRepository(Classroom).findOne({ where: { id: id } })) as Classroom }
 
-  async state(id: number) {
-    return (await AppDataSource.getRepository(State).findOne({
-      where: { id: id },
-    })) as State;
-  }
+  async state(id: number) { return (await AppDataSource.getRepository(State).findOne({ where: { id: id } })) as State }
 
   async transferStatus(id: number) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
 
   async teacherByUser(userId: number, conn?: EntityManager) {
-
     const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }
-
     if(!conn) { return (await AppDataSource.getRepository(Teacher).findOne(options)) as Teacher }
     return await conn.findOne(Teacher, options) as Teacher
   }

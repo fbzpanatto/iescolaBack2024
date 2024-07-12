@@ -48,6 +48,7 @@ import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
 import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
 import {TEXTGENDEREXAMLEVELGROUP} from "../mock/textGenderExamLevelGroup";
+
 export const InitialConfigsRouter = Router();
 
 async function createClassroom(school: School, classroom: {name: string, shortName: string, active: boolean, category: number}) {
@@ -153,6 +154,10 @@ InitialConfigsRouter.get('/', async (req, res) => {
     for(let disability of DISABILITY) {
       const newDisability = new Disability()
       newDisability.name = disability.name
+      newDisability.createdAt = new Date()
+      newDisability.createdByUser = 1
+      newDisability.updatedAt = new Date()
+      newDisability.updatedByUser = 1
       await disabilitySource.save(newDisability)
     }
 

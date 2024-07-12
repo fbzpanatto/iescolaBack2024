@@ -554,12 +554,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const hasDifferences = (original: any, current: any): boolean => {
           if (original === current) return false;
           if (typeof original !== 'object' || original === null || current === null) return original !== current;
-        
+
           const originalKeys = Object.keys(original);
           const currentKeys = Object.keys(current);
-        
+
           if (originalKeys.length !== currentKeys.length) return true;
-        
+
           for (let key of originalKeys) {
             if (!currentKeys.includes(key)) return true; // Chave faltando em `current`
             if (hasDifferences(original[key], current[key])) {
@@ -570,14 +570,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
               return true;
             }
           }
-        
+
           return false;
         };
-        
+
 
         for (let next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
-        
+
           if (!curr) {
             await CONN.save(TestQuestion, {
               ...next,
@@ -593,57 +593,68 @@ class TestController extends GenericController<EntityTarget<Test>> {
             });
           } else {
             const testQuestionCondition = hasDifferences(curr, next);
-        
+
             if (testQuestionCondition) {
               await CONN.save(TestQuestion, {
                 ...next,
+                createdAt: curr.createdAt, // Preserve the original createdAt
+                createdByUser: curr.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
-        
+
             if (hasDifferences(curr.question, next.question)) {
               await CONN.save(Question, {
                 ...next.question,
+                createdAt: curr.question.createdAt, // Preserve the original createdAt
+                createdByUser: curr.question.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
-        
+
             if (hasDifferences(curr.question.descriptor, next.question.descriptor)) {
               await CONN.save(Descriptor, {
                 ...next.question.descriptor,
+                createdAt: curr.question.descriptor.createdAt, // Preserve the original createdAt
+                createdByUser: curr.question.descriptor.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
-        
+
             if (hasDifferences(curr.question.descriptor.topic, next.question.descriptor.topic)) {
               await CONN.save(Topic, {
                 ...next.question.descriptor.topic,
+                createdAt: curr.question.descriptor.topic.createdAt, // Preserve the original createdAt
+                createdByUser: curr.question.descriptor.topic.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
-        
+
             if (hasDifferences(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
               await CONN.save(ClassroomCategory, {
                 ...next.question.descriptor.topic.classroomCategory,
+                createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, // Preserve the original createdAt
+                createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
-        
+
             if (hasDifferences(curr.questionGroup, next.questionGroup)) {
               await CONN.save(QuestionGroup, {
                 ...next.questionGroup,
+                createdAt: curr.questionGroup.createdAt, // Preserve the original createdAt
+                createdByUser: curr.questionGroup.createdByUser, // Preserve the original createdByUser
                 updatedAt: new Date(),
                 updatedByUser: userId,
               });
             }
           }
         }
-        
 
         const result = (await this.findOneById(id, req, CONN)).data
 

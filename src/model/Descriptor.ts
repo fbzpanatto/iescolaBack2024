@@ -22,15 +22,15 @@ export class Descriptor {
   @ManyToOne(() => Topic, topic => topic.descriptors, { nullable: true })
   topic: Topic
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   createdAt: Date
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   updatedAt: Date
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   createdByUser: number
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   updatedByUser: number
 }

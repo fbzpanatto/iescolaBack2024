@@ -24,15 +24,15 @@ export class Topic {
   @ManyToOne(() => ClassroomCategory, classroomCategory => classroomCategory.topics)
   classroomCategory: ClassroomCategory
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   createdAt: Date
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   updatedAt: Date
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   createdByUser: number
 
-  @Column({ nullable: true, select: false })
+  @Column({ nullable: true })
   updatedByUser: number
 }

@@ -16,7 +16,7 @@ import { StudentQuestion as SQues } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
-import { Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Teacher } from "../model/Teacher";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
@@ -92,6 +92,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .addOrderBy("studentClassroom.rosterNumber", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .getOne()
+
       if(!test) return { status: 404, message: "Teste não encontrado" }
 
       let response = { ...test, testQuestions, questionGroups }

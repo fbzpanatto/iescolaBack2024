@@ -59,13 +59,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
       const teacher = await this.teacherByUser(body.user.user)
 
-      const transferInDatabse = await AppDataSource.getRepository(Transfer).findOne({
-        where: {
-          student: body.student,
-          status: { id: transferStatus.PENDING },
-          endedAt: IsNull()
-        }
-      });
+      const transferInDatabse = await AppDataSource.getRepository(Transfer).findOne({ where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}});
       if (transferInDatabse) return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' }
 
       const currentClassroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: body.currentClassroom.id } })
@@ -75,9 +69,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       if (!requestedClassroom) return { status: 404, message: 'Registro não encontrado' }
 
       const notDigit = /\D/g
-      if (Number(requestedClassroom.name.replace(notDigit, '')) < Number(currentClassroom.name.replace(notDigit, ''))) {
-        return { status: 400, message: 'Regressão de sala não é permitido.' }
-      }
+      if (Number(requestedClassroom.name.replace(notDigit, '')) < Number(currentClassroom.name.replace(notDigit, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
 
       const transfer = new Transfer();
       transfer.student = body.student;
@@ -96,23 +88,20 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   }
 
   override async updateId(id: number | string, body: ObjectLiteral) {
-
     try {
       const teacher = await this.teacherByUser(body.user.user)
-      const transfer = await AppDataSource.getRepository(Transfer).findOne({
-        relations: ['status', 'requester.person', 'requestedClassroom'],
-        where: { id: Number(id) }
-      })
+      const transfer = await AppDataSource.getRepository(Transfer).findOne({ relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) }})
+
       if (!transfer) return { status: 404, message: 'Registro não encontrado.' }
-      if (teacher.id !== transfer.requester.id && body.cancel) {
-        return { status: 403, message: 'Você não tem permissão para alterar este registro.' }
-      }
+      if (teacher.id !== transfer.requester.id && body.cancel) { return { status: 403, message: 'Você não tem permissão para alterar este registro.' }}
+
       if (body.cancel) {
         transfer.status = await this.transferStatus(transferStatus.CANCELED) as TransferStatus
         transfer.endedAt = new Date()
         await AppDataSource.getRepository(Transfer).save(transfer)
         return { status: 200, data: 'Cancelada com sucesso.' }
       }
+
       if (body.reject) {
         transfer.status = await this.transferStatus(transferStatus.REFUSED) as TransferStatus
         transfer.endedAt = new Date()
@@ -120,45 +109,20 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         await AppDataSource.getRepository(Transfer).save(transfer)
         return { status: 200, data: 'Rejeitada com sucesso.' }
       }
+
       if (body.accept) {
 
-        const arrayOfRelations = [
-          'student',
-          'classroom',
-          'literacies.literacyTier',
-          'literacies.literacyLevel',
-          'textGenderGrades.textGender',
-          'textGenderGrades.textGenderExam',
-          'textGenderGrades.textGenderExamTier',
-          'textGenderGrades.textGenderExamLevel',
-          'year'
-        ]
+        const arrayOfRelations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year' ]
 
-        const studentClassroom = await AppDataSource.getRepository(StudentClassroom)
-          .findOne({
-            relations: arrayOfRelations,
-            where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }
-          })
+        const stClass = await AppDataSource.getRepository(StudentClassroom).findOne({ relations: arrayOfRelations, where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
 
-        if (!studentClassroom) { return { status: 404, message: 'Registro não encontrado.' } }
+        if (!stClass) { return { status: 404, message: 'Registro não encontrado.' } }
 
         const currentYear = await this.currentYear()
 
-        const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom)
-          .find({
-            relations: ['classroom', 'year'],
-            where: {
-              year: { id: currentYear.id },
-              classroom: { id: transfer.requestedClassroom.id }
-            },
-            order: { rosterNumber: 'DESC' },
-            take: 1
-          })
-
+        const lastRosterNumber = await AppDataSource.getRepository(StudentClassroom).find({ relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: transfer.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })
         let last = 1
-        if (lastRosterNumber[0]?.rosterNumber) {
-          last = lastRosterNumber[0].rosterNumber + 1
-        }
+        if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
         const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
           student: body.student,
@@ -170,125 +134,51 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         const notDigit = /\D/g
 
-        const classroomNumber = Number(transfer.requestedClassroom.shortName.replace(notDigit, ''))
+        const classNumber = Number(transfer.requestedClassroom.shortName.replace(notDigit, ''))
 
-        const newClassroomNumber = Number(newStudentClassroom.classroom.shortName.replace(notDigit, ''))
-        const oldClassroomNumber = Number(studentClassroom.classroom.shortName.replace(notDigit, ''))
+        const newNumber = Number(newStudentClassroom.classroom.shortName.replace(notDigit, ''))
+        const oldNumber = Number(stClass.classroom.shortName.replace(notDigit, ''))
 
-        if (classroomNumber >= 1 && classroomNumber <= 3) {
+        if (classNumber >= 1 && classNumber <= 3) {
           const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
-
-          if (
-            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
-            oldClassroomNumber === newClassroomNumber &&
-            studentClassroom.year.id === newStudentClassroom.year.id
-          ) {
-
+          if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id ) {
             for (let tier of literacyTier) {
-
-              const element = studentClassroom.literacies.find(el => el.literacyTier.id === tier.id && el.literacyLevel != null)
-
-              if (element) {
-
-                await AppDataSource.getRepository(Literacy).save({
-                  studentClassroom: newStudentClassroom,
-                  literacyTier: element.literacyTier,
-                  literacyLevel: element.literacyLevel,
-                  toRate: false
-                })
-              } else {
-
-                await AppDataSource.getRepository(Literacy).save({
-                  studentClassroom: newStudentClassroom,
-                  literacyTier: tier
-                })
-              }
-            }
-          } else {
-
-            for (let tier of literacyTier) {
-
-              await AppDataSource.getRepository(Literacy).save({
-                studentClassroom: newStudentClassroom,
-                literacyTier: tier
-              })
+              const element = stClass.literacies.find(el => el.literacyTier.id === tier.id && el.literacyLevel != null)
+              if (element) { await AppDataSource.getRepository(Literacy).save({ studentClassroom: newStudentClassroom, literacyTier: element.literacyTier, literacyLevel: element.literacyLevel, toRate: false })}
+              else { await AppDataSource.getRepository(Literacy).save({ studentClassroom: newStudentClassroom, literacyTier: tier })}
             }
           }
+          else { for (let tier of literacyTier) { await AppDataSource.getRepository(Literacy).save({ studentClassroom: newStudentClassroom, literacyTier: tier }) } }
         }
 
-        if (classroomNumber === 4 || classroomNumber === 5) {
+        if (classNumber === 4 || classNumber === 5) {
           const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
           const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
-          const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
-            where: { classroomNumber: classroomNumber },
-            relations: ['textGender']
-          }) as TextGenderClassroom[]
+          const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({where: { classroomNumber: classNumber },relations: ['textGender']}) as TextGenderClassroom[]
 
-          if (
-            studentClassroom.classroom.id != newStudentClassroom.classroom.id &&
-            oldClassroomNumber === newClassroomNumber &&
-            studentClassroom.year.id === newStudentClassroom.year.id
-          ) {
-
+          if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id ) {
             for (let tg of textGenderClassroom) {
               for (let tier of textGenderExamTier) {
                 for (let exam of textGenderExam) {
-
-                  const element = studentClassroom.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
-
-                  if (element) {
-
-                    await AppDataSource.getRepository(TextGenderGrade).save({
-                      studentClassroom: newStudentClassroom,
-                      textGender: element.textGender,
-                      textGenderExam: element.textGenderExam,
-                      textGenderExamTier: element.textGenderExamTier,
-                      textGenderExamLevel: element.textGenderExamLevel,
-                      toRate: false
-                    })
-                  } else {
-
-                    await AppDataSource.getRepository(TextGenderGrade).save({
-                      studentClassroom: newStudentClassroom,
-                      textGender: tg.textGender,
-                      textGenderExam: exam,
-                      textGenderExamTier: tier
-                    })
-                  }
-                }
-              }
-            }
-          } else {
-
-            for (let tg of textGenderClassroom) {
-              for (let tier of textGenderExamTier) {
-                for (let exam of textGenderExam) {
-
-                  await AppDataSource.getRepository(TextGenderGrade).save({
-                    studentClassroom: newStudentClassroom,
-                    textGender: tg.textGender,
-                    textGenderExam: exam,
-                    textGenderExamTier: tier
-                  })
-
+                  const element = stClass.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
+                  if (element) { await AppDataSource.getRepository(TextGenderGrade).save({ studentClassroom: newStudentClassroom, textGender: element.textGender, textGenderExam: element.textGenderExam, textGenderExamTier: element.textGenderExamTier, textGenderExamLevel: element.textGenderExamLevel, toRate: false })}
+                  else { await AppDataSource.getRepository(TextGenderGrade).save({ studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier }) }
                 }
               }
             }
           }
+          else { for (let tg of textGenderClassroom) { for (let tier of textGenderExamTier) { for (let exam of textGenderExam) { await AppDataSource.getRepository(TextGenderGrade).save({ studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}}}}
         }
 
-        await AppDataSource.getRepository(StudentClassroom).save({
-          ...studentClassroom,
-          endedAt: new Date()
-        })
+        await AppDataSource.getRepository(StudentClassroom).save({ ...stClass, endedAt: new Date() })
 
         transfer.status = await this.transferStatus(transferStatus.ACCEPTED) as TransferStatus
         transfer.endedAt = new Date()
         transfer.receiver = teacher
         await AppDataSource.getRepository(Transfer).save(transfer)
-
         return { status: 200, data: 'Aceita com sucesso.' }
       }
+
       let result = {}
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }

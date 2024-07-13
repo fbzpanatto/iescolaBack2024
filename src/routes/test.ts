@@ -22,11 +22,10 @@ TestRouter.get('/:year/all', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TestRouter.get('/:id/:year/:classroom', havePermission, (req, res) => {
+TestRouter.get('/:id/:year/:classroom', havePermission, async (req, res) => {
 
-  testController.getAllClassroomStudents(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+  const response = await testController.getAllClassroomStudents(req)
+  return res.status(response.status).json(response)
 })
 
 TestRouter.get('/:id/classroom/:classroom/graphic', havePermission, (req, res) => {

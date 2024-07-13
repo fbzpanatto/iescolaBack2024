@@ -163,32 +163,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
 
-        const isAdminSupervisor = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
 
         const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
 
         const message = "Você não tem permissão para acessar essa sala."
-        if(!classrooms.includes(classroomId) && !isAdminSupervisor) { return { status: 403, message } }
+        if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message } }
 
-        const test = await this.getTest(testId, yearName)
+        const test = await this.getTest(testId, yearName, CONN)
 
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
-        const questionGroups = await this.getTestQuestionsGroups(testId)
+        const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
 
         const testQuestions = await this.getTestQuestions(test.id, CONN)
 
-        const classroom = await AppDataSource.getRepository(Classroom)
+        const classroom = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .leftJoinAndSelect("classroom.school", "school")
           .where("classroom.id = :classroomId", { classroomId })
           .getOne();
 
-        const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), yearName as string)
+        const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
         await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
 
-        const studentClassroomsWithQuestions = await this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearName as string)
+        const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
 
         let data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
 
@@ -197,10 +197,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async studentClassroomsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string) {
+  async setQuestionsForStudent(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-    const preResult = await AppDataSource.getRepository(StudentClassroom)
+    const preResult = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
@@ -240,26 +240,55 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  async studentClassrooms(test: Test, classroomId: number, yearName: string) {
-    return await AppDataSource.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("studentQuestions.id IS NOT NULL")
-      }))
-      .andWhere("year.name = :yearName", { yearName })
-      .getMany();
+  async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN?: EntityManager) {
+    if(!CONN){
+      return await AppDataSource.getRepository(StudentClassroom)
+        .createQueryBuilder("studentClassroom")
+        .leftJoin("studentClassroom.year", "year")
+        .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+        .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+        .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+        .leftJoinAndSelect("studentClassroom.student", "student")
+        .leftJoinAndSelect("student.person", "person")
+        .where("studentClassroom.classroom = :classroomId", { classroomId })
+        .andWhere(new Brackets(qb => {
+          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+          qb.orWhere("studentQuestions.id IS NOT NULL")
+        }))
+        .andWhere("year.name = :yearName", { yearName })
+        .getMany();
+    }
+
+    return await CONN.getRepository(StudentClassroom)
+    .createQueryBuilder("studentClassroom")
+    .leftJoin("studentClassroom.year", "year")
+    .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+    .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+    .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+    .leftJoinAndSelect("studentClassroom.student", "student")
+    .leftJoinAndSelect("student.person", "person")
+    .where("studentClassroom.classroom = :classroomId", { classroomId })
+    .andWhere(new Brackets(qb => {
+      qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+      qb.orWhere("studentQuestions.id IS NOT NULL")
+    }))
+    .andWhere("year.name = :yearName", { yearName })
+    .getMany();
   }
 
-  async getTestQuestionsGroups(testId: number) {
-    return await AppDataSource.getRepository(QuestionGroup)
+  async getTestQuestionsGroups(testId: number, CONN?: EntityManager) {
+    if(!CONN) {
+      return await AppDataSource.getRepository(QuestionGroup)
+      .createQueryBuilder("questionGroup")
+      .select(["questionGroup.id AS id", "questionGroup.name AS name"])
+      .addSelect("COUNT(testQuestions.id)", "questionsCount")
+      .leftJoin("questionGroup.testQuestions", "testQuestions")
+      .where("testQuestions.test = :testId", { testId })
+      .groupBy("questionGroup.id")
+      .getRawMany();
+    }
+
+    return await CONN.getRepository(QuestionGroup)
       .createQueryBuilder("questionGroup")
       .select(["questionGroup.id AS id", "questionGroup.name AS name"])
       .addSelect("COUNT(testQuestions.id)", "questionsCount")
@@ -723,8 +752,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("period.year", "year")
       .leftJoinAndSelect("test.discipline", "discipline")
       .leftJoinAndSelect("test.category", "category")
-      .where("test.id = :testId", {testId})
-      .andWhere("year.name = :yearName", {yearName})
+      .where("test.id = :testId", { testId })
+      .andWhere("year.name = :yearName", { yearName })
       .getOne()
   }
 

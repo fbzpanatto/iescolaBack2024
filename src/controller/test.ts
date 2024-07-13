@@ -514,107 +514,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const bodyTq = req.body.testQuestions as TestQuestion[]
         const dataTq = await this.getTestQuestions(test.id, CONN)
 
-        const hasDifferences = (original: any, current: any): boolean => {
-          if (original === current) return false;
-          if (typeof original !== 'object' || original === null || current === null) return original !== current;
-
-          const originalKeys = Object.keys(original);
-          const currentKeys = Object.keys(current);
-
-          if (originalKeys.length !== currentKeys.length) return true;
-
-          for (let key of originalKeys) {
-            if (!currentKeys.includes(key)) return true;
-            if (hasDifferences(original[key], current[key])) {
-              // console.log(`Difference found in key: ${key}`);
-              // console.log(`------> Original: ${JSON.stringify(original[key])}`);
-              // console.log(`------> Current: ${JSON.stringify(current[key])}`);
-              return true;
-            }
-          }
-
-          return false;
-        };
-
-
         for (let next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
 
-          if (!curr) {
-            await CONN.save(TestQuestion, {
-              ...next,
-              createdAt: new Date(),
-              createdByUser: userId,
-              question: {
-                ...next.question,
-                person: next.question.person || uTeacher.person,
-                createdAt: new Date(),
-                createdByUser: userId,
-              },
-              test,
-            });
-          } else {
-            const testQuestionCondition = hasDifferences(curr, next);
+          if (!curr) { await CONN.save(TestQuestion, { ...next, createdAt: new Date(), createdByUser: userId, question: { ...next.question, person: next.question.person || uTeacher.person, createdAt: new Date(), createdByUser: userId, }, test }) }
+          else {
+            const testQuestionCondition = this.diffs(curr, next);
 
-            if (testQuestionCondition) {
-              await CONN.save(TestQuestion, {
-                ...next,
-                createdAt: curr.createdAt,
-                createdByUser: curr.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (testQuestionCondition) { await CONN.save(TestQuestion, { ...next, createdAt: curr.createdAt, createdByUser: curr.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
 
-            if (hasDifferences(curr.question, next.question)) {
-              await CONN.save(Question, {
-                ...next.question,
-                createdAt: curr.question.createdAt,
-                createdByUser: curr.question.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (this.diffs(curr.question, next.question)) { await CONN.save(Question, {...next.question,createdAt: curr.question.createdAt,createdByUser: curr.question.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
 
-            if (hasDifferences(curr.question.descriptor, next.question.descriptor)) {
-              await CONN.save(Descriptor, {
-                ...next.question.descriptor,
-                createdAt: curr.question.descriptor.createdAt,
-                createdByUser: curr.question.descriptor.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (this.diffs(curr.question.descriptor, next.question.descriptor)) { await CONN.save(Descriptor, { ...next.question.descriptor, createdAt: curr.question.descriptor.createdAt, createdByUser: curr.question.descriptor.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
 
-            if (hasDifferences(curr.question.descriptor.topic, next.question.descriptor.topic)) {
-              await CONN.save(Topic, {
-                ...next.question.descriptor.topic,
-                createdAt: curr.question.descriptor.topic.createdAt,
-                createdByUser: curr.question.descriptor.topic.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (this.diffs(curr.question.descriptor.topic, next.question.descriptor.topic)) { await CONN.save(Topic, { ...next.question.descriptor.topic, createdAt: curr.question.descriptor.topic.createdAt, createdByUser: curr.question.descriptor.topic.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
 
-            if (hasDifferences(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
-              await CONN.save(ClassroomCategory, {
-                ...next.question.descriptor.topic.classroomCategory,
-                createdAt: curr.question.descriptor.topic.classroomCategory.createdAt,
-                createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (this.diffs(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) { await CONN.save(ClassroomCategory, { ...next.question.descriptor.topic.classroomCategory, createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
 
-            if (hasDifferences(curr.questionGroup, next.questionGroup)) {
-              await CONN.save(QuestionGroup, {
-                ...next.questionGroup,
-                createdAt: curr.questionGroup.createdAt,
-                createdByUser: curr.questionGroup.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId,
-              });
-            }
+            if (this.diffs(curr.questionGroup, next.questionGroup)) { await CONN.save(QuestionGroup, { ...next.questionGroup, createdAt: curr.questionGroup.createdAt, createdByUser: curr.questionGroup.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
           }
         }
 
@@ -623,6 +540,53 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: result };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  diffs = (original: any, current: any): boolean => {
+    if (original === current) return false;
+    if (typeof original !== 'object' || original === null || current === null) return original !== current;
+
+    const originalKeys = Object.keys(original);
+    const currentKeys = Object.keys(current);
+
+    if (originalKeys.length !== currentKeys.length) return true;
+
+    for (let key of originalKeys) {
+      if (!currentKeys.includes(key)) return true;
+      if (this.diffs(original[key], current[key])) { return true }
+    }
+
+    return false;
+  }
+
+  async getTest(testId:number , yearName: number | string, CONN: EntityManager) {
+    return CONN.getRepository(Test)
+      .createQueryBuilder("test")
+      .leftJoinAndSelect("test.person", "person")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.bimester", "bimester")
+      .leftJoinAndSelect("period.year", "year")
+      .leftJoinAndSelect("test.discipline", "discipline")
+      .leftJoinAndSelect("test.category", "category")
+      .where("test.id = :testId", { testId })
+      .andWhere("year.name = :yearName", { yearName })
+      .getOne()
+  }
+
+  async getTestQuestions(testId: number, CONN: EntityManager) {
+    return await CONN.getRepository(TestQuestion)
+      .createQueryBuilder("testQuestion")
+      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
+      .leftJoin("testQuestion.question", "question")
+      .leftJoin("question.person", "person")
+      .leftJoin("question.descriptor", "descriptor")
+      .leftJoin("descriptor.topic", "topic")
+      .leftJoin("topic.classroomCategory", "classroomCategory")
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+      .where("testQuestion.test = :testId", { testId })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
   }
 
   override async deleteId(request: Request) {
@@ -661,50 +625,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async getTest(testId:number , yearName: number | string, conn?: EntityManager) {
-    if(!conn) {
-      return await AppDataSource.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.person", "person")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "bimester")
-      .leftJoinAndSelect("period.year", "year")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .where("test.id = :testId", {testId})
-      .andWhere("year.name = :yearName", {yearName})
-      .getOne()
-    }
-
-    return conn.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.person", "person")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "bimester")
-      .leftJoinAndSelect("period.year", "year")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .where("test.id = :testId", { testId })
-      .andWhere("year.name = :yearName", { yearName })
-      .getOne()
-  }
-
-  async getTestQuestions(testId: number, CONN: EntityManager) {
-    return await CONN.getRepository(TestQuestion)
-      .createQueryBuilder("testQuestion")
-      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
-      .leftJoin("testQuestion.question", "question")
-      .leftJoin("question.person", "person")
-      .leftJoin("question.descriptor", "descriptor")
-      .leftJoin("descriptor.topic", "topic")
-      .leftJoin("topic.classroomCategory", "classroomCategory")
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .where("testQuestion.test = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .getMany();
   }
 }
 

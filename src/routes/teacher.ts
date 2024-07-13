@@ -1,10 +1,10 @@
 import { Request, Response, Router } from "express";
 import { teacherController } from "../controller/teacher";
-import { VALIDATE_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER} from "../middleware/validators";
+import { PARAM_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER} from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CREATE_VALIDATORS = [VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
-const UPDATE_VALIDATORS = [VALIDATE_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
+const UPDATE_VALIDATORS = [PARAM_ID, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
 
 export const TeacherRouter = Router();
 
@@ -29,7 +29,7 @@ TeacherRouter.get('/', havePermission, (req, res) => {
     .catch(e => res.status(e.status).json(e))
 })
 
-TeacherRouter.get('/:id', VALIDATE_ID, havePermission, (req, res) => {
+TeacherRouter.get('/:id', PARAM_ID, havePermission, (req, res) => {
 
   teacherController.findOneById(req.params.id, req)
     .then(r => res.status(r.status).json(r))
@@ -47,7 +47,7 @@ TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, r
     .catch(e => res.status(e.status).json(e))
 });
 
-TeacherRouter.delete('/:id', VALIDATE_ID, havePermission, (req, res) => {
+TeacherRouter.delete('/:id', PARAM_ID, havePermission, (req, res) => {
 
   teacherController.deleteId(req.params.id)
     .then(r => res.status(r.status).json(r))

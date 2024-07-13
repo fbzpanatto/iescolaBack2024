@@ -29,10 +29,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     try {
 
-      await AppDataSource.transaction(async (transaction) => {
-        disciplines = (await disciplineController.getAllDisciplines(req, transaction)).data;
-        classrooms = (await classroomController.findAllWhere({}, req, transaction)).data;
-        personCategories = (await personCategoryController.findAllWhere({}, req, transaction)).data;
+      await AppDataSource.transaction(async (CONN) => {
+        disciplines = (await disciplineController.getAllDisciplines(req, CONN)).data;
+        classrooms = (await classroomController.getAllClassrooms(req, CONN)).data;
+        personCategories = (await personCategoryController.findAllWhere({}, req, CONN)).data;
       })
 
       return { status: 200, data: { disciplines, classrooms, personCategories } }
@@ -77,7 +77,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   // TODO: check this
   // @ts-ignore
   override async findOneById(id: string | number, request?: Request) {
-  
+
     const body = request?.body as TeacherBody;
 
     try {

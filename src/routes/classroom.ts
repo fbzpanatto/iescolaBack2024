@@ -3,11 +3,10 @@ import { classroomController } from "../controller/classroom";
 
 export const ClassroomRouter = Router();
 
-ClassroomRouter.get('/', (req, res) => {
+ClassroomRouter.get('/', async (req, res) => {
 
-  classroomController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+  const response = await classroomController.getAllClassrooms(req)
+  return res.status(response.status).json(response)
 })
 
 ClassroomRouter.get('/:id', (req, res) => {

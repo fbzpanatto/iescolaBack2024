@@ -1,26 +1,53 @@
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
 import { pc } from "../utils/personCategories";
+import { AppDataSource } from "../data-source";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
   constructor() { super(Classroom) }
 
-  override async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, transaction?: EntityManager) {
-    
+  async getAllClassrooms(request: Request, CONN?: EntityManager) {
+
     const { body } = request as { body: TeacherBody };
+    let result: Classroom[] | null = null
 
     try {
 
-      if(!transaction){
-        const teacher = await this.teacherByUser(body.user.user);
-        const teacherClasses = await this.teacherClassrooms(request?.body.user);
-        const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
-  
-        let result = await this.repository
+      if(!CONN) {
+        result = await AppDataSource.transaction(async (alternative) => {
+
+          const uTeacher = await this.teacherByUser(body.user.user, alternative);
+          const tClasses = await this.teacherClassrooms(request?.body.user, alternative);
+          const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE;
+
+          return await alternative.getRepository(Classroom)
+            .createQueryBuilder("classroom")
+            .select("classroom.id", "id")
+            .addSelect("classroom.shortName", "name")
+            .addSelect("school.shortName", "school")
+            .leftJoin("classroom.school", "school")
+            .where(
+              new Brackets((qb) => {
+                if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms }) }
+                else { qb.where("classroom.id > 0") }
+              }),
+            )
+            .getRawMany() as Classroom[]
+        })
+        return { status: 200, data: result };
+      }
+
+      result = await AppDataSource.transaction(async (CONN) => {
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const tClasses = await this.teacherClassrooms(request?.body.user, CONN);
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE;
+
+        return await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select("classroom.id", "id")
           .addSelect("classroom.shortName", "name")
@@ -28,32 +55,12 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
           .leftJoin("classroom.school", "school")
           .where(
             new Brackets((qb) => {
-              if (!isAdminSupervisor) { qb.where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms }) } 
+              if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms }) }
               else { qb.where("classroom.id > 0") }
             }),
           )
-          .getRawMany();
-  
-        return { status: 200, data: result };
-      }
-
-      const teacher = await this.teacherByUser(body.user.user, transaction);
-      const teacherClasses = await this.teacherClassrooms(request?.body.user, transaction);
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
-
-      let result = await transaction.getRepository(Classroom)
-        .createQueryBuilder("classroom")
-        .select("classroom.id", "id")
-        .addSelect("classroom.shortName", "name")
-        .addSelect("school.shortName", "school")
-        .leftJoin("classroom.school", "school")
-        .where(
-          new Brackets((qb) => {
-            if (!isAdminSupervisor) { qb.where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms }) } 
-            else { qb.where("classroom.id > 0") }
-          }),
-        )
-        .getRawMany();
+          .getRawMany() as Classroom[]
+      })
 
       return { status: 200, data: result };
 

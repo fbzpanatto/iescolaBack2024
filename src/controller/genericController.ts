@@ -14,12 +14,12 @@ export class GenericController<T> {
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 
-  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, transaction?: EntityManager ) {
+  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, CONN?: EntityManager ) {
     try {
 
-      if(!transaction){ const result = await this.repository.find(); return { status: 200, data: result } }
+      if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
 
-      const result = await transaction.find(this.entity); return { status: 200, data: result }
+      const result = await CONN.find(this.entity); return { status: 200, data: result }
 
     } catch (error: any) { return { status: 500, message: error.message } }
   }

@@ -7,8 +7,9 @@ import { invalidValues, unexpectedFn } from "../utils/bodyValidations";
 import { TEST_SCHEMA } from '../schemas/test';
 import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '../schemas/studentQuestion';
 
-export const VALIDATE_ID = check('id').not().isEmpty().isNumeric()
-export const VALIDATE_YEAR_NAME = check('year').not().isEmpty()
+export const PARAM_ID = check('id').not().isEmpty().isNumeric()
+export const PARAM_CLASSID = check('classroom').not().isEmpty().isNumeric()
+export const PARAM_YEAR = check('year').not().isEmpty().isLength({ min: 4, max: 4 })
 
 //STUDENT_QUESTIONANSWER
 export const VALIDATE_STUDENT_QUESTIONANSWER = checkSchema(STUDENT_QUESTIONSANSWER_SCHEMA)

@@ -3,16 +3,10 @@ import { teacherClassroomsController } from "../controller/teacherClassrooms";
 
 export const TeacherClassroomsRouter = Router();
 
-TeacherClassroomsRouter.get('/', (req, res) => {
-
-  teacherClassroomsController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherClassroomsRouter.get('/', async (req, res) => {
+  const response = await teacherClassroomsController.getAllTClass(req); return res.status(response.status as number).json(response)
 });
 
-TeacherClassroomsRouter.post('/', (req, res) => {
-
-  teacherClassroomsController.save(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+TeacherClassroomsRouter.post('/', async (req, res) => {
+  const response = await teacherClassroomsController.save(req.body); return res.status(response.status as number).json(response)
+})

@@ -35,108 +35,59 @@ interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom
 interface LiteracyBeforeLevel { user: { user: number; username: string; category: number; iat: number; exp: number }; studentClassroom: StudentClassroom; literacyLevel: LiteracyLevel }
 
 class StudentController extends GenericController<EntityTarget<Student>> {
-  constructor() {
-    super(Student);
-  }
+
+  constructor() { super(Student) }
 
   async studentForm(req: Request) {
-    try {
-      const disabilities = (await disabilityController.findAllWhere({}, req))
-        .data;
-      const states = (await stateController.findAllWhere({}, req)).data;
-      const teacherClassrooms = (
-        await teacherClassroomsController.findAllWhere({}, req)
-      ).data;
 
-      return { status: 200, data: { disabilities, states, teacherClassrooms } };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+    try {
+
+      return await AppDataSource.transaction(async(CONN) => {
+
+        const states = (await stateController.findAllWhere({}, req, CONN)).data;
+        const disabilities = (await disabilityController.findAllWhere({}, req, CONN)).data;
+        const teacherClassrooms = (await teacherClassroomsController.getAllTClass(req, CONN)).data;
+
+        return { status: 200, data: { disabilities, states, teacherClassrooms } };
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getAllInactivates(request?: Request) {
-    const yearName = request?.params.year;
-    const search = request?.query.search;
+  async getAllInactivates(request: Request) {
 
     try {
-      const currentYear = await this.currentYear();
-      if (!currentYear) {
-        return {
-          status: 404,
-          message:
-            "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
-        };
-      }
 
-      const lastYearName = Number(currentYear.name) - 1;
-      const lastYearDB = (await AppDataSource.getRepository(Year).findOne({
-        where: { name: lastYearName.toString() },
-      })) as Year;
+      return AppDataSource.transaction(async(CONN) => {
 
-      if (!lastYearDB) {
-        return {
-          status: 404,
-          message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`,
-        };
-      }
+        const currentYear = await this.currentYear(CONN)
 
-      const preResult = await AppDataSource.getRepository(Student)
-        .createQueryBuilder("student")
-        .leftJoinAndSelect("student.person", "person")
-        .leftJoinAndSelect("student.state", "state")
-        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
-        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .leftJoinAndSelect("studentClassroom.year", "year")
-        .where("studentClassroom.endedAt IS NOT NULL")
-        .andWhere("student.active = 1")
-        .andWhere(
-          new Brackets((qb) => {
-            qb.where("person.name LIKE :search", {
-              search: `%${search}%`,
-            }).orWhere("student.ra LIKE :search", { search: `%${search}%` });
-          }),
-        )
-        .andWhere("year.name = :yearName", { yearName })
-        .andWhere((qb) => {
-          const subQueryNoCurrentYear = qb
-            .subQuery()
-            .select("1")
-            .from("student_classroom", "sc1")
-            .where("sc1.studentId = student.id")
-            .andWhere("sc1.yearId = :currentYearId", {
-              currentYearId: currentYear.id,
-            })
-            .andWhere("sc1.endedAt IS NULL")
-            .getQuery();
+        if (!currentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
-          return `NOT EXISTS ${subQueryNoCurrentYear}`;
-        })
-        .andWhere((qb) => {
-          const subQueryLastYearOrOlder = qb
-            .subQuery()
-            .select("MAX(sc2.endedAt)")
-            .from("student_classroom", "sc2")
-            .where("sc2.studentId = student.id")
-            .andWhere("sc2.yearId <= :lastYearId", {
-              lastYearId: lastYearDB.id,
-            })
-            .getQuery();
+        const lastYearName = Number(currentYear.name) - 1
+        const lastYearDB = await CONN.findOne(Year, { where: { name: lastYearName.toString() } })
 
-          return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`;
-        })
-        .orderBy("person.name", "ASC")
-        .getMany();
+        if (!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`} }
 
-      const result = preResult.map((student) => ({
-        ...student,
-        studentClassrooms: this.getOneClassroom(student.studentClassrooms),
-      }));
+        const preResult = await AppDataSource.getRepository(Student)
+          .createQueryBuilder("student")
+          .leftJoinAndSelect("student.person", "person")
+          .leftJoinAndSelect("student.state", "state")
+          .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .leftJoinAndSelect("studentClassroom.year", "year")
+          .where("studentClassroom.endedAt IS NOT NULL")
+          .andWhere("student.active = 1")
+          .andWhere( new Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${ request.query.search} %` }).orWhere("student.ra LIKE :search", { search: `%${ request.query.search }%` })}))
+          .andWhere("year.name = :yearName", { yearName: request.params.year })
+          .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}` })
+          .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})` })
+          .orderBy("person.name", "ASC")
+          .getMany();
 
-      return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+        return { status: 200, data: preResult.map((student) => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))};
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async inactiveNewClass(body: InactiveNewClassroom) {

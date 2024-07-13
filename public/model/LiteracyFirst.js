@@ -29,6 +29,22 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => LiteracyLevel_1.LiteracyLevel, literacyLevel => literacyLevel.literacyFirsts, { nullable: true }),
     __metadata("design:type", LiteracyLevel_1.LiteracyLevel)
 ], LiteracyFirst.prototype, "literacyLevel", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], LiteracyFirst.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], LiteracyFirst.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], LiteracyFirst.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], LiteracyFirst.prototype, "updatedByUser", void 0);
 exports.LiteracyFirst = LiteracyFirst = __decorate([
     (0, typeorm_1.Entity)()
 ], LiteracyFirst);

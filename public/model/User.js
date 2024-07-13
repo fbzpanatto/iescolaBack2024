@@ -21,17 +21,24 @@ __decorate([
     __metadata("design:type", Number)
 ], User.prototype, "id", void 0);
 __decorate([
-    (0, class_validator_1.Max)(15),
-    (0, typeorm_1.Column)({ unique: true, nullable: false }),
+    (0, class_validator_1.Max)(60),
+    (0, typeorm_1.Column)({ nullable: true }),
+    (0, class_validator_1.IsEmail)({}, { message: "Invalid email address." }),
     __metadata("design:type", String)
 ], User.prototype, "username", void 0);
+__decorate([
+    (0, class_validator_1.Max)(60),
+    (0, typeorm_1.Column)({ nullable: true }),
+    (0, class_validator_1.IsEmail)({}, { message: "Invalid email address." }),
+    __metadata("design:type", String)
+], User.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.Max)(8),
     (0, typeorm_1.Column)({ nullable: false }),
     __metadata("design:type", String)
 ], User.prototype, "password", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => Person_1.Person, p => p.user),
+    (0, typeorm_1.OneToOne)(() => Person_1.Person, (p) => p.user),
     (0, typeorm_1.JoinColumn)(),
     __metadata("design:type", Person_1.Person)
 ], User.prototype, "person", void 0);

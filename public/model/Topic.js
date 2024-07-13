@@ -41,6 +41,22 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => ClassroomCategory_1.ClassroomCategory, classroomCategory => classroomCategory.topics),
     __metadata("design:type", ClassroomCategory_1.ClassroomCategory)
 ], Topic.prototype, "classroomCategory", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Topic.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Topic.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Topic.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Topic.prototype, "updatedByUser", void 0);
 exports.Topic = Topic = __decorate([
     (0, typeorm_1.Entity)()
 ], Topic);

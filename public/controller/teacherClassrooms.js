@@ -25,7 +25,7 @@ class TeacherClassroomsController extends genericController_1.GenericController 
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {
                 const teacher = yield this.teacherByUser(body.user.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories_1.personCategories.SUPERVISOR;
+                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
                 if (isAdminSupervisor) {
                     const classrooms = yield data_source_1.AppDataSource
                         .getRepository(Classroom_1.Classroom)

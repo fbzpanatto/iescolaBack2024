@@ -59,6 +59,14 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => Year_1.Year, year => year.transfers),
     __metadata("design:type", Year_1.Year)
 ], Transfer.prototype, "year", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Transfer.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Transfer.prototype, "updatedByUser", void 0);
 exports.Transfer = Transfer = __decorate([
     (0, typeorm_1.Entity)()
 ], Transfer);

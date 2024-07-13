@@ -27,6 +27,22 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => StudentDisability_1.StudentDisability, sd => sd.disability),
     __metadata("design:type", Array)
 ], Disability.prototype, "studentDisabilities", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Disability.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Disability.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Disability.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Disability.prototype, "updatedByUser", void 0);
 exports.Disability = Disability = __decorate([
     (0, typeorm_1.Entity)()
 ], Disability);

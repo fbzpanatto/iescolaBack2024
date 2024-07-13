@@ -14,6 +14,7 @@ const typeorm_1 = require("typeorm");
 const Person_1 = require("./Person");
 const TeacherClassDiscipline_1 = require("./TeacherClassDiscipline");
 const Transfer_1 = require("./Transfer");
+const class_validator_1 = require("class-validator");
 let Teacher = class Teacher {
 };
 exports.Teacher = Teacher;
@@ -22,30 +23,48 @@ __decorate([
     __metadata("design:type", Number)
 ], Teacher.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, class_validator_1.Max)(60),
+    (0, typeorm_1.Column)(),
+    (0, class_validator_1.IsEmail)({}, { message: "Invalid email address." }),
     __metadata("design:type", String)
 ], Teacher.prototype, "email", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
-    __metadata("design:type", Number)
+    (0, typeorm_1.Column)({ nullable: true, length: 20 }),
+    __metadata("design:type", String)
 ], Teacher.prototype, "register", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => Person_1.Person, person => person.teacher, { cascade: true }),
+    (0, typeorm_1.OneToOne)(() => Person_1.Person, (person) => person.teacher, { cascade: true }),
     (0, typeorm_1.JoinColumn)(),
     __metadata("design:type", Person_1.Person)
 ], Teacher.prototype, "person", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => TeacherClassDiscipline_1.TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.teacher),
+    (0, typeorm_1.OneToMany)(() => TeacherClassDiscipline_1.TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher),
     __metadata("design:type", Array)
 ], Teacher.prototype, "teacherClassDiscipline", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Transfer_1.Transfer, transfer => transfer.requester),
+    (0, typeorm_1.OneToMany)(() => Transfer_1.Transfer, (transfer) => transfer.requester),
     __metadata("design:type", Array)
 ], Teacher.prototype, "requester", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Transfer_1.Transfer, transfer => transfer.receiver),
+    (0, typeorm_1.OneToMany)(() => Transfer_1.Transfer, (transfer) => transfer.receiver),
     __metadata("design:type", Array)
 ], Teacher.prototype, "receiver", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Teacher.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Teacher.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Teacher.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Teacher.prototype, "updatedByUser", void 0);
 exports.Teacher = Teacher = __decorate([
     (0, typeorm_1.Entity)()
 ], Teacher);

@@ -65,6 +65,14 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Date)
 ], StudentClassroom.prototype, "endedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentClassroom.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentClassroom.prototype, "updatedByUser", void 0);
 exports.StudentClassroom = StudentClassroom = __decorate([
     (0, typeorm_1.Entity)()
 ], StudentClassroom);

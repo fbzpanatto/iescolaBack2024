@@ -13,6 +13,7 @@ exports.Question = void 0;
 const typeorm_1 = require("typeorm");
 const Descriptor_1 = require("./Descriptor");
 const TestQuestion_1 = require("./TestQuestion");
+const Person_1 = require("./Person");
 let Question = class Question {
 };
 exports.Question = Question;
@@ -32,6 +33,30 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => TestQuestion_1.TestQuestion, testQuestion => testQuestion.question),
     __metadata("design:type", Array)
 ], Question.prototype, "testQuestions", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => Person_1.Person, person => person.tests, { nullable: true }),
+    __metadata("design:type", Person_1.Person)
+], Question.prototype, "person", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], Question.prototype, "active", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Question.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Question.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Question.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Question.prototype, "updatedByUser", void 0);
 exports.Question = Question = __decorate([
     (0, typeorm_1.Entity)()
 ], Question);

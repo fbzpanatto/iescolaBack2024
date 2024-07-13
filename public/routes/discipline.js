@@ -5,7 +5,7 @@ const express_1 = require("express");
 const discipline_1 = require("../controller/discipline");
 exports.DisciplineRouter = (0, express_1.Router)();
 exports.DisciplineRouter.get('/', (req, res) => {
-    discipline_1.disciplineController.findAllWhere({}, req)
+    discipline_1.disciplineController.getAllDisciplines(req)
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));
 });

@@ -13,29 +13,37 @@ exports.loginController = void 0;
 const genericController_1 = require("./genericController");
 const User_1 = require("../model/User");
 const data_source_1 = require("../data-source");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 class LoginController extends genericController_1.GenericController {
     constructor() {
         super(User_1.User);
     }
     login(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const { username, password } = req.body;
+            const { email, password } = req.body;
             try {
                 const user = yield data_source_1.AppDataSource.getRepository(User_1.User).findOne({
-                    relations: ['person.category'],
-                    where: { username: username }
+                    relations: ["person.category"],
+                    where: { email },
                 });
                 if (!user || password !== user.password) {
-                    return { status: 401, message: 'Credenciais Inválidas' };
+                    return { status: 401, message: "Credenciais Inválidas" };
                 }
                 const payload = {
                     user: user.id,
-                    username: user.username,
+                    email: user.email,
                     category: user.person.category.id,
                 };
-                const token = jwt.sign(payload, 'SECRET', { expiresIn: 10800 });
-                return { status: 200, data: { token: token, expiresIn: jwt.decode(token).exp, role: jwt.decode(token).category, person: user.person.name } };
+                const token = jwt.sign(payload, "SECRET", { expiresIn: 10800 });
+                return {
+                    status: 200,
+                    data: {
+                        token: token,
+                        expiresIn: jwt.decode(token).exp,
+                        role: jwt.decode(token).category,
+                        person: user.person.name,
+                    },
+                };
             }
             catch (error) {
                 return { status: 500, message: error.message };

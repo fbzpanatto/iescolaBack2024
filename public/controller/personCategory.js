@@ -18,19 +18,56 @@ class PersonCategoryController extends genericController_1.GenericController {
     constructor() {
         super(PersonCategory_1.PersonCategory);
     }
-    findAllWhere(options, request) {
+    findAllWhere(options, request, transaction) {
         return __awaiter(this, void 0, void 0, function* () {
-            let excludeIds = [personCategories_1.personCategories.ALUNO];
+            let excludeIds = [personCategories_1.pc.ALUN];
             const userBody = request === null || request === void 0 ? void 0 : request.body.user;
             try {
-                const userTeacher = yield this.teacherByUser(userBody.user);
-                if (!userTeacher)
-                    return { status: 404, message: 'Usuário não encontrado' };
-                if (userTeacher.person.category.id != userBody.category)
-                    return { status: 403, message: 'Usuário não autorizado' };
-                const result = yield data_source_1.AppDataSource.getRepository(PersonCategory_1.PersonCategory)
-                    .createQueryBuilder('personCategory')
-                    .where('personCategory.id NOT IN (:...ids)', { ids: excludeIds })
+                if (!transaction) {
+                    const userTeacherFromFront = yield this.teacherByUser(userBody.user);
+                    if (!userTeacherFromFront) {
+                        return { status: 404, message: "Usuário não encontrado" };
+                    }
+                    if (userTeacherFromFront.person.category.id != userBody.category) {
+                        return { status: 403, message: "Usuário não autorizado" };
+                    }
+                    const result = yield data_source_1.AppDataSource.getRepository(PersonCategory_1.PersonCategory)
+                        .createQueryBuilder("personCategory")
+                        .where("personCategory.id NOT IN (:...ids)", { ids: excludeIds })
+                        .getMany();
+                    return { status: 200, data: result };
+                }
+                const userTeacherFromFront = yield this.teacherByUser(userBody.user, transaction);
+                if (!userTeacherFromFront) {
+                    return { status: 404, message: "Usuário não encontrado" };
+                }
+                if (userTeacherFromFront.person.category.id != userBody.category) {
+                    return { status: 403, message: "Usuário não autorizado" };
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.SUPE) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.DIRE) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.VICE) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.COOR) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.SECR) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.MONI) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                }
+                if (userTeacherFromFront.person.category.id === personCategories_1.pc.PROF) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                }
+                const result = yield transaction.getRepository(PersonCategory_1.PersonCategory)
+                    .createQueryBuilder("personCategory")
+                    .where("personCategory.id NOT IN (:...ids)", { ids: excludeIds })
                     .getMany();
                 return { status: 200, data: result };
             }

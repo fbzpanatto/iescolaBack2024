@@ -36,6 +36,22 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], StudentTestStatus.prototype, "observation", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], StudentTestStatus.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], StudentTestStatus.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentTestStatus.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentTestStatus.prototype, "updatedByUser", void 0);
 exports.StudentTestStatus = StudentTestStatus = __decorate([
     (0, typeorm_1.Entity)()
 ], StudentTestStatus);

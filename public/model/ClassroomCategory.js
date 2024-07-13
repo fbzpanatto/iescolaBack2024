@@ -25,7 +25,7 @@ __decorate([
     __metadata("design:type", String)
 ], ClassroomCategory.prototype, "name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: true }),
+    (0, typeorm_1.Column)({ default: true, select: false }),
     __metadata("design:type", Boolean)
 ], ClassroomCategory.prototype, "active", void 0);
 __decorate([
@@ -36,6 +36,22 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => Topic_1.Topic, topic => topic.classroomCategory),
     __metadata("design:type", Array)
 ], ClassroomCategory.prototype, "topics", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], ClassroomCategory.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], ClassroomCategory.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], ClassroomCategory.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], ClassroomCategory.prototype, "updatedByUser", void 0);
 exports.ClassroomCategory = ClassroomCategory = __decorate([
     (0, typeorm_1.Entity)()
 ], ClassroomCategory);

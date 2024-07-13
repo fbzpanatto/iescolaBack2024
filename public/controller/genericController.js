@@ -22,10 +22,15 @@ class GenericController {
     constructor(entity) {
         this.entity = entity;
     }
-    findAllWhere(options, request) {
+    get repository() { return data_source_1.AppDataSource.getRepository(this.entity); }
+    findAllWhere(options, request, transaction) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const result = yield this.repository.find();
+                if (!transaction) {
+                    const result = yield this.repository.find();
+                    return { status: 200, data: result };
+                }
+                const result = yield transaction.find(this.entity);
                 return { status: 200, data: result };
             }
             catch (error) {
@@ -38,7 +43,7 @@ class GenericController {
             try {
                 const result = yield this.repository.findOne(options);
                 if (!result) {
-                    return { status: 404, message: 'Data not found' };
+                    return { status: 404, message: "Data not found" };
                 }
                 return { status: 200, data: result };
             }
@@ -47,12 +52,19 @@ class GenericController {
             }
         });
     }
-    findOneById(id, body) {
+    findOneById(id, body, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const result = yield this.repository.findOneBy({ id: id });
+                if (!CONN) {
+                    const result = yield this.repository.findOneBy({ id: id });
+                    if (!result) {
+                        return { status: 404, message: "Data not found" };
+                    }
+                    return { status: 200, data: result };
+                }
+                const result = yield CONN.findOneBy(this.entity, { id: id });
                 if (!result) {
-                    return { status: 404, message: 'Data not found' };
+                    return { status: 404, message: "Data not found" };
                 }
                 return { status: 200, data: result };
             }
@@ -77,7 +89,7 @@ class GenericController {
             try {
                 const dataInDataBase = yield this.repository.findOneBy({ id: id });
                 if (!dataInDataBase) {
-                    return { status: 404, message: 'Data not found' };
+                    return { status: 404, message: "Data not found" };
                 }
                 for (const key in body) {
                     dataInDataBase[key] = body[key];
@@ -95,7 +107,7 @@ class GenericController {
             try {
                 const dataToDelete = yield this.repository.findOneBy({ id: id });
                 if (!dataToDelete) {
-                    return { status: 404, message: 'Data not found' };
+                    return { status: 404, message: "Data not found" };
                 }
                 const result = yield this.repository.delete(dataToDelete);
                 return { status: 200, data: result };
@@ -105,7 +117,6 @@ class GenericController {
             }
         });
     }
-    get repository() { return data_source_1.AppDataSource.getRepository(this.entity); }
     createPerson(body) {
         const person = new Person_1.Person();
         person.name = body.name;
@@ -113,74 +124,107 @@ class GenericController {
         person.category = body.category;
         return person;
     }
-    currentYear() {
+    currentYear(CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(Year_1.Year).findOne({ where: { endedAt: (0, typeorm_1.IsNull)(), active: true } });
+            if (!CONN) {
+                return (yield data_source_1.AppDataSource.getRepository(Year_1.Year).findOne({ where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
+            }
+            return yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } });
         });
     }
-    classroom(id) {
+    classroom(id, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findOne({ where: { id: id } });
+            if (!CONN) {
+                return (yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findOne({ where: { id: id } }));
+            }
+            return yield CONN.findOne(Classroom_1.Classroom, { where: { id: id } });
         });
     }
-    state(id) {
+    state(id, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(State_1.State).findOne({ where: { id: id } });
+            if (!CONN) {
+                return (yield data_source_1.AppDataSource.getRepository(State_1.State).findOne({ where: { id: id } }));
+            }
+            return yield CONN.findOne(State_1.State, { where: { id: id } });
         });
     }
-    transferStatus(id) {
+    transferStatus(id, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(TransferStatus_1.TransferStatus).findOne({ where: { id: id } });
+            if (!CONN) {
+                return (yield data_source_1.AppDataSource.getRepository(TransferStatus_1.TransferStatus).findOne({ where: { id: id } }));
+            }
+            return yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: id } });
         });
     }
-    teacherByUser(userId) {
+    teacherByUser(userId, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).findOne({
-                relations: ['person.category'],
-                where: { person: { user: { id: userId } } },
-            });
+            const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } };
+            if (!CONN) {
+                return (yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).findOne(options));
+            }
+            return yield CONN.findOne(Teacher_1.Teacher, options);
         });
     }
-    teacherClassrooms(body) {
-        var _a, _b;
+    teacherClassrooms(body, CONN) {
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield data_source_1.AppDataSource
-                .createQueryBuilder()
-                .select('teacher.id', 'teacher')
-                .addSelect('GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)', 'classrooms')
-                .from(Teacher_1.Teacher, 'teacher')
-                .leftJoin('teacher.person', 'person')
-                .leftJoin('person.user', 'user')
-                .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
-                .leftJoin('teacherClassDiscipline.classroom', 'classroom')
-                .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
-                .groupBy('teacher.id')
-                .getRawOne();
-            return {
-                id: result.teacher,
-                classrooms: (_b = (_a = result.classrooms) === null || _a === void 0 ? void 0 : _a.split(',').map((classroomId) => Number(classroomId))) !== null && _b !== void 0 ? _b : [],
-            };
+            if (!CONN) {
+                const result = (yield data_source_1.AppDataSource.createQueryBuilder()
+                    .select("teacher.id", "teacher")
+                    .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms")
+                    .from(Teacher_1.Teacher, "teacher")
+                    .leftJoin("teacher.person", "person")
+                    .leftJoin("person.user", "user")
+                    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                    .leftJoin("teacherClassDiscipline.classroom", "classroom")
+                    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+                    .groupBy("teacher.id")
+                    .getRawOne());
+                return { id: result.teacher, classrooms: (_b = (_a = result.classrooms) === null || _a === void 0 ? void 0 : _a.split(",").map((classroomId) => Number(classroomId))) !== null && _b !== void 0 ? _b : [] };
+            }
+            const result = (yield CONN.createQueryBuilder()
+                .select("teacher.id", "teacher")
+                .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms")
+                .from(Teacher_1.Teacher, "teacher")
+                .leftJoin("teacher.person", "person")
+                .leftJoin("person.user", "user")
+                .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                .leftJoin("teacherClassDiscipline.classroom", "classroom")
+                .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+                .groupBy("teacher.id")
+                .getRawOne());
+            return { id: result.teacher, classrooms: (_d = (_c = result.classrooms) === null || _c === void 0 ? void 0 : _c.split(",").map((classroomId) => Number(classroomId))) !== null && _d !== void 0 ? _d : [] };
         });
     }
-    teacherDisciplines(body) {
-        var _a, _b;
+    teacherDisciplines(body, CONN) {
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield data_source_1.AppDataSource
-                .createQueryBuilder()
-                .select('teacher.id', 'teacher')
-                .addSelect('GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)', 'disciplines')
-                .from(Teacher_1.Teacher, 'teacher')
-                .leftJoin('teacher.person', 'person')
-                .leftJoin('person.user', 'user')
-                .leftJoin('teacher.teacherClassDiscipline', 'teacherClassDiscipline')
-                .leftJoin('teacherClassDiscipline.discipline', 'discipline')
-                .where('user.id = :userId AND teacherClassDiscipline.endedAt IS NULL', { userId: body.user })
-                .groupBy('teacher.id')
-                .getRawOne();
-            return {
-                id: result.teacher,
-                disciplines: (_b = (_a = result.disciplines) === null || _a === void 0 ? void 0 : _a.split(',').map((disciplineId) => Number(disciplineId))) !== null && _b !== void 0 ? _b : [],
-            };
+            if (!CONN) {
+                const result = (yield data_source_1.AppDataSource.createQueryBuilder()
+                    .select("teacher.id", "teacher")
+                    .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines")
+                    .from(Teacher_1.Teacher, "teacher")
+                    .leftJoin("teacher.person", "person")
+                    .leftJoin("person.user", "user")
+                    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                    .leftJoin("teacherClassDiscipline.discipline", "discipline")
+                    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+                    .groupBy("teacher.id")
+                    .getRawOne());
+                return { id: result.teacher, disciplines: (_b = (_a = result.disciplines) === null || _a === void 0 ? void 0 : _a.split(",").map((disciplineId) => Number(disciplineId))) !== null && _b !== void 0 ? _b : [] };
+            }
+            const result = (yield CONN.createQueryBuilder()
+                .select("teacher.id", "teacher")
+                .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines")
+                .from(Teacher_1.Teacher, "teacher")
+                .leftJoin("teacher.person", "person")
+                .leftJoin("person.user", "user")
+                .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                .leftJoin("teacherClassDiscipline.discipline", "discipline")
+                .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+                .groupBy("teacher.id")
+                .getRawOne());
+            return { id: result.teacher, disciplines: (_d = (_c = result.disciplines) === null || _c === void 0 ? void 0 : _c.split(",").map((disciplineId) => Number(disciplineId))) !== null && _d !== void 0 ? _d : [] };
         });
     }
 }

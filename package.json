@@ -7,7 +7,8 @@
     "build": "rimraf ./public && tsc",
     "dev": "npx nodemon src/index.ts --watch 'src/' -e ts",
     "sb": "npm run build && node ./public/index.js",
-    "start": "node ./public/index.js"
+    "start": "node ./public/index.js",
+    "pm2": "pm2 start ./public/index.js -f"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +36,7 @@
     "morgan": "^1.10.0",
     "mysql2": "^3.6.3",
     "nodemailer": "^6.9.14",
+    "pm2": "^5.4.2",
     "typeorm": "^0.3.17"
   }
 }

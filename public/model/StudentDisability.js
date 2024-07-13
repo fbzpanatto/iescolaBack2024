@@ -36,6 +36,14 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Date)
 ], StudentDisability.prototype, "endedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentDisability.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], StudentDisability.prototype, "updatedByUser", void 0);
 exports.StudentDisability = StudentDisability = __decorate([
     (0, typeorm_1.Entity)()
 ], StudentDisability);

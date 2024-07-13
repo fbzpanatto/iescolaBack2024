@@ -11,7 +11,7 @@ exports.default = (req, res, next) => {
         const method = req.method;
         const condition = (0, permissions_1.default)(user.category, entity, method);
         if (!condition) {
-            return res.status(403).json({ message: 'Você não tem permissão.' });
+            return res.status(403).json({ status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' });
         }
         next();
     }

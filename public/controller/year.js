@@ -41,7 +41,7 @@ class YearController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const teacher = yield this.teacherByUser(body.user.user);
-                const canCreate = [personCategories_1.personCategories.ADMINISTRADOR];
+                const canCreate = [personCategories_1.pc.ADMN];
                 if (!canCreate.includes(teacher.person.category.id)) {
                     return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' };
                 }
@@ -79,6 +79,8 @@ class YearController extends genericController_1.GenericController {
     }
     updateId(id, body) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('updateId');
+            console.log('body', body);
             try {
                 const { data } = yield this.findOneById(id, {});
                 const yearToUpdate = data;

@@ -38,6 +38,22 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => Topic_1.Topic, topic => topic.descriptors, { nullable: true }),
     __metadata("design:type", Topic_1.Topic)
 ], Descriptor.prototype, "topic", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Descriptor.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], Descriptor.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Descriptor.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], Descriptor.prototype, "updatedByUser", void 0);
 exports.Descriptor = Descriptor = __decorate([
     (0, typeorm_1.Entity)()
 ], Descriptor);

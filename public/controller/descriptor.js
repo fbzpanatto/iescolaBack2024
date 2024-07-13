@@ -22,7 +22,7 @@ class DescriptorController extends genericController_1.GenericController {
             const topic = request === null || request === void 0 ? void 0 : request.query.topic;
             try {
                 const result = yield data_source_1.AppDataSource.getRepository(Descriptor_1.Descriptor).find({
-                    where: { topic: { id: Number(topic) } }
+                    where: { topic: { id: Number(topic) } },
                 });
                 return { status: 200, data: result };
             }

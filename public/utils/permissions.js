@@ -7,7 +7,7 @@ const thirdLevelPermissions = { GET: true, POST: true, PUT: true, DELETE: false 
 const fourthLevelPermissions = { GET: true, POST: true, PUT: true, DELETE: true };
 const arrayOfPermissions = [
     {
-        category: personCategories_1.personCategories.ADMINISTRADOR,
+        category: personCategories_1.pc.ADMN,
         permissions: [
             {
                 entity: "classroom",
@@ -68,7 +68,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.SUPERVISOR,
+        category: personCategories_1.pc.SUPE,
         permissions: [
             {
                 entity: "year",
@@ -129,7 +129,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.DIRETOR,
+        category: personCategories_1.pc.DIRE,
         permissions: [
             {
                 entity: "year",
@@ -178,7 +178,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.VICE_DIRETOR,
+        category: personCategories_1.pc.VICE,
         permissions: [
             {
                 entity: "year",
@@ -227,7 +227,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.COORDENADOR,
+        category: personCategories_1.pc.COOR,
         permissions: [
             {
                 entity: "year",
@@ -276,7 +276,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.SECRETARIO,
+        category: personCategories_1.pc.SECR,
         permissions: [
             {
                 entity: "year",
@@ -325,7 +325,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.MONITOR_DE_INFORMATICA,
+        category: personCategories_1.pc.MONI,
         permissions: [
             {
                 entity: "year",
@@ -374,7 +374,7 @@ const arrayOfPermissions = [
         ]
     },
     {
-        category: personCategories_1.personCategories.PROFESSOR,
+        category: personCategories_1.pc.PROF,
         permissions: [
             {
                 entity: "classroom",

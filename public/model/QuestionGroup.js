@@ -27,6 +27,22 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => TestQuestion_1.TestQuestion, testQuestion => testQuestion.questionGroup),
     __metadata("design:type", Array)
 ], QuestionGroup.prototype, "testQuestions", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], QuestionGroup.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], QuestionGroup.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], QuestionGroup.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], QuestionGroup.prototype, "updatedByUser", void 0);
 exports.QuestionGroup = QuestionGroup = __decorate([
     (0, typeorm_1.Entity)()
 ], QuestionGroup);

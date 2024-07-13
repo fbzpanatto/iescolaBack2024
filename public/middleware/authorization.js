@@ -15,6 +15,6 @@ exports.default = (req, res, next) => {
         next();
     }
     catch (error) {
-        return res.status(500).json({ message: error.message });
+        return res.status(401).json({ message: 'Não foi possível continuar com a sua requisição. Faça o login novamente.' });
     }
 };

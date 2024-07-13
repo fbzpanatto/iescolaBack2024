@@ -80,7 +80,8 @@ function createAdminUser(person) {
         const userSource = new initialConfigs_1.dataSourceController(User_1.User).entity;
         const user = new User_1.User();
         user.username = 'admin';
-        user.password = 'admin';
+        user.email = 'adminiescola@iescola.com.br';
+        user.password = '#Fnp181292dc2w!';
         user.person = person;
         yield userSource.save(user);
     });
@@ -88,7 +89,7 @@ function createAdminUser(person) {
 function createAdminPerson() {
     return __awaiter(this, void 0, void 0, function* () {
         const adminCategorySource = new initialConfigs_1.dataSourceController(PersonCategory_1.PersonCategory).entity;
-        const adminCategory = yield adminCategorySource.findOneBy({ id: personCategories_1.personCategories.ADMINISTRADOR });
+        const adminCategory = yield adminCategorySource.findOneBy({ id: personCategories_1.pc.ADMN });
         const personSource = new initialConfigs_1.dataSourceController(Person_1.Person).entity;
         const person = new Person_1.Person();
         person.name = 'Administrador';
@@ -98,6 +99,12 @@ function createAdminPerson() {
         const teacherSource = new initialConfigs_1.dataSourceController(Teacher_1.Teacher).entity;
         const teacher = new Teacher_1.Teacher();
         teacher.person = result;
+        teacher.email = 'adminiescola@iescola.com.br';
+        teacher.createdAt = new Date();
+        teacher.updatedAt = new Date();
+        teacher.createdByUser = 1;
+        teacher.updatedByUser = 1;
+        teacher.register = 'AdmR';
         yield teacherSource.save(teacher);
         yield createAdminUser(result);
     });
@@ -145,12 +152,20 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         newYear.createdAt = date;
         for (let questionGroup of questionGroup_1.QUESTION_GROUP) {
             const newQuestionGroup = new QuestionGroup_1.QuestionGroup();
+            newQuestionGroup.createdAt = new Date();
+            newQuestionGroup.createdByUser = 1;
+            newQuestionGroup.updatedAt = new Date();
+            newQuestionGroup.updatedByUser = 1;
             newQuestionGroup.name = questionGroup.name;
             yield questionGroupSource.save(newQuestionGroup);
         }
         for (let disability of disability_1.DISABILITY) {
             const newDisability = new Disability_1.Disability();
             newDisability.name = disability.name;
+            newDisability.createdAt = new Date();
+            newDisability.createdByUser = 1;
+            newDisability.updatedAt = new Date();
+            newDisability.updatedByUser = 1;
             yield disabilitySource.save(newDisability);
         }
         for (let testCategory of testCategory_1.TESTCATEGORY) {
@@ -185,6 +200,10 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
             const newClassCategory = new ClassroomCategory_1.ClassroomCategory();
             newClassCategory.name = classroomCategory.name;
             newClassCategory.active = classroomCategory.active;
+            newClassCategory.createdAt = new Date();
+            newClassCategory.createdByUser = 1;
+            newClassCategory.updatedAt = new Date();
+            newClassCategory.updatedByUser = 1;
             yield classCategorySource.save(newClassCategory);
         }
         for (let school of school_1.SCHOOLS) {
@@ -220,6 +239,10 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         }
         for (let topic of topic_1.TOPIC) {
             const newTopic = new Topic_1.Topic();
+            newTopic.createdAt = new Date();
+            newTopic.createdByUser = 1;
+            newTopic.updatedAt = new Date();
+            newTopic.updatedByUser = 1;
             newTopic.name = topic.name;
             newTopic.description = topic.description;
             newTopic.discipline = (yield disciplineSource.findOneBy({ id: topic.discipline.id }));
@@ -228,6 +251,10 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         }
         for (let descriptor of descriptor_1.DESCRIPTOR) {
             const newDescriptor = new Descriptor_1.Descriptor();
+            newDescriptor.createdAt = new Date();
+            newDescriptor.createdByUser = 1;
+            newDescriptor.updatedAt = new Date();
+            newDescriptor.updatedByUser = 1;
             newDescriptor.name = descriptor.name;
             newDescriptor.code = descriptor.code;
             newDescriptor.topic = (yield topicSource.findOneBy({ id: descriptor.topic.id }));

@@ -69,6 +69,22 @@ __decorate([
     (0, typeorm_1.OneToOne)(() => LiteracyFirst_1.LiteracyFirst, literacyfirst => literacyfirst.student, { cascade: true }),
     __metadata("design:type", LiteracyFirst_1.LiteracyFirst)
 ], Student.prototype, "literacyFirst", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Student.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Date)
+], Student.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Student.prototype, "createdByUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    __metadata("design:type", Number)
+], Student.prototype, "updatedByUser", void 0);
 exports.Student = Student = __decorate([
     (0, typeorm_1.Index)(["ra", "dv"], { unique: true }),
     (0, typeorm_1.Entity)()

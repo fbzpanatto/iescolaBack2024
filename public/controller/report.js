@@ -29,9 +29,7 @@ class ReportController extends genericController_1.GenericController {
                 if (!response)
                     return { status: 404, message: "Teste não encontrado" };
                 const schools = response.schools;
-                const schoolAvg = schools.map(school => (Object.assign(Object.assign({}, school), { qRate: school.qRate
-                        .reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0) /
-                        school.qRate.filter(q => q.rate !== 'N/A').length })));
+                const schoolAvg = schools.map((school) => (Object.assign(Object.assign({}, school), { qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length })));
                 return { status: 200, data: Object.assign(Object.assign({}, response), { schoolAvg }) };
             }
             catch (error) {
@@ -47,7 +45,7 @@ class ReportController extends genericController_1.GenericController {
                 const testQuestions = yield this.getTestQuestions(Number(testId));
                 if (!testQuestions)
                     return { status: 404, message: "Questões não encontradas" };
-                const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
+                const testQuestionsIds = testQuestions.map((testQuestion) => testQuestion.id);
                 const questionGroups = yield this.getTestQuestionsGroups(Number(testId));
                 const test = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
                     .createQueryBuilder("test")
@@ -75,29 +73,38 @@ class ReportController extends genericController_1.GenericController {
                     .where("year.name = :yearName", { yearName })
                     .andWhere("test.id = :testId", { testId })
                     .andWhere("studentStatusTest.id = :testId", { testId })
-                    .andWhere(new typeorm_1.Brackets(qb => {
-                    qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+                    .andWhere(new typeorm_1.Brackets((qb) => {
+                    qb.where("studentClassroom.startedAt < :testCreatedAt", {
+                        testCreatedAt: test.createdAt,
+                    });
                     qb.orWhere("studentQuestions.id IS NOT NULL");
                 }))
                     .getMany();
-                const simplifiedSchools = schools.map(school => (Object.assign(Object.assign({}, school), { studentClassrooms: school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(studentClassroom => (Object.assign(Object.assign({}, studentClassroom), { studentQuestions: studentClassroom.studentQuestions.map(studentQuestion => {
-                            const testQuestion = testQuestions.find(tq => tq.id === studentQuestion.testQuestion.id);
-                            const score = (studentQuestion.answer.length === 0) ? 0 : ((testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0);
+                const simplifiedSchools = schools.map((school) => (Object.assign(Object.assign({}, school), { studentClassrooms: school.classrooms.flatMap((classroom) => classroom.studentClassrooms.map((studentClassroom) => (Object.assign(Object.assign({}, studentClassroom), { studentQuestions: studentClassroom.studentQuestions.map((studentQuestion) => {
+                            const testQuestion = testQuestions.find((tq) => tq.id === studentQuestion.testQuestion.id);
+                            const score = studentQuestion.answer.length === 0
+                                ? 0
+                                : (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase()))
+                                    ? 1
+                                    : 0;
                             return Object.assign(Object.assign({}, studentQuestion), { score });
                         }) })))) })));
-                const simplifiedArray = simplifiedSchools.map(school => {
+                const simplifiedArray = simplifiedSchools.map((school) => {
                     const { id, name, shortName } = school;
-                    const qRate = testQuestions.map(testQuestion => {
+                    const qRate = testQuestions.map((testQuestion) => {
                         if (!testQuestion.active) {
-                            return { id: testQuestion.id, rate: 'N/A' };
+                            return { id: testQuestion.id, rate: "N/A" };
                         }
                         let sum = 0;
                         let count = 0;
                         school.studentClassrooms
-                            .filter(studentClassroom => { var _a; return (_a = studentClassroom.studentStatus.find(register => register.test.id === test.id)) === null || _a === void 0 ? void 0 : _a.active; })
-                            .flatMap(studentClassroom => studentClassroom.studentQuestions)
-                            .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-                            .forEach(studentQuestion => {
+                            .filter((studentClassroom) => {
+                            var _a;
+                            return (_a = studentClassroom.studentStatus.find((register) => register.test.id === test.id)) === null || _a === void 0 ? void 0 : _a.active;
+                        })
+                            .flatMap((studentClassroom) => studentClassroom.studentQuestions)
+                            .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id)
+                            .forEach((studentQuestion) => {
                             const studentQuestionAny = studentQuestion;
                             sum += studentQuestionAny.score;
                             count += 1;
@@ -108,11 +115,12 @@ class ReportController extends genericController_1.GenericController {
                     return { id, name, shortName, qRate };
                 });
                 simplifiedArray.sort((a, b) => {
-                    const totalA = a.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
-                    const totalB = b.qRate.reduce((acc, curr) => (curr.rate === 'N/A' ? acc : acc + Number(curr.rate)), 0);
+                    const totalA = a.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0);
+                    const totalB = b.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0);
                     return totalB - totalA;
                 });
-                let response = Object.assign(Object.assign({}, test), { testQuestions, questionGroups, schools: simplifiedArray });
+                let response = Object.assign(Object.assign({}, test), { testQuestions,
+                    questionGroups, schools: simplifiedArray });
                 return { status: 200, data: response };
             }
             catch (error) {
@@ -152,7 +160,8 @@ class ReportController extends genericController_1.GenericController {
             try {
                 const teacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user);
                 const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.personCategories.ADMINISTRADOR || teacher.person.category.id === personCategories_1.personCategories.SUPERVISOR;
+                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN ||
+                    teacher.person.category.id === personCategories_1.pc.SUPE;
                 const testClasses = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
                     .createQueryBuilder("test")
                     .leftJoinAndSelect("test.person", "person")
@@ -163,9 +172,11 @@ class ReportController extends genericController_1.GenericController {
                     .leftJoinAndSelect("test.discipline", "discipline")
                     .leftJoinAndSelect("test.classrooms", "classroom")
                     .leftJoinAndSelect("classroom.school", "school")
-                    .where(new typeorm_1.Brackets(qb => {
+                    .where(new typeorm_1.Brackets((qb) => {
                     if (!isAdminSupervisor) {
-                        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
+                        qb.where("classroom.id IN (:...teacherClasses)", {
+                            teacherClasses: teacherClasses.classrooms,
+                        });
                     }
                 }))
                     .andWhere("year.name = :yearName", { yearName })

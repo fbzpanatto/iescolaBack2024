@@ -30,11 +30,10 @@ exports.TestRouter.get('/:year/all', havePermission_1.default, (req, res) => {
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));
 });
-exports.TestRouter.get('/:id/:year/:classroom', havePermission_1.default, (req, res) => {
-    test_1.testController.getAllClassroomStudents(req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});
+exports.TestRouter.get('/:id/:year/:classroom', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.getAllClassroomStudents(req);
+    return res.status(response.status).json(response);
+}));
 exports.TestRouter.get('/:id/classroom/:classroom/graphic', havePermission_1.default, (req, res) => {
     test_1.testController.getGraphic(req)
         .then(r => res.status(r.status).json(r))

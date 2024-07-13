@@ -149,25 +149,25 @@ class TestController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user, CONN);
-                    const isAdminSupervisor = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
                     const { classrooms } = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
                     const message = "Você não tem permissão para acessar essa sala.";
-                    if (!classrooms.includes(classroomId) && !isAdminSupervisor) {
+                    if (!classrooms.includes(classroomId) && !masterUser) {
                         return { status: 403, message };
                     }
-                    const test = yield this.getTest(testId, yearName);
+                    const test = yield this.getTest(testId, yearName, CONN);
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
-                    const questionGroups = yield this.getTestQuestionsGroups(testId);
+                    const questionGroups = yield this.getTestQuestionsGroups(testId, CONN);
                     const testQuestions = yield this.getTestQuestions(test.id, CONN);
-                    const classroom = yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom)
+                    const classroom = yield CONN.getRepository(Classroom_1.Classroom)
                         .createQueryBuilder("classroom")
                         .leftJoinAndSelect("classroom.school", "school")
                         .where("classroom.id = :classroomId", { classroomId })
                         .getOne();
-                    const studentClassrooms = yield this.studentClassrooms(test, Number(classroomId), yearName);
+                    const studentClassrooms = yield this.studentClassrooms(test, Number(classroomId), yearName, CONN);
                     yield this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN);
-                    const studentClassroomsWithQuestions = yield this.studentClassroomsWithQuestions(test, testQuestions, Number(classroomId), yearName);
+                    const studentClassroomsWithQuestions = yield this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName, CONN);
                     let data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups };
                     return { status: 200, data };
                 }));
@@ -177,10 +177,10 @@ class TestController extends genericController_1.GenericController {
             }
         });
     }
-    studentClassroomsWithQuestions(test, testQuestions, classroomId, yearName) {
+    setQuestionsForStudent(test, testQuestions, classroomId, yearName, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-            const preResult = yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
+            const preResult = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
                 .leftJoinAndSelect("studentClassroom.student", "student")
                 .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
@@ -216,9 +216,26 @@ class TestController extends genericController_1.GenericController {
             });
         });
     }
-    studentClassrooms(test, classroomId, yearName) {
+    studentClassrooms(test, classroomId, yearName, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
+            if (!CONN) {
+                return yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
+                    .createQueryBuilder("studentClassroom")
+                    .leftJoin("studentClassroom.year", "year")
+                    .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+                    .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+                    .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+                    .leftJoinAndSelect("studentClassroom.student", "student")
+                    .leftJoinAndSelect("student.person", "person")
+                    .where("studentClassroom.classroom = :classroomId", { classroomId })
+                    .andWhere(new typeorm_1.Brackets(qb => {
+                    qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+                    qb.orWhere("studentQuestions.id IS NOT NULL");
+                }))
+                    .andWhere("year.name = :yearName", { yearName })
+                    .getMany();
+            }
+            return yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
                 .leftJoin("studentClassroom.year", "year")
                 .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
@@ -235,9 +252,19 @@ class TestController extends genericController_1.GenericController {
                 .getMany();
         });
     }
-    getTestQuestionsGroups(testId) {
+    getTestQuestionsGroups(testId, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield data_source_1.AppDataSource.getRepository(QuestionGroup_1.QuestionGroup)
+            if (!CONN) {
+                return yield data_source_1.AppDataSource.getRepository(QuestionGroup_1.QuestionGroup)
+                    .createQueryBuilder("questionGroup")
+                    .select(["questionGroup.id AS id", "questionGroup.name AS name"])
+                    .addSelect("COUNT(testQuestions.id)", "questionsCount")
+                    .leftJoin("questionGroup.testQuestions", "testQuestions")
+                    .where("testQuestions.test = :testId", { testId })
+                    .groupBy("questionGroup.id")
+                    .getRawMany();
+            }
+            return yield CONN.getRepository(QuestionGroup_1.QuestionGroup)
                 .createQueryBuilder("questionGroup")
                 .select(["questionGroup.id AS id", "questionGroup.name AS name"])
                 .addSelect("COUNT(testQuestions.id)", "questionsCount")

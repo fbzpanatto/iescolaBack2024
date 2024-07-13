@@ -480,7 +480,7 @@ class TestController extends genericController_1.GenericController {
             const classesIds = body.classroom.map((classroom) => classroom.id);
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const uTeacher = yield this.teacherByUser(body.user.user);
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     if (!uTeacher)
                         return { status: 404, message: "Usuário inexistente" };
                     const checkYear = yield CONN.findOne(Year_1.Year, { where: { id: body.year.id } });
@@ -491,11 +491,14 @@ class TestController extends genericController_1.GenericController {
                     const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } };
                     const period = yield CONN.findOne(Period_1.Period, option);
                     if (!period)
-                        return { status: 404, message: "Period não encontrado" };
+                        return { status: 404, message: "Período não encontrado" };
                     const classes = yield CONN.getRepository(Classroom_1.Classroom)
                         .createQueryBuilder("classroom")
                         .select(["classroom.id", "classroom.name", "classroom.shortName"])
-                        .leftJoin("classroom.studentClassrooms", "studentClassroom")
+                        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+                        .leftJoinAndSelect("studentClassroom.student", "student")
+                        .leftJoinAndSelect("student.person", "person")
+                        .leftJoinAndSelect("classroom.school", "school")
                         .leftJoin('studentClassroom.year', 'year')
                         .where("classroom.id IN (:...classesIds)", { classesIds })
                         .andWhere('year.id = :yearId', { yearId: period.year.id })

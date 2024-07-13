@@ -58,19 +58,19 @@ __decorate([
     __metadata("design:type", Array)
 ], Test.prototype, "classrooms", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Date)
 ], Test.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Date)
 ], Test.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Number)
 ], Test.prototype, "createdByUser", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, select: false }),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Number)
 ], Test.prototype, "updatedByUser", void 0);
 exports.Test = Test = __decorate([

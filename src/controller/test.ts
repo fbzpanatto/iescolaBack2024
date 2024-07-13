@@ -119,36 +119,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
 
         const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id)
-        const cityHall = {
-          id: 'ITA',
-          name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-          shortName: 'ITA',
-          school: {
-            id: 99,
-            name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-            shortName: 'ITATIBA',
-            inep: null,
-            active: true
-          },
-          studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)
-        } as unknown as Classroom
+        const cityHall = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
 
         response.classrooms = [ ...filteredClasses, cityHall ]
 
-        const newReturn = {
-          ...response,
-          classrooms: response.classrooms.map((classroom: Classroom) => {
-            return {
-              ...classroom,
-              studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => {
-                return {
-                  ...studentClassroom,
-                  studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
-                }
-              })
-            }
-          })
-        }
+        const newReturn = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+
         return { status: 200, data: newReturn };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -243,25 +219,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN?: EntityManager) {
-    if(!CONN){
-      return await AppDataSource.getRepository(StudentClassroom)
-        .createQueryBuilder("studentClassroom")
-        .leftJoin("studentClassroom.year", "year")
-        .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-        .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-        .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-        .leftJoinAndSelect("studentClassroom.student", "student")
-        .leftJoinAndSelect("student.person", "person")
-        .where("studentClassroom.classroom = :classroomId", { classroomId })
-        .andWhere(new Brackets(qb => {
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-          qb.orWhere("studentQuestions.id IS NOT NULL")
-        }))
-        .andWhere("year.name = :yearName", { yearName })
-        .getMany();
-    }
-
+  async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
@@ -279,18 +237,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async getTestQuestionsGroups(testId: number, CONN?: EntityManager) {
-    if(!CONN) {
-      return await AppDataSource.getRepository(QuestionGroup)
-      .createQueryBuilder("questionGroup")
-      .select(["questionGroup.id AS id", "questionGroup.name AS name"])
-      .addSelect("COUNT(testQuestions.id)", "questionsCount")
-      .leftJoin("questionGroup.testQuestions", "testQuestions")
-      .where("testQuestions.test = :testId", { testId })
-      .groupBy("questionGroup.id")
-      .getRawMany();
-    }
-
+  async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
     return await CONN.getRepository(QuestionGroup)
       .createQueryBuilder("questionGroup")
       .select(["questionGroup.id AS id", "questionGroup.name AS name"])
@@ -317,21 +264,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, conn: EntityManager) {
+  async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
 
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
-      const stStatus = await conn.findOne(StudentTestStatus, options)
+      const stStatus = await CONN.findOne(StudentTestStatus, options)
 
       const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-      if(!stStatus) { await conn.save(StudentTestStatus, el) }
+      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
 
       for(let testQuestion of testQuestions) {
 
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } } }
-        const sQuestion = await conn.findOne(SQues, options) as SQues
+        const sQuestion = await CONN.findOne(SQues, options) as SQues
 
-        if(!sQuestion) { await conn.save(SQues, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId })}
+        if(!sQuestion) { await CONN.save(SQues, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId })}
       }
     }
   }

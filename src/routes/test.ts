@@ -23,7 +23,6 @@ TestRouter.get('/:year/all', havePermission, (req, res) => {
 })
 
 TestRouter.get('/:id/:year/:classroom', havePermission, async (req, res) => {
-
   const response = await testController.getAllClassroomStudents(req)
   return res.status(response.status).json(response)
 })

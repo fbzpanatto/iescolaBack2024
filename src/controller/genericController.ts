@@ -112,16 +112,16 @@ export class GenericController<T> {
 
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
-      .select("teacher.id", "teacher")
-      .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
-      .from(Teacher, "teacher")
-      .leftJoin("teacher.person", "person")
-      .leftJoin("person.user", "user")
-      .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-      .leftJoin("teacherClassDiscipline.classroom", "classroom")
-      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-      .groupBy("teacher.id")
-      .getRawOne()) as { teacher: number; classrooms: string };
+        .select("teacher.id", "teacher")
+        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
+        .from(Teacher, "teacher")
+        .leftJoin("teacher.person", "person")
+        .leftJoin("person.user", "user")
+        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+        .leftJoin("teacherClassDiscipline.classroom", "classroom")
+        .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+        .groupBy("teacher.id")
+        .getRawOne()) as { teacher: number; classrooms: string };
 
       return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
     }

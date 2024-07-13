@@ -252,7 +252,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("student.person", "person")
         .where("studentClassroom.classroom = :classroomId", { classroomId })
         .andWhere(new Brackets(qb => {
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
           qb.orWhere("studentQuestions.id IS NOT NULL")
         }))
         .andWhere("year.name = :yearName", { yearName })
@@ -260,20 +260,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
 
     return await CONN.getRepository(StudentClassroom)
-    .createQueryBuilder("studentClassroom")
-    .leftJoin("studentClassroom.year", "year")
-    .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-    .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-    .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-    .leftJoinAndSelect("studentClassroom.student", "student")
-    .leftJoinAndSelect("student.person", "person")
-    .where("studentClassroom.classroom = :classroomId", { classroomId })
-    .andWhere(new Brackets(qb => {
-      qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-      qb.orWhere("studentQuestions.id IS NOT NULL")
-    }))
-    .andWhere("year.name = :yearName", { yearName })
-    .getMany();
+      .createQueryBuilder("studentClassroom")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+        qb.orWhere("studentQuestions.id IS NOT NULL")
+      }))
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany();
   }
 
   async getTestQuestionsGroups(testId: number, CONN?: EntityManager) {
@@ -373,20 +373,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     if(!conn) {
       return await AppDataSource.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .select(arrOfFields)
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
-      .leftJoin("studentClassroom.student", "student")
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", {classroomId})
-      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
-      .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("year.name = :yearName", {yearName})
-      .andWhere("studentQuestions.id IS NULL")
-      .getRawMany() as unknown as notIncludedInterface[]
+        .createQueryBuilder("studentClassroom")
+        .select(arrOfFields)
+        .leftJoin("studentClassroom.year", "year")
+        .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+        .leftJoin("studentClassroom.studentStatus", "studentStatus")
+        .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
+        .leftJoin("studentClassroom.student", "student")
+        .leftJoin("student.person", "person")
+        .where("studentClassroom.classroom = :classroomId", {classroomId})
+        .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+        .andWhere("studentClassroom.endedAt IS NULL")
+        .andWhere("year.name = :yearName", {yearName})
+        .andWhere("studentQuestions.id IS NULL")
+        .getRawMany() as unknown as notIncludedInterface[]
     }
 
     return await conn.getRepository(StudentClassroom)
@@ -514,7 +514,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user);
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
         if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
 
         const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })
@@ -523,12 +523,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } }
         const period = await CONN.findOne(Period, option)
-        if(!period) return { status: 404, message: "Period não encontrado" }
+        if(!period) return { status: 404, message: "Período não encontrado" }
 
         const classes = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
-          .leftJoin("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.student", "student")
+          .leftJoinAndSelect("student.person", "person")
+          .leftJoinAndSelect("classroom.school", "school")
           .leftJoin('studentClassroom.year', 'year')
           .where("classroom.id IN (:...classesIds)", { classesIds })
           .andWhere('year.id = :yearId', { yearId: period.year.id })

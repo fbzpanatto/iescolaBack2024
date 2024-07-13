@@ -97,5 +97,5 @@ route.use("/", (req, res) => { return res.json({ message: "OK" }) });
 app.use(route);
 
 AppDataSource.initialize()
-  .then(() => { app.listen(3000, () => { console.log("Server running at PORT:", 3000) }) })
+  .then(() => { app.listen(5000, () => { console.log("Server running at PORT:", 5000) }) })
   .catch((err) => { console.log(err) });

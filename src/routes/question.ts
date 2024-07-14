@@ -1,53 +1,12 @@
-import { Router } from "express";
-import { questionController } from "../controller/question";
+import { Router, Request, Response } from "express";
+import { Data } from "../interfaces/interfaces"
+import { quesCtrl } from "../controller/question";
 
-export const QuestionRouter = Router();
+export const QuesR = Router();
 
-QuestionRouter.get('/form', (req, res) => {
-
-  questionController.questionForm(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionRouter.get('/owner/:id', (req, res) => {
-
-  questionController.isOwner(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionRouter.get('/', (req, res) => {
-
-  questionController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionRouter.get('/:id', (req, res) => {
-
-  questionController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionRouter.post('/', (req, res) => {
-
-  questionController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-QuestionRouter.put('/:id', (req, res) => {
-
-  questionController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-QuestionRouter.delete('/:id', (req, res) => {
-
-  questionController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+QuesR.get('/form', async (req: Request, res: Response) => { const data: Data = await quesCtrl.questionForm(req); return res.status(data.status).json(data) })
+QuesR.get('/owner/:id', async (req: Request, res: Response) => { const data: Data = await quesCtrl.isOwner(req); return res.status(data.status).json(data) })
+QuesR.get('/', async (req: Request, res: Response) => { const data: Data = await quesCtrl.allQuestions(req); return res.status(data.status).json(data) })
+QuesR.get('/:id', async (req: Request, res: Response) => { const data: Data = await quesCtrl.findOneById(req.params.id, req); return res.status(data.status).json(data) })
+QuesR.post('/', async (req: Request, res: Response) => { const data: Data = await quesCtrl.save(req.body, {}); return res.status(data.status).json(data) })
+QuesR.put('/:id', async (req: Request, res: Response) => { const data: Data = await quesCtrl.updateId(req.params.id, req.body); return res.status(data.status).json(data) })

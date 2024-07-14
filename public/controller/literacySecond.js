@@ -23,8 +23,8 @@ class LiteracySecondController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const teacherClasses = yield this.teacherClassrooms(req.body.user);
-                    const data = yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom)
+                    const teacherClasses = yield this.teacherClassrooms(req.body.user, CONN);
+                    const data = yield CONN.getRepository(Classroom_1.Classroom)
                         .createQueryBuilder("classroom")
                         .leftJoinAndSelect("classroom.school", "school")
                         .leftJoinAndSelect("classroom.category", "category")

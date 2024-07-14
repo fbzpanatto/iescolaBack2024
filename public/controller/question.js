@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.questionController = void 0;
+exports.quesCtrl = void 0;
 const questionGroup_1 = require("./questionGroup");
 const classroomCategory_1 = require("./classroomCategory");
 const genericController_1 = require("./genericController");
@@ -22,10 +22,12 @@ class QuestionController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const { id: questionId } = req.params;
             try {
-                const teacher = yield this.teacherByUser(req.body.user.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
-                const question = yield data_source_1.AppDataSource.getRepository(Question_1.Question).findOne({ relations: ["person"], where: { id: parseInt(questionId) } });
-                return { status: 200, data: { isOwner: teacher.person.id === (question === null || question === void 0 ? void 0 : question.person.id) || isAdminSupervisor } };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const uTeacher = yield this.teacherByUser(req.body.user.user, CONN);
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const question = yield CONN.findOne(Question_1.Question, { relations: ["person"], where: { id: parseInt(questionId) } });
+                    return { status: 200, data: { isOwner: uTeacher.person.id === (question === null || question === void 0 ? void 0 : question.person.id) || masterUser } };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -35,29 +37,32 @@ class QuestionController extends genericController_1.GenericController {
     questionForm(req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const classroomCategories = (yield classroomCategory_1.classCatController.findAllWhere({}, req)).data;
-                const groups = (yield questionGroup_1.questionGroupController.findAllWhere({}, req)).data;
-                return { status: 200, data: { classroomCategories, groups } };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const classroomCategories = (yield classroomCategory_1.classCatController.findAllWhere({}, req, CONN)).data;
+                    const groups = (yield questionGroup_1.questionGroupController.findAllWhere({}, req, CONN)).data;
+                    return { status: 200, data: { classroomCategories, groups } };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    findAllWhere(options, request) {
+    allQuestions(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const id = request === null || request === void 0 ? void 0 : request.query.discipline;
             try {
-                const questions = yield data_source_1.AppDataSource.getRepository(Question_1.Question)
-                    .createQueryBuilder("question")
-                    .leftJoinAndSelect("question.person", "person")
-                    .leftJoinAndSelect("question.descriptor", "descriptor")
-                    .leftJoinAndSelect("descriptor.topic", "topic")
-                    .leftJoinAndSelect("topic.discipline", "discipline")
-                    .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")
-                    .where("discipline.id = :disciplineId", { disciplineId: id })
-                    .getMany();
-                return { status: 200, data: questions };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const questions = yield CONN.getRepository(Question_1.Question)
+                        .createQueryBuilder("question")
+                        .leftJoinAndSelect("question.person", "person")
+                        .leftJoinAndSelect("question.descriptor", "descriptor")
+                        .leftJoinAndSelect("descriptor.topic", "topic")
+                        .leftJoinAndSelect("topic.discipline", "discipline")
+                        .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")
+                        .where("discipline.id = :disciplineId", { disciplineId: req.query.discipline })
+                        .getMany();
+                    return { status: 200, data: questions };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -65,4 +70,4 @@ class QuestionController extends genericController_1.GenericController {
         });
     }
 }
-exports.questionController = new QuestionController();
+exports.quesCtrl = new QuestionController();

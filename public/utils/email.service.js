@@ -18,15 +18,7 @@ function mainEmail(email, password, post) {
     return __awaiter(this, void 0, void 0, function* () {
         const url = "http://localhost:4200/home";
         let info;
-        const transporter = nodemailer_1.default.createTransport({
-            host: "smtp.gmail.com",
-            port: 465,
-            secure: true,
-            auth: {
-                user: "appescola7@gmail.com",
-                pass: "paev fpmr arym prsb",
-            },
-        });
+        const transporter = nodemailer_1.default.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" } });
         if (post) {
             info = yield transporter.sendMail({
                 from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",

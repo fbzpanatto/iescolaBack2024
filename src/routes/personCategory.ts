@@ -1,40 +1,13 @@
-import { Router } from "express";
-import { personCategoryController } from "../controller/personCategory";
-import havePermission from "../middleware/havePermission";
+import { Router, Request, Response } from "express";
+import { pCatCtrl } from "../controller/personCategory";
+import havePerm from "../middleware/havePermission";
 
-export const PersonCategoryRouter = Router();
+export const PeCatRouter = Router();
 
-PersonCategoryRouter.get('/', havePermission, (req, res) => {
+PeCatRouter.get('/', havePerm, async (req: Request, res: Response) => { const response = await pCatCtrl.findAllPerCat(req); return res.status(response.status as number).json(response)})
 
-  personCategoryController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+PeCatRouter.get('/:id', havePerm, async (req: Request, res: Response) => { const response = await pCatCtrl.findOneById(req.params.id, req); return res.status(response.status as number).json(response) })
 
-PersonCategoryRouter.get('/:id', havePermission, (req, res) => {
+PeCatRouter.post('/', havePerm, async (req: Request, res: Response) => { const response = await pCatCtrl.save(req.body, {}); return res.status(response.status as number).json(response) })
 
-  personCategoryController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-PersonCategoryRouter.post('/', havePermission, (req, res) => {
-
-  personCategoryController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-PersonCategoryRouter.put('/:id', havePermission, (req, res) => {
-
-  personCategoryController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-PersonCategoryRouter.delete('/:id', havePermission, (req, res) => {
-
-  personCategoryController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+PeCatRouter.put('/:id', havePerm, async (req: Request, res: Response) => { const response = await pCatCtrl.updateId(req.params.id, req.body); return res.status(response.status as number).json(response) })

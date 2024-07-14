@@ -111,7 +111,7 @@ class LiteracyController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const classroomNumber = classroom.shortName.replace(/\D/g, "");
             const lastYear = yield CONN.findOne(Year_1.Year, { where: { name: String(Number(yearName) - 1) } });
-            let studentClassrooms = [];
+            let studentClassrooms;
             studentClassrooms = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
                 .leftJoinAndSelect("studentClassroom.year", "year")

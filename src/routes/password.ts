@@ -1,11 +1,6 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { passwordController } from "../controller/password";
 
 export const PasswordRouter = Router();
 
-PasswordRouter.post('/', (req, res) => {
-
-  passwordController.resetPassword(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+PasswordRouter.post('/', async (req: Request, res: Response) => { const response = await passwordController.resetPassword(req); return res.status(response.status as number).json(response) })

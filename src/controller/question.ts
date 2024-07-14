@@ -1,7 +1,7 @@
-import { questionGroupController } from "./questionGroup";
+import { qGroupCtrl } from "./questionGroup";
 import { classCatController } from "./classroomCategory";
 import { GenericController } from "./genericController";
-import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
+import { EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
@@ -13,43 +13,41 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
   async isOwner(req: Request) {
     const { id: questionId } = req.params
     try {
-      const teacher = await this.teacherByUser(req.body.user.user)
-
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
-
-      const question = await AppDataSource.getRepository(Question).findOne({ relations: ["person"], where: { id: parseInt(questionId as string) } })
-      return { status: 200, data: { isOwner: teacher.person.id === question?.person.id || isAdminSupervisor } };
+      return await AppDataSource.transaction(async(CONN)=>{
+        const uTeacher = await this.teacherByUser(req.body.user.user, CONN)
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
+        return { status: 200, data: { isOwner: uTeacher.person.id === question?.person.id || masterUser } };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async questionForm(req: Request) {
     try {
-      const classroomCategories = (await classCatController.findAllWhere({}, req)).data;
-      const groups = (await questionGroupController.findAllWhere({}, req)).data;
-
-      return { status: 200, data: { classroomCategories, groups } };
+      return await AppDataSource.transaction(async(CONN)=>{
+        const classroomCategories = (await classCatController.findAllWhere({}, req, CONN)).data;
+        const groups = (await qGroupCtrl.findAllWhere({}, req, CONN)).data;
+        return { status: 200, data: { classroomCategories, groups } };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {
-
-    const id = request?.query.discipline as string;
-
+  async allQuestions(req: Request) {
     try {
-
-      const questions = await AppDataSource.getRepository(Question)
-        .createQueryBuilder("question")
-        .leftJoinAndSelect("question.person", "person")
-        .leftJoinAndSelect("question.descriptor", "descriptor")
-        .leftJoinAndSelect("descriptor.topic", "topic")
-        .leftJoinAndSelect("topic.discipline", "discipline")
-        .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")
-        .where("discipline.id = :disciplineId", { disciplineId: id })
-        .getMany();
-
-      return { status: 200, data: questions };
+      return await AppDataSource.transaction(async(CONN) => {
+        const questions = await CONN.getRepository(Question)
+          .createQueryBuilder("question")
+          .leftJoinAndSelect("question.person", "person")
+          .leftJoinAndSelect("question.descriptor", "descriptor")
+          .leftJoinAndSelect("descriptor.topic", "topic")
+          .leftJoinAndSelect("topic.discipline", "discipline")
+          .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")
+          .where("discipline.id = :disciplineId", { disciplineId: req.query.discipline })
+          .getMany();
+        return { status: 200, data: questions };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 
-export const questionController = new QuestionController();
+export const quesCtrl = new QuestionController();

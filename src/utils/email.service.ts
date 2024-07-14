@@ -1,23 +1,11 @@
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
-export async function mainEmail(
-  email: string,
-  password: string,
-  post: boolean,
-) {
+export async function mainEmail( email: string, password: string, post: boolean ) {
   const url = "http://localhost:4200/home";
   let info: SMTPTransport.SentMessageInfo;
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: "appescola7@gmail.com",
-      pass: "paev fpmr arym prsb",
-    },
-  });
+  const transporter = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }});
 
   if (post) {
     info = await transporter.sendMail({

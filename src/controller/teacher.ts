@@ -16,7 +16,7 @@ import { transferStatus } from "../utils/transferStatus";
 import { discController } from "./discipline";
 import { classroomController } from "./classroom";
 import { pc } from "../utils/personCategories";
-import { personCategoryController } from "./personCategory";
+import { pCatCtrl } from "./personCategory";
 import { mainEmail } from "../utils/email.service";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
@@ -32,7 +32,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       await AppDataSource.transaction(async (CONN) => {
         disciplines = (await discController.getAllDisciplines(req, CONN)).data;
         classrooms = (await classroomController.getAllClassrooms(req, CONN)).data;
-        personCategories = (await personCategoryController.findAllWhere({}, req, CONN)).data;
+        personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
       })
 
       return { status: 200, data: { disciplines, classrooms, personCategories } }

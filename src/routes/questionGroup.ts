@@ -1,39 +1,10 @@
-import { Router } from "express";
-import { questionGroupController } from "../controller/questionGroup";
+import { Router, Request, Response } from "express";
+import { Data } from "../interfaces/interfaces"
+import { qGroupCtrl } from "../controller/questionGroup";
 
-export const QuestionGroupRouter = Router();
+export const QGroupR = Router();
 
-QuestionGroupRouter.get('/', (req, res) => {
-
-  questionGroupController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionGroupRouter.get('/:id', (req, res) => {
-
-  questionGroupController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-QuestionGroupRouter.post('/', (req, res) => {
-
-  questionGroupController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-QuestionGroupRouter.put('/:id', (req, res) => {
-
-  questionGroupController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-QuestionGroupRouter.delete('/:id', (req, res) => {
-
-  questionGroupController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+QGroupR.get('/', async (req: Request, res: Response) => { const data: Data = await qGroupCtrl.findAllWhere({}); return res.status(data.status).json(data)})
+QGroupR.get('/:id', async (req: Request, res: Response) => { const data: Data = await qGroupCtrl.findOneById(req.params.id, req); return res.status(data.status).json(data) })
+QGroupR.post('/', async (req: Request, res: Response) => { const data: Data = await qGroupCtrl.save(req.body, {}); return res.status(data.status).json(data) })
+QGroupR.put('/:id', async (req: Request, res: Response) => { const data: Data = await qGroupCtrl.updateId(req.params.id, req.body); return res.status(data.status).json(data) })

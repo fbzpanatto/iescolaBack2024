@@ -38,7 +38,7 @@ class TeacherController extends genericController_1.GenericController {
                 yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     disciplines = (yield discipline_1.discController.getAllDisciplines(req, CONN)).data;
                     classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, CONN)).data;
-                    personCategories = (yield personCategory_1.personCategoryController.findAllWhere({}, req, CONN)).data;
+                    personCategories = (yield personCategory_1.pCatCtrl.findAllPerCat(req, CONN)).data;
                 }));
                 return { status: 200, data: { disciplines, classrooms, personCategories } };
             }

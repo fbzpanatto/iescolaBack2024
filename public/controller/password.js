@@ -15,36 +15,27 @@ const data_source_1 = require("../data-source");
 const email_service_1 = require("../utils/email.service");
 class PasswordController {
     constructor() { }
-    resetPassword(request) {
+    resetPassword(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const { body } = request;
             try {
-                const teacher = yield this.teacherByUser(body.email);
-                if (!teacher) {
-                    return {
-                        status: 404,
-                        message: "Não foi possível encontrar o usuário informado.",
-                    };
-                }
-                yield (0, email_service_1.mainEmail)(body.email, teacher.person.user.password, false).catch((e) => console.log(e));
-                return {
-                    status: 200,
-                    data: {
-                        message: "Email enviado com sucesso. Confira sua caixa de entrada.",
-                    },
-                };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(req.body.email, CONN);
+                    if (!teacher) {
+                        return { status: 404, message: "Não foi possível encontrar o usuário informado." };
+                    }
+                    yield (0, email_service_1.mainEmail)(req.body.email, teacher.person.user.password, false).catch((e) => console.log(e));
+                    return { status: 200, data: { message: "Email enviado com sucesso. Confira sua caixa de entrada." } };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    teacherByUser(email) {
+    teacherByUser(email, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            return (yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).findOne({
-                relations: ["person.category", "person.user"],
-                where: { person: { user: { email } } },
-            }));
+            const options = { relations: ["person.category", "person.user"], where: { person: { user: { email } } } };
+            return (yield CONN.findOne(Teacher_1.Teacher, Object.assign({}, options)));
         });
     }
 }

@@ -88,8 +88,8 @@ route.use("/literacy-report", authorization_1.default, reportLiteracyRouter_1.Re
 route.use("/literacy-second", authorization_1.default, literacySecond_1.LiteracySecondRouter);
 route.use("/login", login_1.LoginRouter);
 route.use("/person", authorization_1.default, person_1.PersonRouter);
-route.use("/person-category", authorization_1.default, personCategory_1.PersonCategoryRouter);
-route.use("/question", authorization_1.default, question_1.QuestionRouter);
+route.use("/person-category", authorization_1.default, personCategory_1.PeCatRouter);
+route.use("/question", authorization_1.default, question_1.QuesR);
 route.use("/question-group", questionGroup_1.QuestionGroupRouter);
 route.use("/report", authorization_1.default, report_1.ReportRouter);
 route.use("/school", authorization_1.default, school_1.SchoolRouter);

@@ -10,11 +10,11 @@ const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_TEST, BODY_VALIDATION_TEST]
 
 export const TestRouter = Router();
 
-TestRouter.get('/form', havePermission, async (req, res) => {
+TestRouter.get('/form', havePermission, async (req: Request, res: Response) => {
   const response = await controller.getFormData(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req, res) => {
+TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.findAllByYear(req); return res.status(response.status).json(response)
 })
 
@@ -22,19 +22,19 @@ TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (
   const response = await controller.getStudents(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermission, async (req, res) => {
+TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getGraphic(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePermission, async (req, res) => {
+TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getAllToInsert(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:id', ID_PARAM, havePermission, async (req, res) => {
+TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getById(req); return res.status(response.status).json(response)
 })
 
-TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, async (req, res) => {
+TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.insertStudents(req); return res.status(response.status).json(response)
 })
 

@@ -1,11 +1,8 @@
-import { Router } from "express";
-import { userController } from "../controller/user";
+import { Router, Request, Response } from "express";
+import { userController as controller } from "../controller/user";
 
 export const UserRouter = Router();
 
-UserRouter.post('/', (req, res) => {
-
-  userController.save(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+UserRouter.post('/', async (req: Request, res: Response) => {
+  const response = await controller.save(req.body); return res.status(response.status).json(response)
 });

@@ -21,9 +21,13 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
+  async findOneByWhere(options: FindOneOptions<ObjectLiteral>, CONN?: EntityManager) {
     try {
-      const result = await this.repository.findOne(options)
+      if(!CONN) {
+        const result = await this.repository.findOne(options)
+        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+      }
+      const result = await CONN.findOne(this.entity, options)
       if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }

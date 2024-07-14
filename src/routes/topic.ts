@@ -1,39 +1,21 @@
-import { Router } from "express";
-import { topicController } from "../controller/topic";
+import { Router, Request, Response } from "express";
+import { topicController as controller } from "../controller/topic";
+import { ID_PARAM } from "../middleware/validators";
 
 export const TopicRouter = Router();
 
-TopicRouter.get('/', (req, res) => {
-
-  topicController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TopicRouter.get('/', async (req: Request, res: Response) => {
+  const response = await controller.findAllWhere({}, req); return res.status(response.status).json(response)
 })
 
-TopicRouter.get('/:id', (req, res) => {
-
-  topicController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TopicRouter.get('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await controller.findOneById(req.params?.id, req); return res.status(response.status).json(response)
 })
 
-TopicRouter.post('/', (req, res) => {
-
-  topicController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TopicRouter.post('/', async (req: Request, res: Response) => {
+  const response = await controller.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-TopicRouter.put('/:id', (req, res) => {
-
-  topicController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-TopicRouter.delete('/:id', (req, res) => {
-
-  topicController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+TopicRouter.put('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await controller.updateId(req.params?.id, req.body); return res.status(response.status).json(response)
+})

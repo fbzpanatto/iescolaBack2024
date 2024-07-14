@@ -9,8 +9,9 @@ class UserController extends GenericController<EntityTarget<User>> {
 
   override async save(body: User) {
     try {
-      const user = await AppDataSource.getRepository(User).save(body);
-      return { status: 201, data: user };
+      return await AppDataSource.transaction(async(CONN)=>{
+        const user = await CONN.save(User, body); return { status: 201, data: user };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 }

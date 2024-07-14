@@ -1,26 +1,10 @@
-import { Router } from "express";
-import {reportController} from "../controller/report";
+import { Router, Request, Response } from "express";
+import { Data } from "../interfaces/interfaces"
+import { reportController } from "../controller/report";
 import havePermission from "../middleware/havePermission";
 
 export const ReportRouter = Router();
 
-ReportRouter.get('/:year', havePermission, (req, res) => {
-
-  reportController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-ReportRouter.get('/:id/:year', havePermission, (req, res) => {
-
-  reportController.getReport(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-ReportRouter.get('/:id/:year/avg', havePermission, (req, res) => {
-
-  reportController.getSchoolAvg(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+ReportRouter.get('/:year', havePermission, async (req: Request, res: Response) => { const data: Data = await reportController.reportFindAll(req); return res.status(data.status).json(data) })
+ReportRouter.get('/:id/:year', havePermission, async (req: Request, res: Response) => { const data: Data = await reportController.getReport(req); return res.status(data.status).json(data) })
+ReportRouter.get('/:id/:year/avg', havePermission, async (req: Request, res: Response) => { const data: Data = await reportController.getSchoolAvg(req); return res.status(data.status).json(data)})

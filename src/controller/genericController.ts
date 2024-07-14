@@ -14,7 +14,7 @@ export class GenericController<T> {
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 
-  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request, CONN?: EntityManager ) {
+  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager ) {
     try {
 
       if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
@@ -74,13 +74,7 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  createPerson(body: SavePerson) {
-    const person = new Person();
-    person.name = body.name;
-    person.birth = body.birth;
-    person.category = body.category;
-    return person;
-  }
+  createPerson(body: SavePerson) { const person = new Person(); person.name = body.name; person.birth = body.birth; person.category = body.category; return person }
 
   async currentYear(CONN?: EntityManager) {
     if(!CONN) { return (await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } })) as Year }

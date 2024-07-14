@@ -3,37 +3,10 @@ import { bimesterController } from "../controller/bimester";
 
 export const BimesterRouter = Router();
 
-BimesterRouter.get('/', (req, res) => {
+BimesterRouter.get('/', async(req, res) => { const response = await bimesterController.findAllWhere(); return res.status(response.status).json(response)})
 
-  bimesterController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+BimesterRouter.get('/:id', async(req, res) => { const response = await bimesterController.findOneById(req.params.id, req); return res.status(response.status).json(response)})
 
-BimesterRouter.get('/:id', (req, res) => {
+BimesterRouter.post('/', async(req, res) => { const response = await bimesterController.save(req.body, {}); return res.status(response.status).json(response)})
 
-  bimesterController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-BimesterRouter.post('/', (req, res) => {
-
-  bimesterController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-BimesterRouter.put('/:id', (req, res) => {
-
-  bimesterController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-BimesterRouter.delete('/:id', (req, res) => {
-
-  bimesterController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+BimesterRouter.put('/:id', async (req, res) => { const response = await bimesterController.updateId(req.params.id, req.body); return res.status(response.status).json(response)})

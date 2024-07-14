@@ -1,5 +1,5 @@
 import { questionGroupController } from "./questionGroup";
-import { classroomCategoryController } from "./classroomCategory";
+import { classCatController } from "./classroomCategory";
 import { GenericController } from "./genericController";
 import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Question } from "../model/Question";
@@ -24,7 +24,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
   async questionForm(req: Request) {
     try {
-      const classroomCategories = (await classroomCategoryController.findAllWhere({}, req)).data;
+      const classroomCategories = (await classCatController.findAllWhere({}, req)).data;
       const groups = (await questionGroupController.findAllWhere({}, req)).data;
 
       return { status: 200, data: { classroomCategories, groups } };

@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.studentController = void 0;
+exports.stController = void 0;
 const StudentClassroom_1 = require("./../model/StudentClassroom");
 const genericController_1 = require("./genericController");
 const typeorm_1 = require("typeorm");
@@ -41,17 +41,16 @@ const teacherClassrooms_1 = require("./teacherClassrooms");
 const Teacher_1 = require("../model/Teacher");
 const getTimeZone_1 = __importDefault(require("../utils/getTimeZone"));
 class StudentController extends genericController_1.GenericController {
-    constructor() {
-        super(Student_1.Student);
-    }
+    constructor() { super(Student_1.Student); }
     studentForm(req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const disabilities = (yield disability_1.disabilityController.findAllWhere({}, req))
-                    .data;
-                const states = (yield state_1.stateController.findAllWhere({}, req)).data;
-                const teacherClassrooms = (yield teacherClassrooms_1.teacherClassroomsController.findAllWhere({}, req)).data;
-                return { status: 200, data: { disabilities, states, teacherClassrooms } };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const states = (yield state_1.stateController.findAllWhere({}, req, CONN)).data;
+                    const disabilities = (yield disability_1.disabilityController.findAllWhere({}, req, CONN)).data;
+                    const teacherClassrooms = (yield teacherClassrooms_1.teacherClassroomsController.getAllTClass(req, CONN)).data;
+                    return { status: 200, data: { disabilities, states, teacherClassrooms } };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -60,71 +59,35 @@ class StudentController extends genericController_1.GenericController {
     }
     getAllInactivates(request) {
         return __awaiter(this, void 0, void 0, function* () {
-            const yearName = request === null || request === void 0 ? void 0 : request.params.year;
-            const search = request === null || request === void 0 ? void 0 : request.query.search;
             try {
-                const currentYear = yield this.currentYear();
-                if (!currentYear) {
-                    return {
-                        status: 404,
-                        message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.",
-                    };
-                }
-                const lastYearName = Number(currentYear.name) - 1;
-                const lastYearDB = (yield data_source_1.AppDataSource.getRepository(Year_1.Year).findOne({
-                    where: { name: lastYearName.toString() },
+                return data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const currentYear = yield this.currentYear(CONN);
+                    if (!currentYear) {
+                        return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." };
+                    }
+                    const lastYearName = Number(currentYear.name) - 1;
+                    const lastYearDB = yield CONN.findOne(Year_1.Year, { where: { name: lastYearName.toString() } });
+                    if (!lastYearDB) {
+                        return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.` };
+                    }
+                    const preResult = yield data_source_1.AppDataSource.getRepository(Student_1.Student)
+                        .createQueryBuilder("student")
+                        .leftJoinAndSelect("student.person", "person")
+                        .leftJoinAndSelect("student.state", "state")
+                        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+                        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+                        .leftJoinAndSelect("classroom.school", "school")
+                        .leftJoinAndSelect("studentClassroom.year", "year")
+                        .where("studentClassroom.endedAt IS NOT NULL")
+                        .andWhere("student.active = 1")
+                        .andWhere(new typeorm_1.Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${request.query.search} %` }).orWhere("student.ra LIKE :search", { search: `%${request.query.search}%` }); }))
+                        .andWhere("year.name = :yearName", { yearName: request.params.year })
+                        .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}`; })
+                        .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`; })
+                        .orderBy("person.name", "ASC")
+                        .getMany();
+                    return { status: 200, data: preResult.map((student) => (Object.assign(Object.assign({}, student), { studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))) };
                 }));
-                if (!lastYearDB) {
-                    return {
-                        status: 404,
-                        message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`,
-                    };
-                }
-                const preResult = yield data_source_1.AppDataSource.getRepository(Student_1.Student)
-                    .createQueryBuilder("student")
-                    .leftJoinAndSelect("student.person", "person")
-                    .leftJoinAndSelect("student.state", "state")
-                    .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
-                    .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-                    .leftJoinAndSelect("classroom.school", "school")
-                    .leftJoinAndSelect("studentClassroom.year", "year")
-                    .where("studentClassroom.endedAt IS NOT NULL")
-                    .andWhere("student.active = 1")
-                    .andWhere(new typeorm_1.Brackets((qb) => {
-                    qb.where("person.name LIKE :search", {
-                        search: `%${search}%`,
-                    }).orWhere("student.ra LIKE :search", { search: `%${search}%` });
-                }))
-                    .andWhere("year.name = :yearName", { yearName })
-                    .andWhere((qb) => {
-                    const subQueryNoCurrentYear = qb
-                        .subQuery()
-                        .select("1")
-                        .from("student_classroom", "sc1")
-                        .where("sc1.studentId = student.id")
-                        .andWhere("sc1.yearId = :currentYearId", {
-                        currentYearId: currentYear.id,
-                    })
-                        .andWhere("sc1.endedAt IS NULL")
-                        .getQuery();
-                    return `NOT EXISTS ${subQueryNoCurrentYear}`;
-                })
-                    .andWhere((qb) => {
-                    const subQueryLastYearOrOlder = qb
-                        .subQuery()
-                        .select("MAX(sc2.endedAt)")
-                        .from("student_classroom", "sc2")
-                        .where("sc2.studentId = student.id")
-                        .andWhere("sc2.yearId <= :lastYearId", {
-                        lastYearId: lastYearDB.id,
-                    })
-                        .getQuery();
-                    return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`;
-                })
-                    .orderBy("person.name", "ASC")
-                    .getMany();
-                const result = preResult.map((student) => (Object.assign(Object.assign({}, student), { studentClassrooms: this.getOneClassroom(student.studentClassrooms) })));
-                return { status: 200, data: result };
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -222,56 +185,40 @@ class StudentController extends genericController_1.GenericController {
             }
         });
     }
-    findAllWhere(options, request) {
+    allStudents(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const owner = request === null || request === void 0 ? void 0 : request.query.owner;
-            const search = request === null || request === void 0 ? void 0 : request.query.search;
-            const year = request === null || request === void 0 ? void 0 : request.params.year;
             try {
-                const teacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user);
-                const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN ||
-                    teacher.person.category.id === personCategories_1.pc.SUPE;
-                const studentsClassrooms = (yield this.studentsClassrooms({
-                    search,
-                    year,
-                    teacherClasses,
-                    owner,
-                }, isAdminSupervisor));
-                return { status: 200, data: studentsClassrooms };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(req.body.user.user, CONN);
+                    const teacherClasses = yield this.teacherClassrooms(req === null || req === void 0 ? void 0 : req.body.user, CONN);
+                    const studentsClassrooms = yield this.studentsClassrooms({ search: req.query.search, year: req.params.year, teacherClasses, owner: req.query.owner }, teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE);
+                    return { status: 200, data: studentsClassrooms };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    findOneStudentById(id, body) {
+    findOneStudentById(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            let student;
+            const { params, body } = req;
             try {
-                yield data_source_1.AppDataSource.transaction((transaction) => __awaiter(this, void 0, void 0, function* () {
-                    const userTeacherFromFront = (yield transaction.findOne(Teacher_1.Teacher, {
-                        relations: ["person.category"],
-                        where: { person: { user: { id: body === null || body === void 0 ? void 0 : body.user.user } } },
-                    }));
-                    const isAdminSupervisor = userTeacherFromFront.person.category.id === personCategories_1.pc.ADMN ||
-                        userTeacherFromFront.person.category.id === personCategories_1.pc.SUPE;
-                    const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user);
-                    const preStudent = yield this.student(Number(id), transaction);
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const options = { relations: ["person.category"], where: { person: { user: { id: body === null || body === void 0 ? void 0 : body.user.user } } } };
+                    const uTeacher = yield CONN.findOne(Teacher_1.Teacher, Object.assign({}, options));
+                    const masterUser = (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.ADMN || (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.SUPE;
+                    const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user, CONN);
+                    const preStudent = yield this.student(Number(params.id), CONN);
                     if (!preStudent) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    student = this.formartStudentResponse(preStudent);
-                    if (teacherClasses.classrooms.length > 0 &&
-                        !teacherClasses.classrooms.includes(student.classroom.id) &&
-                        !isAdminSupervisor) {
-                        return {
-                            status: 403,
-                            message: "Você não tem permissão para acessar esse registro.",
-                        };
+                    const data = this.formartStudentResponse(preStudent);
+                    if (teacherClasses.classrooms.length > 0 && !teacherClasses.classrooms.includes(data.classroom.id) && !masterUser) {
+                        return { status: 403, message: "Você não tem permissão para acessar esse registro." };
                     }
+                    return { status: 200, data };
                 }));
-                return { status: 200, data: student };
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -404,21 +351,21 @@ class StudentController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const databaseStudent = yield CONN.findOne(Student_1.Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } });
-                    const bodyClassroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom } });
-                    const arrayOfRelations = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year"];
-                    const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: arrayOfRelations, where: { id: Number(body.currentStudentClassroomId), student: { id: databaseStudent.id }, endedAt: (0, typeorm_1.IsNull)() } });
-                    if (!databaseStudent) {
+                    const dbStudent = yield CONN.findOne(Student_1.Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } });
+                    const bodyClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom } });
+                    const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year"];
+                    const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() } });
+                    if (!dbStudent) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
                     if (!stClass) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    if (!bodyClassroom) {
+                    if (!bodyClass) {
                         return { status: 404, message: "Sala não encontrada" };
                     }
                     const cBodySRA = `${body.ra}${body.dv}`;
-                    const cSRA = `${databaseStudent.ra}${databaseStudent.dv}`;
+                    const cSRA = `${dbStudent.ra}${dbStudent.dv}`;
                     if (cSRA !== cBodySRA) {
                         const exists = yield CONN.findOne(Student_1.Student, { where: { ra: body.ra, dv: body.dv } });
                         if (exists) {
@@ -427,27 +374,27 @@ class StudentController extends genericController_1.GenericController {
                     }
                     const canChange = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR];
                     const message = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.";
-                    if (!canChange.includes(uTeacher.person.category.id) && (stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClassroom.id) {
+                    if (!canChange.includes(uTeacher.person.category.id) && (stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClass.id) {
                         return { status: 403, message };
                     }
-                    if ((stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClassroom.id && canChange.includes(uTeacher.person.category.id)) {
-                        const newNumber = Number(bodyClassroom.shortName.replace(/\D/g, ""));
+                    if ((stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClass.id && canChange.includes(uTeacher.person.category.id)) {
+                        const newNumber = Number(bodyClass.shortName.replace(/\D/g, ""));
                         const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ""));
                         if (newNumber < oldNumber) {
                             return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." };
                         }
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date(), updatedByUser: uTeacher.person.user.id }));
                         const currentYear = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
-                        const lastRosterNumber = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClassroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
+                        const lastRosterNumber = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClass.id } }, order: { rosterNumber: "DESC" }, take: 1 });
                         let last = 1;
                         if ((_a = lastRosterNumber[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
                             last = lastRosterNumber[0].rosterNumber + 1;
                         }
                         ;
-                        const newStClass = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: databaseStudent, classroom: bodyClassroom, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
+                        const newStClass = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
                         const notDigit = /\D/g;
-                        const classroomNumber = Number(bodyClassroom.shortName.replace(notDigit, ""));
-                        if (classroomNumber >= 1 && classroomNumber <= 3) {
+                        const classNumber = Number(bodyClass.shortName.replace(notDigit, ""));
+                        if (classNumber >= 1 && classNumber <= 3) {
                             const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id) {
                                 for (let tier of literacyTier) {
@@ -466,10 +413,10 @@ class StudentController extends genericController_1.GenericController {
                                 }
                             }
                         }
-                        if (classroomNumber === 4 || classroomNumber === 5) {
+                        if (classNumber === 4 || classNumber === 5) {
                             const tgExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
                             const tgExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                            const tgClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
+                            const tgClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] });
                             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id) {
                                 for (let tg of tgClassroom) {
                                     for (let tier of tgExamTier) {
@@ -500,28 +447,28 @@ class StudentController extends genericController_1.GenericController {
                         trfr.startedAt = new Date();
                         trfr.endedAt = new Date();
                         trfr.requester = uTeacher;
-                        trfr.requestedClassroom = bodyClassroom;
+                        trfr.requestedClassroom = bodyClass;
                         trfr.currentClassroom = stClass.classroom;
                         trfr.receiver = uTeacher;
-                        trfr.student = databaseStudent;
+                        trfr.student = dbStudent;
                         trfr.status = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: "Aceitada" } }));
                         trfr.year = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
                         yield CONN.save(Transfer_1.Transfer, trfr);
                     }
-                    if (stClass.classroom.id === bodyClassroom.id) {
+                    if (stClass.classroom.id === bodyClass.id) {
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: uTeacher.person.user.id }));
                     }
-                    databaseStudent.ra = body.ra;
-                    databaseStudent.dv = body.dv;
-                    databaseStudent.updatedAt = new Date();
-                    databaseStudent.updatedByUser = uTeacher.person.user.id;
-                    databaseStudent.person.name = body.name;
-                    databaseStudent.person.birth = body.birth;
-                    databaseStudent.observationOne = body.observationOne;
-                    databaseStudent.observationTwo = body.observationTwo;
-                    databaseStudent.state = (yield CONN.findOne(State_1.State, { where: { id: body.state } }));
-                    const stDisabilities = databaseStudent.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
-                    yield this.setDisabilities(uTeacher.person.user.id, yield CONN.save(Student_1.Student, databaseStudent), stDisabilities, body.disabilities, CONN);
+                    dbStudent.ra = body.ra;
+                    dbStudent.dv = body.dv;
+                    dbStudent.updatedAt = new Date();
+                    dbStudent.updatedByUser = uTeacher.person.user.id;
+                    dbStudent.person.name = body.name;
+                    dbStudent.person.birth = body.birth;
+                    dbStudent.observationOne = body.observationOne;
+                    dbStudent.observationTwo = body.observationTwo;
+                    dbStudent.state = (yield CONN.findOne(State_1.State, { where: { id: body.state } }));
+                    const stDisabilities = dbStudent.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
+                    yield this.setDisabilities(uTeacher.person.user.id, yield CONN.save(Student_1.Student, dbStudent), stDisabilities, body.disabilities, CONN);
                     result = this.formartStudentResponse(yield this.student(Number(studentId), CONN));
                     return { status: 200, data: result };
                 }));
@@ -586,118 +533,59 @@ class StudentController extends genericController_1.GenericController {
                 .getRawOne();
         });
     }
-    studentsClassrooms(options, isAdminSupervisor) {
-        var _a;
+    studentsClassrooms(options, masterUser) {
         return __awaiter(this, void 0, void 0, function* () {
-            const isOwner = options.owner === owner_1.ISOWNER.OWNER;
-            const yearName = (_a = options.year) !== null && _a !== void 0 ? _a : (yield this.currentYear()).name;
-            let allClassrooms = [];
-            if (isAdminSupervisor) {
-                allClassrooms = (yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).find());
-            }
-            const queryBuilder = data_source_1.AppDataSource.createQueryBuilder();
-            queryBuilder
-                .select([
-                "studentClassroom.id",
-                "studentClassroom.rosterNumber",
-                "studentClassroom.startedAt",
-                "studentClassroom.endedAt",
-                "student.id",
-                "student.ra",
-                "student.dv",
-                "state.id",
-                "state.acronym",
-                "person.id",
-                "person.name",
-                "person.birth",
-                "classroom.id",
-                "classroom.shortName",
-                "school.id",
-                "school.shortName",
-                "transfers.id",
-                "transfers.startedAt",
-                "requesterPerson.name",
-                "transfersStatus.name",
-            ])
-                .from(Student_1.Student, "student")
-                .leftJoin("student.person", "person")
-                .leftJoin("student.state", "state")
-                .leftJoin("student.transfers", "transfers", "transfers.endedAt IS NULL")
-                .leftJoin("transfers.status", "transfersStatus")
-                .leftJoin("transfers.requester", "requester")
-                .leftJoin("requester.person", "requesterPerson")
-                .leftJoin("student.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
-                .leftJoin("studentClassroom.classroom", "classroom")
-                .leftJoin("classroom.school", "school")
-                .leftJoin("studentClassroom.year", "year")
-                .where("year.name = :yearName", { yearName })
-                .andWhere(new typeorm_1.Brackets((qb) => {
-                qb.where("person.name LIKE :search", {
-                    search: `%${options.search}%`,
-                }).orWhere("student.ra LIKE :search", {
-                    search: `%${options.search}%`,
-                });
-            }))
-                .andWhere(new typeorm_1.Brackets((qb) => {
+            return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                 var _a;
-                if (!isAdminSupervisor) {
-                    qb.andWhere(isOwner
-                        ? "classroom.id IN (:...classrooms)"
-                        : "classroom.id NOT IN (:...classrooms)", { classrooms: (_a = options.teacherClasses) === null || _a === void 0 ? void 0 : _a.classrooms });
+                const isOwner = options.owner === owner_1.ISOWNER.OWNER;
+                const yearName = (_a = options.year) !== null && _a !== void 0 ? _a : (yield this.currentYear(CONN)).name;
+                let allClassrooms = [];
+                if (masterUser) {
+                    allClassrooms = (yield CONN.find(Classroom_1.Classroom));
+                }
+                const result = yield CONN.createQueryBuilder()
+                    .select(["studentClassroom.id", "studentClassroom.rosterNumber", "studentClassroom.startedAt", "studentClassroom.endedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name"])
+                    .from(Student_1.Student, "student")
+                    .leftJoin("student.person", "person")
+                    .leftJoin("student.state", "state")
+                    .leftJoin("student.transfers", "transfers", "transfers.endedAt IS NULL")
+                    .leftJoin("transfers.status", "transfersStatus")
+                    .leftJoin("transfers.requester", "requester")
+                    .leftJoin("requester.person", "requesterPerson")
+                    .leftJoin("student.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
+                    .leftJoin("studentClassroom.classroom", "classroom")
+                    .leftJoin("classroom.school", "school")
+                    .leftJoin("studentClassroom.year", "year")
+                    .where("year.name = :yearName", { yearName })
+                    .andWhere(new typeorm_1.Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${options.search}%` }).orWhere("student.ra LIKE :search", { search: `%${options.search}%` }); }))
+                    .andWhere(new typeorm_1.Brackets((qb) => { var _a; if (!masterUser) {
+                    qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: (_a = options.teacherClasses) === null || _a === void 0 ? void 0 : _a.classrooms });
                 }
                 else {
-                    qb.andWhere(isOwner
-                        ? "classroom.id IN (:...classrooms)"
-                        : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id) });
-                }
-            }))
-                .orderBy("school.shortName", "ASC")
-                .addOrderBy("classroom.shortName", "ASC")
-                .addOrderBy("person.name", "ASC");
-            const preResult = yield queryBuilder.getRawMany();
-            return preResult.map((item) => {
-                return {
-                    id: item.studentClassroom_id,
-                    rosterNumber: item.studentClassroom_rosterNumber,
-                    startedAt: item.studentClassroom_startedAt,
-                    endedAt: item.studentClassroom_endedAt,
-                    student: {
-                        id: item.student_id,
-                        ra: item.student_ra,
-                        dv: item.student_dv,
-                        state: {
-                            id: item.state_id,
-                            acronym: item.state_acronym,
+                    qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id) });
+                } }))
+                    .orderBy("school.shortName", "ASC")
+                    .addOrderBy("classroom.shortName", "ASC")
+                    .addOrderBy("person.name", "ASC")
+                    .getRawMany();
+                return result.map((item) => {
+                    return {
+                        id: item.studentClassroom_id,
+                        rosterNumber: item.studentClassroom_rosterNumber,
+                        startedAt: item.studentClassroom_startedAt,
+                        endedAt: item.studentClassroom_endedAt,
+                        classroom: { id: item.classroom_id, shortName: item.classroom_shortName, teacher: options.teacherClasses, school: { id: item.school_id, shortName: item.school_shortName } },
+                        student: {
+                            id: item.student_id,
+                            ra: item.student_ra,
+                            dv: item.student_dv,
+                            state: { id: item.state_id, acronym: item.state_acronym },
+                            person: { id: item.person_id, name: item.person_name, birth: item.person_birth },
+                            transfer: item.transfers_id ? { id: item.transfers_id, startedAt: item.transfers_startedAt, status: { name: item.transfersStatus_name }, requester: { name: item.requesterPerson_name } } : false,
                         },
-                        person: {
-                            id: item.person_id,
-                            name: item.person_name,
-                            birth: item.person_birth,
-                        },
-                        transfer: item.transfers_id
-                            ? {
-                                id: item.transfers_id,
-                                startedAt: item.transfers_startedAt,
-                                status: {
-                                    name: item.transfersStatus_name,
-                                },
-                                requester: {
-                                    name: item.requesterPerson_name,
-                                },
-                            }
-                            : false,
-                    },
-                    classroom: {
-                        id: item.classroom_id,
-                        shortName: item.classroom_shortName,
-                        teacher: options.teacherClasses,
-                        school: {
-                            id: item.school_id,
-                            shortName: item.school_shortName,
-                        },
-                    },
-                };
-            });
+                    };
+                });
+            }));
         });
     }
     createStudent(body, person, state, userId) {
@@ -782,4 +670,4 @@ class StudentController extends genericController_1.GenericController {
         });
     }
 }
-exports.studentController = new StudentController();
+exports.stController = new StudentController();

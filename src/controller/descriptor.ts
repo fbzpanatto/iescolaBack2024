@@ -5,24 +5,15 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 
 class DescriptorController extends GenericController<EntityTarget<Descriptor>> {
-  constructor() {
-    super(Descriptor);
-  }
+  constructor() { super(Descriptor) }
 
-  override async findAllWhere(
-    options: FindManyOptions<ObjectLiteral> | undefined,
-    request?: Request,
-  ) {
-    const topic = request?.query.topic as string;
-
+  override async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined, request?: Request ) {
     try {
-      const result = await AppDataSource.getRepository(Descriptor).find({
-        where: { topic: { id: Number(topic) } },
-      });
-      return { status: 200, data: result };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+      return await AppDataSource.transaction(async(CONN) => {
+        const options = { where: { topic: { id: Number(request?.query.topic) } }}
+        const result = await CONN.find(Descriptor, {...options}); return { status: 200, data: result }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

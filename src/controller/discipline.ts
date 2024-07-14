@@ -10,13 +10,13 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
   constructor() { super(Discipline) }
 
-  async getAllDisciplines(request: Request, transaction?: EntityManager) {
+  async getAllDisciplines(request: Request, CONN?: EntityManager) {
 
     const body = request?.body as TeacherBody;
 
     try {
 
-      if(!transaction){
+      if(!CONN){
         const teacher = await this.teacherByUser(body.user.user);
         const teacherDisciplines = await this.teacherDisciplines(request?.body.user);
   
@@ -39,12 +39,12 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
       let result
 
-      await AppDataSource.transaction(async (transaction) => {
+      await AppDataSource.transaction(async (CONN) => {
 
-        const teacher = await this.teacherByUser(body.user.user, transaction);
-        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, transaction);
+        const teacher = await this.teacherByUser(body.user.user, CONN);
+        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, CONN);
 
-        result = await transaction.getRepository(Discipline)
+        result = await CONN.getRepository(Discipline)
           .createQueryBuilder("discipline") 
           .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
           .where(
@@ -65,4 +65,4 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
   }
 }
 
-export const disciplineController = new DisciplineController();
+export const discController = new DisciplineController();

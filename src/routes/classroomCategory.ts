@@ -1,39 +1,12 @@
 import { Router } from "express";
-import { classroomCategoryController } from "../controller/classroomCategory";
+import { classCatController } from "../controller/classroomCategory";
 
 export const CassroomCategoryRouter = Router();
 
-CassroomCategoryRouter.get('/', (req, res) => {
+CassroomCategoryRouter.get('/', async (req, res) => { const response = await classCatController.findAllWhere({}); return res.status(response.status).json(response)})
 
-  classroomCategoryController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+CassroomCategoryRouter.get('/:id', async (req, res) => { const response = await classCatController.findOneById(req.params.id, req); return res.status(response.status).json(response)})
 
-CassroomCategoryRouter.get('/:id', (req, res) => {
+CassroomCategoryRouter.post('/', async (req, res) => { const response = await classCatController.save(req.body, {}); return res.status(response.status).json(response)})
 
-  classroomCategoryController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-CassroomCategoryRouter.post('/', (req, res) => {
-
-  classroomCategoryController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-CassroomCategoryRouter.put('/:id', (req, res) => {
-
-  classroomCategoryController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-CassroomCategoryRouter.delete('/:id', (req, res) => {
-
-  classroomCategoryController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+CassroomCategoryRouter.put('/:id', async (req, res) => { const response = await classCatController.updateId(req.params.id, req.body); return res.status(response.status).json(response)})

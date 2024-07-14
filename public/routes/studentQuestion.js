@@ -8,8 +8,8 @@ const express_1 = require("express");
 const StudentQuestion_1 = require("../controller/StudentQuestion");
 const validators_1 = require("../middleware/validators");
 const havePermission_1 = __importDefault(require("../middleware/havePermission"));
-const UPDATE_VALIDATORS_ANSWER = [validators_1.VALIDATE_ID, validators_1.VALIDATE_STUDENT_QUESTIONANSWER, validators_1.BODY_VALIDATION_STUDENT_ANSWER];
-const UPDATE_VALIDATORS_STATUS = [validators_1.VALIDATE_ID, validators_1.VALIDATE_STUDENT_QUESTIONSTATUS, validators_1.BODY_VALIDATION_STUDENT_QUESTION];
+const UPDATE_VALIDATORS_ANSWER = [validators_1.PARAM_ID, validators_1.VALIDATE_STUDENT_QUESTIONANSWER, validators_1.BODY_VALIDATION_STUDENT_ANSWER];
+const UPDATE_VALIDATORS_STATUS = [validators_1.PARAM_ID, validators_1.VALIDATE_STUDENT_QUESTIONSTATUS, validators_1.BODY_VALIDATION_STUDENT_QUESTION];
 exports.StudentQuestionRouter = (0, express_1.Router)();
 exports.StudentQuestionRouter.put('/:id/question', ...UPDATE_VALIDATORS_ANSWER, havePermission_1.default, (req, res) => {
     StudentQuestion_1.studentQuestionController.updateQuestion(req.params.id, req.body)

@@ -23,14 +23,14 @@ class GenericController {
         this.entity = entity;
     }
     get repository() { return data_source_1.AppDataSource.getRepository(this.entity); }
-    findAllWhere(options, request, transaction) {
+    findAllWhere(options = {}, request, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                if (!transaction) {
+                if (!CONN) {
                     const result = yield this.repository.find();
                     return { status: 200, data: result };
                 }
-                const result = yield transaction.find(this.entity);
+                const result = yield CONN.find(this.entity);
                 return { status: 200, data: result };
             }
             catch (error) {
@@ -117,13 +117,7 @@ class GenericController {
             }
         });
     }
-    createPerson(body) {
-        const person = new Person_1.Person();
-        person.name = body.name;
-        person.birth = body.birth;
-        person.category = body.category;
-        return person;
-    }
+    createPerson(body) { const person = new Person_1.Person(); person.name = body.name; person.birth = body.birth; person.category = body.category; return person; }
     currentYear(CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!CONN) {

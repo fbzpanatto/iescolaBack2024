@@ -13,7 +13,7 @@ import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { transferStatus } from "../utils/transferStatus";
-import { disciplineController } from "./discipline";
+import { discController } from "./discipline";
 import { classroomController } from "./classroom";
 import { pc } from "../utils/personCategories";
 import { personCategoryController } from "./personCategory";
@@ -30,7 +30,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     try {
 
       await AppDataSource.transaction(async (CONN) => {
-        disciplines = (await disciplineController.getAllDisciplines(req, CONN)).data;
+        disciplines = (await discController.getAllDisciplines(req, CONN)).data;
         classrooms = (await classroomController.getAllClassrooms(req, CONN)).data;
         personCategories = (await personCategoryController.findAllWhere({}, req, CONN)).data;
       })

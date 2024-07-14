@@ -17,38 +17,36 @@ const express_1 = require("express");
 const test_1 = require("../controller/test");
 const validators_1 = require("../middleware/validators");
 const havePermission_1 = __importDefault(require("../middleware/havePermission"));
+const CHECK_ID_CLASS = [validators_1.PARAM_ID, validators_1.PARAM_CLASSID];
+const CHECK_PARAMS = [validators_1.PARAM_ID, validators_1.PARAM_YEAR, validators_1.PARAM_CLASSID];
 const CREATE_VALIDATORS = [validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
-const UPDATE_VALIDATORS = [validators_1.VALIDATE_ID, validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
+const UPDATE_VALIDATORS = [validators_1.PARAM_ID, validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
 exports.TestRouter = (0, express_1.Router)();
-exports.TestRouter.get('/form', havePermission_1.default, (req, res) => {
-    test_1.testController.getFormData(req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});
-exports.TestRouter.get('/:year/all', havePermission_1.default, (req, res) => {
-    test_1.testController.findAllWhere({}, req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});
-exports.TestRouter.get('/:id/:year/:classroom', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield test_1.testController.getAllClassroomStudents(req);
+exports.TestRouter.get('/form', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.getFormData(req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.get('/:id/classroom/:classroom/graphic', havePermission_1.default, (req, res) => {
-    test_1.testController.getGraphic(req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});
-exports.TestRouter.get('/:id/:year/:classroom/include', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.TestRouter.get('/:year/all', validators_1.PARAM_YEAR, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.findAllByYear(req);
+    return res.status(response.status).json(response);
+}));
+exports.TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.getStudents(req);
+    return res.status(response.status).json(response);
+}));
+exports.TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.getGraphic(req);
+    return res.status(response.status).json(response);
+}));
+exports.TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.getAllToInsert(req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.get('/:id', havePermission_1.default, (req, res) => {
-    test_1.testController.findOneById(req.params.id, req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});
-exports.TestRouter.post('/:id/:classroom/include', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.TestRouter.get('/:id', validators_1.PARAM_ID, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield test_1.testController.getById(req);
+    return res.status(response.status).json(response);
+}));
+exports.TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.insertStudents(req);
     return res.status(response.status).json(response);
 }));
@@ -57,11 +55,6 @@ exports.TestRouter.post('/', ...CREATE_VALIDATORS, havePermission_1.default, (re
     return res.status(response.status).json(response);
 }));
 exports.TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield test_1.testController.updateTestById(req.params.id, req);
+    const response = yield test_1.testController.updateTest(req.params.id, req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.delete('/:id', havePermission_1.default, (req, res) => {
-    test_1.testController.deleteId(req)
-        .then(r => res.status(r.status).json(r))
-        .catch(e => res.status(e.status).json(e));
-});

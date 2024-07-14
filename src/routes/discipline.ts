@@ -1,39 +1,12 @@
 import { Router } from "express";
-import {disciplineController} from "../controller/discipline";
+import {discController} from "../controller/discipline";
 
 export const DisciplineRouter = Router();
 
-DisciplineRouter.get('/', (req, res) => {
+DisciplineRouter.get('/', async (req, res) => { const response = await discController.getAllDisciplines(req); return res.status(response.status).json(response)})
 
-  disciplineController.getAllDisciplines(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+DisciplineRouter.get('/:id', async (req, res) => { const response = await discController.findOneById(req.params.id, req); return res.status(response.status).json(response)})
 
-DisciplineRouter.get('/:id', (req, res) => {
+DisciplineRouter.post('/', async (req, res) => { const response = await discController.save(req.body, {}); return res.status(response.status).json(response)})
 
-  disciplineController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-DisciplineRouter.post('/', (req, res) => {
-
-  disciplineController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-DisciplineRouter.put('/:id', (req, res) => {
-
-  disciplineController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-DisciplineRouter.delete('/:id', (req, res) => {
-
-  disciplineController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+DisciplineRouter.put('/:id', async (req, res) => { const response = await discController.updateId(req.params.id, req.body); return res.status(response.status).json(response)})

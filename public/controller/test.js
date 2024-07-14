@@ -13,10 +13,6 @@ exports.testController = void 0;
 const genericController_1 = require("./genericController");
 const Test_1 = require("../model/Test");
 const classroom_1 = require("./classroom");
-const discipline_1 = require("./discipline");
-const bimester_1 = require("./bimester");
-const testCategory_1 = require("./testCategory");
-const questionGroup_1 = require("./questionGroup");
 const data_source_1 = require("../data-source");
 const Period_1 = require("../model/Period");
 const Classroom_1 = require("../model/Classroom");
@@ -32,116 +28,126 @@ const Question_1 = require("../model/Question");
 const Descriptor_1 = require("../model/Descriptor");
 const Topic_1 = require("../model/Topic");
 const ClassroomCategory_1 = require("../model/ClassroomCategory");
+const Discipline_1 = require("../model/Discipline");
+const Bimester_1 = require("../model/Bimester");
+const TestCategory_1 = require("../model/TestCategory");
 class TestController extends genericController_1.GenericController {
-    constructor() { super(Test_1.Test); }
+    constructor() {
+        super(Test_1.Test);
+        this.diffs = (original, current) => {
+            if (original === current)
+                return false;
+            if (typeof original !== 'object' || original === null || current === null)
+                return original !== current;
+            const originalKeys = Object.keys(original);
+            const currentKeys = Object.keys(current);
+            if (originalKeys.length !== currentKeys.length)
+                return true;
+            for (let key of originalKeys) {
+                if (!currentKeys.includes(key))
+                    return true;
+                if (this.diffs(original[key], current[key])) {
+                    return true;
+                }
+            }
+            return false;
+        };
+    }
     getFormData(req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const classrooms = (yield classroom_1.classroomController.findAllWhere({}, req)).data;
-                const disciplines = (yield discipline_1.disciplineController.findAllWhere({}, req)).data;
-                const bimesters = (yield bimester_1.bimesterController.findAllWhere({}, req)).data;
-                const testCategories = (yield testCategory_1.testCategoryController.findAllWhere({}, req)).data;
-                const questionGroup = (yield questionGroup_1.questionGroupController.findOneById(1, {})).data;
-                return { status: 200, data: { classrooms, disciplines, bimesters, testCategories, questionGroup } };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, CONN)).data;
+                    const disciplines = yield CONN.find(Discipline_1.Discipline);
+                    const bimesters = yield CONN.find(Bimester_1.Bimester);
+                    const testCategories = yield CONN.find(TestCategory_1.TestCategory);
+                    const questionGroup = yield CONN.findOneBy(QuestionGroup_1.QuestionGroup, { id: 1 });
+                    return { status: 200, data: { classrooms, disciplines, bimesters, testCategories, questionGroup } };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    getGraphic(request) {
+    getGraphic(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const testId = request === null || request === void 0 ? void 0 : request.params.id;
-            const classroomId = request === null || request === void 0 ? void 0 : request.params.classroom;
-            const yearId = request === null || request === void 0 ? void 0 : request.query.year;
+            const { id: testId, classroom: classroomId } = req.params;
+            const { year: yearId } = req.query;
             try {
-                const teacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
-                const { classrooms } = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                if (!classrooms.includes(Number(classroomId)) && !isAdminSupervisor)
-                    return { status: 403, message: "Você não tem permissão para acessar essa sala." };
-                const classroom = yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findOne({ where: { id: Number(classroomId) }, relations: ["school"] });
-                if (!classroom)
-                    return { status: 404, message: "Sala não encontrada" };
-                const testQuestions = yield this.getTestQuestions(parseInt(testId));
-                if (!testQuestions)
-                    return { status: 404, message: "Questões não encontradas" };
-                const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-                const questionGroups = yield this.getTestQuestionsGroups(Number(testId));
-                const test = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
-                    .createQueryBuilder("test")
-                    .leftJoinAndSelect("test.period", "period")
-                    .leftJoinAndSelect("period.bimester", "periodBimester")
-                    .leftJoinAndSelect("period.year", "periodYear")
-                    .leftJoinAndSelect("test.discipline", "discipline")
-                    .leftJoinAndSelect("test.category", "category")
-                    .leftJoinAndSelect("test.person", "testPerson")
-                    .leftJoinAndSelect("test.classrooms", "classroom")
-                    .leftJoinAndSelect("classroom.school", "school")
-                    .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-                    .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-                    .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-                    .leftJoinAndSelect("studentClassroom.student", "student")
-                    .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
-                    .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-                    .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-                    .leftJoinAndSelect("student.person", "studentPerson")
-                    .leftJoin("studentClassroom.year", "studentClassroomYear")
-                    .where("test.id = :testId", { testId })
-                    .andWhere("periodYear.id = :yearId", { yearId })
-                    .andWhere("studentClassroomYear.id = :yearId", { yearId })
-                    .andWhere("testQuestion.test = :testId", { testId })
-                    .andWhere("studentStatusTest.id = :testId", { testId })
-                    .orderBy("questionGroup.id", "ASC")
-                    .addOrderBy("testQuestion.order", "ASC")
-                    .addOrderBy("studentClassroom.rosterNumber", "ASC")
-                    .addOrderBy("classroom.shortName", "ASC")
-                    .getOne();
-                if (!test)
-                    return { status: 404, message: "Teste não encontrado" };
-                let response = Object.assign(Object.assign({}, test), { testQuestions, questionGroups });
-                const allClasses = response.classrooms;
-                allClasses.map((classroom) => {
-                    classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
-                        studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
-                            const testQuestion = testQuestions.find((testQuestion) => testQuestion.id === studentQuestion.testQuestion.id);
-                            if (studentQuestion.answer.length === 0)
-                                return (Object.assign(Object.assign({}, studentQuestion), { score: 0 }));
-                            const score = (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0;
-                            return Object.assign(Object.assign({}, studentQuestion), { score });
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(req.body.user.user, CONN);
+                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
+                    const { classrooms } = yield this.teacherClassrooms(req.body.user, CONN);
+                    if (!classrooms.includes(Number(classroomId)) && !masterUser)
+                        return { status: 403, message: "Você não tem permissão para acessar essa sala." };
+                    const classroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: Number(classroomId) }, relations: ["school"] });
+                    if (!classroom)
+                        return { status: 404, message: "Sala não encontrada" };
+                    const testQuestions = yield this.getTestQuestions(parseInt(testId), CONN);
+                    if (!testQuestions)
+                        return { status: 404, message: "Questões não encontradas" };
+                    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
+                    const questionGroups = yield this.getTestQuestionsGroups(Number(testId), CONN);
+                    const test = yield CONN.getRepository(Test_1.Test)
+                        .createQueryBuilder("test")
+                        .leftJoinAndSelect("test.period", "period")
+                        .leftJoinAndSelect("period.bimester", "periodBimester")
+                        .leftJoinAndSelect("period.year", "periodYear")
+                        .leftJoinAndSelect("test.discipline", "discipline")
+                        .leftJoinAndSelect("test.category", "category")
+                        .leftJoinAndSelect("test.person", "testPerson")
+                        .leftJoinAndSelect("test.classrooms", "classroom")
+                        .leftJoinAndSelect("classroom.school", "school")
+                        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+                        .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+                        .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
+                        .leftJoinAndSelect("studentClassroom.student", "student")
+                        .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+                        .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+                        .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+                        .leftJoinAndSelect("student.person", "studentPerson")
+                        .leftJoin("studentClassroom.year", "studentClassroomYear")
+                        .where("test.id = :testId", { testId })
+                        .andWhere("periodYear.id = :yearId", { yearId })
+                        .andWhere("studentClassroomYear.id = :yearId", { yearId })
+                        .andWhere("testQuestion.test = :testId", { testId })
+                        .andWhere("studentStatusTest.id = :testId", { testId })
+                        .orderBy("questionGroup.id", "ASC")
+                        .addOrderBy("testQuestion.order", "ASC")
+                        .addOrderBy("studentClassroom.rosterNumber", "ASC")
+                        .addOrderBy("classroom.shortName", "ASC")
+                        .getOne();
+                    if (!test)
+                        return { status: 404, message: "Teste não encontrado" };
+                    let response = Object.assign(Object.assign({}, test), { testQuestions, questionGroups });
+                    const allClasses = response.classrooms;
+                    allClasses.map((classroom) => {
+                        classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
+                            studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
+                                const testQuestion = testQuestions.find((testQuestion) => testQuestion.id === studentQuestion.testQuestion.id);
+                                if (studentQuestion.answer.length === 0)
+                                    return (Object.assign(Object.assign({}, studentQuestion), { score: 0 }));
+                                const score = (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0;
+                                return Object.assign(Object.assign({}, studentQuestion), { score });
+                            });
+                            return studentClassroom;
                         });
-                        return studentClassroom;
+                        return classroom;
                     });
-                    return classroom;
-                });
-                const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id);
-                const cityHall = {
-                    id: 'ITA',
-                    name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-                    shortName: 'ITA',
-                    school: {
-                        id: 99,
-                        name: 'PREFEITURA DO MUNICIPIO DE ITATIBA',
-                        shortName: 'ITATIBA',
-                        inep: null,
-                        active: true
-                    },
-                    studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)
-                };
-                response.classrooms = [...filteredClasses, cityHall];
-                const newReturn = Object.assign(Object.assign({}, response), { classrooms: response.classrooms.map((classroom) => {
-                        return Object.assign(Object.assign({}, classroom), { studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => {
-                                return Object.assign(Object.assign({}, studentClassroom), { studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id) });
-                            }) });
-                    }) });
-                return { status: 200, data: newReturn };
+                    const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id);
+                    const cityHall = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms) };
+                    response.classrooms = [...filteredClasses, cityHall];
+                    const newReturn = Object.assign(Object.assign({}, response), { classrooms: response.classrooms.map((classroom) => { return Object.assign(Object.assign({}, classroom), { studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => { return Object.assign(Object.assign({}, studentClassroom), { studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }); }) }); }) });
+                    return { status: 200, data: newReturn };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    getAllClassroomStudents(request) {
+    getStudents(request) {
         return __awaiter(this, void 0, void 0, function* () {
             const testId = parseInt(request === null || request === void 0 ? void 0 : request.params.id);
             const classroomId = parseInt(request === null || request === void 0 ? void 0 : request.params.classroom);
@@ -218,23 +224,6 @@ class TestController extends genericController_1.GenericController {
     }
     studentClassrooms(test, classroomId, yearName, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!CONN) {
-                return yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
-                    .createQueryBuilder("studentClassroom")
-                    .leftJoin("studentClassroom.year", "year")
-                    .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-                    .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-                    .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-                    .leftJoinAndSelect("studentClassroom.student", "student")
-                    .leftJoinAndSelect("student.person", "person")
-                    .where("studentClassroom.classroom = :classroomId", { classroomId })
-                    .andWhere(new typeorm_1.Brackets(qb => {
-                    qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-                    qb.orWhere("studentQuestions.id IS NOT NULL");
-                }))
-                    .andWhere("year.name = :yearName", { yearName })
-                    .getMany();
-            }
             return yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
                 .leftJoin("studentClassroom.year", "year")
@@ -254,16 +243,6 @@ class TestController extends genericController_1.GenericController {
     }
     getTestQuestionsGroups(testId, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!CONN) {
-                return yield data_source_1.AppDataSource.getRepository(QuestionGroup_1.QuestionGroup)
-                    .createQueryBuilder("questionGroup")
-                    .select(["questionGroup.id AS id", "questionGroup.name AS name"])
-                    .addSelect("COUNT(testQuestions.id)", "questionsCount")
-                    .leftJoin("questionGroup.testQuestions", "testQuestions")
-                    .where("testQuestions.test = :testId", { testId })
-                    .groupBy("questionGroup.id")
-                    .getRawMany();
-            }
             return yield CONN.getRepository(QuestionGroup_1.QuestionGroup)
                 .createQueryBuilder("questionGroup")
                 .select(["questionGroup.id AS id", "questionGroup.name AS name"])
@@ -280,11 +259,11 @@ class TestController extends genericController_1.GenericController {
             const classroomId = request === null || request === void 0 ? void 0 : request.params.classroom;
             const yearName = request.params.year;
             try {
-                return yield data_source_1.AppDataSource.transaction((conn) => __awaiter(this, void 0, void 0, function* () {
-                    const test = yield this.getTest(Number(testId), Number(yearName), conn);
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const test = yield this.getTest(Number(testId), Number(yearName), CONN);
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
-                    const response = yield this.notIncluded(test, Number(classroomId), Number(yearName), conn);
+                    const response = yield this.notIncluded(test, Number(classroomId), Number(yearName), CONN);
                     return { status: 200, data: response };
                 }));
             }
@@ -293,20 +272,20 @@ class TestController extends genericController_1.GenericController {
             }
         });
     }
-    createLink(studentClassrooms, test, testQuestions, userId, conn) {
+    createLink(studentClassrooms, test, testQuestions, userId, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             for (let studentClassroom of studentClassrooms) {
                 const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } };
-                const stStatus = yield conn.findOne(StudentTestStatus_1.StudentTestStatus, options);
+                const stStatus = yield CONN.findOne(StudentTestStatus_1.StudentTestStatus, options);
                 const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId };
                 if (!stStatus) {
-                    yield conn.save(StudentTestStatus_1.StudentTestStatus, el);
+                    yield CONN.save(StudentTestStatus_1.StudentTestStatus, el);
                 }
                 for (let testQuestion of testQuestions) {
                     const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } } };
-                    const sQuestion = yield conn.findOne(StudentQuestion_1.StudentQuestion, options);
+                    const sQuestion = yield CONN.findOne(StudentQuestion_1.StudentQuestion, options);
                     if (!sQuestion) {
-                        yield conn.save(StudentQuestion_1.StudentQuestion, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId });
+                        yield CONN.save(StudentQuestion_1.StudentQuestion, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId });
                     }
                 }
             }
@@ -316,17 +295,17 @@ class TestController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const body = req.body;
             try {
-                return yield data_source_1.AppDataSource.transaction((conn) => __awaiter(this, void 0, void 0, function* () {
-                    const uTeacher = yield this.teacherByUser(body.user.user, conn);
-                    const test = yield this.getTest(body.test.id, body.year, conn);
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
+                    const test = yield this.getTest(body.test.id, body.year, CONN);
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
-                    const stClassrooms = yield this.notIncluded(test, body.classroom.id, body.year, conn);
+                    const stClassrooms = yield this.notIncluded(test, body.classroom.id, body.year, CONN);
                     if (!stClassrooms || stClassrooms.length < 1)
                         return { status: 404, message: "Alunos não encontrados" };
-                    const testQuestions = yield this.getTestQuestions(test.id, conn);
+                    const testQuestions = yield this.getTestQuestions(test.id, CONN);
                     const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id));
-                    yield this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, conn);
+                    yield this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN);
                     return { status: 200, data: {} };
                 }));
             }
@@ -335,37 +314,11 @@ class TestController extends genericController_1.GenericController {
             }
         });
     }
-    notIncluded(test, classroomId, yearName, conn) {
+    notIncluded(test, classroomId, yearName, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            const arrOfFields = [
-                'studentClassroom.id AS id',
-                'studentClassroom.rosterNumber AS rosterNumber',
-                'studentClassroom.startedAt AS startedAt',
-                'studentClassroom.endedAt AS endedAt',
-                'person.name AS name',
-                'student.ra AS ra',
-                'student.dv AS dv',
-            ];
-            if (!conn) {
-                return yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
-                    .createQueryBuilder("studentClassroom")
-                    .select(arrOfFields)
-                    .leftJoin("studentClassroom.year", "year")
-                    .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-                    .leftJoin("studentClassroom.studentStatus", "studentStatus")
-                    .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-                    .leftJoin("studentClassroom.student", "student")
-                    .leftJoin("student.person", "person")
-                    .where("studentClassroom.classroom = :classroomId", { classroomId })
-                    .andWhere("studentClassroom.startedAt > :testCreatedAt", { testCreatedAt: test.createdAt })
-                    .andWhere("studentClassroom.endedAt IS NULL")
-                    .andWhere("year.name = :yearName", { yearName })
-                    .andWhere("studentQuestions.id IS NULL")
-                    .getRawMany();
-            }
-            return yield conn.getRepository(StudentClassroom_1.StudentClassroom)
+            return yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
-                .select(arrOfFields)
+                .select(['studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv'])
                 .leftJoin("studentClassroom.year", "year")
                 .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
                 .leftJoin("studentClassroom.studentStatus", "studentStatus")
@@ -380,95 +333,55 @@ class TestController extends genericController_1.GenericController {
                 .getRawMany();
         });
     }
-    findAllWhere(_, request) {
+    findAllByYear(request) {
         return __awaiter(this, void 0, void 0, function* () {
-            const yearName = request === null || request === void 0 ? void 0 : request.params.year;
-            const search = request === null || request === void 0 ? void 0 : request.query.search;
-            const userBody = request === null || request === void 0 ? void 0 : request.body.user;
+            const yearName = request.params.year;
+            const search = request.query.search;
+            const userBody = request.body.user;
             try {
-                const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                const testClasses = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
-                    .createQueryBuilder("test")
-                    .leftJoinAndSelect("test.person", "person")
-                    .leftJoinAndSelect("test.period", "period")
-                    .leftJoinAndSelect("test.category", "category")
-                    .leftJoinAndSelect("period.year", "year")
-                    .leftJoinAndSelect("period.bimester", "bimester")
-                    .leftJoinAndSelect("test.discipline", "discipline")
-                    .leftJoinAndSelect("test.classrooms", "classroom")
-                    .leftJoinAndSelect("classroom.school", "school")
-                    .where(new typeorm_1.Brackets(qb => {
-                    if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE) {
-                        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
-                    }
-                }))
-                    .andWhere("year.name = :yearName", { yearName })
-                    .andWhere("test.name LIKE :search", { search: `%${search}%` })
-                    .getMany();
-                return { status: 200, data: testClasses };
+                return data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const { classrooms } = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
+                    const testClasses = yield CONN.getRepository(Test_1.Test)
+                        .createQueryBuilder("test")
+                        .leftJoinAndSelect("test.person", "person")
+                        .leftJoinAndSelect("test.period", "period")
+                        .leftJoinAndSelect("test.category", "category")
+                        .leftJoinAndSelect("period.year", "year")
+                        .leftJoinAndSelect("period.bimester", "bimester")
+                        .leftJoinAndSelect("test.discipline", "discipline")
+                        .leftJoinAndSelect("test.classrooms", "classroom")
+                        .leftJoinAndSelect("classroom.school", "school")
+                        .where(new typeorm_1.Brackets(qb => { if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE) {
+                        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
+                    } }))
+                        .andWhere("year.name = :yearName", { yearName })
+                        .andWhere("test.name LIKE :search", { search: `%${search}%` })
+                        .getMany();
+                    return { status: 200, data: testClasses };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    findOneById(testId, req, CONN) {
+    getById(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const selectFields = [
-                "testQuestion.id",
-                "testQuestion.order",
-                "testQuestion.answer",
-                "testQuestion.active",
-                "question.id",
-                "question.title",
-                "person.id",
-                "question.person",
-                "descriptor.id",
-                "descriptor.code",
-                "descriptor.name",
-                "topic.id",
-                "topic.name",
-                "topic.description",
-                "classroomCategory.id",
-                "classroomCategory.name",
-                "questionGroup.id",
-                "questionGroup.name",
-            ];
+            const { id } = req.params;
             try {
-                if (!CONN) {
-                    const teacher = yield this.teacherByUser(req.body.user.user);
-                    const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
-                    const test = yield data_source_1.AppDataSource.getRepository(Test_1.Test).findOne({ relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } });
-                    if (teacher.person.id !== (test === null || test === void 0 ? void 0 : test.person.id) && !isAdminSupervisor)
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(req.body.user.user, CONN);
+                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
+                    const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } };
+                    const test = yield CONN.findOne(Test_1.Test, Object.assign({}, op));
+                    if (teacher.person.id !== (test === null || test === void 0 ? void 0 : test.person.id) && !masterUser)
                         return { status: 403, message: "Você não tem permissão para editar esse teste." };
                     if (!test) {
                         return { status: 404, message: 'Data not found' };
                     }
-                    const testQuestions = yield data_source_1.AppDataSource.getRepository(TestQuestion_1.TestQuestion)
-                        .createQueryBuilder("testQuestion")
-                        .select(selectFields)
-                        .leftJoin("testQuestion.question", "question")
-                        .leftJoin("question.person", "person")
-                        .leftJoin("question.descriptor", "descriptor")
-                        .leftJoin("descriptor.topic", "topic")
-                        .leftJoin("topic.classroomCategory", "classroomCategory")
-                        .leftJoin("testQuestion.questionGroup", "questionGroup")
-                        .where("testQuestion.test = :testId", { testId: test.id })
-                        .orderBy("questionGroup.id", "ASC")
-                        .addOrderBy("testQuestion.order", "ASC")
-                        .getMany();
+                    const testQuestions = yield this.getTestQuestions(test.id, CONN);
                     return { status: 200, data: Object.assign(Object.assign({}, test), { testQuestions }) };
-                }
-                const teacher = yield this.teacherByUser(req.body.user.user, CONN);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
-                const test = yield CONN.findOne(Test_1.Test, { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: Number(testId) } });
-                if (teacher.person.id !== (test === null || test === void 0 ? void 0 : test.person.id) && !isAdminSupervisor)
-                    return { status: 403, message: "Você não tem permissão para editar esse teste." };
-                if (!test) {
-                    return { status: 404, message: 'Data not found' };
-                }
-                const testQuestions = yield this.getTestQuestions(test.id, CONN);
-                return { status: 200, data: Object.assign(Object.assign({}, test), { testQuestions }) };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -529,7 +442,7 @@ class TestController extends genericController_1.GenericController {
             }
         });
     }
-    updateTestById(id, req) {
+    updateTest(id, req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
@@ -547,50 +460,29 @@ class TestController extends genericController_1.GenericController {
                     yield CONN.save(Test_1.Test, test);
                     const bodyTq = req.body.testQuestions;
                     const dataTq = yield this.getTestQuestions(test.id, CONN);
-                    const hasDifferences = (original, current) => {
-                        if (original === current)
-                            return false;
-                        if (typeof original !== 'object' || original === null || current === null)
-                            return original !== current;
-                        const originalKeys = Object.keys(original);
-                        const currentKeys = Object.keys(current);
-                        if (originalKeys.length !== currentKeys.length)
-                            return true;
-                        for (let key of originalKeys) {
-                            if (!currentKeys.includes(key))
-                                return true;
-                            if (hasDifferences(original[key], current[key])) {
-                                // console.log(`Difference found in key: ${key}`);
-                                // console.log(`------> Original: ${JSON.stringify(original[key])}`);
-                                // console.log(`------> Current: ${JSON.stringify(current[key])}`);
-                                return true;
-                            }
-                        }
-                        return false;
-                    };
                     for (let next of bodyTq) {
                         const curr = dataTq.find(el => el.id === next.id);
                         if (!curr) {
                             yield CONN.save(TestQuestion_1.TestQuestion, Object.assign(Object.assign({}, next), { createdAt: new Date(), createdByUser: userId, question: Object.assign(Object.assign({}, next.question), { person: next.question.person || uTeacher.person, createdAt: new Date(), createdByUser: userId }), test }));
                         }
                         else {
-                            const testQuestionCondition = hasDifferences(curr, next);
+                            const testQuestionCondition = this.diffs(curr, next);
                             if (testQuestionCondition) {
                                 yield CONN.save(TestQuestion_1.TestQuestion, Object.assign(Object.assign({}, next), { createdAt: curr.createdAt, createdByUser: curr.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
-                            if (hasDifferences(curr.question, next.question)) {
+                            if (this.diffs(curr.question, next.question)) {
                                 yield CONN.save(Question_1.Question, Object.assign(Object.assign({}, next.question), { createdAt: curr.question.createdAt, createdByUser: curr.question.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
-                            if (hasDifferences(curr.question.descriptor, next.question.descriptor)) {
+                            if (this.diffs(curr.question.descriptor, next.question.descriptor)) {
                                 yield CONN.save(Descriptor_1.Descriptor, Object.assign(Object.assign({}, next.question.descriptor), { createdAt: curr.question.descriptor.createdAt, createdByUser: curr.question.descriptor.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
-                            if (hasDifferences(curr.question.descriptor.topic, next.question.descriptor.topic)) {
+                            if (this.diffs(curr.question.descriptor.topic, next.question.descriptor.topic)) {
                                 yield CONN.save(Topic_1.Topic, Object.assign(Object.assign({}, next.question.descriptor.topic), { createdAt: curr.question.descriptor.topic.createdAt, createdByUser: curr.question.descriptor.topic.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
-                            if (hasDifferences(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
+                            if (this.diffs(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) {
                                 yield CONN.save(ClassroomCategory_1.ClassroomCategory, Object.assign(Object.assign({}, next.question.descriptor.topic.classroomCategory), { createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
-                            if (hasDifferences(curr.questionGroup, next.questionGroup)) {
+                            if (this.diffs(curr.questionGroup, next.questionGroup)) {
                                 yield CONN.save(QuestionGroup_1.QuestionGroup, Object.assign(Object.assign({}, next.questionGroup), { createdAt: curr.questionGroup.createdAt, createdByUser: curr.questionGroup.createdByUser, updatedAt: new Date(), updatedByUser: userId }));
                             }
                         }
@@ -602,6 +494,38 @@ class TestController extends genericController_1.GenericController {
             catch (error) {
                 return { status: 500, message: error.message };
             }
+        });
+    }
+    getTest(testId, yearName, CONN) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return CONN.getRepository(Test_1.Test)
+                .createQueryBuilder("test")
+                .leftJoinAndSelect("test.person", "person")
+                .leftJoinAndSelect("test.period", "period")
+                .leftJoinAndSelect("period.bimester", "bimester")
+                .leftJoinAndSelect("period.year", "year")
+                .leftJoinAndSelect("test.discipline", "discipline")
+                .leftJoinAndSelect("test.category", "category")
+                .where("test.id = :testId", { testId })
+                .andWhere("year.name = :yearName", { yearName })
+                .getOne();
+        });
+    }
+    getTestQuestions(testId, CONN) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield CONN.getRepository(TestQuestion_1.TestQuestion)
+                .createQueryBuilder("testQuestion")
+                .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
+                .leftJoin("testQuestion.question", "question")
+                .leftJoin("question.person", "person")
+                .leftJoin("question.descriptor", "descriptor")
+                .leftJoin("descriptor.topic", "topic")
+                .leftJoin("topic.classroomCategory", "classroomCategory")
+                .leftJoin("testQuestion.questionGroup", "questionGroup")
+                .where("testQuestion.test = :testId", { testId })
+                .orderBy("questionGroup.id", "ASC")
+                .addOrderBy("testQuestion.order", "ASC")
+                .getMany();
         });
     }
     deleteId(request) {
@@ -638,66 +562,6 @@ class TestController extends genericController_1.GenericController {
             catch (error) {
                 return { status: 500, message: error.message };
             }
-        });
-    }
-    getTest(testId, yearName, conn) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!conn) {
-                return yield data_source_1.AppDataSource.getRepository(Test_1.Test)
-                    .createQueryBuilder("test")
-                    .leftJoinAndSelect("test.person", "person")
-                    .leftJoinAndSelect("test.period", "period")
-                    .leftJoinAndSelect("period.bimester", "bimester")
-                    .leftJoinAndSelect("period.year", "year")
-                    .leftJoinAndSelect("test.discipline", "discipline")
-                    .leftJoinAndSelect("test.category", "category")
-                    .where("test.id = :testId", { testId })
-                    .andWhere("year.name = :yearName", { yearName })
-                    .getOne();
-            }
-            return conn.getRepository(Test_1.Test)
-                .createQueryBuilder("test")
-                .leftJoinAndSelect("test.person", "person")
-                .leftJoinAndSelect("test.period", "period")
-                .leftJoinAndSelect("period.bimester", "bimester")
-                .leftJoinAndSelect("period.year", "year")
-                .leftJoinAndSelect("test.discipline", "discipline")
-                .leftJoinAndSelect("test.category", "category")
-                .where("test.id = :testId", { testId })
-                .andWhere("year.name = :yearName", { yearName })
-                .getOne();
-        });
-    }
-    getTestQuestions(testId, CONN) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!CONN) {
-                return yield data_source_1.AppDataSource.getRepository(TestQuestion_1.TestQuestion)
-                    .createQueryBuilder("testQuestion")
-                    .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
-                    .leftJoin("testQuestion.question", "question")
-                    .leftJoin("question.person", "person")
-                    .leftJoin("question.descriptor", "descriptor")
-                    .leftJoin("descriptor.topic", "topic")
-                    .leftJoin("topic.classroomCategory", "classroomCategory")
-                    .leftJoin("testQuestion.questionGroup", "questionGroup")
-                    .where("testQuestion.test = :testId", { testId })
-                    .orderBy("questionGroup.id", "ASC")
-                    .addOrderBy("testQuestion.order", "ASC")
-                    .getMany();
-            }
-            return yield CONN.getRepository(TestQuestion_1.TestQuestion)
-                .createQueryBuilder("testQuestion")
-                .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
-                .leftJoin("testQuestion.question", "question")
-                .leftJoin("question.person", "person")
-                .leftJoin("question.descriptor", "descriptor")
-                .leftJoin("descriptor.topic", "topic")
-                .leftJoin("topic.classroomCategory", "classroomCategory")
-                .leftJoin("testQuestion.questionGroup", "questionGroup")
-                .where("testQuestion.test = :testId", { testId })
-                .orderBy("questionGroup.id", "ASC")
-                .addOrderBy("testQuestion.order", "ASC")
-                .getMany();
         });
     }
 }

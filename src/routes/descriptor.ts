@@ -3,37 +3,10 @@ import { descriptorController } from "../controller/descriptor";
 
 export const DescriptorRouter = Router();
 
-DescriptorRouter.get('/', (req, res) => {
+DescriptorRouter.get('/', async(req, res) => { const response = await descriptorController.findAllWhere({}, req); return res.status(response.status).json(response)})
 
-  descriptorController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+DescriptorRouter.get('/:id', async(req, res) => { const response = await descriptorController.findOneById(req.params.id, req); return res.status(response.status).json(response)})
 
-DescriptorRouter.get('/:id', (req, res) => {
+DescriptorRouter.post('/', async(req, res) => { const response = await descriptorController.save(req.body, {}); return res.status(response.status).json(response)})
 
-  descriptorController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-DescriptorRouter.post('/', (req, res) => {
-
-  descriptorController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-DescriptorRouter.put('/:id', (req, res) => {
-
-  descriptorController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-DescriptorRouter.delete('/:id', (req, res) => {
-
-  descriptorController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+DescriptorRouter.put('/:id', async(req, res) => { const response = await descriptorController.updateId(req.params.id, req.body); return res.status(response.status).json(response)})

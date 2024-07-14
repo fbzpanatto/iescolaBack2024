@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { Brackets, EntityTarget } from "typeorm";
+import {Brackets, EntityManager, EntityTarget} from "typeorm";
 import { Literacy } from "../model/Literacy";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
@@ -13,178 +13,105 @@ import { Year } from "../model/Year";
 import { UserInterface } from "../interfaces/interfaces";
 import { LiteracyFirst } from "../model/LiteracyFirst";
 
+interface iLocalTier { id: number; name: string; total: number; levels: { id: number; name: string; total: number; rate: number }[] }
 interface UpdateLiteracy { studentClassroom: StudentClassroom, literacyTier: { id: number }, literacyLevel: { id: number } | null, toRate: boolean, user: UserInterface }
+interface iLocalClassroom { id: number | string; name: string; tiers: { id: number; name: string; total: number; levels: { id: number; name: string; total: number; rate: number }[] }[] }
 
 class LiteracyController extends GenericController<EntityTarget<Literacy>> {
-  constructor() {
-    super(Literacy);
-  }
+  constructor() { super(Literacy) }
 
   async getClassrooms(req: Request) {
+
     const search = req.query.search as string;
     const yearName = req.params.year as string;
     const userBody = req.body.user;
 
     try {
-      const teacherClasses = await this.teacherClassrooms(req.body.user);
+      return await AppDataSource.transaction(async(CONN) => {
 
-      const preResult = await AppDataSource.getRepository(Classroom)
-        .createQueryBuilder("classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .leftJoinAndSelect("classroom.category", "category")
-        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-        .leftJoinAndSelect("studentClassroom.year", "year")
-        .leftJoin("studentClassroom.literacies", "literacies")
-        .where(
-          new Brackets((qb) => {
-            if (
-              userBody.category != pc.ADMN &&
-              userBody.category != pc.SUPE
-            ) {
-              qb.where("classroom.id IN (:...teacherClasses)", {
-                teacherClasses: teacherClasses.classrooms,
-              });
-            }
-          }),
-        )
-        .andWhere("category.id = :categoryId", {
-          categoryId: classroomCategory.PEB_I,
-        })
-        .andWhere("literacies.id IS NOT NULL")
-        .andWhere("classroom.active = :active", { active: true })
-        .andWhere("year.name = :yearName", { yearName })
-        .andWhere(
-          new Brackets((qb) => {
-            if (search) {
-              qb.where("school.name LIKE :search", {
-                search: `%${search}%`,
-              }).orWhere("school.shortName LIKE :search", {
-                search: `%${search}%`,
-              });
-            }
-          }),
-        )
-        .orderBy("school.name", "ASC")
-        .getMany();
+        const teacherClasses = await this.teacherClassrooms(req.body.user, CONN);
 
-      return { status: 200, data: preResult };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+        const data = await CONN.getRepository(Classroom)
+          .createQueryBuilder("classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .leftJoinAndSelect("classroom.category", "category")
+          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.year", "year")
+          .leftJoin("studentClassroom.literacies", "literacies")
+          .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE ) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
+          .andWhere("category.id = :categoryId", { categoryId: classroomCategory.PEB_I })
+          .andWhere("literacies.id IS NOT NULL")
+          .andWhere("classroom.active = :active", { active: true })
+          .andWhere("year.name = :yearName", { yearName })
+          .andWhere( new Brackets((qb) => { if (search) { qb.where("school.name LIKE :search", { search: `%${search}%` }).orWhere("school.shortName LIKE :search", { search: `%${search}%` })}}))
+          .orderBy("school.name", "ASC")
+          .getMany();
+
+        return { status: 200, data };
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getStudentClassrooms(request: Request) {
+
     const yearName = request?.params.year as string;
     const userBody = request?.body.user;
     const classroomId = request?.params.id as string;
 
     try {
-      const teacherClasses = await this.teacherClassrooms(request?.body.user);
-      const literacyLevels =
-        await AppDataSource.getRepository(LiteracyLevel).find();
-      const literacyTiers =
-        await AppDataSource.getRepository(LiteracyTier).find();
-      const classroom = (await AppDataSource.getRepository(Classroom).findOne({
-        where: { id: Number(classroomId) },
-      })) as Classroom;
+      return AppDataSource.transaction(async (CONN) => {
 
-      const studentClassrooms = await this.getStudentClassroomsWithLiteracy(
-        classroom,
-        userBody,
-        teacherClasses,
-        yearName,
-      );
+        const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN)
+        const literacyLevels = await CONN.find(LiteracyLevel)
+        const literacyTiers = await CONN.find(LiteracyTier)
+        const classroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) } })
 
-      interface iLocalTier {
-        id: number;
-        name: string;
-        total: number;
-        levels: {
-          id: number;
-          name: string;
-          total: number;
-          rate: number;
-        }[];
-      }
+        const studentClassrooms = await this.studentClassesLiteracy(classroom as Classroom, userBody, teacherClasses, yearName, CONN);
 
-      const resultArray: iLocalTier[] = [];
+        const resultArray: iLocalTier[] = [];
 
-      for (let tier of literacyTiers) {
-        let totalPerTier = 0;
+        for (let tier of literacyTiers) {
+          let totalPerTier = 0;
 
-        let localTier: iLocalTier = {
-          id: tier.id,
-          name: tier.name,
-          total: totalPerTier,
-          levels: [],
-        };
+          let localTier: iLocalTier = { id: tier.id, name: tier.name, total: totalPerTier, levels: [] };
 
-        resultArray.push(localTier);
+          resultArray.push(localTier);
 
-        for (let level of literacyLevels) {
-          let totalPerLevel = 0;
-          const auxLocalTier = resultArray.find((el) => el.id === tier.id);
-          auxLocalTier?.levels.push({
-            id: level.id,
-            name: level.name,
-            total: totalPerLevel,
-            rate: 0,
-          });
+          for (let level of literacyLevels) {
+            let totalPerLevel = 0;
+            const auxLocalTier = resultArray.find((el) => el.id === tier.id);
+            auxLocalTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 });
 
-          const auxLocalLevel = auxLocalTier?.levels.find(
-            (el) => el.id === level.id,
-          );
+            const auxLocalLevel = auxLocalTier?.levels.find((el) => el.id === level.id );
 
-          for (let st of studentClassrooms) {
-            for (let el of st.literacies) {
-              if (
-                el.literacyLevel?.id &&
-                tier.id === el.literacyTier.id &&
-                level.id === el.literacyLevel.id &&
-                el.toRate
-              ) {
-                totalPerLevel += 1;
-                totalPerTier += 1;
+            for (let st of studentClassrooms) {
+              for (let el of st.literacies) {
+                if (el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id && el.toRate) {
+                  totalPerLevel += 1;
+                  totalPerTier += 1;
 
-                auxLocalLevel!.total = totalPerLevel;
-                auxLocalTier!.total = totalPerTier;
+                  auxLocalLevel!.total = totalPerLevel;
+                  auxLocalTier!.total = totalPerTier;
+                }
               }
             }
           }
         }
-      }
 
-      for (let tier of resultArray) {
-        for (let level of tier.levels) {
-          level.rate = Math.round((level.total / tier.total) * 100);
-        }
-      }
+        for (let tier of resultArray) { for (let level of tier.levels) { level.rate = Math.round((level.total / tier.total) * 100) } }
 
-      return {
-        status: 200,
-        data: { literacyTiers, literacyLevels, studentClassrooms, resultArray },
-      };
-    } catch (error: any) {
-      return { status: 500, message: error.message };
-    }
+        return { status: 200, data: { literacyTiers, literacyLevels, studentClassrooms, resultArray } };
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getStudentClassroomsWithLiteracy(
-    classroom: Classroom,
-    userBody: UserInterface,
-    teacherClasses: {
-      id: number;
-      classrooms: number[];
-    },
-    yearName: string,
-  ) {
-    const classroomNumber = classroom.shortName.replace(/\D/g, "");
-    const lastYear = await AppDataSource.getRepository(Year).findOne({
-      where: { name: String(Number(yearName) - 1) },
-    });
-    let studentClassrooms: StudentClassroom[] = [];
+  async studentClassesLiteracy(classroom: Classroom, userBody: UserInterface, teacherClasses: { id: number; classrooms: number[] }, yearName: string, CONN: EntityManager) {
 
-    studentClassrooms = await AppDataSource.getRepository(StudentClassroom)
+    const classroomNumber = classroom.shortName.replace(/\D/g, "");
+    const lastYear = await CONN.findOne(Year, { where: { name: String(Number(yearName) - 1) } });
+    let studentClassrooms: StudentClassroom[]
+
+    studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.year", "year")
       .leftJoinAndSelect("studentClassroom.student", "student")
@@ -194,18 +121,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .leftJoinAndSelect("literacies.literacyTier", "literacyTier")
       .leftJoinAndSelect("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
-      .where(
-        new Brackets((qb) => {
-          if (
-            userBody.category != pc.ADMN &&
-            userBody.category != pc.SUPE
-          ) {
-            qb.where("classroom.id IN (:...teacherClasses)", {
-              teacherClasses: teacherClasses.classrooms,
-            });
-          }
-        }),
-      )
+      .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE ) {
+        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
+      }}))
       .andWhere("classroom.id = :classroomId", { classroomId: classroom.id })
       .andWhere("literacies.id IS NOT NULL")
       .andWhere("year.name = :yearName", { yearName })
@@ -214,32 +132,16 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
     if (!lastYear || Number(classroomNumber) === 1) {
       const result = studentClassrooms.map(async (studentClassroom) => {
-        const literacyFirsts = (await AppDataSource.getRepository(
-          LiteracyFirst,
-        ).findOne({
-          where: { student: { id: studentClassroom.student.id } },
-          relations: ["literacyLevel"],
-        })) as LiteracyFirst;
-
-        return {
-          ...studentClassroom,
-          literacyFirsts: {
-            id: literacyFirsts?.id,
-            literacyLevel: literacyFirsts?.literacyLevel ?? {
-              id: "NA",
-              name: "NA",
-              shortName: "NA",
-            },
-          },
-        };
-      });
+        const literacyFirsts = await CONN.findOne(LiteracyFirst, { where: { student: { id: studentClassroom.student.id } }, relations: ["literacyLevel"] })
+        return { ...studentClassroom, literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: "NA", name: "NA", shortName: "NA" } } }
+      })
       return await Promise.all(result);
     }
 
     const result = studentClassrooms.map(async (studentClassroom) => {
       const studentId = studentClassroom.student.id;
 
-      const lastLiteracy = await AppDataSource.getRepository(Literacy)
+      const lastLiteracy = await CONN.getRepository(Literacy)
         .createQueryBuilder("literacy")
         .innerJoin("literacy.studentClassroom", "studentClassroom")
         .innerJoin("studentClassroom.year", "year")
@@ -254,206 +156,106 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         .getOne();
 
       if (!lastLiteracy?.literacyLevel) {
-        const literacyFirsts = (await AppDataSource.getRepository(
-          LiteracyFirst,
-        ).findOne({
-          where: { student: { id: studentClassroom.student.id } },
-          relations: ["literacyLevel"],
-        })) as LiteracyFirst;
-
-        return {
-          ...studentClassroom,
-          literacyFirsts: {
-            id: literacyFirsts?.id,
-            literacyLevel: literacyFirsts?.literacyLevel ?? {
-              id: "NA",
-              name: "NA",
-              shortName: "NA",
-            },
-          },
-        };
+        const literacyFirsts = await CONN.findOne(LiteracyFirst,{ where: { student: { id: studentClassroom.student.id } }, relations: ["literacyLevel"] })
+        return { ...studentClassroom, literacyFirsts: { id: literacyFirsts?.id, literacyLevel: literacyFirsts?.literacyLevel ?? { id: "NA", name: "NA", shortName: "NA" } } }
       }
-
-      return {
-        ...studentClassroom,
-        literacyFirsts: {
-          id: lastLiteracy?.id,
-          literacyLevel: lastLiteracy?.literacyLevel ?? {
-            id: "NA",
-            name: "NA",
-            shortName: "NA",
-          },
-        },
-      };
-    });
-
+      return { ...studentClassroom, literacyFirsts: { id: lastLiteracy?.id, literacyLevel: lastLiteracy?.literacyLevel ?? { id: "NA", name: "NA", shortName: "NA" } } }
+    })
     return await Promise.all(result);
   }
 
   async getTotals(request: Request) {
-    const yearName = request?.params.year as string;
-    const userBody = request?.body.user;
-    const classroomId = request?.params.id as string;
-
     try {
-      const teacher = await this.teacherByUser(userBody.user);
-      
-      const isAdminSupervisor = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
+      return await AppDataSource.transaction(async(CONN) => {
+        const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
 
-      const year = await AppDataSource.getRepository(Year).findOne({
-        where: { name: yearName },
-      });
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
 
-      if (!year) return { status: 404, message: "Ano não encontrado" };
+        const year = await CONN.findOne(Year,{ where: { name: request?.params.year } })
 
-      const { classrooms } = await this.teacherClassrooms(request?.body.user);
-      if (!classrooms.includes(Number(classroomId)) && !isAdminSupervisor)
-        return {
-          status: 403,
-          message: "Você não tem permissão para acessar essa sala.",
-        };
+        if (!year) return { status: 404, message: "Ano não encontrado" }
 
-      const classroom = await AppDataSource.getRepository(Classroom).findOne({
-        where: { id: Number(classroomId) },
-        relations: ["school"],
-      });
-      if (!classroom) return { status: 404, message: "Sala não encontrada" };
+        const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN);
+        if (!classrooms.includes(Number(request?.params.id)) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
-      const literacyLevels =
-        await AppDataSource.getRepository(LiteracyLevel).find();
-      const literacyTiers =
-        await AppDataSource.getRepository(LiteracyTier).find();
+        const classroom = await CONN.findOne(Classroom, { where: { id: Number(request?.params.id) }, relations: ["school"] })
+        if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
-      const classroomNumber = classroom.shortName.replace(/\D/g, "");
+        const literacyLevels = await CONN.find(LiteracyLevel)
+        const literacyTiers = await CONN.find(LiteracyTier)
 
-      const allClassrooms = await AppDataSource.getRepository(Classroom)
-        .createQueryBuilder("classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-        .leftJoinAndSelect("studentClassroom.literacies", "literacies")
-        .leftJoinAndSelect("literacies.literacyLevel", "literacyLevel")
-        .leftJoinAndSelect("literacies.literacyTier", "literacyTier")
-        .leftJoinAndSelect("studentClassroom.year", "year")
-        .where("classroom.shortName LIKE :shortName", {
-          shortName: `%${classroomNumber}%`,
-        })
-        .andWhere("year.id = :yearId", { yearId: year.id })
-        .having("COUNT(studentClassroom.id) > 0")
-        .groupBy(
-          "classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id",
-        )
-        .getMany();
+        const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-      const schoolClassrooms = allClassrooms.filter(
-        (cl) => cl.school.id === classroom.school.id,
-      );
+        const allClassrooms = await CONN.getRepository(Classroom)
+            .createQueryBuilder("classroom")
+            .leftJoinAndSelect("classroom.school", "school")
+            .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+            .leftJoinAndSelect("studentClassroom.literacies", "literacies")
+            .leftJoinAndSelect("literacies.literacyLevel", "literacyLevel")
+            .leftJoinAndSelect("literacies.literacyTier", "literacyTier")
+            .leftJoinAndSelect("studentClassroom.year", "year")
+            .where("classroom.shortName LIKE :shortName", { shortName: `%${classroomNumber}%` })
+            .andWhere("year.id = :yearId", { yearId: year.id })
+            .having("COUNT(studentClassroom.id) > 0")
+            .groupBy("classroom.id, school.id, year.id, studentClassroom.id, literacies.id, literacyLevel.id, literacyTier.id" )
+            .getMany();
 
-      const cityHall = {
-        id: "ITA",
-        name: "PREFEITURA DO MUNICIPIO DE ITATIBA",
-        shortName: "ITA",
-        school: {
-          id: 99,
+        const schoolClassrooms = allClassrooms.filter((cl) => cl.school.id === classroom.school.id );
+
+        const cityHall = {
+          id: "ITA",
           name: "PREFEITURA DO MUNICIPIO DE ITATIBA",
-          shortName: "ITATIBA",
-          inep: null,
-          active: true,
-        },
-        studentClassrooms: allClassrooms.flatMap((cl) => cl.studentClassrooms),
-      } as unknown as Classroom;
+          shortName: "ITA",
+          school: { id: 99, name: "PREFEITURA DO MUNICIPIO DE ITATIBA", shortName: "ITATIBA", inep: null, active: true },
+          studentClassrooms: allClassrooms.flatMap((cl) => cl.studentClassrooms),
+        } as unknown as Classroom;
 
-      const header = {
-        city: "PREFEITURA DO MUNICIPIO DE ITATIBA",
-        literacy: "Avaliação Diagnóstica",
-        year: year.name,
-        school: classroom.school.name,
-        classroomNumber,
-      };
+        const header = { city: "PREFEITURA DO MUNICIPIO DE ITATIBA", literacy: "Avaliação Diagnóstica", year: year.name, school: classroom.school.name, classroomNumber };
 
-      let result = { header, literacyLevels, literacyTiers };
+        let result = { header, literacyLevels, literacyTiers };
 
-      interface iLocalClassroom {
-        id: number | string;
-        name: string;
-        tiers: {
-          id: number;
-          name: string;
-          total: number;
-          levels: {
-            id: number;
-            name: string;
-            total: number;
-            rate: number;
-          }[];
-        }[];
-      }
+        const arrayOfClassrooms = [...schoolClassrooms, cityHall];
+        const resultArray = [];
 
-      const arrayOfClassrooms = [...schoolClassrooms, cityHall];
-      const resultArray = [];
+        for (let classroom of arrayOfClassrooms) {
+          let localClassroom: iLocalClassroom = { id: classroom.id, name: classroom.name, tiers: [] };
 
-      for (let classroom of arrayOfClassrooms) {
-        let localClassroom: iLocalClassroom = {
-          id: classroom.id,
-          name: classroom.name,
-          tiers: [],
-        };
+          for (let tier of literacyTiers) {
+            let totalPerTier = 0;
+            localClassroom.tiers.push({ id: tier.id, name: tier.name, total: totalPerTier, levels: [] });
 
-        for (let tier of literacyTiers) {
-          let totalPerTier = 0;
-          localClassroom.tiers.push({
-            id: tier.id,
-            name: tier.name,
-            total: totalPerTier,
-            levels: [],
-          });
+            for (let level of literacyLevels) {
+              let totalPerLevel = 0;
 
-          for (let level of literacyLevels) {
-            let totalPerLevel = 0;
+              const localTier = localClassroom.tiers.find((tr) => tr.id === tier.id );
+              localTier?.levels.push({ id: level.id, name: level.name, total: totalPerLevel, rate: 0 });
 
-            const localTier = localClassroom.tiers.find(
-              (tr) => tr.id === tier.id,
-            );
-            localTier?.levels.push({
-              id: level.id,
-              name: level.name,
-              total: totalPerLevel,
-              rate: 0,
-            });
+              const localLevel = localTier?.levels.find((lv) => lv.id === level.id );
 
-            const localLevel = localTier?.levels.find(
-              (lv) => lv.id === level.id,
-            );
-
-            for (let st of classroom.studentClassrooms) {
-              for (let el of st.literacies) {
-                if (
-                  el.literacyLevel?.id &&
-                  tier.id === el.literacyTier.id &&
-                  level.id === el.literacyLevel.id &&
-                  el.toRate
-                ) {
-                  totalPerLevel += 1;
-                  totalPerTier += 1;
-
-                  localLevel!.total = totalPerLevel;
-                  localTier!.total = totalPerTier;
+              for (let st of classroom.studentClassrooms) {
+                for (let el of st.literacies) {
+                  if ( el.literacyLevel?.id && tier.id === el.literacyTier.id && level.id === el.literacyLevel.id && el.toRate ) {
+                    totalPerLevel += 1;
+                    totalPerTier += 1;
+                    localLevel!.total = totalPerLevel;
+                    localTier!.total = totalPerTier;
+                  }
                 }
               }
             }
           }
+          resultArray.push(localClassroom);
         }
-        resultArray.push(localClassroom);
-      }
 
-      for (let result of resultArray) {
-        for (let tier of result.tiers) {
-          for (let level of tier.levels) {
-            level.rate = Math.round((level.total / tier.total) * 100);
+        for (let result of resultArray) {
+          for (let tier of result.tiers) {
+            for (let level of tier.levels) {
+              level.rate = Math.round((level.total / tier.total) * 100);
+            }
           }
         }
-      }
-
-      return { status: 200, data: { ...result, resultArray } };
+        return { status: 200, data: { ...result, resultArray } };
+      })
     } catch (error: any) {
       return { status: 500, message: error.message };
     }

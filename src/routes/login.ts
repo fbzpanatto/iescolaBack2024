@@ -1,11 +1,6 @@
-import { Router } from "express";
-import { loginController } from "../controller/login";
+import { Router, Request, Response } from "express";
+import { loginCtrl } from "../controller/login";
 
 export const LoginRouter = Router();
 
-LoginRouter.post('/', (req, res) => {
-
-  loginController.login(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+LoginRouter.post('/', async (req: Request, res: Response) => { const response = await loginCtrl.login(req); return res.status(response.status as number).json(response)})

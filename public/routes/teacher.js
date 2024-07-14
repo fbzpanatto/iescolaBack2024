@@ -18,7 +18,7 @@ const teacher_1 = require("../controller/teacher");
 const validators_1 = require("../middleware/validators");
 const havePermission_1 = __importDefault(require("../middleware/havePermission"));
 const CREATE_VALIDATORS = [validators_1.VALIDATE_TEACHER, validators_1.BODY_VALIDATION_TEACHER];
-const UPDATE_VALIDATORS = [validators_1.VALIDATE_ID, validators_1.VALIDATE_TEACHER, validators_1.BODY_VALIDATION_TEACHER];
+const UPDATE_VALIDATORS = [validators_1.PARAM_ID, validators_1.VALIDATE_TEACHER, validators_1.BODY_VALIDATION_TEACHER];
 exports.TeacherRouter = (0, express_1.Router)();
 exports.TeacherRouter.get('/pending-transfer', havePermission_1.default, (req, res) => {
     teacher_1.teacherController.getRequestedStudentTransfers(req)
@@ -35,7 +35,7 @@ exports.TeacherRouter.get('/', havePermission_1.default, (req, res) => {
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));
 });
-exports.TeacherRouter.get('/:id', validators_1.VALIDATE_ID, havePermission_1.default, (req, res) => {
+exports.TeacherRouter.get('/:id', validators_1.PARAM_ID, havePermission_1.default, (req, res) => {
     teacher_1.teacherController.findOneById(req.params.id, req)
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));
@@ -49,7 +49,7 @@ exports.TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission_1.default
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));
 });
-exports.TeacherRouter.delete('/:id', validators_1.VALIDATE_ID, havePermission_1.default, (req, res) => {
+exports.TeacherRouter.delete('/:id', validators_1.PARAM_ID, havePermission_1.default, (req, res) => {
     teacher_1.teacherController.deleteId(req.params.id)
         .then(r => res.status(r.status).json(r))
         .catch(e => res.status(e.status).json(e));

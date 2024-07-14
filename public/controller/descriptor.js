@@ -14,17 +14,15 @@ const genericController_1 = require("./genericController");
 const Descriptor_1 = require("../model/Descriptor");
 const data_source_1 = require("../data-source");
 class DescriptorController extends genericController_1.GenericController {
-    constructor() {
-        super(Descriptor_1.Descriptor);
-    }
+    constructor() { super(Descriptor_1.Descriptor); }
     findAllWhere(options, request) {
         return __awaiter(this, void 0, void 0, function* () {
-            const topic = request === null || request === void 0 ? void 0 : request.query.topic;
             try {
-                const result = yield data_source_1.AppDataSource.getRepository(Descriptor_1.Descriptor).find({
-                    where: { topic: { id: Number(topic) } },
-                });
-                return { status: 200, data: result };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const options = { where: { topic: { id: Number(request === null || request === void 0 ? void 0 : request.query.topic) } } };
+                    const result = yield CONN.find(Descriptor_1.Descriptor, Object.assign({}, options));
+                    return { status: 200, data: result };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };

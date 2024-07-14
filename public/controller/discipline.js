@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.disciplineController = void 0;
+exports.discController = void 0;
 const genericController_1 = require("./genericController");
 const typeorm_1 = require("typeorm");
 const Discipline_1 = require("../model/Discipline");
@@ -17,11 +17,11 @@ const personCategories_1 = require("../utils/personCategories");
 const data_source_1 = require("../data-source");
 class DisciplineController extends genericController_1.GenericController {
     constructor() { super(Discipline_1.Discipline); }
-    getAllDisciplines(request, transaction) {
+    getAllDisciplines(request, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {
-                if (!transaction) {
+                if (!CONN) {
                     const teacher = yield this.teacherByUser(body.user.user);
                     const teacherDisciplines = yield this.teacherDisciplines(request === null || request === void 0 ? void 0 : request.body.user);
                     let result = yield this.repository
@@ -38,10 +38,10 @@ class DisciplineController extends genericController_1.GenericController {
                     return { status: 200, data: result };
                 }
                 let result;
-                yield data_source_1.AppDataSource.transaction((transaction) => __awaiter(this, void 0, void 0, function* () {
-                    const teacher = yield this.teacherByUser(body.user.user, transaction);
-                    const teacherDisciplines = yield this.teacherDisciplines(request === null || request === void 0 ? void 0 : request.body.user, transaction);
-                    result = yield transaction.getRepository(Discipline_1.Discipline)
+                yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(body.user.user, CONN);
+                    const teacherDisciplines = yield this.teacherDisciplines(request === null || request === void 0 ? void 0 : request.body.user, CONN);
+                    result = yield CONN.getRepository(Discipline_1.Discipline)
                         .createQueryBuilder("discipline")
                         .select(["discipline.id as id", "discipline.name as name", "discipline.shortName as shortName"])
                         .where(new typeorm_1.Brackets((qb) => {
@@ -61,4 +61,4 @@ class DisciplineController extends genericController_1.GenericController {
         });
     }
 }
-exports.disciplineController = new DisciplineController();
+exports.discController = new DisciplineController();

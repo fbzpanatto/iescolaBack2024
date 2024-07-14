@@ -1,29 +1,15 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { literacyController } from "../controller/literacy";
 import havePermission from "../middleware/havePermission";
 
 export const LiteracyRouter = Router();
 
-LiteracyRouter.get('/:year', havePermission, (req, res) => {
+LiteracyRouter.get('/:year', havePermission, async (req: Request, res: Response) => { const response = await literacyController.getClassrooms(req); return res.status(response.status).json(response)})
 
-  literacyController.getClassrooms(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+LiteracyRouter.get('/:id/:year/classroom', havePermission, async (req: Request, res: Response) => { const response = await literacyController.getStudentClassrooms(req); return res.status(response.status).json(response)})
 
-LiteracyRouter.get('/:id/:year/classroom', havePermission, (req, res) => {
+LiteracyRouter.get('/:id/:year/totals', havePermission, async (req: Request, res: Response) => { const response = await literacyController.getTotals(req); return res.status(response.status).json(response)})
 
-  literacyController.getStudentClassrooms(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
+LiteracyRouter.put('/:id/classroom', havePermission, async (req: Request, res: Response) => { const response = await literacyController.updateLiteracy(req.body); return res.status(response.status).json(response)})
 
-LiteracyRouter.get('/:id/:year/totals', havePermission, (req, res) => {
-
-  literacyController.getTotals(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-})
-
-LiteracyRouter.put('/:id/classroom', havePermission, async (req, res) => { const response = await literacyController.updateLiteracy(req.body); return res.status(response.status).json(response) })
-LiteracyRouter.put('/many', havePermission, async (req, res) => { const response = await literacyController.updateMany(req.body); return res.status(response.status).json(response) })
+LiteracyRouter.put('/many', havePermission, async (req: Request, res: Response) => { const response = await literacyController.updateMany(req.body); return res.status(response.status).json(response)})

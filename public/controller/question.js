@@ -35,7 +35,7 @@ class QuestionController extends genericController_1.GenericController {
     questionForm(req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const classroomCategories = (yield classroomCategory_1.classroomCategoryController.findAllWhere({}, req)).data;
+                const classroomCategories = (yield classroomCategory_1.classCatController.findAllWhere({}, req)).data;
                 const groups = (yield questionGroup_1.questionGroupController.findAllWhere({}, req)).data;
                 return { status: 200, data: { classroomCategories, groups } };
             }

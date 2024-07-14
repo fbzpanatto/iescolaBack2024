@@ -1,6 +1,6 @@
 import { StudentClassroom } from "./../model/StudentClassroom";
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, FindManyOptions, In, IsNull, ObjectLiteral } from "typeorm";
+import { Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";

@@ -117,7 +117,7 @@ class GenericController {
             }
         });
     }
-    createPerson(body) { const person = new Person_1.Person(); person.name = body.name; person.birth = body.birth; person.category = body.category; return person; }
+    createPerson(body) { const el = new Person_1.Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el; }
     currentYear(CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!CONN) {

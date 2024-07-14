@@ -17,16 +17,16 @@ const express_1 = require("express");
 const test_1 = require("../controller/test");
 const validators_1 = require("../middleware/validators");
 const havePermission_1 = __importDefault(require("../middleware/havePermission"));
-const CHECK_ID_CLASS = [validators_1.PARAM_ID, validators_1.PARAM_CLASSID];
-const CHECK_PARAMS = [validators_1.PARAM_ID, validators_1.PARAM_YEAR, validators_1.PARAM_CLASSID];
+const CHECK_ID_CLASS = [validators_1.ID_PARAM, validators_1.CLASSROOM_ID_PARAM];
+const CHECK_PARAMS = [validators_1.ID_PARAM, validators_1.YEAR_NAME_PARAM, validators_1.CLASSROOM_ID_PARAM];
 const CREATE_VALIDATORS = [validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
-const UPDATE_VALIDATORS = [validators_1.PARAM_ID, validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
+const UPDATE_VALIDATORS = [validators_1.ID_PARAM, validators_1.VALIDATE_TEST, validators_1.BODY_VALIDATION_TEST];
 exports.TestRouter = (0, express_1.Router)();
 exports.TestRouter.get('/form', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.getFormData(req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.get('/:year/all', validators_1.PARAM_YEAR, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.TestRouter.get('/:year/all', validators_1.YEAR_NAME_PARAM, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.findAllByYear(req);
     return res.status(response.status).json(response);
 }));
@@ -42,7 +42,7 @@ exports.TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePer
     const response = yield test_1.testController.getAllToInsert(req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.get('/:id', validators_1.PARAM_ID, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.TestRouter.get('/:id', validators_1.ID_PARAM, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.getById(req);
     return res.status(response.status).json(response);
 }));

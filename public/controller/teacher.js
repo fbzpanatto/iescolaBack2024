@@ -208,7 +208,7 @@ class TeacherController extends genericController_1.GenericController {
             }
             // Encerrar relações que estão em arrOfDiff
             for (let relation of arrOfDiff) {
-                yield teacherClassDiscipline_1.teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() });
+                yield teacherClassDiscipline_1.teacherRelationController.updateId(relation.id, { endedAt: new Date() });
             }
             // Criar novas relações conforme o corpo da requisição
             for (let classroomId of cBody) {
@@ -220,7 +220,7 @@ class TeacherController extends genericController_1.GenericController {
                         el.classroom = (yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findOne({ where: { id: classroomId } }));
                         el.discipline = (yield data_source_1.AppDataSource.getRepository(Discipline_1.Discipline).findOne({ where: { id: disciplineId } }));
                         el.startedAt = new Date();
-                        yield teacherClassDiscipline_1.teacherClassDisciplineController.save(el, {});
+                        yield teacherClassDiscipline_1.teacherRelationController.save(el, {});
                     }
                 }
             }
@@ -241,7 +241,7 @@ class TeacherController extends genericController_1.GenericController {
                         el.classroom = classroom;
                         el.discipline = discipline;
                         el.startedAt = new Date();
-                        yield teacherClassDiscipline_1.teacherClassDisciplineController.save(el, {});
+                        yield teacherClassDiscipline_1.teacherRelationController.save(el, {});
                     }
                 }
             }

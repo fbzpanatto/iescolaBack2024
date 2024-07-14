@@ -10,6 +10,8 @@ import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '.
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
 export const YEAR_NAME_PARAM = check('year').not().isEmpty().isLength({ min: 4, max: 4 })
+export const CLASSROOM_NUMBER_PARAM = check('classroomNumber').not().isEmpty().isNumeric()
+export const STUDENT_CLASSROOM_ID = check('studentClassroomId').not().isEmpty().isNumeric()
 
 //STUDENT_QUESTIONANSWER
 export const VALIDATE_STUDENT_QUESTIONANSWER = checkSchema(STUDENT_QUESTIONSANSWER_SCHEMA)

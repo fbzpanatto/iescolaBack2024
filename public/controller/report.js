@@ -23,14 +23,12 @@ class ReportController extends genericController_1.GenericController {
     getSchoolAvg(request) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const response = (yield this.getReport(request, CONN));
-                    if (!response)
-                        return { status: 404, message: "Teste não encontrado" };
-                    const schools = response.schools;
-                    const schoolAvg = schools.map((school) => (Object.assign(Object.assign({}, school), { qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length })));
-                    return { status: 200, data: Object.assign(Object.assign({}, response), { schoolAvg }) };
-                }));
+                const response = (yield this.getReport(request)).data;
+                if (!response)
+                    return { status: 404, message: "Teste não encontrado" };
+                const schools = response.schools;
+                const schoolAvg = schools.map((school) => (Object.assign(Object.assign({}, school), { qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length })));
+                return { status: 200, data: Object.assign(Object.assign({}, response), { schoolAvg }) };
             }
             catch (error) {
                 return { status: 500, message: error.message };

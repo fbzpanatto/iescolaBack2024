@@ -1,33 +1,22 @@
-import { Router } from "express";
-import { textGenderGradeController } from "../controller/textGenderGrade";
+import { Router, Request, Response } from "express";
+import { textGenderGradeController as ctrl } from "../controller/textGenderGrade";
+import { CLASSROOM_ID_PARAM, STUDENT_CLASSROOM_ID, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 export const TextGenderGradeRouter = Router();
 
-TextGenderGradeRouter.get('/:classroom/:year/:gender', havePermission, (req, res) => {
-
-  textGenderGradeController.getAll(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderGradeRouter.get('/:classroom/:year/:gender', [ CLASSROOM_ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request, res: Response) => {
+  const response = await ctrl.getAll(req); return res.status(response.status).json(response)
 })
 
-TextGenderGradeRouter.get('/:classroom/:year', havePermission, (req, res) => {
-
-  textGenderGradeController.getTotals(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderGradeRouter.get('/:classroom/:year', [ CLASSROOM_ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request, res: Response) => {
+  const response = await ctrl.getTotals(req); return res.status(response.status).json(response)
 })
 
-TextGenderGradeRouter.put('/many', havePermission, (req, res) => {
-
-  textGenderGradeController.updateMany(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderGradeRouter.put('/many', havePermission, async (req: Request, res: Response) => {
+  const response = await ctrl.updateMany(req.body); return res.status(response.status).json(response)
 })
 
-TextGenderGradeRouter.put('/:studentClassroomId', havePermission, (req, res) => {
-
-  textGenderGradeController.updateStudentTextGenderExamGrade(req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderGradeRouter.put('/:studentClassroomId', STUDENT_CLASSROOM_ID, havePermission, async (req: Request, res: Response) => {
+  const response = await ctrl.updateExamGrade(req.body); return res.status(response.status).json(response)
 })

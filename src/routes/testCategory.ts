@@ -1,39 +1,21 @@
-import { Router } from "express";
-import { testCategoryController } from "../controller/testCategory";
+import { Router, Request, Response } from "express";
+import { testCategoryController as controller } from "../controller/testCategory";
+import { ID_PARAM } from "../middleware/validators";
 
 export const TestCategoryRouter = Router();
 
-TestCategoryRouter.get('/', (req, res) => {
-
-  testCategoryController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestCategoryRouter.get('/', async (req: Request, res: Response) => {
+  const response = await controller.findAllWhere({}); return res.status(response.status).json(response)
 })
 
-TestCategoryRouter.get('/:id', (req, res) => {
-
-  testCategoryController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestCategoryRouter.get('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await controller.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
-TestCategoryRouter.post('/', (req, res) => {
-
-  testCategoryController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestCategoryRouter.post('/', async (req: Request, res: Response) => {
+  const response = await controller.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-TestCategoryRouter.put('/:id', (req, res) => {
-
-  testCategoryController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-TestCategoryRouter.delete('/:id', (req, res) => {
-
-  testCategoryController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TestCategoryRouter.put('/:id',ID_PARAM,  async (req: Request, res: Response) => {
+  const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

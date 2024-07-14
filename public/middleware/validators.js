@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BODY_VALIDATION_YEAR = exports.VALIDATE_YEAR = exports.BODY_VALIDATION_USER = exports.VALIDATE_USER = exports.BODY_VALIDATION_TEACHER = exports.VALIDATE_TEACHER = exports.BODY_VALIDATION_TEST = exports.VALIDATE_TEST = exports.BODY_VALIDATION_STUDENT_QUESTION = exports.VALIDATE_STUDENT_QUESTIONSTATUS = exports.BODY_VALIDATION_STUDENT_ANSWER = exports.VALIDATE_STUDENT_QUESTIONANSWER = exports.PARAM_YEAR = exports.PARAM_CLASSID = exports.PARAM_ID = void 0;
+exports.BODY_VALIDATION_YEAR = exports.VALIDATE_YEAR = exports.BODY_VALIDATION_USER = exports.VALIDATE_USER = exports.BODY_VALIDATION_TEACHER = exports.VALIDATE_TEACHER = exports.BODY_VALIDATION_TEST = exports.VALIDATE_TEST = exports.BODY_VALIDATION_STUDENT_QUESTION = exports.VALIDATE_STUDENT_QUESTIONSTATUS = exports.BODY_VALIDATION_STUDENT_ANSWER = exports.VALIDATE_STUDENT_QUESTIONANSWER = exports.STUDENT_CLASSROOM_ID = exports.CLASSROOM_NUMBER_PARAM = exports.YEAR_NAME_PARAM = exports.CLASSROOM_ID_PARAM = exports.ID_PARAM = void 0;
 const express_validator_1 = require("express-validator");
 const year_1 = require("../schemas/year");
 const student_1 = require("../schemas/student");
@@ -8,9 +8,11 @@ const teacher_1 = require("../schemas/teacher");
 const bodyValidations_1 = require("../utils/bodyValidations");
 const test_1 = require("../schemas/test");
 const studentQuestion_1 = require("../schemas/studentQuestion");
-exports.PARAM_ID = (0, express_validator_1.check)('id').not().isEmpty().isNumeric();
-exports.PARAM_CLASSID = (0, express_validator_1.check)('classroom').not().isEmpty().isNumeric();
-exports.PARAM_YEAR = (0, express_validator_1.check)('year').not().isEmpty().isLength({ min: 4, max: 4 });
+exports.ID_PARAM = (0, express_validator_1.check)('id').not().isEmpty().isNumeric();
+exports.CLASSROOM_ID_PARAM = (0, express_validator_1.check)('classroom').not().isEmpty().isNumeric();
+exports.YEAR_NAME_PARAM = (0, express_validator_1.check)('year').not().isEmpty().isLength({ min: 4, max: 4 });
+exports.CLASSROOM_NUMBER_PARAM = (0, express_validator_1.check)('classroomNumber').not().isEmpty().isNumeric();
+exports.STUDENT_CLASSROOM_ID = (0, express_validator_1.check)('studentClassroomId').not().isEmpty().isNumeric();
 //STUDENT_QUESTIONANSWER
 exports.VALIDATE_STUDENT_QUESTIONANSWER = (0, express_validator_1.checkSchema)(studentQuestion_1.STUDENT_QUESTIONSANSWER_SCHEMA);
 const BODY_VALIDATION_STUDENT_ANSWER = (req, res, next) => {

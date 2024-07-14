@@ -18,7 +18,7 @@ TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req, res) =
   const response = await controller.findAllByYear(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (req, res) => {
+TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getStudents(req); return res.status(response.status).json(response)
 })
 

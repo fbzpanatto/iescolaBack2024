@@ -1,6 +1,5 @@
 import {Column, Entity, OneToMany, PrimaryGeneratedColumn} from "typeorm";
 import {TextGenderGrade} from "./TextGenderGrade";
-import {TextGenderClassroom} from "./TextGenderClassroom";
 import {TextGenderExamLevelGroup} from "./TextGenderExamLevelGroup";
 
 @Entity()

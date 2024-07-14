@@ -12,10 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LiteracySecondRouter = void 0;
+exports.ReportLiteracy = void 0;
 const express_1 = require("express");
-const literacySecond_1 = require("../controller/literacySecond");
+const report_literacy_controller_1 = require("../controller/report-literacy-controller");
 const havePermission_1 = __importDefault(require("../middleware/havePermission"));
 const validators_1 = require("../middleware/validators");
-exports.LiteracySecondRouter = (0, express_1.Router)();
-exports.LiteracySecondRouter.get('/:year', validators_1.YEAR_NAME_PARAM, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield literacySecond_1.litSecCtrl.getClassrooms(req); return res.status(response.status).json(response); }));
+exports.ReportLiteracy = (0, express_1.Router)();
+exports.ReportLiteracy.get('/:classroom/:year', [validators_1.CLASSROOM_ID_PARAM, validators_1.YEAR_NAME_PARAM], havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield report_literacy_controller_1.literacyReportController.getReport(req);
+    return res.status(response.status).json(response);
+}));

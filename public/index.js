@@ -45,7 +45,7 @@ const personCategory_1 = require("./routes/personCategory");
 const person_1 = require("./routes/person");
 const questionGroup_1 = require("./routes/questionGroup");
 const question_1 = require("./routes/question");
-const reportLiteracyRouter_1 = require("./routes/reportLiteracyRouter");
+const reportLiteracy_1 = require("./routes/reportLiteracy");
 const report_1 = require("./routes/report");
 const school_1 = require("./routes/school");
 const state_1 = require("./routes/state");
@@ -84,7 +84,7 @@ route.use("/disability", authorization_1.default, disability_1.DisabilityRouter)
 route.use("/discipline", authorization_1.default, discipline_1.DisciplineRouter);
 route.use("/initial-configs", initialConfigs_1.InitialConfigsRouter);
 route.use("/literacy", authorization_1.default, literacy_1.LiteracyRouter);
-route.use("/literacy-report", authorization_1.default, reportLiteracyRouter_1.ReportLiteracyRouter);
+route.use("/literacy-report", authorization_1.default, reportLiteracy_1.ReportLiteracy);
 route.use("/literacy-second", authorization_1.default, literacySecond_1.LiteracySecondRouter);
 route.use("/login", login_1.LoginRouter);
 route.use("/person", authorization_1.default, person_1.PersonRouter);

@@ -1,18 +1,13 @@
-import { Router } from "express";
-import { textGenderClassroomController } from "../controller/textGenderClassroom";
+import { Router, Request, Response } from "express";
+import { textGenderClassroomController as controller } from "../controller/textGenderClassroom";
+import { CLASSROOM_NUMBER_PARAM, ID_PARAM } from "../middleware/validators";
 
 export const TextGenderClassroomRouter = Router();
 
-TextGenderClassroomRouter.get('/:id', (req, res) => {
-
-  textGenderClassroomController.getTabs(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderClassroomRouter.get('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await controller.getTabs(req); return res.status(response.status).json(response)
 })
 
-TextGenderClassroomRouter.get('/report/:classroomNumber', (req, res) => {
-
-  textGenderClassroomController.getTabsReport(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TextGenderClassroomRouter.get('/report/:classroomNumber', CLASSROOM_NUMBER_PARAM, async (req: Request, res: Response) => {
+  const response = await controller.getTabsReport(req); return res.status(response.status).json(response)
 })

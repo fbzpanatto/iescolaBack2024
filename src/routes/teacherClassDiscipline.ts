@@ -1,39 +1,21 @@
-import { Router } from "express";
-import { teacherClassDisciplineController } from "../controller/teacherClassDiscipline";
+import { Request, Response, Router } from "express";
+import { teacherRelationController } from "../controller/teacherClassDiscipline";
+import { ID_PARAM}  from "../middleware/validators";
 
 export const TeacherClassDisciplineRouter = Router();
 
-TeacherClassDisciplineRouter.get('/', (req, res) => {
-
-  teacherClassDisciplineController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherClassDisciplineRouter.get('/', async (req: Request, res: Response) => {
+  const response = await teacherRelationController.findAllWhere({}); return res.status(response.status).json(response)
 })
 
-TeacherClassDisciplineRouter.get('/:id', (req, res) => {
-
-  teacherClassDisciplineController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherClassDisciplineRouter.get('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await teacherRelationController.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
-TeacherClassDisciplineRouter.post('/', (req, res) => {
-
-  teacherClassDisciplineController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherClassDisciplineRouter.post('/', async (req: Request, res: Response) => {
+  const response = await teacherRelationController.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-TeacherClassDisciplineRouter.put('/:id', (req, res) => {
-
-  teacherClassDisciplineController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-TeacherClassDisciplineRouter.delete('/:id', (req, res) => {
-
-  teacherClassDisciplineController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherClassDisciplineRouter.put('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await teacherRelationController.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

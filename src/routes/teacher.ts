@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express";
-import { teacherController } from "../controller/teacher";
+import { teacherController as controller } from "../controller/teacher";
 import { ID_PARAM, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER} from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
@@ -8,48 +8,26 @@ const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_TEACHER, BODY_VALIDATION_TEACHER]
 
 export const TeacherRouter = Router();
 
-TeacherRouter.get('/pending-transfer', havePermission, (req, res) => {
-
-  teacherController.getRequestedStudentTransfers(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherRouter.get('/pending-transfer', havePermission, async (req: Request, res: Response) => {
+  const response = await controller.getRequestedStudentTransfers(req); return res.status(response.status).json(response)
 })
 
-TeacherRouter.get('/form', havePermission, (req, res) => {
-
-  teacherController.teacherForm(req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherRouter.get('/form', havePermission, async (req: Request, res: Response) => {
+  const response = await controller.teacherForm(req); return res.status(response.status).json(response)
 })
 
-TeacherRouter.get('/', havePermission, (req, res) => {
-
-  teacherController.findAllWhere({}, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherRouter.get('/', havePermission, async (req: Request, res: Response) => {
+  const response = await controller.findAllWhere({}, req); return res.status(response.status).json(response)
 })
 
-TeacherRouter.get('/:id', ID_PARAM, havePermission, (req, res) => {
-
-  teacherController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+TeacherRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
 TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
-  const response = await teacherController.saveTeacher(req.body); return res.status(response.status as number).json(response)
+  const response = await controller.saveTeacher(req.body); return res.status(response.status as number).json(response)
 });
 
-TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, (req: Request, res: Response) => {
-
-  teacherController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-TeacherRouter.delete('/:id', ID_PARAM, havePermission, (req, res) => {
-
-  teacherController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
+TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)
+})

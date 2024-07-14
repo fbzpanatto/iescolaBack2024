@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
 import { testController as controller } from "../controller/test";
-import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_ID_PARAM } from "../middleware/validators";
+import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]
-const CHECK_PARAMS = [ID_PARAM, YEAR_ID_PARAM, CLASSROOM_ID_PARAM]
+const CHECK_PARAMS = [ID_PARAM, YEAR_NAME_PARAM, CLASSROOM_ID_PARAM]
 const CREATE_VALIDATORS = [VALIDATE_TEST, BODY_VALIDATION_TEST]
 const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_TEST, BODY_VALIDATION_TEST]
 
@@ -14,7 +14,7 @@ TestRouter.get('/form', havePermission, async (req, res) => {
   const response = await controller.getFormData(req); return res.status(response.status).json(response)
 })
 
-TestRouter.get('/:year/all', YEAR_ID_PARAM, havePermission, async (req, res) => {
+TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req, res) => {
   const response = await controller.findAllByYear(req); return res.status(response.status).json(response)
 })
 

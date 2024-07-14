@@ -1,7 +1,8 @@
 import { Router, Response, Request } from "express";
-import { litSecCtrl } from "../controller/literacySecond";
+import { litSecCtrl as controller } from "../controller/literacySecond";
 import havePermission from "../middleware/havePermission";
+import {YEAR_NAME_PARAM} from "../middleware/validators";
 
 export const LiteracySecondRouter = Router();
 
-LiteracySecondRouter.get('/:year', havePermission, async (req: Request, res: Response) => { const response = await litSecCtrl.getClassrooms(req); return res.status(response.status).json(response)})
+LiteracySecondRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => { const response = await controller.getClassrooms(req); return res.status(response.status).json(response)})

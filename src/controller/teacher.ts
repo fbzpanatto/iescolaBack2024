@@ -8,7 +8,7 @@ import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
 import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
 import { TeacherClassDiscipline as TCDRelation } from "../model/TeacherClassDiscipline";
-import { teacherClassDisciplineController } from "./teacherClassDiscipline";
+import { teacherRelationController } from "./teacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
@@ -193,7 +193,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     }
 
     // Encerrar relações que estão em arrOfDiff
-    for (let relation of arrOfDiff) { await teacherClassDisciplineController.updateId(relation.id, { endedAt: new Date() }) }
+    for (let relation of arrOfDiff) { await teacherRelationController.updateId(relation.id, { endedAt: new Date() }) }
 
     // Criar novas relações conforme o corpo da requisição
     for (let classroomId of cBody) {
@@ -205,7 +205,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           el.classroom = (await AppDataSource.getRepository(Classroom).findOne({ where: { id: classroomId } })) as Classroom;
           el.discipline = (await AppDataSource.getRepository(Discipline).findOne({ where: { id: disciplineId } })) as Discipline;
           el.startedAt = new Date();
-          await teacherClassDisciplineController.save(el, {});
+          await teacherRelationController.save(el, {});
         }
       }
     }
@@ -225,7 +225,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         if (!relationExists) {
           const el = new TCDRelation();
           el.teacher = teacher; el.classroom = classroom; el.discipline = discipline; el.startedAt = new Date();
-          await teacherClassDisciplineController.save(el, {});
+          await teacherRelationController.save(el, {});
         }
       }
     }

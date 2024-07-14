@@ -20,14 +20,11 @@ class TopicController extends genericController_1.GenericController {
             const classCategoryId = request === null || request === void 0 ? void 0 : request.query.category;
             const disciplineId = request === null || request === void 0 ? void 0 : request.query.discipline;
             try {
-                const result = yield data_source_1.AppDataSource.getRepository(Topic_1.Topic).find({
-                    relations: ['classroomCategory'],
-                    where: {
-                        classroomCategory: { id: Number(classCategoryId) },
-                        discipline: { id: Number(disciplineId) }
-                    }
-                });
-                return { status: 200, data: result };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const options = { relations: ['classroomCategory'], where: { classroomCategory: { id: Number(classCategoryId) }, discipline: { id: Number(disciplineId) } } };
+                    const result = yield CONN.find(Topic_1.Topic, Object.assign({}, options));
+                    return { status: 200, data: result };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };

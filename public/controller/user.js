@@ -18,8 +18,10 @@ class UserController extends genericController_1.GenericController {
     save(body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const user = yield data_source_1.AppDataSource.getRepository(User_1.User).save(body);
-                return { status: 201, data: user };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const user = yield CONN.save(User_1.User, body);
+                    return { status: 201, data: user };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };

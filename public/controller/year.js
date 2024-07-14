@@ -24,53 +24,50 @@ class YearController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const search = request === null || request === void 0 ? void 0 : request.query.search;
             try {
-                const result = yield this.repository.find({
-                    relations: ['periods.bimester'],
-                    order: { name: 'DESC', periods: { bimester: { id: 'ASC' } } },
-                    where: { name: (0, typeorm_1.ILike)(`%${search}%`) }
-                });
-                return { status: 200, data: result };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const data = yield CONN.find(Year_1.Year, { relations: ['periods.bimester'], order: { name: 'DESC', periods: { bimester: { id: 'ASC' } } }, where: { name: (0, typeorm_1.ILike)(`%${search}%`) } });
+                    return { status: 200, data };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    save(body, options) {
-        var _a, _b;
+    save(body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const teacher = yield this.teacherByUser(body.user.user);
-                const canCreate = [personCategories_1.pc.ADMN];
-                if (!canCreate.includes(teacher.person.category.id)) {
-                    return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' };
-                }
-                const yearExists = yield this.checkIfExists(body);
-                if (yearExists && yearExists.name === body.name) {
-                    return { status: 404, message: `O ano ${body.name} já existe.` };
-                }
-                const currentYear = yield this.currentYear();
-                if (currentYear && currentYear.active && body.active) {
-                    return { status: 404, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` };
-                }
-                const baseYear = yield data_source_1.AppDataSource.getRepository(Year_1.Year)
-                    .createQueryBuilder('year')
-                    .select('MAX(CAST(year.name AS UNSIGNED))', 'maxValue')
-                    .getRawOne();
-                const toNewYear = Number(baseYear.maxValue) + 1;
-                const newYear = new Year_1.Year();
-                newYear.name = toNewYear.toString();
-                newYear.active = true;
-                newYear.createdAt = (_a = body.createdAt) !== null && _a !== void 0 ? _a : new Date();
-                newYear.endedAt = (_b = body.endedAt) !== null && _b !== void 0 ? _b : null;
-                const bimesters = yield data_source_1.AppDataSource.getRepository(Bimester_1.Bimester).find();
-                for (let bimester of bimesters) {
-                    const period = new Period_1.Period();
-                    period.year = newYear;
-                    period.bimester = bimester;
-                    yield data_source_1.AppDataSource.getRepository(Period_1.Period).save(period);
-                }
-                return { status: 201, data: newYear };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    var _a, _b;
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
+                    const canCreate = [personCategories_1.pc.ADMN];
+                    if (!canCreate.includes(uTeacher.person.category.id)) {
+                        return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' };
+                    }
+                    const yearExists = yield this.checkIfExists(body, CONN);
+                    if (yearExists && yearExists.name === body.name) {
+                        return { status: 404, message: `O ano ${body.name} já existe.` };
+                    }
+                    const currentYear = yield this.currentYear(CONN);
+                    if (currentYear && currentYear.active && body.active) {
+                        return { status: 404, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` };
+                    }
+                    const baseYear = yield CONN.getRepository(Year_1.Year)
+                        .createQueryBuilder('year')
+                        .select('MAX(CAST(year.name AS UNSIGNED))', 'maxValue')
+                        .getRawOne();
+                    const toNewYear = Number(baseYear.maxValue) + 1;
+                    const newYear = new Year_1.Year();
+                    newYear.name = toNewYear.toString();
+                    newYear.active = true;
+                    newYear.createdAt = (_a = body.createdAt) !== null && _a !== void 0 ? _a : new Date();
+                    newYear.endedAt = (_b = body.endedAt) !== null && _b !== void 0 ? _b : null;
+                    const registers = yield CONN.find(Bimester_1.Bimester);
+                    for (let el of registers) {
+                        yield CONN.save(Period_1.Period, { year: newYear, bimester: el });
+                    }
+                    return { status: 201, data: newYear };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -79,58 +76,52 @@ class YearController extends genericController_1.GenericController {
     }
     updateId(id, body) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('updateId');
-            console.log('body', body);
             try {
-                const { data } = yield this.findOneById(id, {});
-                const yearToUpdate = data;
-                if (!yearToUpdate) {
-                    return { status: 404, message: 'Data not found' };
-                }
-                const yearExists = yield this.checkIfExists(body);
-                if (yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) {
-                    return { status: 400, message: `O ano ${body.name} já existe.` };
-                }
-                const currentYear = yield this.currentYear();
-                if (currentYear && currentYear.active && body.active) {
-                    return { status: 400, message: `O ano ${currentYear.name} está ativo.` };
-                }
-                for (const prop in body) {
-                    yearToUpdate[prop] = body[prop];
-                }
-                if (!body.active && body.endedAt === '' || body.endedAt === null) {
-                    return { status: 400, message: 'Data de encerramento não pode ser vazia.' };
-                }
-                if (!body.active && body.endedAt) {
-                    const allStudentsClassroomsYear = yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
-                        .createQueryBuilder('studentClassroom')
-                        .leftJoin('studentClassroom.year', 'year')
-                        .where('year.id = :yearId', { yearId: data.id })
-                        .andWhere('studentClassroom.endedAt IS NULL')
-                        .getMany();
-                    for (let register of allStudentsClassroomsYear) {
-                        yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom).save(Object.assign(Object.assign({}, register), { endedAt: new Date() }));
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const { data } = yield this.findOneById(id, {}, CONN);
+                    const yearToUpdate = data;
+                    if (!yearToUpdate) {
+                        return { status: 404, message: 'Data not found' };
                     }
-                }
-                const result = yield this.repository.save(yearToUpdate);
-                return { status: 200, data: result };
+                    const yearExists = yield this.checkIfExists(body, CONN);
+                    if (yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) {
+                        return { status: 400, message: `O ano ${body.name} já existe.` };
+                    }
+                    const currentYear = yield this.currentYear(CONN);
+                    if (currentYear && currentYear.active && body.active) {
+                        return { status: 400, message: `O ano ${currentYear.name} está ativo.` };
+                    }
+                    for (const prop in body) {
+                        yearToUpdate[prop] = body[prop];
+                    }
+                    if (!body.active && body.endedAt === '' || body.endedAt === null) {
+                        return { status: 400, message: 'Data de encerramento não pode ser vazia.' };
+                    }
+                    if (!body.active && body.endedAt) {
+                        const allStudentsClassroomsYear = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
+                            .createQueryBuilder('studentClassroom')
+                            .leftJoin('studentClassroom.year', 'year')
+                            .where('year.id = :yearId', { yearId: data.id })
+                            .andWhere('studentClassroom.endedAt IS NULL')
+                            .getMany();
+                        for (let register of allStudentsClassroomsYear) {
+                            yield CONN.getRepository(StudentClassroom_1.StudentClassroom).save(Object.assign(Object.assign({}, register), { endedAt: new Date() }));
+                        }
+                    }
+                    const result = yield CONN.save(Year_1.Year, yearToUpdate);
+                    return { status: 200, data: result };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    currentYear() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const result = yield this.findOneByWhere({ where: { active: true, endedAt: (0, typeorm_1.IsNull)() } });
-            return result.data;
-        });
+    currentYear(CONN) {
+        return __awaiter(this, void 0, void 0, function* () { return (yield this.findOneByWhere({ where: { active: true, endedAt: (0, typeorm_1.IsNull)() } }, CONN)).data; });
     }
-    checkIfExists(body) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const result = yield this.findOneByWhere({ where: { name: body.name } });
-            return result.data;
-        });
+    checkIfExists(body, CONN) {
+        return __awaiter(this, void 0, void 0, function* () { return (yield this.findOneByWhere({ where: { name: body.name } }, CONN)).data; });
     }
 }
 exports.yearController = new YearController();

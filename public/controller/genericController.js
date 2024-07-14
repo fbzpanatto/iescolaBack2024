@@ -38,10 +38,17 @@ class GenericController {
             }
         });
     }
-    findOneByWhere(options) {
+    findOneByWhere(options, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const result = yield this.repository.findOne(options);
+                if (!CONN) {
+                    const result = yield this.repository.findOne(options);
+                    if (!result) {
+                        return { status: 404, message: "Data not found" };
+                    }
+                    return { status: 200, data: result };
+                }
+                const result = yield CONN.findOne(this.entity, options);
                 if (!result) {
                     return { status: 404, message: "Data not found" };
                 }

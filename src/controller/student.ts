@@ -665,4 +665,4 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 }
 
-export const studentController = new StudentController();
+export const stController = new StudentController();

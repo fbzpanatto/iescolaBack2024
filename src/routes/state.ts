@@ -1,39 +1,21 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { stateController } from "../controller/state";
+import { ID_PARAM } from "../middleware/validators";
 
 export const StateRouter = Router();
 
-StateRouter.get('/', (req, res) => {
-
-  stateController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+StateRouter.get('/', async (req: Request, res: Response) => {
+  const response = await stateController.findAllWhere({}); return res.status(response.status).json(response)
 })
 
-StateRouter.get('/:id', (req, res) => {
-
-  stateController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+StateRouter.get('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await stateController.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
-StateRouter.post('/', (req, res) => {
-
-  stateController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+StateRouter.post('/', async (req: Request, res: Response) => {
+  const response = await stateController.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-StateRouter.put('/:id', (req, res) => {
-
-  stateController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-StateRouter.delete('/:id', (req, res) => {
-
-  stateController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+StateRouter.put('/:id', ID_PARAM, async (req: Request, res: Response) => {
+  const response = await stateController.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

@@ -1,39 +1,20 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { schoolController } from "../controller/school";
 
 export const SchoolRouter = Router();
 
-SchoolRouter.get('/', (req, res) => {
-
-  schoolController.findAllWhere({})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+SchoolRouter.get('/', async (req: Request, res: Response) => {
+  const response = await schoolController.findAllWhere({}); return res.status(response.status).json(response)
 })
 
-SchoolRouter.get('/:id', (req, res) => {
-
-  schoolController.findOneById(req.params.id, req)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+SchoolRouter.get('/:id', async (req: Request, res: Response) => {
+  const response = await schoolController.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
-SchoolRouter.post('/', (req, res) => {
-
-  schoolController.save(req.body, {})
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+SchoolRouter.post('/', async (req: Request, res: Response) => {
+  const response = await schoolController.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-SchoolRouter.put('/:id', (req, res) => {
-
-  schoolController.updateId(req.params.id, req.body)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
-});
-
-SchoolRouter.delete('/:id', (req, res) => {
-
-  schoolController.deleteId(req.params.id)
-    .then(r => res.status(r.status).json(r))
-    .catch(e => res.status(e.status).json(e))
+SchoolRouter.put('/:id', async (req: Request, res: Response) => {
+  const response = await schoolController.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

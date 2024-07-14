@@ -16,42 +16,32 @@ export class GenericController<T> {
 
   async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager ) {
     try {
-
       if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
-
       const result = await CONN.find(this.entity); return { status: 200, data: result }
-
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
     try {
       const result = await this.repository.findOne(options)
-      if (!result) { return { status: 404, message: "Data not found" } }
-      return { status: 200, data: result };
+      if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async findOneById(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
     try {
-
       if(!CONN) {
         const result = await this.repository.findOneBy({ id: id });
-        if (!result) { return { status: 404, message: "Data not found" } }
-        return { status: 200, data: result };
+        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
       }
-
       const result = await CONN.findOneBy(this.entity, { id: id });
-      if (!result) { return { status: 404, message: "Data not found" } }
-      return { status: 200, data: result };
-
+      if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async save( body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined ) {
     try {
-      const result = await this.repository.save(body, options);
-      return { status: 201, data: result };
+      const result = await this.repository.save(body, options); return { status: 201, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
@@ -60,8 +50,7 @@ export class GenericController<T> {
       const dataInDataBase = await this.repository.findOneBy({ id: id });
       if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
       for (const key in body) { dataInDataBase[key] = body[key] }
-      const result = await this.repository.save(dataInDataBase);
-      return { status: 200, data: result }
+      const result = await this.repository.save(dataInDataBase); return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
@@ -69,12 +58,11 @@ export class GenericController<T> {
     try {
       const dataToDelete = await this.repository.findOneBy({ id: id });
       if (!dataToDelete) { return { status: 404, message: "Data not found" } }
-      const result = await this.repository.delete(dataToDelete);
-      return { status: 200, data: result };
+      const result = await this.repository.delete(dataToDelete); return { status: 200, data: result };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  createPerson(body: SavePerson) { const person = new Person(); person.name = body.name; person.birth = body.birth; person.category = body.category; return person }
+  createPerson(body: SavePerson) { const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el }
 
   async currentYear(CONN?: EntityManager) {
     if(!CONN) { return (await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } })) as Year }

@@ -19,9 +19,7 @@ const QuestionGroup_1 = require("../model/QuestionGroup");
 const School_1 = require("../model/School");
 const personCategories_1 = require("../utils/personCategories");
 class ReportController extends genericController_1.GenericController {
-    constructor() {
-        super(Test_1.Test);
-    }
+    constructor() { super(Test_1.Test); }
     getSchoolAvg(request) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -73,20 +71,11 @@ class ReportController extends genericController_1.GenericController {
                     .where("year.name = :yearName", { yearName })
                     .andWhere("test.id = :testId", { testId })
                     .andWhere("studentStatusTest.id = :testId", { testId })
-                    .andWhere(new typeorm_1.Brackets((qb) => {
-                    qb.where("studentClassroom.startedAt < :testCreatedAt", {
-                        testCreatedAt: test.createdAt,
-                    });
-                    qb.orWhere("studentQuestions.id IS NOT NULL");
-                }))
+                    .andWhere(new typeorm_1.Brackets((qb) => { qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt, }); qb.orWhere("studentQuestions.id IS NOT NULL"); }))
                     .getMany();
                 const simplifiedSchools = schools.map((school) => (Object.assign(Object.assign({}, school), { studentClassrooms: school.classrooms.flatMap((classroom) => classroom.studentClassrooms.map((studentClassroom) => (Object.assign(Object.assign({}, studentClassroom), { studentQuestions: studentClassroom.studentQuestions.map((studentQuestion) => {
                             const testQuestion = testQuestions.find((tq) => tq.id === studentQuestion.testQuestion.id);
-                            const score = studentQuestion.answer.length === 0
-                                ? 0
-                                : (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase()))
-                                    ? 1
-                                    : 0;
+                            const score = studentQuestion.answer.length === 0 ? 0 : (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0;
                             return Object.assign(Object.assign({}, studentQuestion), { score });
                         }) })))) })));
                 const simplifiedArray = simplifiedSchools.map((school) => {
@@ -98,10 +87,7 @@ class ReportController extends genericController_1.GenericController {
                         let sum = 0;
                         let count = 0;
                         school.studentClassrooms
-                            .filter((studentClassroom) => {
-                            var _a;
-                            return (_a = studentClassroom.studentStatus.find((register) => register.test.id === test.id)) === null || _a === void 0 ? void 0 : _a.active;
-                        })
+                            .filter((studentClassroom) => { var _a; return (_a = studentClassroom.studentStatus.find((register) => register.test.id === test.id)) === null || _a === void 0 ? void 0 : _a.active; })
                             .flatMap((studentClassroom) => studentClassroom.studentQuestions)
                             .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id)
                             .forEach((studentQuestion) => {
@@ -119,8 +105,7 @@ class ReportController extends genericController_1.GenericController {
                     const totalB = b.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0);
                     return totalB - totalA;
                 });
-                let response = Object.assign(Object.assign({}, test), { testQuestions,
-                    questionGroups, schools: simplifiedArray });
+                let response = Object.assign(Object.assign({}, test), { testQuestions, questionGroups, schools: simplifiedArray });
                 return { status: 200, data: response };
             }
             catch (error) {
@@ -158,10 +143,9 @@ class ReportController extends genericController_1.GenericController {
             const yearName = request === null || request === void 0 ? void 0 : request.params.year;
             const search = request === null || request === void 0 ? void 0 : request.query.search;
             try {
-                const teacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user);
+                const uTeacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user);
                 const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                const isAdminSupervisor = teacher.person.category.id === personCategories_1.pc.ADMN ||
-                    teacher.person.category.id === personCategories_1.pc.SUPE;
+                const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
                 const testClasses = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
                     .createQueryBuilder("test")
                     .leftJoinAndSelect("test.person", "person")
@@ -172,13 +156,9 @@ class ReportController extends genericController_1.GenericController {
                     .leftJoinAndSelect("test.discipline", "discipline")
                     .leftJoinAndSelect("test.classrooms", "classroom")
                     .leftJoinAndSelect("classroom.school", "school")
-                    .where(new typeorm_1.Brackets((qb) => {
-                    if (!isAdminSupervisor) {
-                        qb.where("classroom.id IN (:...teacherClasses)", {
-                            teacherClasses: teacherClasses.classrooms,
-                        });
-                    }
-                }))
+                    .where(new typeorm_1.Brackets((qb) => { if (!masterUser) {
+                    qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms, });
+                } }))
                     .andWhere("year.name = :yearName", { yearName })
                     .andWhere("test.name LIKE :search", { search: `%${search}%` })
                     .getMany();

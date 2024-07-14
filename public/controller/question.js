@@ -39,7 +39,7 @@ class QuestionController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const classroomCategories = (yield classroomCategory_1.classCatController.findAllWhere({}, req, CONN)).data;
-                    const groups = (yield questionGroup_1.questionGroupController.findAllWhere({}, req, CONN)).data;
+                    const groups = (yield questionGroup_1.qGroupCtrl.findAllWhere({}, req, CONN)).data;
                     return { status: 200, data: { classroomCategories, groups } };
                 }));
             }

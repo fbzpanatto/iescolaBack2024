@@ -1,4 +1,4 @@
-import { StudentClassroom } from "./../model/StudentClassroom";
+import { StudentClassroom } from "../model/StudentClassroom";
 import { GenericController } from "./genericController";
 import { Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
 import { Student } from "../model/Student";
@@ -147,7 +147,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         errMessage = "Regressão de sala não é permitido."
         if (Number(clssrm.name.replace(notDigit, "")) < Number(oldClassInBase.name.replace(notDigit, ""))) { return { status: 400, message: errMessage }}
 
-        let newStuClass: StudentClassroom | null = null;
+        let newStuClass: StudentClassroom | null;
 
         const stuClassroom = { student: student, classroom: clssrm, year: currentYear, rosterNumber: 99, startedAt: new Date(), createdByUser: uTeacher.person.user.id } as StudentClassroom
         newStuClass = await CONN.save(StudentClassroom, stuClassroom)
@@ -223,7 +223,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (!preStudent) { return { status: 404, message: "Registro não encontrado" } }
 
-        const data = this.formartStudentResponse(preStudent)
+        const data = this.studentResponse(preStudent)
 
         if (teacherClasses.classrooms.length > 0 && !teacherClasses.classrooms.includes(data.classroom.id) && !masterUser ) { return { status: 403, message: "Você não tem permissão para acessar esse registro." } }
         return { status: 200, data }
@@ -287,9 +287,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await CONN.save(StudentDisability, mappDis);
         }
 
-        const stClassroom = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: year.id }, classroom: { id: classroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
+        const stClassroom = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: year.id }, classroom: { id: classroom.id } }, order: { rosterNumber: "DESC" }, take: 1 })
 
-        let last = 1; if (stClassroom[0]?.rosterNumber) { last = stClassroom[0].rosterNumber + 1 };
+        let last = 1; if (stClassroom[0]?.rosterNumber) { last = stClassroom[0].rosterNumber + 1 }
 
         const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
 
@@ -390,7 +390,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClass.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
-          let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 };
+          let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
           const newStClass = await CONN.save(StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
 
@@ -431,19 +431,19 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             }
           }
 
-          const trfr = new Transfer();
-          trfr.createdByUser = uTeacher.person.user.id;
-          trfr.startedAt = new Date();
-          trfr.endedAt = new Date();
-          trfr.requester = uTeacher;
-          trfr.requestedClassroom = bodyClass;
-          trfr.currentClassroom = stClass.classroom;
-          trfr.receiver = uTeacher;
-          trfr.student = dbStudent;
-          trfr.status = (await CONN.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }})) as TransferStatus;
-          trfr.year = await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
+          const transfer = new Transfer();
+          transfer.createdByUser = uTeacher.person.user.id;
+          transfer.startedAt = new Date();
+          transfer.endedAt = new Date();
+          transfer.requester = uTeacher;
+          transfer.requestedClassroom = bodyClass;
+          transfer.currentClassroom = stClass.classroom;
+          transfer.receiver = uTeacher;
+          transfer.student = dbStudent;
+          transfer.status = await CONN.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }}) as TransferStatus;
+          transfer.year = await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year;
 
-          await CONN.save(Transfer, trfr);
+          await CONN.save(Transfer, transfer);
         }
 
         if (stClass.classroom.id === bodyClass.id) { await CONN.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: uTeacher.person.user.id } as StudentClassroom )}
@@ -462,7 +462,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await this.setDisabilities(uTeacher.person.user.id, await CONN.save(Student, dbStudent), stDisabilities, body.disabilities, CONN);
 
-        result = this.formartStudentResponse(await this.student(Number(studentId), CONN));
+        result = this.studentResponse(await this.student(Number(studentId), CONN));
 
         return { status: 200, data: result };
       })
@@ -573,19 +573,19 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   createStudent(body: SaveStudent, person: Person, state: State, userId: number) {
-    const student = new Student();
-    student.person = person;
-    student.ra = body.ra;
-    student.dv = body.dv;
-    student.state = state;
-    student.createdByUser = userId,
+    const student = new Student()
+    student.person = person
+    student.ra = body.ra
+    student.dv = body.dv
+    student.state = state
+    student.createdByUser = userId
     student.createdAt = new Date()
-    student.observationOne = body.observationOne;
-    student.observationTwo = body.observationTwo;
-    return student;
+    student.observationOne = body.observationOne
+    student.observationTwo = body.observationTwo
+    return student
   }
 
-  formartStudentResponse(student: any) {
+  studentResponse(student: any) {
     return {
       id: student.studentClassroom_id,
       rosterNumber: student.studentClassroom_rosterNumber,

@@ -18,10 +18,10 @@ export class Topic {
   @OneToMany(() => Descriptor, descriptor => descriptor.topic, { cascade: true  })
   descriptors: Descriptor[]
 
-  @ManyToOne(() => Discipline, discipline => discipline.topics)
+  @ManyToOne(() => Discipline, discipline => discipline.topics, { nullable: true })
   discipline: Discipline
 
-  @ManyToOne(() => ClassroomCategory, classroomCategory => classroomCategory.topics)
+  @ManyToOne(() => ClassroomCategory, classroomCategory => classroomCategory.topics, { nullable: true })
   classroomCategory: ClassroomCategory
 
   @Column({ nullable: true })

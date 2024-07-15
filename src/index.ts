@@ -92,7 +92,7 @@ route.use("/reset-password", PasswordRouter);
 
 route.use("/initial-configs", InitialConfigsRouter);
 
-route.use("/", (req, res) => { return res.json({ message: "OK" }) });
+route.use("/", (_, res) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 

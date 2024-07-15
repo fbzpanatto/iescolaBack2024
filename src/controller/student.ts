@@ -1,6 +1,6 @@
 import { StudentClassroom } from "../model/StudentClassroom";
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
+import {Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -29,6 +29,7 @@ import { stateController } from "./state";
 import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
 import getTimeZone from "../utils/getTimeZone";
+import {transferStatus} from "../utils/transferStatus";
 
 interface GraduateBody  { user: UserInterface; student: { id: number; active: boolean; classroom: Classroom }; year: number }
 interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
@@ -347,46 +348,44 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   override async updateId(studentId: number | string, body: any) {
-
     try {
-
       let result: any;
-
       return await AppDataSource.transaction(async (CONN) => {
+        const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN);
+        const dbStudent: Student = await CONN.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student
+        const bodyClass: Classroom | null = await CONN.findOne(Classroom, { where: { id: body.classroom } })
+        const arrRel: string[] = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year" ]
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
-
-        const dbStudent = await CONN.findOne(Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } }) as Student;
-
-        const bodyClass = await CONN.findOne(Classroom, { where: { id: body.classroom } });
-
-        const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year" ];
-
-        const stClass = await CONN.findOne(StudentClassroom, { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: IsNull() } })
+        const stClassroomOptions:  FindOneOptions<StudentClassroom> = { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: IsNull() } }
+        const stClass: StudentClassroom | null = await CONN.findOne(StudentClassroom, {...stClassroomOptions})
 
         if (!dbStudent) { return { status: 404, message: "Registro não encontrado" } }
         if (!stClass) { return { status: 404, message: "Registro não encontrado" } }
         if (!bodyClass) { return { status: 404, message: "Sala não encontrada" } }
 
-        const cBodySRA = `${body.ra}${body.dv}`; const cSRA = `${dbStudent.ra}${dbStudent.dv}`;
+        const cBodySRA: string = `${body.ra}${body.dv}`; const cSRA = `${dbStudent.ra}${dbStudent.dv}`;
 
-        if (cSRA !== cBodySRA) { const exists = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } }); if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }}
+        if (cSRA !== cBodySRA) { const exists: Student | null = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } }); if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }}
 
-        const canChange = [ pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
+        const canChange: number[] = [ pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
-        const message = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS."
+        const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS."
         if (!canChange.includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
+
+        const currentYear: Year = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
+
+        const pedTransOptions:  FindOneOptions<Transfer> = { relations: ['requester.person', 'requestedClassroom.school'], where: { student: { id: stClass.student.id }, currentClassroom: { id: stClass.classroom.id }, status: { id: transferStatus.PENDING }, year: { id: currentYear.id }, endedAt: IsNull() }}
+        const pendingTransfer: Transfer | null = await CONN.findOne(Transfer, pedTransOptions)
+        if(pendingTransfer) { return { status: 403, message: `Existe um pedido de transferência ativo feito por: ${ pendingTransfer.requester.person.name } para a sala: ${ pendingTransfer.requestedClassroom.shortName } - ${ pendingTransfer.requestedClassroom.school.shortName }` } }
 
         if (stClass?.classroom.id != bodyClass.id && canChange.includes(uTeacher.person.category.id)) {
 
-          const newNumber = Number(bodyClass.shortName.replace(/\D/g, ""));
-          const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ""));
+          const newNumber: number = Number(bodyClass.shortName.replace(/\D/g, ""))
+          const oldNumber: number  = Number(stClass.classroom.shortName.replace(/\D/g, ""))
 
           if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id });
-
-          const currentYear = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
 
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClass.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
@@ -440,7 +439,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           transfer.currentClassroom = stClass.classroom;
           transfer.receiver = uTeacher;
           transfer.student = dbStudent;
-          transfer.status = await CONN.findOne(TransferStatus, {where: {id: 1,name: "Aceitada" }}) as TransferStatus;
+          transfer.status = await CONN.findOne(TransferStatus, { where: { id: 1,name: "Aceitada" } }) as TransferStatus;
           transfer.year = await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year;
 
           await CONN.save(Transfer, transfer);

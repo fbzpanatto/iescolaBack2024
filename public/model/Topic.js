@@ -34,11 +34,11 @@ __decorate([
     __metadata("design:type", Array)
 ], Topic.prototype, "descriptors", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Discipline_1.Discipline, discipline => discipline.topics),
+    (0, typeorm_1.ManyToOne)(() => Discipline_1.Discipline, discipline => discipline.topics, { nullable: true }),
     __metadata("design:type", Discipline_1.Discipline)
 ], Topic.prototype, "discipline", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => ClassroomCategory_1.ClassroomCategory, classroomCategory => classroomCategory.topics),
+    (0, typeorm_1.ManyToOne)(() => ClassroomCategory_1.ClassroomCategory, classroomCategory => classroomCategory.topics, { nullable: true }),
     __metadata("design:type", ClassroomCategory_1.ClassroomCategory)
 ], Topic.prototype, "classroomCategory", void 0);
 __decorate([

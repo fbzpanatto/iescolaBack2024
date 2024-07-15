@@ -111,7 +111,7 @@ route.use("/year", authorization_1.default, year_1.YearRouter);
 route.use("/login", login_1.LoginRouter);
 route.use("/reset-password", password_1.PasswordRouter);
 route.use("/initial-configs", initialConfigs_1.InitialConfigsRouter);
-route.use("/", (req, res) => { return res.json({ message: "OK" }); });
+route.use("/", (_, res) => { return res.json({ message: "OK" }); });
 app.use(route);
 data_source_1.AppDataSource.initialize()
     .then(() => { app.listen(5000, () => { console.log("Server running at PORT:", 5000); }); })

@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stController = void 0;
-const StudentClassroom_1 = require("./../model/StudentClassroom");
+const StudentClassroom_1 = require("../model/StudentClassroom");
 const genericController_1 = require("./genericController");
 const typeorm_1 = require("typeorm");
 const Student_1 = require("../model/Student");
@@ -40,6 +40,7 @@ const state_1 = require("./state");
 const teacherClassrooms_1 = require("./teacherClassrooms");
 const Teacher_1 = require("../model/Teacher");
 const getTimeZone_1 = __importDefault(require("../utils/getTimeZone"));
+const transferStatus_1 = require("../utils/transferStatus");
 class StudentController extends genericController_1.GenericController {
     constructor() { super(Student_1.Student); }
     studentForm(req) {
@@ -145,7 +146,7 @@ class StudentController extends genericController_1.GenericController {
                     if (Number(clssrm.name.replace(notDigit, "")) < Number(oldClassInBase.name.replace(notDigit, ""))) {
                         return { status: 400, message: errMessage };
                     }
-                    let newStuClass = null;
+                    let newStuClass;
                     const stuClassroom = { student: student, classroom: clssrm, year: currentYear, rosterNumber: 99, startedAt: new Date(), createdByUser: uTeacher.person.user.id };
                     newStuClass = yield CONN.save(StudentClassroom_1.StudentClassroom, stuClassroom);
                     const classroomNumber = Number(clssrm.shortName.replace(notDigit, ""));
@@ -213,7 +214,7 @@ class StudentController extends genericController_1.GenericController {
                     if (!preStudent) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    const data = this.formartStudentResponse(preStudent);
+                    const data = this.studentResponse(preStudent);
                     if (teacherClasses.classrooms.length > 0 && !teacherClasses.classrooms.includes(data.classroom.id) && !masterUser) {
                         return { status: 403, message: "Você não tem permissão para acessar esse registro." };
                     }
@@ -285,7 +286,6 @@ class StudentController extends genericController_1.GenericController {
                     if ((_a = stClassroom[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
                         last = stClassroom[0].rosterNumber + 1;
                     }
-                    ;
                     const stObject = (yield CONN.save(StudentClassroom_1.StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id }));
                     const notDigit = /\D/g;
                     const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
@@ -354,7 +354,8 @@ class StudentController extends genericController_1.GenericController {
                     const dbStudent = yield CONN.findOne(Student_1.Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } });
                     const bodyClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom } });
                     const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year"];
-                    const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() } });
+                    const stClassroomOptions = { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() } };
+                    const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, Object.assign({}, stClassroomOptions));
                     if (!dbStudent) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
@@ -377,6 +378,12 @@ class StudentController extends genericController_1.GenericController {
                     if (!canChange.includes(uTeacher.person.category.id) && (stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClass.id) {
                         return { status: 403, message };
                     }
+                    const currentYear = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
+                    const pedTransOptions = { relations: ['requester.person', 'requestedClassroom.school'], where: { student: { id: stClass.student.id }, currentClassroom: { id: stClass.classroom.id }, status: { id: transferStatus_1.transferStatus.PENDING }, year: { id: currentYear.id }, endedAt: (0, typeorm_1.IsNull)() } };
+                    const pendingTransfer = yield CONN.findOne(Transfer_1.Transfer, pedTransOptions);
+                    if (pendingTransfer) {
+                        return { status: 403, message: `Existe um pedido de transferência ativo feito por: ${pendingTransfer.requester.person.name} para a sala: ${pendingTransfer.requestedClassroom.shortName} - ${pendingTransfer.requestedClassroom.school.shortName}` };
+                    }
                     if ((stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClass.id && canChange.includes(uTeacher.person.category.id)) {
                         const newNumber = Number(bodyClass.shortName.replace(/\D/g, ""));
                         const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ""));
@@ -384,13 +391,11 @@ class StudentController extends genericController_1.GenericController {
                             return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." };
                         }
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date(), updatedByUser: uTeacher.person.user.id }));
-                        const currentYear = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
                         const lastRosterNumber = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClass.id } }, order: { rosterNumber: "DESC" }, take: 1 });
                         let last = 1;
                         if ((_a = lastRosterNumber[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
                             last = lastRosterNumber[0].rosterNumber + 1;
                         }
-                        ;
                         const newStClass = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
                         const notDigit = /\D/g;
                         const classNumber = Number(bodyClass.shortName.replace(notDigit, ""));
@@ -442,18 +447,18 @@ class StudentController extends genericController_1.GenericController {
                                 }
                             }
                         }
-                        const trfr = new Transfer_1.Transfer();
-                        trfr.createdByUser = uTeacher.person.user.id;
-                        trfr.startedAt = new Date();
-                        trfr.endedAt = new Date();
-                        trfr.requester = uTeacher;
-                        trfr.requestedClassroom = bodyClass;
-                        trfr.currentClassroom = stClass.classroom;
-                        trfr.receiver = uTeacher;
-                        trfr.student = dbStudent;
-                        trfr.status = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: "Aceitada" } }));
-                        trfr.year = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
-                        yield CONN.save(Transfer_1.Transfer, trfr);
+                        const transfer = new Transfer_1.Transfer();
+                        transfer.createdByUser = uTeacher.person.user.id;
+                        transfer.startedAt = new Date();
+                        transfer.endedAt = new Date();
+                        transfer.requester = uTeacher;
+                        transfer.requestedClassroom = bodyClass;
+                        transfer.currentClassroom = stClass.classroom;
+                        transfer.receiver = uTeacher;
+                        transfer.student = dbStudent;
+                        transfer.status = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: "Aceitada" } }));
+                        transfer.year = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
+                        yield CONN.save(Transfer_1.Transfer, transfer);
                     }
                     if (stClass.classroom.id === bodyClass.id) {
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: uTeacher.person.user.id }));
@@ -469,7 +474,7 @@ class StudentController extends genericController_1.GenericController {
                     dbStudent.state = (yield CONN.findOne(State_1.State, { where: { id: body.state } }));
                     const stDisabilities = dbStudent.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
                     yield this.setDisabilities(uTeacher.person.user.id, yield CONN.save(Student_1.Student, dbStudent), stDisabilities, body.disabilities, CONN);
-                    result = this.formartStudentResponse(yield this.student(Number(studentId), CONN));
+                    result = this.studentResponse(yield this.student(Number(studentId), CONN));
                     return { status: 200, data: result };
                 }));
             }
@@ -594,13 +599,13 @@ class StudentController extends genericController_1.GenericController {
         student.ra = body.ra;
         student.dv = body.dv;
         student.state = state;
-        student.createdByUser = userId,
-            student.createdAt = new Date();
+        student.createdByUser = userId;
+        student.createdAt = new Date();
         student.observationOne = body.observationOne;
         student.observationTwo = body.observationTwo;
         return student;
     }
-    formartStudentResponse(student) {
+    studentResponse(student) {
         var _a, _b;
         return {
             id: student.studentClassroom_id,

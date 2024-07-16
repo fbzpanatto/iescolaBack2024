@@ -351,10 +351,15 @@ class StudentController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const dbStudent = yield CONN.findOne(Student_1.Student, { relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) } });
+                    const dbStudentOptions = {
+                        relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) }
+                    };
+                    const dbStudent = yield CONN.findOne(Student_1.Student, dbStudentOptions);
                     const bodyClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom } });
                     const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year"];
-                    const stClassroomOptions = { relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() } };
+                    const stClassroomOptions = {
+                        relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() }
+                    };
                     const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, Object.assign({}, stClassroomOptions));
                     if (!dbStudent) {
                         return { status: 404, message: "Registro não encontrado" };
@@ -379,7 +384,14 @@ class StudentController extends genericController_1.GenericController {
                         return { status: 403, message };
                     }
                     const currentYear = (yield CONN.findOne(Year_1.Year, { where: { endedAt: (0, typeorm_1.IsNull)(), active: true } }));
-                    const pedTransOptions = { relations: ['requester.person', 'requestedClassroom.school'], where: { student: { id: stClass.student.id }, currentClassroom: { id: stClass.classroom.id }, status: { id: transferStatus_1.transferStatus.PENDING }, year: { id: currentYear.id }, endedAt: (0, typeorm_1.IsNull)() } };
+                    const pedTransOptions = {
+                        relations: ['requester.person', 'requestedClassroom.school'],
+                        where: {
+                            student: { id: stClass.student.id },
+                            currentClassroom: { id: stClass.classroom.id },
+                            status: { id: transferStatus_1.transferStatus.PENDING }, year: { id: currentYear.id }, endedAt: (0, typeorm_1.IsNull)()
+                        }
+                    };
                     const pendingTransfer = yield CONN.findOne(Transfer_1.Transfer, pedTransOptions);
                     if (pendingTransfer) {
                         return { status: 403, message: `Existe um pedido de transferência ativo feito por: ${pendingTransfer.requester.person.name} para a sala: ${pendingTransfer.requestedClassroom.shortName} - ${pendingTransfer.requestedClassroom.school.shortName}` };
@@ -549,12 +561,14 @@ class StudentController extends genericController_1.GenericController {
                     allClassrooms = (yield CONN.find(Classroom_1.Classroom));
                 }
                 const result = yield CONN.createQueryBuilder()
-                    .select(["studentClassroom.id", "studentClassroom.rosterNumber", "studentClassroom.startedAt", "studentClassroom.endedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name"])
+                    .select(["studentClassroom.id", "studentClassroom.rosterNumber", "studentClassroom.startedAt", "studentClassroom.endedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName'])
                     .from(Student_1.Student, "student")
                     .leftJoin("student.person", "person")
                     .leftJoin("student.state", "state")
                     .leftJoin("student.transfers", "transfers", "transfers.endedAt IS NULL")
                     .leftJoin("transfers.status", "transfersStatus")
+                    .leftJoin("transfers.requestedClassroom", "requestedClassroom")
+                    .leftJoin("requestedClassroom.school", "requestedClassroomSchool")
                     .leftJoin("transfers.requester", "requester")
                     .leftJoin("requester.person", "requesterPerson")
                     .leftJoin("student.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
@@ -579,14 +593,19 @@ class StudentController extends genericController_1.GenericController {
                         rosterNumber: item.studentClassroom_rosterNumber,
                         startedAt: item.studentClassroom_startedAt,
                         endedAt: item.studentClassroom_endedAt,
-                        classroom: { id: item.classroom_id, shortName: item.classroom_shortName, teacher: options.teacherClasses, school: { id: item.school_id, shortName: item.school_shortName } },
+                        classroom: {
+                            id: item.classroom_id,
+                            shortName: item.classroom_shortName,
+                            teacher: options.teacherClasses,
+                            school: { id: item.school_id, shortName: item.school_shortName }
+                        },
                         student: {
                             id: item.student_id,
                             ra: item.student_ra,
                             dv: item.student_dv,
                             state: { id: item.state_id, acronym: item.state_acronym },
                             person: { id: item.person_id, name: item.person_name, birth: item.person_birth },
-                            transfer: item.transfers_id ? { id: item.transfers_id, startedAt: item.transfers_startedAt, status: { name: item.transfersStatus_name }, requester: { name: item.requesterPerson_name } } : false,
+                            transfer: item.transfers_id ? { id: item.transfers_id, startedAt: item.transfers_startedAt, status: { name: item.transfersStatus_name }, requester: { name: item.requesterPerson_name }, requestedClassroom: { classroom: item.requestedClassroom_shortName, school: item.requestedClassroomSchool_shortName } } : false,
                         },
                     };
                 });

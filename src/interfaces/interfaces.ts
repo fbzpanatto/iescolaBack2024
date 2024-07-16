@@ -1,4 +1,8 @@
 import { PersonCategory } from "../model/PersonCategory";
+import {Classroom} from "../model/Classroom";
+import {Student} from "../model/Student";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {LiteracyLevel} from "../model/LiteracyLevel";
 
 export interface Data { status: number; data?: any; message?: any }
 export interface UserInterface { user: number, username: string, category: number, iat: number, exp: number }
@@ -12,3 +16,10 @@ export interface iLocalSchool { id: number | string, name: string, tiers: { id: 
 export interface iLocalExam { id: number; name: string; tiers: { id: number; name: string; total: number; levels: { id: number; name: string; total: number; rate: number }[]}[]}
 export interface iLocalGender { id: number, name: string, classrooms: { id: number, name: string, exams: { id: number, name: string, tiers: { id: number, name: string, total: number, levels: { id: number, name: string, total: number, rate: number }[]}[]}[]}[]}
 export interface iLocalSchoolTxGender { id: number | string, name: string, exams: { id: number, name: string, tiers: { id: number, name: string, total: number, levels: { id: number, name: string, total: number, rate: number }[] }[] }[] }
+
+export interface GraduateBody  { user: UserInterface; student: { id: number; active: boolean; classroom: Classroom }; year: number }
+
+export interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
+
+export interface LiteracyBeforeLevel { user: { user: number; username: string; category: number; iat: number; exp: number }; studentClassroom: StudentClassroom; literacyLevel: LiteracyLevel }
+export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }

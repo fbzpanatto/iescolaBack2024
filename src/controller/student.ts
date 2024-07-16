@@ -1,6 +1,6 @@
 import { StudentClassroom } from "../model/StudentClassroom";
 import { GenericController } from "./genericController";
-import {Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
+import { Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull } from "typeorm";
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
@@ -8,7 +8,7 @@ import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { SaveStudent, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
+import { GraduateBody, InactiveNewClassroom, LiteracyBeforeLevel, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -19,7 +19,6 @@ import { Year } from "../model/Year";
 import { Literacy } from "../model/Literacy";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { LiteracyFirst } from "../model/LiteracyFirst";
-import { LiteracyLevel } from "../model/LiteracyLevel";
 import { TextGenderExam } from "../model/TextGenderExam";
 import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
@@ -28,13 +27,8 @@ import { disabilityController } from "./disability";
 import { stateController } from "./state";
 import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
+import { transferStatus } from "../utils/transferStatus";
 import getTimeZone from "../utils/getTimeZone";
-import {transferStatus} from "../utils/transferStatus";
-
-interface GraduateBody  { user: UserInterface; student: { id: number; active: boolean; classroom: Classroom }; year: number }
-interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
-interface LiteracyBeforeLevel { user: { user: number; username: string; category: number; iat: number; exp: number }; studentClassroom: StudentClassroom; literacyLevel: LiteracyLevel }
-interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -448,9 +442,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           if (classNumber === 4 || classNumber === 5) {
 
-            const tgExam = await CONN.find(TextGenderExam);
-            const tgExamTier = await CONN.find(TextGenderExamTier);
-            const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] } );
+            const tgExam:TextGenderExam[] = await CONN.find(TextGenderExam);
+            const tgExamTier:TextGenderExamTier[] = await CONN.find(TextGenderExamTier);
+            const tgClassroom: TextGenderClassroom[] = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] } );
 
             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
               for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {

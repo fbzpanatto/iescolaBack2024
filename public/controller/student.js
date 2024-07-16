@@ -95,90 +95,106 @@ class StudentController extends genericController_1.GenericController {
             }
         });
     }
-    inactiveNewClass(body) {
+    setInactiveNewClassroom(body) {
         return __awaiter(this, void 0, void 0, function* () {
             // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
             const { student, oldYear, newClassroom, oldClassroom, user } = body;
             try {
-                let errMessage = '';
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const currentYear = yield this.currentYear(CONN);
-                    errMessage = "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.";
                     if (!currentYear) {
-                        return { status: 404, message: errMessage };
+                        return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
                     }
-                    const uTeacher = yield this.teacherByUser(user.user, CONN);
-                    const activeStuClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: ["classroom.school", "student.person", "year"], where: { student: { id: student.id }, endedAt: (0, typeorm_1.IsNull)() } });
-                    errMessage = `O aluno ${activeStuClass.student.person.name} está matriculado na sala ${activeStuClass.classroom.shortName} ${activeStuClass.classroom.school.shortName} em ${activeStuClass.year.name}. Solicite sua transferência através do menu Matrículas Ativas`;
-                    if (activeStuClass) {
-                        return { status: 409, message: errMessage };
+                    const teacher = yield this.teacherByUser(user.user, CONN);
+                    const activeSc = yield CONN.findOne(StudentClassroom_1.StudentClassroom, {
+                        relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: (0, typeorm_1.IsNull)() }
+                    });
+                    if (activeSc) {
+                        return { status: 409, message: `O aluno ${activeSc.student.person.name} está matriculado na sala ${activeSc.classroom.shortName} ${activeSc.classroom.school.shortName} em ${activeSc.year.name}. Solicite sua transferência através do menu Matrículas Ativas` };
                     }
                     const lastYearName = Number(currentYear.name) - 1;
                     const lastYearDB = yield CONN.findOne(Year_1.Year, { where: { name: lastYearName.toString() } });
                     const oldYearDB = yield CONN.findOne(Year_1.Year, { where: { id: oldYear } });
                     if (!lastYearDB) {
-                        return { status: 404, message: "Não foi possível encontrar o ano letivo anterior." };
+                        return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' };
                     }
                     if (!oldYearDB) {
-                        return { status: 404, message: "Não foi possível encontrar o ano letivo informado." };
+                        return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' };
                     }
-                    const lastReg = yield CONN.getRepository(Student_1.Student)
-                        .createQueryBuilder("student")
-                        .leftJoinAndSelect("student.person", "person")
-                        .leftJoinAndSelect("student.state", "state")
-                        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
-                        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-                        .leftJoinAndSelect("classroom.school", "school")
-                        .leftJoinAndSelect("studentClassroom.year", "year")
-                        .where("studentClassroom.endedAt IS NOT NULL")
-                        .andWhere("student.id = :studentId", { studentId: student.id })
-                        .andWhere("year.id = :yearId", { yearId: lastYearDB.id })
-                        .andWhere((qb) => { const subQueryMaxEndedAt = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId = :yearId", { yearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`; })
+                    const lastRegister = yield CONN.getRepository(Student_1.Student)
+                        .createQueryBuilder('student')
+                        .leftJoinAndSelect('student.person', 'person')
+                        .leftJoinAndSelect('student.state', 'state')
+                        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
+                        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+                        .leftJoinAndSelect('classroom.school', 'school')
+                        .leftJoinAndSelect('studentClassroom.year', 'year')
+                        .where('studentClassroom.endedAt IS NOT NULL')
+                        .andWhere('student.id = :studentId', { studentId: student.id })
+                        .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
+                        .andWhere(qb => {
+                        const subQueryMaxEndedAt = qb
+                            .subQuery()
+                            .select('MAX(sc2.endedAt)')
+                            .from('student_classroom', 'sc2')
+                            .where('sc2.studentId = student.id')
+                            .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
+                            .getQuery();
+                        return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
+                    })
                         .getOne();
-                    if (lastReg && (lastReg === null || lastReg === void 0 ? void 0 : lastReg.studentClassrooms.length) > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) {
-                        errMessage = `Matrícula encerrada para ${lastReg.person.name} no ano de: ${lastYearDB.name}. Acesse o ano ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.`;
-                        return { status: 409, message: errMessage };
+                    if (lastRegister && (lastRegister === null || lastRegister === void 0 ? void 0 : lastRegister.studentClassrooms.length) > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) {
+                        return { status: 409, message: `O aluno ${lastRegister.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` };
                     }
-                    const clssrm = yield CONN.findOne(Classroom_1.Classroom, { where: { id: newClassroom.id } });
-                    const oldClassInBase = yield CONN.findOne(Classroom_1.Classroom, { where: { id: oldClassroom.id } });
-                    const notDigit = /\D/g;
-                    errMessage = "Regressão de sala não é permitido.";
-                    if (Number(clssrm.name.replace(notDigit, "")) < Number(oldClassInBase.name.replace(notDigit, ""))) {
-                        return { status: 400, message: errMessage };
+                    const classroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: newClassroom.id } });
+                    const oldClassInDb = yield CONN.findOne(Classroom_1.Classroom, { where: { id: oldClassroom.id } });
+                    if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) {
+                        return { status: 400, message: 'Regressão de sala não é permitido.' };
                     }
-                    let newStuClass;
-                    const stuClassroom = { student: student, classroom: clssrm, year: currentYear, rosterNumber: 99, startedAt: new Date(), createdByUser: uTeacher.person.user.id };
-                    newStuClass = yield CONN.save(StudentClassroom_1.StudentClassroom, stuClassroom);
-                    const classroomNumber = Number(clssrm.shortName.replace(notDigit, ""));
+                    const newStudentClassroom = yield CONN.save(StudentClassroom_1.StudentClassroom, {
+                        student: student,
+                        classroom: classroom,
+                        year: currentYear,
+                        rosterNumber: 99,
+                        startedAt: new Date()
+                    });
+                    const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''));
                     if (classroomNumber >= 1 && classroomNumber <= 3) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
-                            yield CONN.save(Literacy_1.Literacy, { studentClassroom: newStuClass, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() });
+                            yield CONN.save(Literacy_1.Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier });
                         }
                     }
                     if (classroomNumber === 4 || classroomNumber === 5) {
-                        const tgExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
-                        const tgExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                        const tgClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
-                        for (let tg of tgClassroom) {
-                            for (let tier of tgExamTier) {
-                                for (let exam of tgExam) {
-                                    const el = new TextGenderGrade_1.TextGenderGrade();
-                                    el.studentClassroom = newStuClass;
-                                    el.textGender = tg.textGender;
-                                    el.textGenderExam = exam;
-                                    el.textGenderExamTier = tier;
-                                    el.createdAt = new Date();
-                                    el.createdByUser = uTeacher.person.user.id;
-                                    yield CONN.save(TextGenderGrade_1.TextGenderGrade, Object.assign({}, el));
+                        const textGenderExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
+                        const textGenderExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
+                        const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] };
+                        const textGenderClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, options);
+                        for (let tg of textGenderClassroom) {
+                            for (let tier of textGenderExamTier) {
+                                for (let exam of textGenderExam) {
+                                    const textGenderGrade = new TextGenderGrade_1.TextGenderGrade();
+                                    textGenderGrade.studentClassroom = newStudentClassroom;
+                                    textGenderGrade.textGender = tg.textGender;
+                                    textGenderGrade.textGenderExam = exam;
+                                    textGenderGrade.textGenderExamTier = tier;
+                                    yield CONN.save(TextGenderGrade_1.TextGenderGrade, textGenderGrade);
                                 }
                             }
                         }
                     }
-                    const status = yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: "Aceitada" } });
-                    const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: clssrm, currentClassroom: oldClassInBase, receiver: uTeacher, student: student, status, year: currentYear, createdByUser: uTeacher.person.user.id, updatedByUser: uTeacher.person.user.id };
-                    yield CONN.save(Transfer_1.Transfer, transfer);
-                    return { status: 200, data: newStuClass };
+                    yield data_source_1.AppDataSource.getRepository(Transfer_1.Transfer).save({
+                        startedAt: new Date(),
+                        endedAt: new Date(),
+                        requester: teacher,
+                        requestedClassroom: classroom,
+                        currentClassroom: oldClassInDb,
+                        receiver: teacher,
+                        student: student,
+                        status: yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: 'Aceitada' } }),
+                        year: currentYear
+                    });
+                    return { status: 200, data: newStudentClassroom };
                 }));
             }
             catch (error) {
@@ -658,21 +674,21 @@ class StudentController extends genericController_1.GenericController {
             },
         };
     }
-    getOneClassroom(studentClassrooms) {
-        const maxEndedAtIndex = studentClassrooms.findIndex((sc) => (0, getTimeZone_1.default)(sc.endedAt) ===
-            Math.max(...studentClassrooms.map((sc) => (0, getTimeZone_1.default)(sc.endedAt))));
-        return studentClassrooms[maxEndedAtIndex];
+    getOneClassroom(array) {
+        const index = array.findIndex((sc) => (0, getTimeZone_1.default)(sc.endedAt) === Math.max(...array.map((sc) => (0, getTimeZone_1.default)(sc.endedAt))));
+        return array[index];
     }
     graduate(studentId, body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 let student = null;
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const uTeacher = yield CONN.findOne(Teacher_1.Teacher, { relations: ["person.category"], where: { person: { user: { id: body.user.user } } } });
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
                     const { classrooms } = yield this.teacherClassrooms(body.user, CONN);
+                    const message = "Você não tem permissão para realizar modificações nesta sala de aula.";
                     if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) {
-                        return { status: 403, message: "Você não tem permissão para realizar modificações nesta sala de aula." };
+                        return { status: 403, message };
                     }
                     student = (yield CONN.findOne(Student_1.Student, { where: { id: Number(studentId) } }));
                     if (!student) {
@@ -684,7 +700,8 @@ class StudentController extends genericController_1.GenericController {
                     yield CONN.save(Student_1.Student, student);
                     const status = yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 6, name: "Formado" } });
                     const year = yield CONN.findOne(Year_1.Year, { where: { id: body.year } });
-                    const transferResponse = yield CONN.save(Transfer_1.Transfer, { status, year, student, receiver: uTeacher, createdByUser: uTeacher.person.user.id, updatedByUser: uTeacher.person.user.id, startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: body.student.classroom, currentClassroom: body.student.classroom });
+                    const entity = { status, year, student, receiver: uTeacher, createdByUser: uTeacher.person.user.id, updatedByUser: uTeacher.person.user.id, startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: body.student.classroom, currentClassroom: body.student.classroom };
+                    const transferResponse = yield CONN.save(Transfer_1.Transfer, entity);
                     return { status: 201, data: transferResponse };
                 }));
             }

@@ -92,126 +92,115 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async setInactiveNewClassroom(body: { student: Student, oldYear: number, newClassroom: { id: number, name: string, school: string }, oldClassroom: { id: number, name: string, school: string }, user: { user: number, username: string, category: number } }) {
+  async setInactiveNewClassroom(body: InactiveNewClassroom) {
 
     // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
 
     const { student, oldYear, newClassroom, oldClassroom, user } = body
 
     try {
+      return await AppDataSource.transaction(async(CONN)=> {
+        const currentYear: Year = await this.currentYear(CONN)
+        if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
-      const currentYear = await this.currentYear()
-      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+        const teacher = await this.teacherByUser(user.user, CONN)
 
-      const teacher = await this.teacherByUser(user.user)
+        const activeSc = await CONN.findOne(StudentClassroom, {
+          relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: IsNull() }
+        }) as StudentClassroom
 
-      const activeStudentClassroom = await AppDataSource.getRepository(StudentClassroom).findOne({
-        relations: ['classroom.school', 'student.person', 'year'],
-        where: { student: { id: student.id }, endedAt: IsNull() }
-      }) as StudentClassroom
-
-      if (activeStudentClassroom) { return { status: 409, message: `O aluno ${activeStudentClassroom.student.person.name} está matriculado na sala ${activeStudentClassroom.classroom.shortName} ${activeStudentClassroom.classroom.school.shortName} em ${activeStudentClassroom.year.name}. Solicite sua transferência através do menu Matrículas Ativas` } }
-
-      const lastYearName = Number(currentYear.name) - 1
-      const lastYearDB = await AppDataSource.getRepository(Year).findOne({ where: { name: lastYearName.toString() } }) as Year
-      const oldYearDB = await AppDataSource.getRepository(Year).findOne({ where: { id: oldYear } }) as Year
-
-      if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
-      if (!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
-
-      const lastYearStudentClassroom = await AppDataSource.getRepository(Student)
-        .createQueryBuilder('student')
-        .leftJoinAndSelect('student.person', 'person')
-        .leftJoinAndSelect('student.state', 'state')
-        .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
-        .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-        .leftJoinAndSelect('classroom.school', 'school')
-        .leftJoinAndSelect('studentClassroom.year', 'year')
-        .where('studentClassroom.endedAt IS NOT NULL')
-        .andWhere('student.id = :studentId', { studentId: student.id })
-        .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
-        .andWhere(qb => {
-          const subQueryMaxEndedAt = qb
-            .subQuery()
-            .select('MAX(sc2.endedAt)')
-            .from('student_classroom', 'sc2')
-            .where('sc2.studentId = student.id')
-            .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
-            .getQuery();
-
-          return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
-        })
-        .getOne();
-
-      if (lastYearStudentClassroom && lastYearStudentClassroom?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastYearStudentClassroom.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` } }
-
-      const classroom = await AppDataSource.getRepository(Classroom).findOne({ where: { id: newClassroom.id } }) as Classroom
-      const oldClassroomInDatabase = await AppDataSource.getRepository(Classroom).findOne({ where: { id: oldClassroom.id } }) as Classroom
-
-      const notDigit = /\D/g
-      if (Number(classroom.name.replace(notDigit, '')) < Number(oldClassroomInDatabase.name.replace(notDigit, ''))) {
-        return { status: 400, message: 'Regressão de sala não é permitido.' }
-      }
-
-      const newStudentClassroom = await AppDataSource.getRepository(StudentClassroom).save({
-        student: student,
-        classroom: classroom,
-        year: currentYear,
-        rosterNumber: 99,
-        startedAt: new Date()
-      }) as StudentClassroom
-
-      const classroomNumber = Number(classroom.shortName.replace(notDigit, ''))
-
-      if (classroomNumber >= 1 && classroomNumber <= 3) {
-        const literacyTier = await AppDataSource.getRepository(LiteracyTier).find() as LiteracyTier[]
-
-        for (let tier of literacyTier) {
-
-          await AppDataSource.getRepository(Literacy).save({
-            studentClassroom: newStudentClassroom,
-            literacyTier: tier
-          })
+        if (activeSc) {
+          return { status: 409, message: `O aluno ${activeSc.student.person.name} está matriculado na sala ${activeSc.classroom.shortName} ${activeSc.classroom.school.shortName} em ${activeSc.year.name}. Solicite sua transferência através do menu Matrículas Ativas` }
         }
-      }
 
-      if (classroomNumber === 4 || classroomNumber === 5) {
-        const textGenderExam = await AppDataSource.getRepository(TextGenderExam).find() as TextGenderExam[]
-        const textGenderExamTier = await AppDataSource.getRepository(TextGenderExamTier).find() as TextGenderExamTier[]
+        const lastYearName = Number(currentYear.name) - 1
+        const lastYearDB = await CONN.findOne(Year,{ where: { name: lastYearName.toString() } }) as Year
+        const oldYearDB = await CONN.findOne(Year,{ where: { id: oldYear } }) as Year
 
-        const textGenderClassroom = await AppDataSource.getRepository(TextGenderClassroom).find({
-          where: { classroomNumber: classroomNumber },
-          relations: ['textGender']
-        }) as TextGenderClassroom[]
+        if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
+        if (!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
 
-        for (let tg of textGenderClassroom) {
-          for (let tier of textGenderExamTier) {
-            for (let exam of textGenderExam) {
-              const textGenderGrade = new TextGenderGrade()
-              textGenderGrade.studentClassroom = newStudentClassroom
-              textGenderGrade.textGender = tg.textGender
-              textGenderGrade.textGenderExam = exam
-              textGenderGrade.textGenderExamTier = tier
+        const lastRegister: Student | null = await CONN.getRepository(Student)
+          .createQueryBuilder('student')
+          .leftJoinAndSelect('student.person', 'person')
+          .leftJoinAndSelect('student.state', 'state')
+          .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
+          .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
+          .leftJoinAndSelect('classroom.school', 'school')
+          .leftJoinAndSelect('studentClassroom.year', 'year')
+          .where('studentClassroom.endedAt IS NOT NULL')
+          .andWhere('student.id = :studentId', { studentId: student.id })
+          .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
+          .andWhere(qb => {
+            const subQueryMaxEndedAt = qb
+              .subQuery()
+              .select('MAX(sc2.endedAt)')
+              .from('student_classroom', 'sc2')
+              .where('sc2.studentId = student.id')
+              .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
+              .getQuery();
 
-              await AppDataSource.getRepository(TextGenderGrade).save(textGenderGrade)
+            return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
+          })
+          .getOne();
+
+        if (lastRegister && lastRegister?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastRegister.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` } }
+
+        const classroom = await CONN.findOne(Classroom, { where: { id: newClassroom.id } }) as Classroom
+        const oldClassInDb = await CONN.findOne(Classroom, { where: { id: oldClassroom.id } }) as Classroom
+
+        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
+
+        const newStudentClassroom = await CONN.save(StudentClassroom, {
+          student: student,
+          classroom: classroom,
+          year: currentYear,
+          rosterNumber: 99,
+          startedAt: new Date()
+        }) as StudentClassroom
+
+        const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''))
+
+        if (classroomNumber >= 1 && classroomNumber <= 3) {
+          const literacyTier = await CONN.find(LiteracyTier) as LiteracyTier[]
+          for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
+        }
+
+        if (classroomNumber === 4 || classroomNumber === 5) {
+
+          const textGenderExam = await CONN.find(TextGenderExam) as TextGenderExam[]
+          const textGenderExamTier = await CONN.find(TextGenderExamTier) as TextGenderExamTier[]
+
+          const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] }
+          const textGenderClassroom = await CONN.find(TextGenderClassroom, options) as TextGenderClassroom[]
+
+          for (let tg of textGenderClassroom) {
+            for (let tier of textGenderExamTier) {
+              for (let exam of textGenderExam) {
+                const textGenderGrade = new TextGenderGrade()
+                textGenderGrade.studentClassroom = newStudentClassroom
+                textGenderGrade.textGender = tg.textGender
+                textGenderGrade.textGenderExam = exam
+                textGenderGrade.textGenderExamTier = tier
+
+                await CONN.save(TextGenderGrade, textGenderGrade)
+              }
             }
           }
         }
-      }
-
-      await AppDataSource.getRepository(Transfer).save({
-        startedAt: new Date(),
-        endedAt: new Date(),
-        requester: teacher,
-        requestedClassroom: classroom,
-        currentClassroom: oldClassroomInDatabase,
-        receiver: teacher,
-        student: student,
-        status: await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
-        year: currentYear
+        await AppDataSource.getRepository(Transfer).save({
+          startedAt: new Date(),
+          endedAt: new Date(),
+          requester: teacher,
+          requestedClassroom: classroom,
+          currentClassroom: oldClassInDb,
+          receiver: teacher,
+          student: student,
+          status: await CONN.findOne(TransferStatus, { where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
+          year: currentYear
+        })
+        return { status: 200, data: newStudentClassroom };
       })
-
-      return { status: 200, data: newStudentClassroom };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

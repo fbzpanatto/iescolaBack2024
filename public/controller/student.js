@@ -279,9 +279,8 @@ class StudentController extends genericController_1.GenericController {
                         else {
                             preR = el.studentClassrooms.find((sc) => (0, getTimeZone_1.default)(sc.endedAt) === Math.max(...el.studentClassrooms.map((sc) => (0, getTimeZone_1.default)(sc.endedAt))));
                         }
-                        const message = `RA existente. ${el.person.name} se formou em: ${preR === null || preR === void 0 ? void 0 : preR.classroom.shortName} ${preR === null || preR === void 0 ? void 0 : preR.classroom.school.shortName} no ano de ${preR === null || preR === void 0 ? void 0 : preR.year.name}.`;
                         if (!el.active) {
-                            return { status: 409, message };
+                            return { status: 409, message: `RA existente. ${el.person.name} se formou em: ${preR === null || preR === void 0 ? void 0 : preR.classroom.shortName} ${preR === null || preR === void 0 ? void 0 : preR.classroom.school.shortName} no ano de ${preR === null || preR === void 0 ? void 0 : preR.year.name}.` };
                         }
                         return { status: 409, message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR === null || preR === void 0 ? void 0 : preR.classroom.shortName} ${preR === null || preR === void 0 ? void 0 : preR.classroom.school.shortName} no ano ${preR === null || preR === void 0 ? void 0 : preR.year.name}. ${preR.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preR.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}` };
                     }

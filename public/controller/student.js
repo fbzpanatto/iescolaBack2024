@@ -39,8 +39,8 @@ const disability_1 = require("./disability");
 const state_1 = require("./state");
 const teacherClassrooms_1 = require("./teacherClassrooms");
 const Teacher_1 = require("../model/Teacher");
-const getTimeZone_1 = __importDefault(require("../utils/getTimeZone"));
 const transferStatus_1 = require("../utils/transferStatus");
+const getTimeZone_1 = __importDefault(require("../utils/getTimeZone"));
 class StudentController extends genericController_1.GenericController {
     constructor() { super(Student_1.Student); }
     studentForm(req) {

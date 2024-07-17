@@ -17,7 +17,7 @@ import { discController } from "./discipline";
 import { classroomController } from "./classroom";
 import { pc } from "../utils/personCategories";
 import { pCatCtrl } from "./personCategory";
-import { mainEmail } from "../utils/email.service";
+import { credentialsEmail } from "../utils/email.service";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -272,7 +272,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           }
         }
 
-        await mainEmail(body.email, password, true).catch((e) => console.log(e) );
+        await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
     } catch (error: any) { return { status: 500, message: error.message } }

@@ -503,5 +503,95 @@ export const DESCRIPTOR = [
     "code": "D37",
     "name": "Associar informações apresentadas em listas e/ou tabelas simples aos gráficos que as representam e vice-versa.",
     "topic": { "id": 16 }
-  }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 17 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 18 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 19 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 20 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 21 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 22 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 23 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 24 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 25 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 26 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 27 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 28 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 29 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 30 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 31 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 32 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 33 }
+  },
+  {
+    "code": "GEN",
+    "name": "Genérico",
+    "topic": { "id": 34 }
+  },
 ]

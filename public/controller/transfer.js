@@ -23,6 +23,7 @@ const TextGenderExam_1 = require("../model/TextGenderExam");
 const TextGenderExamTier_1 = require("../model/TextGenderExamTier");
 const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
 const TextGenderGrade_1 = require("../model/TextGenderGrade");
+const Teacher_1 = require("../model/Teacher");
 class TransferController extends genericController_1.GenericController {
     constructor() { super(Transfer_1.Transfer); }
     findAllWhere(options, request) {
@@ -79,6 +80,22 @@ class TransferController extends genericController_1.GenericController {
                     if (Number(requestedClassroom.name.replace(/\D/g, '')) < Number(currentClassroom.name.replace(/\D/g, ''))) {
                         return { status: 400, message: 'Regressão de sala não é permitido.' };
                     }
+                    const uTeacherEmails = yield CONN.getRepository(Teacher_1.Teacher)
+                        .createQueryBuilder("teacher")
+                        .select(["teacher.id AS teacher_id", "user.id AS user_id", "user.email AS user_email"])
+                        .leftJoin("teacher.person", "person")
+                        .leftJoin("person.user", "user")
+                        // .leftJoin("person.category", "category", "category.id IN (:categoryId1, :categoryId2)", { categoryId1: 6, categoryId2: 8 })
+                        .leftJoin("person.category", "category", "category.id IN (:categoryId1)", { categoryId1: 6 })
+                        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                        .leftJoin("teacherClassDiscipline.classroom", "classroom")
+                        .where("classroom.id = :classroomId AND teacherClassDiscipline.endedAt IS NULL", { classroomId: currentClassroom.id })
+                        .groupBy("teacher.id")
+                        .orderBy("teacher_id")
+                        .getRawMany();
+                    for (let register of uTeacherEmails) {
+                        console.log(register.user_email);
+                    }
                     const transfer = new Transfer_1.Transfer();
                     transfer.student = body.student;
                     transfer.startedAt = body.startedAt;
@@ -93,7 +110,9 @@ class TransferController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                return { status: 500, message: error.message };
+                console.log(error);
+                return { status: 500, message: error.message
+                };
             }
         });
     }

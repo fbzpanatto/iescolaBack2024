@@ -1,15 +1,39 @@
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
-export async function mainEmail( email: string, password: string, post: boolean ) {
-  const url = "http://localhost:4200/home";
-  let info: SMTPTransport.SentMessageInfo;
+let INFO: SMTPTransport.SentMessageInfo;
+const FRONT_URL: string = "http://localhost:4200/home";
+const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }}
+const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodemailer.createTransport(transport);
 
-  const transporter = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }});
+export async function transferEmail(email: string, student: string, rClassroom: string, requester: string, rSchool: string): Promise<void> {
+
+  INFO = await TRANSPORTER.sendMail({
+    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+    to: email,
+    subject: `IEscolApp: Solicitação de transferência para: ${student}`,
+    html: `
+        <p>Olá,</p>
+        <p>Pedido de transferência</p>
+        <p>Solicitante: ${requester}</p>
+        <p>Sala: ${rClassroom}</p>
+        <p>Escola: ${rSchool}</p>
+        <p>para</p>
+        <p>Aluno: <b>${student}</b></p>
+        <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
+        <p>Atenciosamente,</p>
+        <p>Equipe EscolApp - Prefeitura de Itatiba</p>
+      `,
+  });
+  console.log("Message sent: " + INFO.messageId);
+  return;
+}
+
+export async function credentialsEmail(email: string, password: string, post: boolean ): Promise<void> {
 
   if (post) {
-    info = await transporter.sendMail({
-      from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
+    INFO = await TRANSPORTER.sendMail({
+      from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
       to: email,
       subject: "IEscolApp: Conta criada com sucesso.",
       html: `
@@ -17,17 +41,17 @@ export async function mainEmail( email: string, password: string, post: boolean 
         <p>Uma conta IEscolApp acabou de ser criada para você.</p>
         <p>Usuário: <b>${email}</b></p>
         <p>Senha: <b>${password}</b></p>
-        <a href="${url}">Clique aqui para fazer login.</a>
+        <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
         <p>Atenciosamente,</p>
-        <p>Equipe IEScola</p>
+        <p>Equipe EscolApp - Prefeitura de Itatiba</p>
       `,
     });
-    console.log("Message sent: " + info.messageId);
+    console.log("Message sent: " + INFO.messageId);
     return;
   }
 
-  info = await transporter.sendMail({
-    from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
+  INFO = await TRANSPORTER.sendMail({
+    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
     to: email,
     subject: "IEscolApp: Lembrete de senha",
     html: `
@@ -36,9 +60,9 @@ export async function mainEmail( email: string, password: string, post: boolean 
       <p>Usuário: <b>${email}</b></p>
       <p>Senha: <b>${password}</b></p>
       <p>Atenciosamente,</p>
-      <p>Equipe IEScola</p>
+      <p>Equipe EscolApp - Prefeitura de Itatiba</p>
     `,
   });
-
-  console.log("Message sent: " + info.messageId);
+  console.log("Message sent: " + INFO.messageId);
+  return;
 }

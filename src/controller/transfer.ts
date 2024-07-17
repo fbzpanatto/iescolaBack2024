@@ -1,6 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { GenericController } from "./genericController";
-import { Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
+import {Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Transfer } from "../model/Transfer";
 import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
@@ -13,6 +13,8 @@ import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TextGenderGrade } from "../model/TextGenderGrade";
 import { TransferStatus } from '../model/TransferStatus';
+import {Teacher} from "../model/Teacher";
+import {transferEmail} from "../utils/email.service";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -24,28 +26,28 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     try {
       return await AppDataSource.transaction(async(CONN)=> {
         const result = await CONN.getRepository(Transfer)
-            .createQueryBuilder('transfer')
-            .leftJoinAndSelect('transfer.status', 'status')
-            .leftJoin('transfer.year', 'year')
-            .leftJoinAndSelect('transfer.requester', 'requester')
-            .leftJoinAndSelect('requester.person', 'requesterPerson')
-            .leftJoinAndSelect('transfer.student', 'student')
-            .leftJoinAndSelect('student.person', 'studentPerson')
-            .leftJoinAndSelect('transfer.receiver', 'receiver')
-            .leftJoinAndSelect('receiver.person', 'receiverPerson')
-            .leftJoinAndSelect('transfer.requestedClassroom', 'requestedClassroom')
-            .leftJoinAndSelect('transfer.currentClassroom', 'currentClassroom')
-            .leftJoinAndSelect('requestedClassroom.school', 'school')
-            .leftJoinAndSelect('currentClassroom.school', 'currentSchool')
-            .where(new Brackets(qb => {
-              qb.where('studentPerson.name LIKE :search', { search: `%${search}%` })
-                .orWhere('student.ra LIKE :search', { search: `%${search}%` })
-                .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
-                .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
-            }))
-            .andWhere('year.name = :year', { year })
-            .orderBy('transfer.startedAt', 'DESC')
-            .getMany()
+          .createQueryBuilder('transfer')
+          .leftJoinAndSelect('transfer.status', 'status')
+          .leftJoin('transfer.year', 'year')
+          .leftJoinAndSelect('transfer.requester', 'requester')
+          .leftJoinAndSelect('requester.person', 'requesterPerson')
+          .leftJoinAndSelect('transfer.student', 'student')
+          .leftJoinAndSelect('student.person', 'studentPerson')
+          .leftJoinAndSelect('transfer.receiver', 'receiver')
+          .leftJoinAndSelect('receiver.person', 'receiverPerson')
+          .leftJoinAndSelect('transfer.requestedClassroom', 'requestedClassroom')
+          .leftJoinAndSelect('transfer.currentClassroom', 'currentClassroom')
+          .leftJoinAndSelect('requestedClassroom.school', 'school')
+          .leftJoinAndSelect('currentClassroom.school', 'currentSchool')
+          .where(new Brackets(qb => {
+            qb.where('studentPerson.name LIKE :search', { search: `%${search}%` })
+              .orWhere('student.ra LIKE :search', { search: `%${search}%` })
+              .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
+              .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
+          }))
+          .andWhere('year.name = :year', { year })
+          .orderBy('transfer.startedAt', 'DESC')
+          .getMany()
         return { status: 200, data: result };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -54,25 +56,53 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const uTeacher = await this.teacherByUser(body.user.user, CONN)
-        const dataBaseTransfer = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}});
-        if (dataBaseTransfer) return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' }
-        const currentClassroom = await CONN.findOne(Classroom, { where: { id: body.currentClassroom.id } })
-        const requestedClassroom = await CONN.findOne(Classroom, { where: { id: body.classroom.id } })
-        if (!currentClassroom) return { status: 404, message: 'Registro não encontrado' }
-        if (!requestedClassroom) return { status: 404, message: 'Registro não encontrado' }
-        if (Number(requestedClassroom.name.replace(/\D/g, '')) < Number(currentClassroom.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
+
+        const rTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
+
+        const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { relations: [ 'student.person' ], where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}})
+
+        if (dbTransfer) return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' }
+
+        const currClass: Classroom | null = await CONN.findOne(Classroom, { where: { id: body.currentClassroom.id } })
+        const newClass: Classroom | null = await CONN.findOne(Classroom, { relations: [ 'school' ], where: { id: body.classroom.id } })
+
+        if (!currClass) return { status: 404, message: 'Registro não encontrado' }
+        if (!newClass) return { status: 404, message: 'Registro não encontrado' }
+
+        if (Number(newClass.name.replace(/\D/g, '')) < Number(currClass.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
+
+        const teachers = await CONN.getRepository(Teacher)
+          .createQueryBuilder("teacher")
+          .select(["teacher.id AS teacher_id", "user.id AS user_id", "user.email AS user_email"])
+          .leftJoin("teacher.person", "person")
+          .leftJoin("person.user", "user")
+          .leftJoin("person.category", "category")
+          .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+          .leftJoin("teacherClassDiscipline.classroom", "classroom")
+          .where("classroom.id = :classroomId AND teacherClassDiscipline.endedAt IS NULL", { classroomId: currClass.id })
+          .andWhere("category.id IN (:categoryId1)", { categoryId1: 6 })
+          // .andWhere("category.id IN (:categoryId1, :categoryId2)", { categoryId1: 6, categoryId2: 8 })
+          .groupBy("teacher.id")
+          .orderBy("teacher_id")
+          .getRawMany() as { teacher_id: number, user_id: number, user_email: string }[];
+
+        for(let el of teachers) {
+          await transferEmail(el.user_email, dbTransfer!.student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName)
+        }
+
         const transfer = new Transfer();
         transfer.student = body.student;
         transfer.startedAt = body.startedAt;
         transfer.endedAt = body.endedAt;
-        transfer.requester = uTeacher;
+        transfer.requester = rTeacher;
         transfer.requestedClassroom = body.classroom;
         transfer.year = await this.currentYear(CONN)
         transfer.currentClassroom = body.currentClassroom;
         transfer.status = await this.transferStatus(transferStatus.PENDING, CONN) as TransferStatus
+
         const result = await CONN.save(Transfer, transfer)
-        return { status: 201, data: result };
+
+        return { status: 201, data: result }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -82,14 +112,17 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       return await AppDataSource.transaction(async(CONN) => {
         const uTeacher = await this.teacherByUser(body.user.user, CONN)
         const transfer = await CONN.findOne(Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) }})
+
         if (!transfer) return { status: 404, message: 'Registro não encontrado.' }
         if (uTeacher.id !== transfer.requester.id && body.cancel) { return { status: 403, message: 'Você não tem permissão para alterar este registro.' }}
+
         if (body.cancel) {
           transfer.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
           transfer.endedAt = new Date()
           await CONN.save(Transfer, transfer)
           return { status: 200, data: 'Cancelada com sucesso.' }
         }
+
         if (body.reject) {
           transfer.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
           transfer.endedAt = new Date()
@@ -97,10 +130,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           await CONN.save(Transfer, transfer)
           return { status: 200, data: 'Rejeitada com sucesso.' }
         }
+
         if (body.accept) {
 
-          const arrayOfRelations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year' ]
-          const stClass = await CONN.findOne(StudentClassroom, { relations: arrayOfRelations, where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
+          const relations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year' ]
+          const stClass = await CONN.findOne(StudentClassroom, { relations: relations, where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
           if (!stClass) { return { status: 404, message: 'Registro não encontrado.' } }
           const currentYear = await this.currentYear(CONN)
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: transfer.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })

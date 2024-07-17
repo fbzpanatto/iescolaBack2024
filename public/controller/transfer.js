@@ -24,6 +24,7 @@ const TextGenderExamTier_1 = require("../model/TextGenderExamTier");
 const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
 const TextGenderGrade_1 = require("../model/TextGenderGrade");
 const Teacher_1 = require("../model/Teacher");
+const email_service_1 = require("../utils/email.service");
 class TransferController extends genericController_1.GenericController {
     constructor() { super(Transfer_1.Transfer); }
     findAllWhere(options, request) {
@@ -67,40 +68,41 @@ class TransferController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const dataBaseTransfer = yield CONN.findOne(Transfer_1.Transfer, { where: { student: body.student, status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() } });
-                    if (dataBaseTransfer)
+                    const rTeacher = yield this.teacherByUser(body.user.user, CONN);
+                    const dbTransfer = yield CONN.findOne(Transfer_1.Transfer, { relations: ['student.person'], where: { student: body.student, status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() } });
+                    if (dbTransfer)
                         return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' };
-                    const currentClassroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.currentClassroom.id } });
-                    const requestedClassroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom.id } });
-                    if (!currentClassroom)
+                    const currClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.currentClassroom.id } });
+                    const newClass = yield CONN.findOne(Classroom_1.Classroom, { relations: ['school'], where: { id: body.classroom.id } });
+                    if (!currClass)
                         return { status: 404, message: 'Registro não encontrado' };
-                    if (!requestedClassroom)
+                    if (!newClass)
                         return { status: 404, message: 'Registro não encontrado' };
-                    if (Number(requestedClassroom.name.replace(/\D/g, '')) < Number(currentClassroom.name.replace(/\D/g, ''))) {
+                    if (Number(newClass.name.replace(/\D/g, '')) < Number(currClass.name.replace(/\D/g, ''))) {
                         return { status: 400, message: 'Regressão de sala não é permitido.' };
                     }
-                    const uTeacherEmails = yield CONN.getRepository(Teacher_1.Teacher)
+                    const teachers = yield CONN.getRepository(Teacher_1.Teacher)
                         .createQueryBuilder("teacher")
                         .select(["teacher.id AS teacher_id", "user.id AS user_id", "user.email AS user_email"])
                         .leftJoin("teacher.person", "person")
                         .leftJoin("person.user", "user")
-                        // .leftJoin("person.category", "category", "category.id IN (:categoryId1, :categoryId2)", { categoryId1: 6, categoryId2: 8 })
-                        .leftJoin("person.category", "category", "category.id IN (:categoryId1)", { categoryId1: 6 })
+                        .leftJoin("person.category", "category")
                         .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
                         .leftJoin("teacherClassDiscipline.classroom", "classroom")
-                        .where("classroom.id = :classroomId AND teacherClassDiscipline.endedAt IS NULL", { classroomId: currentClassroom.id })
+                        .where("classroom.id = :classroomId AND teacherClassDiscipline.endedAt IS NULL", { classroomId: currClass.id })
+                        .andWhere("category.id IN (:categoryId1)", { categoryId1: 6 })
+                        // .andWhere("category.id IN (:categoryId1, :categoryId2)", { categoryId1: 6, categoryId2: 8 })
                         .groupBy("teacher.id")
                         .orderBy("teacher_id")
                         .getRawMany();
-                    for (let register of uTeacherEmails) {
-                        console.log(register.user_email);
+                    for (let el of teachers) {
+                        yield (0, email_service_1.transferEmail)(el.user_email, dbTransfer.student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName);
                     }
                     const transfer = new Transfer_1.Transfer();
                     transfer.student = body.student;
                     transfer.startedAt = body.startedAt;
                     transfer.endedAt = body.endedAt;
-                    transfer.requester = uTeacher;
+                    transfer.requester = rTeacher;
                     transfer.requestedClassroom = body.classroom;
                     transfer.year = yield this.currentYear(CONN);
                     transfer.currentClassroom = body.currentClassroom;
@@ -110,9 +112,7 @@ class TransferController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                console.log(error);
-                return { status: 500, message: error.message
-                };
+                return { status: 500, message: error.message };
             }
         });
     }
@@ -142,8 +142,8 @@ class TransferController extends genericController_1.GenericController {
                         return { status: 200, data: 'Rejeitada com sucesso.' };
                     }
                     if (body.accept) {
-                        const arrayOfRelations = ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year'];
-                        const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: arrayOfRelations, where: { student: body.student, classroom: body.classroom, endedAt: (0, typeorm_1.IsNull)() } });
+                        const relations = ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year'];
+                        const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: relations, where: { student: body.student, classroom: body.classroom, endedAt: (0, typeorm_1.IsNull)() } });
                         if (!stClass) {
                             return { status: 404, message: 'Registro não encontrado.' };
                         }

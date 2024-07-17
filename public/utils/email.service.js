@@ -12,16 +12,41 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mainEmail = void 0;
+exports.credentialsEmail = exports.transferEmail = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-function mainEmail(email, password, post) {
+let INFO;
+const FRONT_URL = "http://localhost:4200/home";
+const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" } };
+const TRANSPORTER = nodemailer_1.default.createTransport(transport);
+function transferEmail(email, student, rClassroom, requester, rSchool) {
     return __awaiter(this, void 0, void 0, function* () {
-        const url = "http://localhost:4200/home";
-        let info;
-        const transporter = nodemailer_1.default.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" } });
+        INFO = yield TRANSPORTER.sendMail({
+            from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+            to: email,
+            subject: `IEscolApp: Solicitação de transferência para: ${student}`,
+            html: `
+        <p>Olá,</p>
+        <p>Pedido de transferência</p>
+        <p>Solicitante: ${requester}</p>
+        <p>Sala: ${rClassroom}</p>
+        <p>Escola: ${rSchool}</p>
+        <p>para</p>
+        <p>Aluno: <b>${student}</b></p>
+        <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
+        <p>Atenciosamente,</p>
+        <p>Equipe EscolApp - Prefeitura de Itatiba</p>
+      `,
+        });
+        console.log("Message sent: " + INFO.messageId);
+        return;
+    });
+}
+exports.transferEmail = transferEmail;
+function credentialsEmail(email, password, post) {
+    return __awaiter(this, void 0, void 0, function* () {
         if (post) {
-            info = yield transporter.sendMail({
-                from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
+            INFO = yield TRANSPORTER.sendMail({
+                from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
                 to: email,
                 subject: "IEscolApp: Conta criada com sucesso.",
                 html: `
@@ -29,16 +54,16 @@ function mainEmail(email, password, post) {
         <p>Uma conta IEscolApp acabou de ser criada para você.</p>
         <p>Usuário: <b>${email}</b></p>
         <p>Senha: <b>${password}</b></p>
-        <a href="${url}">Clique aqui para fazer login.</a>
+        <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
         <p>Atenciosamente,</p>
-        <p>Equipe IEScola</p>
+        <p>Equipe EscolApp - Prefeitura de Itatiba</p>
       `,
             });
-            console.log("Message sent: " + info.messageId);
+            console.log("Message sent: " + INFO.messageId);
             return;
         }
-        info = yield transporter.sendMail({
-            from: "IEscolApp <fbzpanatto@gmail.com@gmail.com>",
+        INFO = yield TRANSPORTER.sendMail({
+            from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
             to: email,
             subject: "IEscolApp: Lembrete de senha",
             html: `
@@ -47,10 +72,11 @@ function mainEmail(email, password, post) {
       <p>Usuário: <b>${email}</b></p>
       <p>Senha: <b>${password}</b></p>
       <p>Atenciosamente,</p>
-      <p>Equipe IEScola</p>
+      <p>Equipe EscolApp - Prefeitura de Itatiba</p>
     `,
         });
-        console.log("Message sent: " + info.messageId);
+        console.log("Message sent: " + INFO.messageId);
+        return;
     });
 }
-exports.mainEmail = mainEmail;
+exports.credentialsEmail = credentialsEmail;

@@ -17,11 +17,11 @@ TeacherRouter.get('/form', havePermission, async (req: Request, res: Response) =
 })
 
 TeacherRouter.get('/', havePermission, async (req: Request, res: Response) => {
-  const response = await controller.findAllWhere({}, req); return res.status(response.status).json(response)
+  const response = await controller.findAllWhereTeacher(req); return res.status(response.status).json(response)
 })
 
 TeacherRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.findOneById(req.params.id, req); return res.status(response.status).json(response)
+  const response = await controller.findOneTeacher(req.params.id, req); return res.status(response.status).json(response)
 })
 
 TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
@@ -29,5 +29,5 @@ TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Reques
 });
 
 TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)
+  const response = await controller.updateTeacher(req.params.id, req.body); return res.status(response.status).json(response)
 })

@@ -57,7 +57,7 @@ class TestController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, CONN)).data;
+                    const classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, false, CONN)).data;
                     const disciplines = yield CONN.find(Discipline_1.Discipline);
                     const bimesters = yield CONN.find(Bimester_1.Bimester);
                     const testCategories = yield CONN.find(TestCategory_1.TestCategory);
@@ -526,42 +526,6 @@ class TestController extends genericController_1.GenericController {
                 .orderBy("questionGroup.id", "ASC")
                 .addOrderBy("testQuestion.order", "ASC")
                 .getMany();
-        });
-    }
-    deleteId(request) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const testId = request.params.id;
-            const body = request.body;
-            try {
-                const teacher = yield this.teacherByUser(body.user.user);
-                const test = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
-                    .findOne({
-                    relations: ["person"],
-                    where: { id: Number(testId) }
-                });
-                if (!test) {
-                    return { status: 404, message: 'Data not found' };
-                }
-                if (teacher.person.id !== test.person.id)
-                    return { status: 403, message: "Você não tem permissão para deletar esse teste." };
-                // TODO: Only delete if there is no student with a test result
-                yield data_source_1.AppDataSource.getRepository(TestQuestion_1.TestQuestion)
-                    .createQueryBuilder()
-                    .delete()
-                    .from(TestQuestion_1.TestQuestion)
-                    .where("test = :testId", { testId })
-                    .execute();
-                const result = yield data_source_1.AppDataSource.getRepository(Test_1.Test)
-                    .createQueryBuilder()
-                    .delete()
-                    .from(Test_1.Test)
-                    .where("id = :testId", { testId })
-                    .execute();
-                return { status: 200, data: result };
-            }
-            catch (error) {
-                return { status: 500, message: error.message };
-            }
         });
     }
 }

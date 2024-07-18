@@ -37,7 +37,7 @@ class TeacherController extends genericController_1.GenericController {
             try {
                 yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     disciplines = (yield discipline_1.discController.getAllDisciplines(req, CONN)).data;
-                    classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, CONN)).data;
+                    classrooms = (yield classroom_1.classroomController.getAllClassrooms(req, true, CONN)).data;
                     personCategories = (yield personCategory_1.pCatCtrl.findAllPerCat(req, CONN)).data;
                 }));
                 return { status: 200, data: { disciplines, classrooms, personCategories } };
@@ -47,86 +47,88 @@ class TeacherController extends genericController_1.GenericController {
             }
         });
     }
-    findAllWhere(_, request) {
+    findAllWhereTeacher(request) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const search = (_a = request === null || request === void 0 ? void 0 : request.query.search) !== null && _a !== void 0 ? _a : "";
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {
-                const teacher = yield this.teacherByUser(body.user.user);
-                const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user);
-                const notInCategories = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE];
-                const newResult = yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher)
-                    .createQueryBuilder("teacher")
-                    .leftJoinAndSelect("teacher.person", "person")
-                    .leftJoinAndSelect("person.category", "category")
-                    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-                    .leftJoin("teacherClassDiscipline.classroom", "classroom")
-                    .where(new typeorm_1.Brackets((qb) => {
-                    if (teacher.person.category.id === personCategories_1.pc.PROF) {
-                        qb.where("teacher.id = :teacherId", { teacherId: teacher.id });
-                        return;
-                    }
-                    if (teacher.person.category.id != personCategories_1.pc.ADMN && teacher.person.category.id != personCategories_1.pc.SUPE) {
-                        qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
-                            .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
-                            .andWhere("teacherClassDiscipline.endedAt IS NULL");
-                        return;
-                    }
-                }))
-                    .andWhere("person.name LIKE :search", { search: `%${search}%` })
-                    .groupBy("teacher.id")
-                    .getMany();
-                return { status: 200, data: newResult };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacher = yield this.teacherByUser(body.user.user, CONN);
+                    const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user, CONN);
+                    const notInCategories = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE];
+                    const newResult = yield CONN.getRepository(Teacher_1.Teacher)
+                        .createQueryBuilder("teacher")
+                        .leftJoinAndSelect("teacher.person", "person")
+                        .leftJoinAndSelect("person.category", "category")
+                        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                        .leftJoin("teacherClassDiscipline.classroom", "classroom")
+                        .where(new typeorm_1.Brackets((qb) => {
+                        if (teacher.person.category.id === personCategories_1.pc.PROF) {
+                            qb.where("teacher.id = :teacherId", { teacherId: teacher.id });
+                            return;
+                        }
+                        if (teacher.person.category.id != personCategories_1.pc.ADMN && teacher.person.category.id != personCategories_1.pc.SUPE) {
+                            qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
+                                .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
+                                .andWhere("teacherClassDiscipline.endedAt IS NULL");
+                            return;
+                        }
+                    }))
+                        .andWhere("person.name LIKE :search", { search: `%${search}%` })
+                        .groupBy("teacher.id")
+                        .getMany();
+                    return { status: 200, data: newResult };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    // TODO: check this
-    // @ts-ignore
-    findOneById(id, request) {
-        var _a, _b, _c, _d;
+    findOneTeacher(id, request) {
         return __awaiter(this, void 0, void 0, function* () {
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {
-                const teacher = yield this.teacherByUser(body.user.user);
-                const cannotChange = [personCategories_1.pc.MONI, personCategories_1.pc.PROF];
-                if (teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id)) {
-                    return { status: 403, message: "Você não tem permissão para visualizar este registro." };
-                }
-                const el = yield this.repository
-                    .createQueryBuilder("teacher")
-                    .select("teacher.id", "teacher_id")
-                    .addSelect("teacher.email", "teacher_email")
-                    .addSelect("teacher.register", "teacher_register")
-                    .addSelect("person.id", "person_id")
-                    .addSelect("person.name", "person_name")
-                    .addSelect("person.birth", "person_birth")
-                    .addSelect("category.id", "category_id")
-                    .addSelect("category.name", "category_name")
-                    .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classroom_ids")
-                    .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "discipline_ids")
-                    .leftJoin("teacher.person", "person")
-                    .leftJoin("person.category", "category")
-                    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-                    .leftJoin("teacherClassDiscipline.classroom", "classroom")
-                    .leftJoin("teacherClassDiscipline.discipline", "discipline")
-                    .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
-                    .getRawOne();
-                if (!el) {
-                    return { status: 404, message: "Dado não encontrado" };
-                }
-                let newResult = {
-                    id: el.teacher_id,
-                    email: el.teacher_email,
-                    register: el.teacher_register,
-                    person: { id: el.person_id, name: el.person_name, birth: el.person_birth, category: { id: el.category_id, name: el.category_name } },
-                    teacherClasses: (_b = (_a = el.classroom_ids) === null || _a === void 0 ? void 0 : _a.split(",").map((item) => parseInt(item))) !== null && _b !== void 0 ? _b : [],
-                    teacherDisciplines: (_d = (_c = el.discipline_ids) === null || _c === void 0 ? void 0 : _c.split(",").map((item) => parseInt(item))) !== null && _d !== void 0 ? _d : []
-                };
-                return { status: 200, data: newResult };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    var _a, _b, _c, _d;
+                    const teacher = yield this.teacherByUser(body.user.user, CONN);
+                    const cannotChange = [personCategories_1.pc.MONI, personCategories_1.pc.PROF];
+                    if (teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id)) {
+                        return { status: 403, message: "Você não tem permissão para visualizar este registro." };
+                    }
+                    const el = yield CONN.getRepository(Teacher_1.Teacher)
+                        .createQueryBuilder("teacher")
+                        .select("teacher.id", "teacher_id")
+                        .addSelect("teacher.email", "teacher_email")
+                        .addSelect("teacher.register", "teacher_register")
+                        .addSelect("person.id", "person_id")
+                        .addSelect("person.name", "person_name")
+                        .addSelect("person.birth", "person_birth")
+                        .addSelect("category.id", "category_id")
+                        .addSelect("category.name", "category_name")
+                        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classroom_ids")
+                        .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "discipline_ids")
+                        .leftJoin("teacher.person", "person")
+                        .leftJoin("person.category", "category")
+                        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+                        .leftJoin("teacherClassDiscipline.classroom", "classroom")
+                        .leftJoin("teacherClassDiscipline.discipline", "discipline")
+                        .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
+                        .getRawOne();
+                    if (!el) {
+                        return { status: 404, message: "Dado não encontrado" };
+                    }
+                    let newResult = {
+                        id: el.teacher_id,
+                        email: el.teacher_email,
+                        register: el.teacher_register,
+                        person: { id: el.person_id, name: el.person_name, birth: el.person_birth, category: { id: el.category_id, name: el.category_name } },
+                        teacherClasses: (_b = (_a = el.classroom_ids) === null || _a === void 0 ? void 0 : _a.split(",").map((item) => parseInt(item))) !== null && _b !== void 0 ? _b : [],
+                        teacherDisciplines: (_d = (_c = el.discipline_ids) === null || _c === void 0 ? void 0 : _c.split(",").map((item) => parseInt(item))) !== null && _d !== void 0 ? _d : []
+                    };
+                    return { status: 200, data: newResult };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
@@ -136,63 +138,66 @@ class TeacherController extends genericController_1.GenericController {
     getRequestedStudentTransfers(request) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user);
-                const studentClassrooms = yield data_source_1.AppDataSource.getRepository(StudentClassroom_1.StudentClassroom)
-                    .createQueryBuilder("studentClassroom")
-                    .leftJoin("studentClassroom.classroom", "classroom")
-                    .leftJoin("studentClassroom.student", "student")
-                    .leftJoin("student.person", "person")
-                    .leftJoin("student.transfers", "transfers")
-                    .where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms })
-                    .andWhere("studentClassroom.endedAt IS NULL")
-                    .andWhere("transfers.endedAt IS NULL")
-                    .andWhere("transfers.status = :status", { status: transferStatus_1.transferStatus.PENDING })
-                    .getCount();
-                return { status: 200, data: studentClassrooms };
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacherClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
+                    const studentClassrooms = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
+                        .createQueryBuilder("studentClassroom")
+                        .leftJoin("studentClassroom.classroom", "classroom")
+                        .leftJoin("studentClassroom.student", "student")
+                        .leftJoin("student.person", "person")
+                        .leftJoin("student.transfers", "transfers")
+                        .where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms })
+                        .andWhere("studentClassroom.endedAt IS NULL")
+                        .andWhere("transfers.endedAt IS NULL")
+                        .andWhere("transfers.status = :status", { status: transferStatus_1.transferStatus.PENDING })
+                        .getCount();
+                    return { status: 200, data: studentClassrooms };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    updateId(id, body) {
+    updateTeacher(id, body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const tUser = yield this.teacherByUser(body.user.user);
-                const teacher = yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).findOne({ relations: ["person.category"], where: { id: Number(id) } });
-                if (!teacher) {
-                    return { status: 404, message: "Data not found" };
-                }
-                const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu.";
-                if (!this.canChange(tUser.person.category.id, teacher.person.category.id)) {
-                    return { status: 403, message };
-                }
-                if (tUser.person.category.id === personCategories_1.pc.PROF || (tUser.person.category.id === personCategories_1.pc.MONI && tUser.id !== teacher.id)) {
-                    return { status: 403, message: "Você não tem permissão para editar este registro." };
-                }
-                teacher.person.name = body.name;
-                teacher.person.birth = body.birth;
-                teacher.updatedAt = new Date();
-                teacher.updatedByUser = tUser.person.user.id;
-                if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE) {
-                    yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).save(teacher);
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const tUser = yield this.teacherByUser(body.user.user, CONN);
+                    const teacher = yield CONN.findOne(Teacher_1.Teacher, { relations: ["person.category"], where: { id: Number(id) } });
+                    if (!teacher) {
+                        return { status: 404, message: "Data not found" };
+                    }
+                    const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu.";
+                    if (!this.canChange(tUser.person.category.id, teacher.person.category.id)) {
+                        return { status: 403, message };
+                    }
+                    if (tUser.person.category.id === personCategories_1.pc.PROF || (tUser.person.category.id === personCategories_1.pc.MONI && tUser.id !== teacher.id)) {
+                        return { status: 403, message: "Você não tem permissão para editar este registro." };
+                    }
+                    teacher.person.name = body.name;
+                    teacher.person.birth = body.birth;
+                    teacher.updatedAt = new Date();
+                    teacher.updatedByUser = tUser.person.user.id;
+                    if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE) {
+                        yield CONN.save(Teacher_1.Teacher, teacher);
+                        return { status: 200, data: teacher };
+                    }
+                    if (body.teacherClasses || body.teacherDisciplines) {
+                        yield this.updateRelation(teacher, body, CONN);
+                    }
+                    yield CONN.save(Teacher_1.Teacher, teacher);
                     return { status: 200, data: teacher };
-                }
-                if (body.teacherClasses || body.teacherDisciplines) {
-                    yield this.updateRelation(teacher, body);
-                }
-                yield data_source_1.AppDataSource.getRepository(Teacher_1.Teacher).save(teacher);
-                return { status: 200, data: teacher };
+                }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
             }
         });
     }
-    updateRelation(teacher, body) {
+    updateRelation(teacher, body, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            const tcd = yield data_source_1.AppDataSource
-                .getRepository(TeacherClassDiscipline_1.TeacherClassDiscipline)
+            const tcd = yield CONN.getRepository(TeacherClassDiscipline_1.TeacherClassDiscipline)
                 .find({ relations: ["teacher", "classroom", "discipline"], where: { endedAt: (0, typeorm_1.IsNull)(), teacher: { id: Number(teacher.id) } } });
             const arrOfDiff = [];
             const cBody = body.teacherClasses.map((el) => parseInt(el));
@@ -208,7 +213,7 @@ class TeacherController extends genericController_1.GenericController {
             }
             // Encerrar relações que estão em arrOfDiff
             for (let relation of arrOfDiff) {
-                yield teacherClassDiscipline_1.teacherRelationController.updateId(relation.id, { endedAt: new Date() });
+                yield teacherClassDiscipline_1.teacherRelationController.updateId(relation.id, { endedAt: new Date() }, CONN);
             }
             // Criar novas relações conforme o corpo da requisição
             for (let classroomId of cBody) {
@@ -217,31 +222,10 @@ class TeacherController extends genericController_1.GenericController {
                     if (!existingRelations.has(relationKey)) {
                         const el = new TeacherClassDiscipline_1.TeacherClassDiscipline();
                         el.teacher = teacher;
-                        el.classroom = (yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findOne({ where: { id: classroomId } }));
-                        el.discipline = (yield data_source_1.AppDataSource.getRepository(Discipline_1.Discipline).findOne({ where: { id: disciplineId } }));
+                        el.classroom = (yield CONN.getRepository(Classroom_1.Classroom).findOne({ where: { id: classroomId } }));
+                        el.discipline = (yield CONN.getRepository(Discipline_1.Discipline).findOne({ where: { id: disciplineId } }));
                         el.startedAt = new Date();
-                        yield teacherClassDiscipline_1.teacherRelationController.save(el, {});
-                    }
-                }
-            }
-        });
-    }
-    createRelation(teacher, body) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const classrooms = yield data_source_1.AppDataSource.getRepository(Classroom_1.Classroom).findBy({ id: (0, typeorm_1.In)(body.teacherClasses) });
-            const disciplines = yield data_source_1.AppDataSource.getRepository(Discipline_1.Discipline).findBy({ id: (0, typeorm_1.In)(body.teacherDisciplines) });
-            for (let classroom of classrooms) {
-                for (let discipline of disciplines) {
-                    const relationExists = yield data_source_1.AppDataSource
-                        .getRepository(TeacherClassDiscipline_1.TeacherClassDiscipline)
-                        .findOne({ where: { teacher: { id: teacher.id }, classroom: { id: classroom.id }, discipline: { id: discipline.id }, endedAt: (0, typeorm_1.IsNull)() } });
-                    if (!relationExists) {
-                        const el = new TeacherClassDiscipline_1.TeacherClassDiscipline();
-                        el.teacher = teacher;
-                        el.classroom = classroom;
-                        el.discipline = discipline;
-                        el.startedAt = new Date();
-                        yield teacherClassDiscipline_1.teacherRelationController.save(el, {});
+                        yield teacherClassDiscipline_1.teacherRelationController.save(el, {}, CONN);
                     }
                 }
             }
@@ -250,31 +234,31 @@ class TeacherController extends genericController_1.GenericController {
     saveTeacher(body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const teacherUserFromFront = (yield this.teacherByUser(body.user.user));
-                const message = "Você não tem permissão para criar uma pessoa com esta categoria.";
-                if (!this.canChange(teacherUserFromFront.person.category.id, body.category.id)) {
-                    return { status: 403, message };
-                }
-                return yield data_source_1.AppDataSource.transaction((transaction) => __awaiter(this, void 0, void 0, function* () {
-                    const registerExists = yield transaction.findOne(Teacher_1.Teacher, { where: { register: body.register } });
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const teacherUserFromFront = yield this.teacherByUser(body.user.user, CONN);
+                    const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria.";
+                    if (!this.canChange(teacherUserFromFront.person.category.id, body.category.id)) {
+                        return { status: 403, message: canChangeErr };
+                    }
+                    const registerExists = yield CONN.findOne(Teacher_1.Teacher, { where: { register: body.register } });
                     const message = "Já existe um registro com este número de matrícula.";
                     if (registerExists) {
                         return { status: 409, message };
                     }
-                    const emailExists = yield transaction.findOne(Teacher_1.Teacher, { where: { email: body.email } });
+                    const emailExists = yield CONN.findOne(Teacher_1.Teacher, { where: { email: body.email } });
                     if (emailExists) {
                         return { status: 409, message: "Já existe um registro com este email." };
                     }
-                    const category = (yield transaction.findOne(PersonCategory_1.PersonCategory, { where: { id: body.category.id } }));
+                    const category = (yield CONN.findOne(PersonCategory_1.PersonCategory, { where: { id: body.category.id } }));
                     const person = this.createPerson({ name: body.name, birth: body.birth, category });
-                    const teacher = yield transaction.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
+                    const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
                     const { username, password, email } = this.generateUser(body);
-                    yield transaction.save(User_1.User, { person, username, email, password });
+                    yield CONN.save(User_1.User, { person, username, email, password });
                     if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE) {
                         return { status: 201, data: teacher };
                     }
-                    const classrooms = yield transaction.findBy(Classroom_1.Classroom, { id: (0, typeorm_1.In)(body.teacherClasses) });
-                    const disciplines = yield transaction.findBy(Discipline_1.Discipline, { id: (0, typeorm_1.In)(body.teacherDisciplines) });
+                    const classrooms = yield CONN.findBy(Classroom_1.Classroom, { id: (0, typeorm_1.In)(body.teacherClasses) });
+                    const disciplines = yield CONN.findBy(Discipline_1.Discipline, { id: (0, typeorm_1.In)(body.teacherDisciplines) });
                     for (const classroom of classrooms) {
                         for (const discipline of disciplines) {
                             const el = new TeacherClassDiscipline_1.TeacherClassDiscipline();
@@ -282,7 +266,7 @@ class TeacherController extends genericController_1.GenericController {
                             el.classroom = classroom;
                             el.discipline = discipline;
                             el.startedAt = new Date();
-                            yield transaction.save(el);
+                            yield CONN.save(el);
                         }
                     }
                     yield (0, email_service_1.credentialsEmail)(body.email, password, true).catch((e) => console.log(e));

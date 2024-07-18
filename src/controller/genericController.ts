@@ -43,30 +43,32 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async save( body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined ) {
+  async save( body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined, CONN?: EntityManager) {
     try {
-      const result = await this.repository.save(body, options); return { status: 201, data: result }
+      if(!CONN) { const result = await this.repository.save(body, options); return { status: 201, data: result } }
+      const result = await CONN.save(this.entity, body, options); return { status: 201, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: number | string, body: ObjectLiteral) {
+  async updateId(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
     try {
-      const dataInDataBase = await this.repository.findOneBy({ id: id });
+      if(!CONN){
+        const dataInDataBase = await this.repository.findOneBy({ id: id });
+        if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
+        for (const key in body) { dataInDataBase[key] = body[key] }
+        const result = await this.repository.save(dataInDataBase); return { status: 200, data: result }
+      }
+
+      const dataInDataBase = await CONN.findOneBy(this.entity, { id: id });
       if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
       for (const key in body) { dataInDataBase[key] = body[key] }
-      const result = await this.repository.save(dataInDataBase); return { status: 200, data: result }
+      const result = await CONN.save(this.entity, dataInDataBase); return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async deleteId(id: any) {
-    try {
-      const dataToDelete = await this.repository.findOneBy({ id: id });
-      if (!dataToDelete) { return { status: 404, message: "Data not found" } }
-      const result = await this.repository.delete(dataToDelete); return { status: 200, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
+  createPerson(body: SavePerson) {
+    const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el
   }
-
-  createPerson(body: SavePerson) { const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el }
 
   async currentYear(CONN?: EntityManager) {
     if(!CONN) { return (await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } })) as Year }

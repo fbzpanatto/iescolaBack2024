@@ -17,11 +17,12 @@ const personCategories_1 = require("../utils/personCategories");
 const data_source_1 = require("../data-source");
 class ClassroomController extends genericController_1.GenericController {
     constructor() { super(Classroom_1.Classroom); }
-    getAllClassrooms(request, CONN) {
+    getAllClassrooms(request, teacherForm, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             const { body } = request;
             let result = null;
             try {
+                let masterUser;
                 if (!CONN) {
                     result = yield data_source_1.AppDataSource.transaction((alternative) => __awaiter(this, void 0, void 0, function* () {
                         const uTeacher = yield this.teacherByUser(body.user.user, alternative);
@@ -45,27 +46,28 @@ class ClassroomController extends genericController_1.GenericController {
                     }));
                     return { status: 200, data: result };
                 }
-                result = yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const tClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
-                    return yield CONN.getRepository(Classroom_1.Classroom)
-                        .createQueryBuilder("classroom")
-                        .select("classroom.id", "id")
-                        .addSelect("classroom.shortName", "name")
-                        .addSelect("school.shortName", "school")
-                        .leftJoin("classroom.school", "school")
-                        .where(new typeorm_1.Brackets((qb) => {
-                        if (!masterUser) {
-                            qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms });
-                        }
-                        else {
-                            qb.where("classroom.id > 0");
-                        }
-                    }))
-                        .getRawMany();
-                }));
-                return { status: 200, data: result };
+                const uTeacher = yield this.teacherByUser(body.user.user, CONN);
+                const { person: { category: { id: category_id } } } = uTeacher;
+                const tClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
+                teacherForm ?
+                    masterUser = category_id === personCategories_1.pc.ADMN || category_id === personCategories_1.pc.SUPE || category_id === personCategories_1.pc.SECR :
+                    masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                const data = yield CONN.getRepository(Classroom_1.Classroom)
+                    .createQueryBuilder("classroom")
+                    .select("classroom.id", "id")
+                    .addSelect("classroom.shortName", "name")
+                    .addSelect("school.shortName", "school")
+                    .leftJoin("classroom.school", "school")
+                    .where(new typeorm_1.Brackets((qb) => {
+                    if (!masterUser) {
+                        qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms });
+                    }
+                    else {
+                        qb.where("classroom.id > 0");
+                    }
+                }))
+                    .getRawMany();
+                return { status: 200, data };
             }
             catch (error) {
                 return { status: 500, message: error.message };

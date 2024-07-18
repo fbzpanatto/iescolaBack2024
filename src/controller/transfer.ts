@@ -113,16 +113,22 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async updateId(id: number | string, body: ObjectLiteral) {
+  override async updateId(transferId: number | string, body: ObjectLiteral) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN)
-        const currTransfer = await CONN.findOne(Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) }})
+        const currTransfer = await CONN.findOne(Transfer, {
+          relations: ['status', 'requester.person', 'requestedClassroom'],
+          where: {
+            id: Number(transferId),
+            status: { id: transferStatus.PENDING }, endedAt: IsNull()
+          }
+        })
 
         const isAdmin = uTeacher.person.category.id === pc.ADMN;
 
-        if (!currTransfer) return { status: 404, message: 'Registro não encontrado.' }
+        if (!currTransfer) return { status: 404, message: 'Registro não encontrado. Atualize sua página.' }
 
         if(body.cancel && !(isAdmin || uTeacher.id === currTransfer.requester.id)) {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }

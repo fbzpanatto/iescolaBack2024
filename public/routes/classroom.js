@@ -14,7 +14,7 @@ const express_1 = require("express");
 const classroom_1 = require("../controller/classroom");
 const validators_1 = require("../middleware/validators");
 exports.ClassroomRouter = (0, express_1.Router)();
-exports.ClassroomRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield classroom_1.classroomController.getAllClassrooms(req); return res.status(response.status).json(response); }));
+exports.ClassroomRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield classroom_1.classroomController.getAllClassrooms(req, false); return res.status(response.status).json(response); }));
 exports.ClassroomRouter.get('/:id', validators_1.ID_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield classroom_1.classroomController.findOneById(req.params.id, req); return res.status(response.status).json(response); }));
 exports.ClassroomRouter.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield classroom_1.classroomController.save(req.body, {}); return res.status(response.status).json(response); }));
 exports.ClassroomRouter.put('/:id', validators_1.ID_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield classroom_1.classroomController.updateId(req.params.id, req.body); return res.status(response.status).json(response); }));

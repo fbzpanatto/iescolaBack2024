@@ -80,10 +80,14 @@ class GenericController {
             }
         });
     }
-    save(body, options) {
+    save(body, options, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const result = yield this.repository.save(body, options);
+                if (!CONN) {
+                    const result = yield this.repository.save(body, options);
+                    return { status: 201, data: result };
+                }
+                const result = yield CONN.save(this.entity, body, options);
                 return { status: 201, data: result };
             }
             catch (error) {
@@ -91,17 +95,28 @@ class GenericController {
             }
         });
     }
-    updateId(id, body) {
+    updateId(id, body, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const dataInDataBase = yield this.repository.findOneBy({ id: id });
+                if (!CONN) {
+                    const dataInDataBase = yield this.repository.findOneBy({ id: id });
+                    if (!dataInDataBase) {
+                        return { status: 404, message: "Data not found" };
+                    }
+                    for (const key in body) {
+                        dataInDataBase[key] = body[key];
+                    }
+                    const result = yield this.repository.save(dataInDataBase);
+                    return { status: 200, data: result };
+                }
+                const dataInDataBase = yield CONN.findOneBy(this.entity, { id: id });
                 if (!dataInDataBase) {
                     return { status: 404, message: "Data not found" };
                 }
                 for (const key in body) {
                     dataInDataBase[key] = body[key];
                 }
-                const result = yield this.repository.save(dataInDataBase);
+                const result = yield CONN.save(this.entity, dataInDataBase);
                 return { status: 200, data: result };
             }
             catch (error) {
@@ -109,22 +124,13 @@ class GenericController {
             }
         });
     }
-    deleteId(id) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const dataToDelete = yield this.repository.findOneBy({ id: id });
-                if (!dataToDelete) {
-                    return { status: 404, message: "Data not found" };
-                }
-                const result = yield this.repository.delete(dataToDelete);
-                return { status: 200, data: result };
-            }
-            catch (error) {
-                return { status: 500, message: error.message };
-            }
-        });
+    createPerson(body) {
+        const el = new Person_1.Person();
+        el.name = body.name;
+        el.birth = body.birth;
+        el.category = body.category;
+        return el;
     }
-    createPerson(body) { const el = new Person_1.Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el; }
     currentYear(CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!CONN) {

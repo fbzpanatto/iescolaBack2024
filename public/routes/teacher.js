@@ -29,11 +29,11 @@ exports.TeacherRouter.get('/form', havePermission_1.default, (req, res) => __awa
     return res.status(response.status).json(response);
 }));
 exports.TeacherRouter.get('/', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield teacher_1.teacherController.findAllWhere({}, req);
+    const response = yield teacher_1.teacherController.findAllWhereTeacher(req);
     return res.status(response.status).json(response);
 }));
 exports.TeacherRouter.get('/:id', validators_1.ID_PARAM, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield teacher_1.teacherController.findOneById(req.params.id, req);
+    const response = yield teacher_1.teacherController.findOneTeacher(req.params.id, req);
     return res.status(response.status).json(response);
 }));
 exports.TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -41,6 +41,6 @@ exports.TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission_1.default, 
     return res.status(response.status).json(response);
 }));
 exports.TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield teacher_1.teacherController.updateId(req.params.id, req.body);
+    const response = yield teacher_1.teacherController.updateTeacher(req.params.id, req.body);
     return res.status(response.status).json(response);
 }));

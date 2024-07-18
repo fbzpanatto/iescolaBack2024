@@ -35,7 +35,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        const classrooms = (await classroomController.getAllClassrooms(req, CONN)).data
+        const classrooms = (await classroomController.getAllClassrooms(req, false, CONN)).data
         const disciplines = await CONN.find(Discipline)
         const bimesters = await CONN.find(Bimester)
         const testCategories = await CONN.find(TestCategory)
@@ -550,44 +550,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany();
-  }
-
-  override async deleteId(request: Request) {
-
-    const testId = request.params.id
-    const body = request.body
-
-    try {
-
-      const teacher = await this.teacherByUser(body.user.user)
-
-      const test = await AppDataSource.getRepository(Test)
-        .findOne({
-          relations: ["person"],
-          where: { id: Number(testId) }
-        })
-      if (!test) { return { status: 404, message: 'Data not found' } }
-
-      if( teacher.person.id !== test.person.id ) return { status: 403, message: "Você não tem permissão para deletar esse teste." }
-
-      // TODO: Only delete if there is no student with a test result
-
-      await AppDataSource.getRepository(TestQuestion)
-        .createQueryBuilder()
-        .delete()
-        .from(TestQuestion)
-        .where("test = :testId", { testId })
-        .execute();
-
-      const result = await AppDataSource.getRepository(Test)
-        .createQueryBuilder()
-        .delete()
-        .from(Test)
-        .where("id = :testId", { testId })
-        .execute();
-
-      return { status: 200, data: result };
-    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

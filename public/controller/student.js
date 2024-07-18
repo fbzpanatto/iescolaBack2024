@@ -105,7 +105,7 @@ class StudentController extends genericController_1.GenericController {
                     if (!currentYear) {
                         return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
                     }
-                    const teacher = yield this.teacherByUser(user.user, CONN);
+                    const uTeacher = yield this.teacherByUser(user.user, CONN);
                     const activeSc = yield CONN.findOne(StudentClassroom_1.StudentClassroom, {
                         relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: (0, typeorm_1.IsNull)() }
                     });
@@ -156,7 +156,8 @@ class StudentController extends genericController_1.GenericController {
                         classroom: classroom,
                         year: currentYear,
                         rosterNumber: 99,
-                        startedAt: new Date()
+                        startedAt: new Date(),
+                        createdByUser: uTeacher.person.user.id
                     });
                     const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''));
                     if (classroomNumber >= 1 && classroomNumber <= 3) {
@@ -186,13 +187,14 @@ class StudentController extends genericController_1.GenericController {
                     yield data_source_1.AppDataSource.getRepository(Transfer_1.Transfer).save({
                         startedAt: new Date(),
                         endedAt: new Date(),
-                        requester: teacher,
+                        requester: uTeacher,
                         requestedClassroom: classroom,
                         currentClassroom: oldClassInDb,
-                        receiver: teacher,
+                        receiver: uTeacher,
                         student: student,
                         status: yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 1, name: 'Aceitada' } }),
-                        year: currentYear
+                        year: currentYear,
+                        createdByUser: uTeacher.person.user.id
                     });
                     return { status: 200, data: newStudentClassroom };
                 }));

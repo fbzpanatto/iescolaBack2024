@@ -23,7 +23,7 @@ function transferEmail(email, student, rClassroom, requester, rSchool) {
         INFO = yield TRANSPORTER.sendMail({
             from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
             to: email,
-            subject: `IEscolApp: Solicitação de transferência para: ${student}`,
+            subject: `EscolApp: Solicitação de transferência para: ${student}`,
             html: `
         <p>Olá,</p>
         <p>Pedido de transferência</p>
@@ -48,10 +48,10 @@ function credentialsEmail(email, password, post) {
             INFO = yield TRANSPORTER.sendMail({
                 from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
                 to: email,
-                subject: "IEscolApp: Conta criada com sucesso.",
+                subject: "EscolApp: Conta criada com sucesso.",
                 html: `
         <p>Olá,</p>
-        <p>Uma conta IEscolApp acabou de ser criada para você.</p>
+        <p>Uma conta EscolApp acabou de ser criada para você.</p>
         <p>Usuário: <b>${email}</b></p>
         <p>Senha: <b>${password}</b></p>
         <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
@@ -65,10 +65,10 @@ function credentialsEmail(email, password, post) {
         INFO = yield TRANSPORTER.sendMail({
             from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
             to: email,
-            subject: "IEscolApp: Lembrete de senha",
+            subject: "EscolApp: Lembrete de senha",
             html: `
       <p>Olá,</p>
-      <p>Você solicitou um lembrete de senha para sua conta IEscolApp</p>
+      <p>Você solicitou um lembrete de senha para sua conta EscolApp</p>
       <p>Usuário: <b>${email}</b></p>
       <p>Senha: <b>${password}</b></p>
       <p>Atenciosamente,</p>

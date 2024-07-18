@@ -25,6 +25,8 @@ const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
 const TextGenderGrade_1 = require("../model/TextGenderGrade");
 const Teacher_1 = require("../model/Teacher");
 const email_service_1 = require("../utils/email.service");
+const Student_1 = require("../model/Student");
+const personCategories_1 = require("../utils/personCategories");
 class TransferController extends genericController_1.GenericController {
     constructor() { super(Transfer_1.Transfer); }
     findAllWhere(options, request) {
@@ -69,7 +71,7 @@ class TransferController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const rTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const dbTransfer = yield CONN.findOne(Transfer_1.Transfer, { relations: ['student.person'], where: { student: body.student, status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() } });
+                    const dbTransfer = yield CONN.findOne(Transfer_1.Transfer, { where: { student: body.student, status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() } });
                     if (dbTransfer)
                         return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' };
                     const currClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.currentClassroom.id } });
@@ -81,6 +83,7 @@ class TransferController extends genericController_1.GenericController {
                     if (Number(newClass.name.replace(/\D/g, '')) < Number(currClass.name.replace(/\D/g, ''))) {
                         return { status: 400, message: 'Regressão de sala não é permitido.' };
                     }
+                    const student = yield CONN.findOne(Student_1.Student, { relations: ['person'], where: { id: body.student.id } });
                     const teachers = yield CONN.getRepository(Teacher_1.Teacher)
                         .createQueryBuilder("teacher")
                         .select(["teacher.id AS teacher_id", "user.id AS user_id", "user.email AS user_email"])
@@ -96,7 +99,9 @@ class TransferController extends genericController_1.GenericController {
                         .orderBy("teacher_id")
                         .getRawMany();
                     for (let el of teachers) {
-                        yield (0, email_service_1.transferEmail)(el.user_email, dbTransfer.student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName);
+                        if (student) {
+                            yield (0, email_service_1.transferEmail)(el.user_email, student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName);
+                        }
                     }
                     const transfer = new Transfer_1.Transfer();
                     transfer.student = body.student;
@@ -112,6 +117,7 @@ class TransferController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
+                console.log(error);
                 return { status: 500, message: error.message };
             }
         });
@@ -123,9 +129,11 @@ class TransferController extends genericController_1.GenericController {
                     var _a;
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const transfer = yield CONN.findOne(Transfer_1.Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) } });
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const adminSecrt = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SECR;
                     if (!transfer)
                         return { status: 404, message: 'Registro não encontrado.' };
-                    if (uTeacher.id !== transfer.requester.id && body.cancel) {
+                    if ((uTeacher.id !== transfer.requester.id && body.cancel) || !adminSecrt) {
                         return { status: 403, message: 'Você não tem permissão para alterar este registro.' };
                     }
                     if (body.cancel) {

@@ -60,6 +60,7 @@ const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
 const textGenderClassroom_1 = require("../mock/textGenderClassroom");
 const TextGenderExamLevelGroup_1 = require("../model/TextGenderExamLevelGroup");
 const textGenderExamLevelGroup_1 = require("../mock/textGenderExamLevelGroup");
+const generatePassword_1 = require("../utils/generatePassword");
 exports.InitialConfigsRouter = (0, express_1.Router)();
 function createClassroom(school, classroom) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -81,7 +82,7 @@ function createAdminUser(person) {
         const user = new User_1.User();
         user.username = 'admin';
         user.email = 'adminiescola@iescola.com.br';
-        user.password = '#Fnp181292dc2w!';
+        user.password = (0, generatePassword_1.generatePassword)();
         user.person = person;
         yield userSource.save(user);
     });

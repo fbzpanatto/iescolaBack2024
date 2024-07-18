@@ -70,7 +70,7 @@ class TransferController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const rTeacher = yield this.teacherByUser(body.user.user, CONN);
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const dbTransfer = yield CONN.findOne(Transfer_1.Transfer, { where: { student: body.student, status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() } });
                     if (dbTransfer)
                         return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' };
@@ -100,17 +100,18 @@ class TransferController extends genericController_1.GenericController {
                         .getRawMany();
                     for (let el of teachers) {
                         if (student) {
-                            yield (0, email_service_1.transferEmail)(el.user_email, student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName);
+                            yield (0, email_service_1.transferEmail)(el.user_email, student.person.name, newClass.shortName, uTeacher.person.name, newClass.school.shortName);
                         }
                     }
                     const transfer = new Transfer_1.Transfer();
                     transfer.student = body.student;
                     transfer.startedAt = body.startedAt;
                     transfer.endedAt = body.endedAt;
-                    transfer.requester = rTeacher;
+                    transfer.requester = uTeacher;
                     transfer.requestedClassroom = body.classroom;
                     transfer.year = yield this.currentYear(CONN);
                     transfer.currentClassroom = body.currentClassroom;
+                    transfer.createdByUser = uTeacher.person.user.id;
                     transfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.PENDING, CONN));
                     const result = yield CONN.save(Transfer_1.Transfer, transfer);
                     return { status: 201, data: result };
@@ -136,7 +137,7 @@ class TransferController extends genericController_1.GenericController {
                     });
                     const isAdmin = uTeacher.person.category.id === personCategories_1.pc.ADMN;
                     if (!currTransfer)
-                        return { status: 404, message: 'Registro não encontrado. Atualize sua página.' };
+                        return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' };
                     if (body.cancel && !(isAdmin || uTeacher.id === currTransfer.requester.id)) {
                         return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' };
                     }
@@ -150,6 +151,7 @@ class TransferController extends genericController_1.GenericController {
                         currTransfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.CANCELED, CONN));
                         currTransfer.endedAt = new Date();
                         currTransfer.receiver = uTeacher;
+                        currTransfer.updatedByUser = uTeacher.person.user.id;
                         yield CONN.save(Transfer_1.Transfer, currTransfer);
                         return { status: 200, data: 'Cancelada com sucesso.' };
                     }
@@ -157,6 +159,7 @@ class TransferController extends genericController_1.GenericController {
                         currTransfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.REFUSED, CONN));
                         currTransfer.endedAt = new Date();
                         currTransfer.receiver = uTeacher;
+                        currTransfer.updatedByUser = uTeacher.person.user.id;
                         yield CONN.save(Transfer_1.Transfer, currTransfer);
                         return { status: 200, data: 'Rejeitada com sucesso.' };
                     }
@@ -172,7 +175,14 @@ class TransferController extends genericController_1.GenericController {
                         if ((_a = lastRosterNumber[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
                             last = lastRosterNumber[0].rosterNumber + 1;
                         }
-                        const newStudentClassroom = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: body.student, classroom: currTransfer.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: yield this.currentYear(CONN) });
+                        const newStudentClassroom = yield CONN.save(StudentClassroom_1.StudentClassroom, {
+                            student: body.student,
+                            classroom: currTransfer.requestedClassroom,
+                            startedAt: new Date(),
+                            rosterNumber: last,
+                            createdByUser: uTeacher.person.user.id,
+                            year: yield this.currentYear(CONN)
+                        });
                         const classNumber = Number(currTransfer.requestedClassroom.shortName.replace(/\D/g, ''));
                         const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''));
                         const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''));
@@ -224,7 +234,7 @@ class TransferController extends genericController_1.GenericController {
                                 }
                             }
                         }
-                        yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date() }));
+                        yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date(), updatedByUser: uTeacher.person.user.id }));
                         currTransfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.ACCEPTED, CONN));
                         currTransfer.endedAt = new Date();
                         currTransfer.receiver = uTeacher;

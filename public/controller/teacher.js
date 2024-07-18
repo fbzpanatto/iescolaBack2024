@@ -27,6 +27,7 @@ const classroom_1 = require("./classroom");
 const personCategories_1 = require("../utils/personCategories");
 const personCategory_1 = require("./personCategory");
 const email_service_1 = require("../utils/email.service");
+const generatePassword_1 = require("../utils/generatePassword");
 class TeacherController extends genericController_1.GenericController {
     constructor() { super(Teacher_1.Teacher); }
     teacherForm(req) {
@@ -290,20 +291,8 @@ class TeacherController extends genericController_1.GenericController {
     generateUser(body) {
         const username = body.email;
         const email = body.email;
-        const password = this.generatePassword();
+        const password = (0, generatePassword_1.generatePassword)();
         return { username, password, email };
-    }
-    generatePassword() {
-        const lowerLetters = "abcdefghijklmnopqrstuvwxyz";
-        const upperLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const numbers = "0123456789";
-        const allChar = lowerLetters + upperLetters + numbers;
-        let password = "";
-        for (let i = 0; i < 8; i++) {
-            const randomI = Math.floor(Math.random() * allChar.length);
-            password += allChar[randomI];
-        }
-        return password;
     }
     canChange(uCategory, tCategory) {
         const allowedCat = [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.SUPE, personCategories_1.pc.ADMN];

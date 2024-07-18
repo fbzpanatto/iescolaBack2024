@@ -48,6 +48,7 @@ import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
 import { TextGenderExamLevelGroup } from "../model/TextGenderExamLevelGroup";
 import { TEXTGENDEREXAMLEVELGROUP } from "../mock/textGenderExamLevelGroup";
+import { generatePassword } from "../utils/generatePassword";
 
 export const InitialConfigsRouter = Router();
 
@@ -71,7 +72,7 @@ async function createAdminUser(person: Person) {
   const user = new User()
   user.username = 'admin'
   user.email = 'adminiescola@iescola.com.br'
-  user.password = '#Fnp181292dc2w!'
+  user.password = generatePassword()
   user.person = person
   await userSource.save(user)
 }

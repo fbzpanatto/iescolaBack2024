@@ -1,6 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import {Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
+import { Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
@@ -18,6 +18,7 @@ import { classroomController } from "./classroom";
 import { pc } from "../utils/personCategories";
 import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../utils/email.service";
+import { generatePassword } from "../utils/generatePassword";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -278,19 +279,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   generateUser(body: TeacherBody) {
     const username = body.email;
     const email = body.email;
-    const password = this.generatePassword();
+    const password = generatePassword()
     return { username, password, email };
-  }
-
-  generatePassword() {
-    const lowerLetters = "abcdefghijklmnopqrstuvwxyz";
-    const upperLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const numbers = "0123456789";
-    const allChar = lowerLetters + upperLetters + numbers;
-
-    let password = "";
-    for (let i = 0; i < 8; i++) { const randomI = Math.floor(Math.random() * allChar.length); password += allChar[randomI] }
-    return password;
   }
 
   private canChange( uCategory: number, tCategory: number ): boolean {

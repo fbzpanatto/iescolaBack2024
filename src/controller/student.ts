@@ -97,7 +97,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const currentYear: Year = await this.currentYear(CONN)
         if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
-        const teacher = await this.teacherByUser(user.user, CONN)
+        const uTeacher = await this.teacherByUser(user.user, CONN)
 
         const activeSc = await CONN.findOne(StudentClassroom, {
           relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: IsNull() }
@@ -150,7 +150,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           classroom: classroom,
           year: currentYear,
           rosterNumber: 99,
-          startedAt: new Date()
+          startedAt: new Date(),
+          createdByUser: uTeacher.person.user.id
         }) as StudentClassroom
 
         const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''))
@@ -185,13 +186,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         await AppDataSource.getRepository(Transfer).save({
           startedAt: new Date(),
           endedAt: new Date(),
-          requester: teacher,
+          requester: uTeacher,
           requestedClassroom: classroom,
           currentClassroom: oldClassInDb,
-          receiver: teacher,
+          receiver: uTeacher,
           student: student,
           status: await CONN.findOne(TransferStatus, { where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
-          year: currentYear
+          year: currentYear,
+          createdByUser: uTeacher.person.user.id
         })
         return { status: 200, data: newStudentClassroom };
       })

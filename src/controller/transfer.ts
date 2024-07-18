@@ -1,6 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { GenericController } from "./genericController";
-import {Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
+import { Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Transfer } from "../model/Transfer";
 import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
@@ -13,10 +13,10 @@ import { TextGenderExamTier } from "../model/TextGenderExamTier";
 import { TextGenderClassroom } from "../model/TextGenderClassroom";
 import { TextGenderGrade } from "../model/TextGenderGrade";
 import { TransferStatus } from '../model/TransferStatus';
-import {Teacher} from "../model/Teacher";
-import {transferEmail} from "../utils/email.service";
-import {Student} from "../model/Student";
-import {pc} from "../utils/personCategories";
+import { Teacher } from "../model/Teacher";
+import { transferEmail } from "../utils/email.service";
+import { Student } from "../model/Student";
+import { pc } from "../utils/personCategories";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -59,7 +59,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const rTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
+        const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
 
         const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}})
 
@@ -92,7 +92,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         for(let el of teachers) {
           if(student) {
-            await transferEmail(el.user_email, student.person.name, newClass.shortName, rTeacher.person.name, newClass.school.shortName)
+            await transferEmail(el.user_email, student.person.name, newClass.shortName, uTeacher.person.name, newClass.school.shortName)
           }
         }
 
@@ -100,10 +100,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.student = body.student;
         transfer.startedAt = body.startedAt;
         transfer.endedAt = body.endedAt;
-        transfer.requester = rTeacher;
+        transfer.requester = uTeacher;
         transfer.requestedClassroom = body.classroom;
         transfer.year = await this.currentYear(CONN)
         transfer.currentClassroom = body.currentClassroom;
+        transfer.createdByUser = uTeacher.person.user.id;
         transfer.status = await this.transferStatus(transferStatus.PENDING, CONN) as TransferStatus
 
         const result = await CONN.save(Transfer, transfer)
@@ -128,7 +129,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         const isAdmin = uTeacher.person.category.id === pc.ADMN;
 
-        if (!currTransfer) return { status: 404, message: 'Registro não encontrado. Atualize sua página.' }
+        if (!currTransfer) return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' }
 
         if(body.cancel && !(isAdmin || uTeacher.id === currTransfer.requester.id)) {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
@@ -147,6 +148,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           currTransfer.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = uTeacher
+          currTransfer.updatedByUser = uTeacher.person.user.id
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Cancelada com sucesso.' }
         }
@@ -156,6 +158,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           currTransfer.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = uTeacher
+          currTransfer.updatedByUser = uTeacher.person.user.id
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Rejeitada com sucesso.' }
         }
@@ -175,7 +178,14 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           let last = 1
           if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
-          const newStudentClassroom = await CONN.save(StudentClassroom, { student: body.student, classroom: currTransfer.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: await this.currentYear(CONN)}) as StudentClassroom
+          const newStudentClassroom = await CONN.save(StudentClassroom, {
+            student: body.student,
+            classroom: currTransfer.requestedClassroom,
+            startedAt: new Date(),
+            rosterNumber: last,
+            createdByUser: uTeacher.person.user.id,
+            year: await this.currentYear(CONN)
+          }) as StudentClassroom
 
           const classNumber = Number(currTransfer.requestedClassroom.shortName.replace(/\D/g, ''))
           const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''))
@@ -211,7 +221,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             else { for (let tg of textGenderClassroom) { for (let tier of textGenderExamTier) { for (let exam of textGenderExam) { await CONN.save(TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}}}}
           }
 
-          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date() })
+          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id })
           currTransfer.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = uTeacher

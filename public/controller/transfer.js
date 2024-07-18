@@ -117,7 +117,6 @@ class TransferController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                console.log(error);
                 return { status: 500, message: error.message };
             }
         });
@@ -128,25 +127,28 @@ class TransferController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const transfer = yield CONN.findOne(Transfer_1.Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) } });
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
-                    const adminSecrt = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SECR;
-                    if (!transfer)
+                    const requester = yield CONN.findOne(Transfer_1.Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) } });
+                    const adminAndSecretary = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SECR;
+                    if (!requester)
                         return { status: 404, message: 'Registro não encontrado.' };
-                    if ((uTeacher.id !== transfer.requester.id && body.cancel) || !adminSecrt) {
-                        return { status: 403, message: 'Você não tem permissão para alterar este registro.' };
+                    if ((body.cancel || body.reject) && !(adminAndSecretary || uTeacher.id === requester.requester.id)) {
+                        return { status: 403, message: 'Você não pode modificar uma solicitação feita por outra pessoa.' };
+                    }
+                    if (body.accept && ![personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.SECR].includes(uTeacher.person.category.id)) {
+                        return { status: 403, message: 'Seu cargo não lhe permite aceitar uma transferência. Solicite ao secretário da unidade escolar.' };
                     }
                     if (body.cancel) {
-                        transfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.CANCELED, CONN));
-                        transfer.endedAt = new Date();
-                        yield CONN.save(Transfer_1.Transfer, transfer);
+                        requester.status = (yield this.transferStatus(transferStatus_1.transferStatus.CANCELED, CONN));
+                        requester.endedAt = new Date();
+                        requester.receiver = uTeacher;
+                        yield CONN.save(Transfer_1.Transfer, requester);
                         return { status: 200, data: 'Cancelada com sucesso.' };
                     }
                     if (body.reject) {
-                        transfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.REFUSED, CONN));
-                        transfer.endedAt = new Date();
-                        transfer.receiver = uTeacher;
-                        yield CONN.save(Transfer_1.Transfer, transfer);
+                        requester.status = (yield this.transferStatus(transferStatus_1.transferStatus.REFUSED, CONN));
+                        requester.endedAt = new Date();
+                        requester.receiver = uTeacher;
+                        yield CONN.save(Transfer_1.Transfer, requester);
                         return { status: 200, data: 'Rejeitada com sucesso.' };
                     }
                     if (body.accept) {
@@ -156,13 +158,13 @@ class TransferController extends genericController_1.GenericController {
                             return { status: 404, message: 'Registro não encontrado.' };
                         }
                         const currentYear = yield this.currentYear(CONN);
-                        const lastRosterNumber = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: transfer.requestedClassroom.id } }, order: { rosterNumber: 'DESC' }, take: 1 });
+                        const lastRosterNumber = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: requester.requestedClassroom.id } }, order: { rosterNumber: 'DESC' }, take: 1 });
                         let last = 1;
                         if ((_a = lastRosterNumber[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
                             last = lastRosterNumber[0].rosterNumber + 1;
                         }
-                        const newStudentClassroom = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: body.student, classroom: transfer.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: yield this.currentYear(CONN) });
-                        const classNumber = Number(transfer.requestedClassroom.shortName.replace(/\D/g, ''));
+                        const newStudentClassroom = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: body.student, classroom: requester.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: yield this.currentYear(CONN) });
+                        const classNumber = Number(requester.requestedClassroom.shortName.replace(/\D/g, ''));
                         const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''));
                         const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''));
                         if (classNumber >= 1 && classNumber <= 3) {
@@ -214,10 +216,10 @@ class TransferController extends genericController_1.GenericController {
                             }
                         }
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date() }));
-                        transfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.ACCEPTED, CONN));
-                        transfer.endedAt = new Date();
-                        transfer.receiver = uTeacher;
-                        yield CONN.save(Transfer_1.Transfer, transfer);
+                        requester.status = (yield this.transferStatus(transferStatus_1.transferStatus.ACCEPTED, CONN));
+                        requester.endedAt = new Date();
+                        requester.receiver = uTeacher;
+                        yield CONN.save(Transfer_1.Transfer, requester);
                         return { status: 200, data: 'Aceita com sucesso.' };
                     }
                     let data = {};

@@ -118,35 +118,39 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN)
-        const requester = await CONN.findOne(Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) }})
+        const currTransfer = await CONN.findOne(Transfer, { relations: ['status', 'requester.person', 'requestedClassroom'], where: { id: Number(id) }})
 
-        const adminAndSecretary = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SECR;
+        const isAdmin = uTeacher.person.category.id === pc.ADMN;
 
-        if (!requester) return { status: 404, message: 'Registro não encontrado.' }
+        if (!currTransfer) return { status: 404, message: 'Registro não encontrado.' }
 
-        if((body.cancel || body.reject) && !(adminAndSecretary || uTeacher.id === requester.requester.id)) {
-          return { status: 403, message: 'Você não pode modificar uma solicitação feita por outra pessoa.' }
+        if(body.cancel && !(isAdmin || uTeacher.id === currTransfer.requester.id)) {
+          return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
+        }
+
+        if(body.reject && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
+          return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' }
         }
 
         if(body.accept && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
-          return { status: 403, message: 'Seu cargo não lhe permite aceitar uma transferência. Solicite ao secretário da unidade escolar.' }
+          return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' }
         }
 
         if (body.cancel) {
 
-          requester.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
-          requester.endedAt = new Date()
-          requester.receiver = uTeacher
-          await CONN.save(Transfer, requester)
+          currTransfer.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
+          currTransfer.endedAt = new Date()
+          currTransfer.receiver = uTeacher
+          await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Cancelada com sucesso.' }
         }
 
         if (body.reject) {
 
-          requester.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
-          requester.endedAt = new Date()
-          requester.receiver = uTeacher
-          await CONN.save(Transfer, requester)
+          currTransfer.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
+          currTransfer.endedAt = new Date()
+          currTransfer.receiver = uTeacher
+          await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Rejeitada com sucesso.' }
         }
 
@@ -160,14 +164,14 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           const currentYear = await this.currentYear(CONN)
 
-          const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: requester.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })
+          const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: currTransfer.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })
 
           let last = 1
           if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
-          const newStudentClassroom = await CONN.save(StudentClassroom, { student: body.student, classroom: requester.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: await this.currentYear(CONN)}) as StudentClassroom
+          const newStudentClassroom = await CONN.save(StudentClassroom, { student: body.student, classroom: currTransfer.requestedClassroom, startedAt: new Date(), rosterNumber: last, year: await this.currentYear(CONN)}) as StudentClassroom
 
-          const classNumber = Number(requester.requestedClassroom.shortName.replace(/\D/g, ''))
+          const classNumber = Number(currTransfer.requestedClassroom.shortName.replace(/\D/g, ''))
           const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''))
           const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''))
 
@@ -202,10 +206,10 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           }
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date() })
-          requester.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
-          requester.endedAt = new Date()
-          requester.receiver = uTeacher
-          await CONN.save(Transfer, requester)
+          currTransfer.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
+          currTransfer.endedAt = new Date()
+          currTransfer.receiver = uTeacher
+          await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Aceita com sucesso.' }
         }
         let data = {}

@@ -1,3 +1,5 @@
+// TODO: criptografar a senha antes de salvar no banco
+
 export function generatePassword() {
   const lowerLetters = "abcdefghijklmnopqrstuvwxyz";
   const upperLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

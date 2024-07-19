@@ -1,7 +1,64 @@
 import { GenericController } from "./genericController";
-import { EntityTarget } from "typeorm";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
 import { School } from "../model/School";
+import { Request } from "express";
+import { AppDataSource } from "../data-source";
+import { Year } from "../model/Year";
+import {StudentClassroom} from "../model/StudentClassroom";
 
-class SchoolController extends GenericController<EntityTarget<School>> { constructor() { super(School) } }
+class SchoolController extends GenericController<EntityTarget<School>> {
+  constructor() { super(School) }
+
+  async getAllSchools(req: Request) {
+
+    const { year } = req.params
+    const { search } = req.query
+
+    console.log(year, search)
+
+    try {
+      return await AppDataSource.transaction(async(CONN: EntityManager) => {
+
+        const selectedYear = await CONN.findOne(Year, { where: { name: year } })
+        if (!selectedYear) return { status: 404, message: "Ano não encontrado." };
+
+        const data: School[] = await CONN.getRepository(School)
+          .createQueryBuilder('school')
+          .leftJoinAndSelect("school.classrooms", "classroom")
+          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.year", "year")
+          .leftJoin("studentClassroom.student", "student")
+          .where("year.id = :yearSearch", { yearSearch: selectedYear.id })
+          .andWhere(new Brackets((qb) => {
+            if (search) {
+              qb.where("school.name LIKE :search", { search: `%${search}%` })
+                .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
+            }}))
+          .getMany();
+
+        const mappedResult = data.map(school => {
+          return {
+            id: school.id,
+            name: school.name,
+            activeStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt === null )).length,
+            inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)
+              .reduce((acc: any, curr: StudentClassroom) => {
+                const existingStudent = acc.find((existing: any) => existing.student.id === curr.student.id);
+                if (existingStudent) {
+                  if (curr.endedAt > existingStudent.endedAt) { return acc.map((existing: any) => existing.student.id === curr.student.id ? curr : existing) } else { return acc }
+                }
+                else { return [...acc, curr] }
+              }, [])
+            ).length
+          }
+        })
+
+        return { status: 200, data: mappedResult };
+      })
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
+  }
+}
 
 export const schoolController = new SchoolController();

@@ -1,4 +1,5 @@
 "use strict";
+// TODO: criptografar a senha antes de salvar no banco
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generatePassword = void 0;
 function generatePassword() {

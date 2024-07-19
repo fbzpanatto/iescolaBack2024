@@ -241,6 +241,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         const teacher = await CONN.save(Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
 
         const { username, password, email } = this.generateUser(body);
+
         await CONN.save(User, { person, username, email, password });
 
         if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }

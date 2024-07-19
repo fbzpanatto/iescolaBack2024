@@ -12,21 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchoolRouter = void 0;
 const express_1 = require("express");
 const school_1 = require("../controller/school");
-const validators_1 = require("../middleware/validators");
 exports.SchoolRouter = (0, express_1.Router)();
-exports.SchoolRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield school_1.schoolController.findAllWhere({});
-    return res.status(response.status).json(response);
-}));
-exports.SchoolRouter.get('/:id', validators_1.ID_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield school_1.schoolController.findOneById(req.params.id, req);
-    return res.status(response.status).json(response);
-}));
-exports.SchoolRouter.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield school_1.schoolController.save(req.body, {});
-    return res.status(response.status).json(response);
-}));
-exports.SchoolRouter.put('/:id', validators_1.ID_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield school_1.schoolController.updateId(req.params.id, req.body);
+exports.SchoolRouter.get('/:year', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield school_1.schoolController.getAllSchools(req);
     return res.status(response.status).json(response);
 }));

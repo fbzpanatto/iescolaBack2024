@@ -438,6 +438,7 @@ class TestController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
+                console.log(error);
                 return { status: 500, message: error.message };
             }
         });

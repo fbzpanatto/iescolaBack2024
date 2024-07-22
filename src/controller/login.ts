@@ -4,6 +4,7 @@ import { User } from "../model/User";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 
 class LoginController extends GenericController<EntityTarget<User>> {
   constructor() { super(User) }
@@ -14,7 +15,11 @@ class LoginController extends GenericController<EntityTarget<User>> {
       return await AppDataSource.transaction(async(CONN) => {
         const user = await CONN.findOne(User,{ relations: ["person.category"], where: { email } });
 
-        if (!user || password !== user.password) { return { status: 401, message: "Credenciais Inválidas" } }
+        if (!user) { return { status: 404, message: "Credenciais Inválidas" } }
+
+        const condition = bcrypt.compareSync(password, user.password)
+
+        if (!user || !condition) { return { status: 401, message: "Credenciais Inválidas" } }
 
         const payload = { user: user.id, email: user.email, category: user.person.category.id };
 

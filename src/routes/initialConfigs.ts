@@ -49,6 +49,7 @@ import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
 import { TextGenderExamLevelGroup } from "../model/TextGenderExamLevelGroup";
 import { TEXTGENDEREXAMLEVELGROUP } from "../mock/textGenderExamLevelGroup";
 import { generatePassword } from "../utils/generatePassword";
+import {credentialsEmail} from "../utils/email.service";
 
 export const InitialConfigsRouter = Router();
 
@@ -68,12 +69,18 @@ async function createClassroom(school: School, classroom: {name: string, shortNa
 }
 
 async function createAdminUser(person: Person) {
+
+  const passObject: { password: string, hashedPassword: string } = generatePassword()
+
   const userSource = new dataSourceController(User).entity
   const user = new User()
   user.username = 'admin'
-  user.email = 'adminiescola@iescola.com.br'
-  user.password = generatePassword()
+  user.email = 'appescola7@gmail.com'
+  user.password = passObject.hashedPassword
   user.person = person
+
+  await credentialsEmail(user.email, passObject.password, true)
+
   await userSource.save(user)
 }
 

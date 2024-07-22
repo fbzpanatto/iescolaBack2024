@@ -280,7 +280,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   generateUser(body: TeacherBody) {
     const username = body.email;
     const email = body.email;
-    const password = generatePassword()
+    const password = generatePassword().hashedPassword
     return { username, password, email };
   }
 

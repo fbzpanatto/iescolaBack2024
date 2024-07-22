@@ -8,12 +8,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginCtrl = void 0;
 const genericController_1 = require("./genericController");
 const User_1 = require("../model/User");
 const data_source_1 = require("../data-source");
 const jsonwebtoken_1 = require("jsonwebtoken");
+const bcrypt_1 = __importDefault(require("bcrypt"));
 class LoginController extends genericController_1.GenericController {
     constructor() { super(User_1.User); }
     login(req) {
@@ -22,7 +26,11 @@ class LoginController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const user = yield CONN.findOne(User_1.User, { relations: ["person.category"], where: { email } });
-                    if (!user || password !== user.password) {
+                    if (!user) {
+                        return { status: 404, message: "Credenciais Inválidas" };
+                    }
+                    const condition = bcrypt_1.default.compareSync(password, user.password);
+                    if (!user || !condition) {
                         return { status: 401, message: "Credenciais Inválidas" };
                     }
                     const payload = { user: user.id, email: user.email, category: user.person.category.id };

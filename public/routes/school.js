@@ -12,8 +12,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchoolRouter = void 0;
 const express_1 = require("express");
 const school_1 = require("../controller/school");
+const validators_1 = require("../middleware/validators");
 exports.SchoolRouter = (0, express_1.Router)();
-exports.SchoolRouter.get('/:year', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.SchoolRouter.get('/:year', validators_1.YEAR_NAME_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield school_1.schoolController.getAllSchools(req);
     return res.status(response.status).json(response);
 }));

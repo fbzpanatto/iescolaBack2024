@@ -78,12 +78,14 @@ function createClassroom(school, classroom) {
 }
 function createAdminUser(person) {
     return __awaiter(this, void 0, void 0, function* () {
+        const passwordObject = (0, generatePassword_1.generatePassword)();
         const userSource = new initialConfigs_1.dataSourceController(User_1.User).entity;
         const user = new User_1.User();
         user.username = 'admin';
         user.email = 'adminiescola@iescola.com.br';
-        user.password = (0, generatePassword_1.generatePassword)();
+        user.password = passwordObject.hashedPassword;
         user.person = person;
+        console.log('ADMIN PASSWORD', passwordObject.password);
         yield userSource.save(user);
     });
 }

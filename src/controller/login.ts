@@ -5,7 +5,7 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import {generatePassword} from "../utils/generatePassword";
+import { generatePassword } from "../utils/generatePassword";
 
 class LoginController extends GenericController<EntityTarget<User>> {
   constructor() { super(User) }

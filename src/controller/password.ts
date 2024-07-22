@@ -1,7 +1,8 @@
 import { Request } from "express";
-import { Teacher } from "../model/Teacher";
 import { AppDataSource } from "../data-source";
-import { credentialsEmail } from "../utils/email.service";
+import { resetPassword } from "../utils/email.service";
+import { sign } from "jsonwebtoken";
+import { User } from "../model/User";
 import { EntityManager } from "typeorm";
 
 class PasswordController {
@@ -9,18 +10,27 @@ class PasswordController {
 
   async resetPassword(req: Request) {
     try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const teacher = await this.teacherByUser(req.body.email, CONN);
-        if (!teacher) { return { status: 404, message: "Não foi possível encontrar o usuário informado." } }
-        await credentialsEmail(req.body.email, teacher.person.user.password, false).catch((e) => console.log(e));
-        return { status: 200, data: { message: "Email enviado com sucesso. Confira sua caixa de entrada." } };
+      return await AppDataSource.transaction(async(CONN: EntityManager) => {
+
+        const uTeacher: User | null = await CONN.findOne(User,{ relations: ["person.category"], where: { email: req.body.email } });
+
+        if (!uTeacher) { return { status: 404, message: "Não foi possível encontrar o usuário informado." } }
+
+        const token = this.resetToken({ id: uTeacher.id, email: uTeacher.email, category: uTeacher.person.category.id })
+
+        uTeacher.password = token
+
+        await resetPassword(uTeacher.email, token)
+        await CONN.save(User, uTeacher)
+
+        return { status: 200, data: { message: "Um link para redefinir sua senha foi enviado para o email informado. Confira sua caixa de entrada." } };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async teacherByUser(email: string, CONN: EntityManager) {
-    const options = { relations: ["person.category", "person.user"], where: { person: { user: { email } } } }
-    return (await CONN.findOne(Teacher, { ...options })) as Teacher }
+  resetToken(payload: { id: number, email: string, category: number }): string {
+    return sign(payload, "SECRET", { expiresIn: 900 })
+  }
 }
 
 export const passwordController = new PasswordController();

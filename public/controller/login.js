@@ -22,14 +22,14 @@ class LoginController extends genericController_1.GenericController {
     constructor() { super(User_1.User); }
     login(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const { email, password } = req.body;
+            const { email, password: frontPass } = req.body;
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const user = yield CONN.findOne(User_1.User, { relations: ["person.category"], where: { email } });
                     if (!user) {
                         return { status: 404, message: "Credenciais Inválidas" };
                     }
-                    const condition = bcrypt_1.default.compareSync(password, user.password);
+                    const condition = bcrypt_1.default.compareSync(frontPass, user.password);
                     if (!user || !condition) {
                         return { status: 401, message: "Credenciais Inválidas" };
                     }

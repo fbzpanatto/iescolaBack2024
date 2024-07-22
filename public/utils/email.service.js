@@ -12,10 +12,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.credentialsEmail = exports.transferEmail = void 0;
+exports.credentialsEmail = exports.resetPassword = exports.transferEmail = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 let INFO;
 const FRONT_URL = "http://localhost:4200/home";
+const RESET_URL = "http://localhost:4200/reset-password/?token=";
 const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" } };
 const TRANSPORTER = nodemailer_1.default.createTransport(transport);
 function transferEmail(email, student, rClassroom, requester, rSchool) {
@@ -42,6 +43,23 @@ function transferEmail(email, student, rClassroom, requester, rSchool) {
     });
 }
 exports.transferEmail = transferEmail;
+function resetPassword(email, token) {
+    return __awaiter(this, void 0, void 0, function* () {
+        INFO = yield TRANSPORTER.sendMail({
+            from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+            to: email,
+            subject: "EscolApp: Redefinir Senha",
+            html: `
+      <p>Olá,</p>
+      <a href="${RESET_URL}${token}">Clique aqui para redefinir sua senha.</a>
+      <p>Atenciosamente,</p>
+      <p>Equipe EscolApp - Prefeitura de Itatiba</p>
+    `,
+        });
+        return console.log("Message sent: " + INFO.messageId);
+    });
+}
+exports.resetPassword = resetPassword;
 function credentialsEmail(email, password, post) {
     return __awaiter(this, void 0, void 0, function* () {
         if (post) {

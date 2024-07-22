@@ -61,6 +61,7 @@ const textGenderClassroom_1 = require("../mock/textGenderClassroom");
 const TextGenderExamLevelGroup_1 = require("../model/TextGenderExamLevelGroup");
 const textGenderExamLevelGroup_1 = require("../mock/textGenderExamLevelGroup");
 const generatePassword_1 = require("../utils/generatePassword");
+const email_service_1 = require("../utils/email.service");
 exports.InitialConfigsRouter = (0, express_1.Router)();
 function createClassroom(school, classroom) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -78,14 +79,14 @@ function createClassroom(school, classroom) {
 }
 function createAdminUser(person) {
     return __awaiter(this, void 0, void 0, function* () {
-        const passwordObject = (0, generatePassword_1.generatePassword)();
+        const passObject = (0, generatePassword_1.generatePassword)();
         const userSource = new initialConfigs_1.dataSourceController(User_1.User).entity;
         const user = new User_1.User();
         user.username = 'admin';
-        user.email = 'adminiescola@iescola.com.br';
-        user.password = passwordObject.hashedPassword;
+        user.email = 'appescola7@gmail.com';
+        user.password = passObject.hashedPassword;
         user.person = person;
-        console.log('ADMIN PASSWORD', passwordObject.password);
+        yield (0, email_service_1.credentialsEmail)(user.email, passObject.password, true);
         yield userSource.save(user);
     });
 }

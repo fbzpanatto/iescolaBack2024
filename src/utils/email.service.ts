@@ -3,6 +3,7 @@ import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 let INFO: SMTPTransport.SentMessageInfo;
 const FRONT_URL: string = "http://localhost:4200/home";
+const RESET_URL: string = "http://localhost:4200/reset-password/?token=";
 const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }}
 const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodemailer.createTransport(transport);
 
@@ -27,6 +28,21 @@ export async function transferEmail(email: string, student: string, rClassroom: 
   });
   console.log("Message sent: " + INFO.messageId);
   return;
+}
+
+export async function resetPassword(email: string, token: string) {
+  INFO = await TRANSPORTER.sendMail({
+    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+    to: email,
+    subject: "EscolApp: Redefinir Senha",
+    html: `
+      <p>Olá,</p>
+      <a href="${RESET_URL}${token}">Clique aqui para redefinir sua senha.</a>
+      <p>Atenciosamente,</p>
+      <p>Equipe EscolApp - Prefeitura de Itatiba</p>
+    `,
+  });
+  return console.log("Message sent: " + INFO.messageId);
 }
 
 export async function credentialsEmail(email: string, password: string, post: boolean ): Promise<void> {

@@ -12,7 +12,6 @@ import { DisabilityRouter } from "./routes/disability";
 import { DisciplineRouter } from "./routes/discipline";
 import { InitialConfigsRouter } from "./routes/initialConfigs";
 import { LiteracyRouter } from "./routes/literacy";
-import { LiteracySecondRouter } from "./routes/literacySecond";
 import { LoginRouter } from "./routes/login";
 import { PeCatRouter } from "./routes/personCategory";
 import { PersonRouter } from "./routes/person";
@@ -29,30 +28,29 @@ import { TeacherClassroomsRouter } from "./routes/teacherClassrooms";
 import { TeacherRouter } from "./routes/teacher";
 import { TestCategoryRouter } from "./routes/testCategory";
 import { TestRouter } from "./routes/test";
-import { TextGenderClassroomRouter } from "./routes/textGenderClassroom";
-import { TextGenderGradeRouter } from "./routes/textGenderGrade";
 import { TopicRouter } from "./routes/topic";
 import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
+
+import { LiteracySecondRouter } from "./routes/literacySecond";
 import { TextGenderGradeReportRouter } from "./routes/textGenderGradeReport";
+import { TextGenderClassroomRouter } from "./routes/textGenderClassroom";
+import { TextGenderGradeRouter } from "./routes/textGenderGrade";
+
 import { PasswordRouter } from "./routes/password";
 import helmet from "helmet";
-
-import bodyParser from "body-parser";
 import cors from "cors";
 
 const app: Application = express();
 const route = Router();
 
-app.use( bodyParser.json() );
-app.use( cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
-
 app.use(morgan("tiny"));
-app.use(cors());
+app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
+
 app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 route.use("/bimester", authorization, BimesterRouter);
 route.use("/classroom", authorization, ClassroomRouter);
@@ -63,7 +61,6 @@ route.use("/discipline", authorization, DisciplineRouter);
 route.use("/initial-configs", InitialConfigsRouter);
 route.use("/literacy", authorization, LiteracyRouter);
 route.use("/literacy-report", authorization, ReportLiteracy);
-route.use("/literacy-second", authorization, LiteracySecondRouter);
 route.use("/login", LoginRouter);
 route.use("/person", authorization, PersonRouter);
 route.use("/person-category", authorization, PeCatRouter);
@@ -79,13 +76,15 @@ route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRout
 route.use("/teacher-classroom", authorization, TeacherClassroomsRouter);
 route.use("/test", authorization, TestRouter);
 route.use("/test-category", authorization, TestCategoryRouter);
-route.use("/text-gender-grade", authorization, TextGenderGradeRouter);
-route.use("/text-gender-report", authorization, TextGenderGradeReportRouter);
-route.use("/text-gender-tabs", TextGenderClassroomRouter);
 route.use("/topic", TopicRouter);
 route.use("/transfer", authorization, TransferRouter);
 route.use("/user", authorization, UserRouter);
 route.use("/year", authorization, YearRouter);
+
+// route.use("/literacy-second", authorization, LiteracySecondRouter);
+// route.use("/text-gender-grade", authorization, TextGenderGradeRouter);
+// route.use("/text-gender-report", authorization, TextGenderGradeReportRouter);
+// route.use("/text-gender-tabs", TextGenderClassroomRouter);
 
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);

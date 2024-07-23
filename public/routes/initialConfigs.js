@@ -82,7 +82,7 @@ function createAdminUser(person) {
         const passObject = (0, generatePassword_1.generatePassword)();
         const userSource = new initialConfigs_1.dataSourceController(User_1.User).entity;
         const user = new User_1.User();
-        user.username = 'admin';
+        user.username = 'appescola7@gmail.com';
         user.email = 'appescola7@gmail.com';
         user.password = passObject.hashedPassword;
         user.person = person;
@@ -103,12 +103,12 @@ function createAdminPerson() {
         const teacherSource = new initialConfigs_1.dataSourceController(Teacher_1.Teacher).entity;
         const teacher = new Teacher_1.Teacher();
         teacher.person = result;
-        teacher.email = 'adminiescola@iescola.com.br';
+        teacher.email = 'appescola7@gmail.com';
         teacher.createdAt = new Date();
         teacher.updatedAt = new Date();
         teacher.createdByUser = 1;
         teacher.updatedByUser = 1;
-        teacher.register = 'AdmR';
+        teacher.register = 'ADMN - 0001';
         yield teacherSource.save(teacher);
         yield createAdminUser(result);
     });

@@ -53,10 +53,13 @@ class LoginController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const frontDecoded = (0, jsonwebtoken_1.verify)(frontToken, "SECRET");
-                    if (!(frontDecoded.iat && frontDecoded.exp && frontDecoded.email)) {
-                        return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha.' };
+                    console.log('frontDecoded', frontDecoded);
+                    if (!frontDecoded) {
+                        return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha na tela de login da aplicação.' };
                     }
-                    const user = yield CONN.findOne(User_1.User, { relations: ["person.category"], where: { email: frontDecoded.email } });
+                    const user = yield CONN.findOne(User_1.User, {
+                        relations: ["person.category"], where: { email: frontDecoded.email }
+                    });
                     if (!user) {
                         return { status: 404, message: "Usuário não encontrado" };
                     }
@@ -71,7 +74,8 @@ class LoginController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                return { status: 500, message: error.message };
+                const message = 'Pedido expirado. Acesse a aplicação novamente em nova aba de seu navegador, e na tela de login, insira seu email e clique em ESQUECI MINHA SENHA.';
+                return { status: 401, message };
             }
         });
     }

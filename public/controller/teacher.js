@@ -292,6 +292,7 @@ class TeacherController extends genericController_1.GenericController {
         const username = body.email;
         const email = body.email;
         const password = (0, generatePassword_1.generatePassword)().hashedPassword;
+        console.log('User: ', { username, email });
         return { username, password, email };
     }
     canChange(uCategory, tCategory) {

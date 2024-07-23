@@ -137,7 +137,7 @@ const arrayOfPermissions = [
             },
             {
                 entity: "test",
-                methods: thirdLevelPermissions
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",
@@ -186,7 +186,7 @@ const arrayOfPermissions = [
             },
             {
                 entity: "test",
-                methods: thirdLevelPermissions
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",
@@ -235,7 +235,7 @@ const arrayOfPermissions = [
             },
             {
                 entity: "test",
-                methods: thirdLevelPermissions
+                methods: firstLevelPermissions
             },
             {
                 entity: "teacher",

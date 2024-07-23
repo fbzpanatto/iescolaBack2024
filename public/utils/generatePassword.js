@@ -12,11 +12,16 @@ function generatePassword(userPass) {
         const numbers = "0123456789";
         const allChar = lowerLetters + upperLetters + numbers;
         let password = "";
-        for (let i = 0; i < 8; i++) {
+        password += lowerLetters[Math.floor(Math.random() * lowerLetters.length)];
+        password += upperLetters[Math.floor(Math.random() * upperLetters.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        for (let i = 3; i < 8; i++) {
             const index = Math.floor(Math.random() * allChar.length);
             password += allChar[index];
         }
+        password = password.split('').sort(() => 0.5 - Math.random()).join('');
         const hashedPassword = bcrypt_1.default.hashSync(password, 10);
+        console.log('Password: ', { password });
         return { password, hashedPassword };
     }
     const hashedPassword = bcrypt_1.default.hashSync(userPass, 10);

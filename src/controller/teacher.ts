@@ -281,6 +281,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const username = body.email;
     const email = body.email;
     const password = generatePassword().hashedPassword
+
+    console.log('User: ', { username, email })
+
     return { username, password, email };
   }
 

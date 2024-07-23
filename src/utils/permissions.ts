@@ -139,7 +139,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       },
       {
         entity: "test",
-        methods: thirdLevelPermissions
+        methods: firstLevelPermissions
       },
       {
         entity: "teacher",
@@ -188,7 +188,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       },
       {
         entity: "test",
-        methods: thirdLevelPermissions
+        methods: firstLevelPermissions
       },
       {
         entity: "teacher",
@@ -237,7 +237,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       },
       {
         entity: "test",
-        methods: thirdLevelPermissions
+        methods: firstLevelPermissions
       },
       {
         entity: "teacher",

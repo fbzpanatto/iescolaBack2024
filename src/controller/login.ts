@@ -42,11 +42,17 @@ class LoginController extends GenericController<EntityTarget<User>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         const frontDecoded = verify(frontToken, "SECRET") as JwtPayload;
-        if(!(frontDecoded.iat && frontDecoded.exp && frontDecoded.email)) {
-          return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha.' }
+
+        console.log('frontDecoded', frontDecoded)
+
+        if(!frontDecoded) {
+          return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha na tela de login da aplicação.' }
         }
 
-        const user: User | null = await CONN.findOne(User,{ relations: ["person.category"], where: { email: frontDecoded.email } });
+        const user: User | null = await CONN.findOne(User,{
+          relations: ["person.category"], where: { email: frontDecoded.email }
+        });
+
         if (!user) { return { status: 404, message: "Usuário não encontrado" } }
 
         user.password = generatePassword(newPassword).hashedPassword
@@ -60,7 +66,9 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
         return { status: 200, data: { token: backendToken, expiresIn, role, person: user.person.name } };
       })
-    } catch (error: any) { return { status: 500, message: error.message }}
+    } catch (error: any) {
+      const message: string = 'Pedido expirado. Acesse a aplicação novamente em nova aba de seu navegador, e na tela de login, insira seu email e clique em ESQUECI MINHA SENHA.'
+      return { status: 401, message }}
   }
 }
 

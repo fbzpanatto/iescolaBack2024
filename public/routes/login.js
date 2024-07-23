@@ -13,4 +13,11 @@ exports.LoginRouter = void 0;
 const express_1 = require("express");
 const login_1 = require("../controller/login");
 exports.LoginRouter = (0, express_1.Router)();
-exports.LoginRouter.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () { const response = yield login_1.loginCtrl.login(req); return res.status(response.status).json(response); }));
+exports.LoginRouter.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield login_1.loginCtrl.login(req);
+    return res.status(response.status).json(response);
+}));
+exports.LoginRouter.post('/renew-password', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield login_1.loginCtrl.renewPassword(req);
+    return res.status(response.status).json(response);
+}));

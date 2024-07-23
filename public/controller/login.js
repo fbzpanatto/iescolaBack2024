@@ -18,6 +18,7 @@ const User_1 = require("../model/User");
 const data_source_1 = require("../data-source");
 const jsonwebtoken_1 = require("jsonwebtoken");
 const bcrypt_1 = __importDefault(require("bcrypt"));
+const generatePassword_1 = require("../utils/generatePassword");
 class LoginController extends genericController_1.GenericController {
     constructor() { super(User_1.User); }
     login(req) {
@@ -39,6 +40,34 @@ class LoginController extends genericController_1.GenericController {
                     const expiresIn = decoded.exp;
                     const role = decoded.category;
                     return { status: 200, data: { token, expiresIn, role, person: user.person.name } };
+                }));
+            }
+            catch (error) {
+                return { status: 500, message: error.message };
+            }
+        });
+    }
+    renewPassword(req) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { token: frontToken, password: newPassword } = req.body;
+            try {
+                return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const frontDecoded = (0, jsonwebtoken_1.verify)(frontToken, "SECRET");
+                    if (!(frontDecoded.iat && frontDecoded.exp && frontDecoded.email)) {
+                        return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha.' };
+                    }
+                    const user = yield CONN.findOne(User_1.User, { relations: ["person.category"], where: { email: frontDecoded.email } });
+                    if (!user) {
+                        return { status: 404, message: "Usuário não encontrado" };
+                    }
+                    user.password = (0, generatePassword_1.generatePassword)(newPassword).hashedPassword;
+                    yield CONN.save(User_1.User, user);
+                    const payload = { user: user.id, email: user.email, category: user.person.category.id };
+                    const backendToken = (0, jsonwebtoken_1.sign)(payload, "SECRET", { expiresIn: 10800 });
+                    const decoded = (0, jsonwebtoken_1.verify)(backendToken, "SECRET");
+                    const expiresIn = decoded.exp;
+                    const role = decoded.category;
+                    return { status: 200, data: { token: backendToken, expiresIn, role, person: user.person.name } };
                 }));
             }
             catch (error) {

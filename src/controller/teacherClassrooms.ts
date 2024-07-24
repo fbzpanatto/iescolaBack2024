@@ -17,7 +17,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
     try {
 
       const teacher = await this.teacherByUser(body.user.user)
-      const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
+      const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
       const fields = ['classroom.id as id', 'classroom.shortName as name', 'school.shortName as school']
 

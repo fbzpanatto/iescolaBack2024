@@ -2,10 +2,8 @@ import { pc } from "./personCategories";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
 
-const firstLevelPermissions: Permission = { GET: true, POST: false, PUT: false, DELETE: false }
-const secondLevelPermissions: Permission = { GET: true, POST: true, PUT: false, DELETE: false }
-const thirdLevelPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: false }
-const fourthLevelPermissions: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
+const onlyGET: Permission = { GET: true, POST: false, PUT: false, DELETE: false }
+const getPostPut: Permission = { GET: true, POST: true, PUT: true, DELETE: false }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
   {
@@ -13,59 +11,120 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "classroom",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "teacher",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "student",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "test",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "year",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "report",
-        methods: firstLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "studentquestion",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacy",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacysecond",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "textgendergrade",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "textgenderreport",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacyreport",
-        methods: fourthLevelPermissions
+        methods: getPostPut
+      }
+    ]
+  },
+  {
+    category: pc.FORM,
+    permissions: [
+      {
+        entity: "personcategory",
+        methods: onlyGET
+      },
+      {
+        entity: "year",
+        methods: onlyGET
+      },
+      {
+        entity: "report",
+        methods: onlyGET
+      },
+      {
+        entity: "classroom",
+        methods: onlyGET
+      },
+      {
+        entity: "teacher",
+        methods: getPostPut
+      },
+      {
+        entity: "student",
+        methods: getPostPut
+      },
+      {
+        entity: "test",
+        methods: getPostPut
+      },
+      {
+        entity: "transfer",
+        methods: getPostPut
+      },
+      {
+        entity: "studentquestion",
+        methods: getPostPut
+      },
+      {
+        entity: "literacy",
+        methods: getPostPut
+      },
+      {
+        entity: "literacysecond",
+        methods: getPostPut
+      },
+      {
+        entity: "textgendergrade",
+        methods: getPostPut
+      },
+      {
+        entity: "textgenderreport",
+        methods: getPostPut
+      },
+      {
+        entity: "literacyreport",
+        methods: getPostPut
       }
     ]
   },
@@ -73,60 +132,60 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.SUPE,
     permissions: [
       {
+        entity: "personcategory",
+        methods: onlyGET
+      },
+      {
         entity: "year",
-        methods: firstLevelPermissions
-      },
-      {
-        entity: "test",
-        methods: thirdLevelPermissions
-      },
-      {
-        entity: "teacher",
-        methods: thirdLevelPermissions
-      },
-      {
-        entity: "student",
-        methods: thirdLevelPermissions
-      },
-      {
-        entity: "transfer",
-        methods: thirdLevelPermissions
-      },
-      {
-        entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "report",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
-        entity: "personcategory",
-        methods: firstLevelPermissions
+        entity: "classroom",
+        methods: onlyGET
+      },
+      {
+        entity: "teacher",
+        methods: getPostPut
+      },
+      {
+        entity: "student",
+        methods: getPostPut
+      },
+      {
+        entity: "test",
+        methods: getPostPut
+      },
+      {
+        entity: "transfer",
+        methods: getPostPut
       },
       {
         entity: "studentquestion",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacy",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacysecond",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "textgendergrade",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "textgenderreport",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacyreport",
-        methods: fourthLevelPermissions
+        methods: getPostPut
       }
     ]
   },
@@ -135,47 +194,47 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
     ]
   },
@@ -184,47 +243,47 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
     ]
   },
@@ -233,47 +292,47 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: thirdLevelPermissions
+        methods: onlyGET
       },
     ]
   },
@@ -282,47 +341,47 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
     ]
   },
@@ -331,47 +390,47 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
     ]
   },
@@ -379,48 +438,48 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.PROF,
     permissions: [
       {
+        entity: "personcategory",
+        methods: onlyGET
+      },
+      {
         entity: "classroom",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "year",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "teacher",
-        methods: firstLevelPermissions
+        methods: onlyGET
       },
       {
         entity: "student",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "transfer",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "test",
-        methods: thirdLevelPermissions
-      },
-      {
-        entity: "personcategory",
-        methods: firstLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "studentquestion",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacy",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "literacysecond",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
       {
         entity: "textgendergrade",
-        methods: thirdLevelPermissions
+        methods: getPostPut
       },
     ]
   }

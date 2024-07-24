@@ -224,7 +224,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const options = { relations: ["person.category"], where: { person: { user: { id: body?.user.user } } } }
         const uTeacher = await CONN.findOne(Teacher, {...options})
 
-        const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE
+        const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE || uTeacher?.person.category.id === pc.FORM
         const teacherClasses = await this.teacherClassrooms(body?.user, CONN)
         const preStudent = await this.student(Number(params.id), CONN)
 
@@ -675,7 +675,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
 
-        const masterUser: boolean = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser: boolean = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
         const { classrooms } = await this.teacherClassrooms(body.user, CONN)
         const message = "Você não tem permissão para realizar modificações nesta sala de aula."

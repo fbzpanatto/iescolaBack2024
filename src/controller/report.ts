@@ -57,7 +57,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async(CONN) => {
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN);
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE;
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")

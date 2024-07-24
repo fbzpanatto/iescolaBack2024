@@ -169,7 +169,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       return await AppDataSource.transaction(async(CONN) => {
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
 
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
         const year = await CONN.findOne(Year,{ where: { name: request?.params.year } })
 

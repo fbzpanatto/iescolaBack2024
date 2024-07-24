@@ -24,7 +24,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
           const uTeacher = await this.teacherByUser(body.user.user, alternative);
           const tClasses = await this.teacherClassrooms(request?.body.user, alternative);
-          const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE;
+          const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
           return await alternative.getRepository(Classroom)
             .createQueryBuilder("classroom")
@@ -50,7 +50,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       teacherForm ?
         masterUser = category_id === pc.ADMN || category_id === pc.SUPE || category_id === pc.SECR :
-        masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
       const data = await CONN.getRepository(Classroom)
         .createQueryBuilder("classroom")

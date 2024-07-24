@@ -15,7 +15,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     try {
       return await AppDataSource.transaction(async(CONN)=>{
         const uTeacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
         const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
         return { status: 200, data: { isOwner: uTeacher.person.id === question?.person.id || masterUser } };
       })

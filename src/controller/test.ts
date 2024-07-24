@@ -56,7 +56,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return await AppDataSource.transaction(async(CONN) => {
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE
+        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
         const { classrooms } = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -142,7 +142,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
 
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
         const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
 
@@ -369,7 +369,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE;
+        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
 
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
@@ -455,7 +455,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const uTeacher = await this.teacherByUser(req.body.user.user, CONN) as Teacher
         const userId = uTeacher.person.user.id
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
         const test = await CONN.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
 
         if(!test) return { status: 404, message: "Teste não encontrado" }

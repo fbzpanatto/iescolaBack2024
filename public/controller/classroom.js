@@ -27,7 +27,7 @@ class ClassroomController extends genericController_1.GenericController {
                     result = yield data_source_1.AppDataSource.transaction((alternative) => __awaiter(this, void 0, void 0, function* () {
                         const uTeacher = yield this.teacherByUser(body.user.user, alternative);
                         const tClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, alternative);
-                        const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                        const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM
                         return yield alternative.getRepository(Classroom_1.Classroom)
                             .createQueryBuilder("classroom")
                             .select("classroom.id", "id")

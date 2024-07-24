@@ -7,5 +7,6 @@ export const pc = {
   SECR: 6,
   MONI: 7,
   PROF: 8,
-  ALUN: 9
+  ALUN: 9,
+  FORM: 10
 }

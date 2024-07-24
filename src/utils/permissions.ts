@@ -124,7 +124,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       },
       {
         entity: "literacyreport",
-        methods: getPostPut
+        methods: onlyGET
       }
     ]
   },
@@ -149,43 +149,43 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       },
       {
         entity: "teacher",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "student",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "test",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "transfer",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "studentquestion",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "literacy",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "literacysecond",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "textgendergrade",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "textgenderreport",
-        methods: getPostPut
+        methods: onlyGET
       },
       {
         entity: "literacyreport",
-        methods: getPostPut
+        methods: onlyGET
       }
     ]
   },

@@ -141,7 +141,7 @@ class LiteracyController extends genericController_1.GenericController {
                 return yield Promise.all(result);
             }
             const result = studentClassrooms.map((studentClassroom) => __awaiter(this, void 0, void 0, function* () {
-                var _b, _c;
+                var _a, _b;
                 const studentId = studentClassroom.student.id;
                 const lastLiteracy = yield CONN.getRepository(Literacy_1.Literacy)
                     .createQueryBuilder("literacy")
@@ -158,9 +158,9 @@ class LiteracyController extends genericController_1.GenericController {
                     .getOne();
                 if (!(lastLiteracy === null || lastLiteracy === void 0 ? void 0 : lastLiteracy.literacyLevel)) {
                     const literacyFirsts = yield CONN.findOne(LiteracyFirst_1.LiteracyFirst, { where: { student: { id: studentClassroom.student.id } }, relations: ["literacyLevel"] });
-                    return Object.assign(Object.assign({}, studentClassroom), { literacyFirsts: { id: literacyFirsts === null || literacyFirsts === void 0 ? void 0 : literacyFirsts.id, literacyLevel: (_b = literacyFirsts === null || literacyFirsts === void 0 ? void 0 : literacyFirsts.literacyLevel) !== null && _b !== void 0 ? _b : { id: "NA", name: "NA", shortName: "NA" } } });
+                    return Object.assign(Object.assign({}, studentClassroom), { literacyFirsts: { id: literacyFirsts === null || literacyFirsts === void 0 ? void 0 : literacyFirsts.id, literacyLevel: (_a = literacyFirsts === null || literacyFirsts === void 0 ? void 0 : literacyFirsts.literacyLevel) !== null && _a !== void 0 ? _a : { id: "NA", name: "NA", shortName: "NA" } } });
                 }
-                return Object.assign(Object.assign({}, studentClassroom), { literacyFirsts: { id: lastLiteracy === null || lastLiteracy === void 0 ? void 0 : lastLiteracy.id, literacyLevel: (_c = lastLiteracy === null || lastLiteracy === void 0 ? void 0 : lastLiteracy.literacyLevel) !== null && _c !== void 0 ? _c : { id: "NA", name: "NA", shortName: "NA" } } });
+                return Object.assign(Object.assign({}, studentClassroom), { literacyFirsts: { id: lastLiteracy === null || lastLiteracy === void 0 ? void 0 : lastLiteracy.id, literacyLevel: (_b = lastLiteracy === null || lastLiteracy === void 0 ? void 0 : lastLiteracy.literacyLevel) !== null && _b !== void 0 ? _b : { id: "NA", name: "NA", shortName: "NA" } } });
             }));
             return yield Promise.all(result);
         });
@@ -171,7 +171,7 @@ class LiteracyController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     const uTeacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const year = yield CONN.findOne(Year_1.Year, { where: { name: request === null || request === void 0 ? void 0 : request.params.year } });
                     if (!year)
                         return { status: 404, message: "Ano não encontrado" };

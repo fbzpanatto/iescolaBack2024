@@ -27,7 +27,7 @@ class ClassroomController extends genericController_1.GenericController {
                     result = yield data_source_1.AppDataSource.transaction((alternative) => __awaiter(this, void 0, void 0, function* () {
                         const uTeacher = yield this.teacherByUser(body.user.user, alternative);
                         const tClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, alternative);
-                        const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM
+                        const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                         return yield alternative.getRepository(Classroom_1.Classroom)
                             .createQueryBuilder("classroom")
                             .select("classroom.id", "id")
@@ -51,7 +51,7 @@ class ClassroomController extends genericController_1.GenericController {
                 const tClasses = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
                 teacherForm ?
                     masterUser = category_id === personCategories_1.pc.ADMN || category_id === personCategories_1.pc.SUPE || category_id === personCategories_1.pc.SECR :
-                    masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                 const data = yield CONN.getRepository(Classroom_1.Classroom)
                     .createQueryBuilder("classroom")
                     .select("classroom.id", "id")

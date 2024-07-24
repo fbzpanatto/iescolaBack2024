@@ -40,6 +40,7 @@ const TextGenderExamTier_1 = require("./TextGenderExamTier");
 const TextGenderGrade_1 = require("./TextGenderGrade");
 const TextGenderClassroom_1 = require("./TextGenderClassroom");
 const TextGenderExamLevelGroup_1 = require("./TextGenderExamLevelGroup");
+const TestClassroom_1 = require("./TestClassroom");
 exports.entities = [
     Bimester_1.Bimester,
     Classroom_1.Classroom,
@@ -56,6 +57,7 @@ exports.entities = [
     Period_1.Period,
     Question_1.Question,
     QuestionGroup_1.QuestionGroup,
+    TestClassroom_1.TestClassroom,
     School_1.School,
     State_1.State,
     Student_1.Student,

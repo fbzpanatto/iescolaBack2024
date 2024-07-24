@@ -399,8 +399,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!checkYear) return { status: 404, message: "Ano não encontrado" }
         if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
 
-        const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } }
-        const period = await CONN.findOne(Period, option)
+        const period = await CONN.findOne(Period, {
+          relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester }
+        })
         if(!period) return { status: 404, message: "Período não encontrado" }
 
         const classes = await CONN.getRepository(Classroom)
@@ -421,30 +422,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
-        const test = await CONN.save(Test, {
-          name: body.name,
-          category: body.category,
-          discipline: body.discipline,
-          person: uTeacher.person,
-          period: period,
-          classrooms: classes,
-          createdAt: new Date(),
-          createdByUser: uTeacher.person.user.id
-        });
+        const test = new Test()
+          test.name = body.name
+          test.category = body.category
+          test.discipline = body.discipline
+          test.person = uTeacher.person
+          test.period = period
+          test.classrooms = classes
+          test.createdAt = new Date()
+          test.createdByUser = uTeacher.person.user.id
+
+        await CONN.save(Test, test);
 
         const tQts = body.testQuestions.map((el: any) => ({
           ...el,
           createdAt: new Date(),
           createdByUser: uTeacher.person.user.id,
           question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
-          test
+          test: test
         }))
 
         await CONN.save(TestQuestion, tQts)
         return { status: 201, data: test };
       })
     } catch (error: any) {
-      console.log(error)
+      console.log('error', error)
       return { status: 500, message: error.message }
     }
   }

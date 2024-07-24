@@ -16,6 +16,7 @@ const ClassroomCategory_1 = require("./ClassroomCategory");
 const TeacherClassDiscipline_1 = require("./TeacherClassDiscipline");
 const StudentClassroom_1 = require("./StudentClassroom");
 const Transfer_1 = require("./Transfer");
+const TestClassroom_1 = require("./TestClassroom");
 let Classroom = class Classroom {
 };
 exports.Classroom = Classroom;
@@ -51,6 +52,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => StudentClassroom_1.StudentClassroom, studentClassroom => studentClassroom.classroom),
     __metadata("design:type", Array)
 ], Classroom.prototype, "studentClassrooms", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => TestClassroom_1.TestClassroom, testClassroom => testClassroom.classroom),
+    __metadata("design:type", Array)
+], Classroom.prototype, "testClassrooms", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => Transfer_1.Transfer, transfer => transfer.requestedClassroom),
     __metadata("design:type", Array)

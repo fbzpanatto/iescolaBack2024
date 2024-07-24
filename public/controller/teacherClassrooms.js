@@ -23,7 +23,7 @@ class TeacherClassroomsController extends genericController_1.GenericController 
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {
                 const teacher = yield this.teacherByUser(body.user.user);
-                const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
+                const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM;
                 const fields = ['classroom.id as id', 'classroom.shortName as name', 'school.shortName as school'];
                 if (!CONN) {
                     if (masterUser) {

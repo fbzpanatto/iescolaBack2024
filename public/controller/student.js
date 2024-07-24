@@ -226,7 +226,7 @@ class StudentController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const options = { relations: ["person.category"], where: { person: { user: { id: body === null || body === void 0 ? void 0 : body.user.user } } } };
                     const uTeacher = yield CONN.findOne(Teacher_1.Teacher, Object.assign({}, options));
-                    const masterUser = (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.ADMN || (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.SUPE;
+                    const masterUser = (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.ADMN || (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.SUPE || (uTeacher === null || uTeacher === void 0 ? void 0 : uTeacher.person.category.id) === personCategories_1.pc.FORM;
                     const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user, CONN);
                     const preStudent = yield this.student(Number(params.id), CONN);
                     if (!preStudent) {
@@ -685,7 +685,7 @@ class StudentController extends genericController_1.GenericController {
                 let student = null;
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const { classrooms } = yield this.teacherClassrooms(body.user, CONN);
                     const message = "Você não tem permissão para realizar modificações nesta sala de aula.";
                     if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) {

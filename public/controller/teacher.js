@@ -49,8 +49,8 @@ class TeacherController extends genericController_1.GenericController {
         });
     }
     findAllWhereTeacher(request) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const search = (_a = request === null || request === void 0 ? void 0 : request.query.search) !== null && _a !== void 0 ? _a : "";
             const body = request === null || request === void 0 ? void 0 : request.body;
             try {

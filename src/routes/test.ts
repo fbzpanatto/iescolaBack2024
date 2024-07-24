@@ -38,7 +38,7 @@ TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, as
   const response = await controller.insertStudents(req); return res.status(response.status).json(response)
 })
 
-TestRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+TestRouter.post('/', havePermission, async (req: Request, res: Response) => {
   const response = await controller.saveTest(req.body); return res.status(response.status).json(response)
 });
 

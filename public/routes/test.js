@@ -50,7 +50,7 @@ exports.TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermis
     const response = yield test_1.testController.insertStudents(req);
     return res.status(response.status).json(response);
 }));
-exports.TestRouter.post('/', ...CREATE_VALIDATORS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.TestRouter.post('/', havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield test_1.testController.saveTest(req.body);
     return res.status(response.status).json(response);
 }));

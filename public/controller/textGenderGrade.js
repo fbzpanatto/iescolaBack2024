@@ -113,7 +113,7 @@ class TextGenderGradeController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     const uTeacher = yield this.teacherByUser(userBody.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const { classrooms } = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
                     if (!classrooms.includes(Number(classId)) && !masterUser) {
                         return { status: 403, message: "Você não tem permissão para acessar essa sala." };

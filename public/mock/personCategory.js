@@ -7,8 +7,9 @@ exports.PERSON_CATEGORY = [
     { name: 'Diretor', active: true },
     { name: 'Vice-Diretor', active: true },
     { name: 'Coordenador', active: true },
-    { name: 'Secretário', active: true },
+    { name: 'Auxiliar Administrativo', active: true },
     { name: 'Monitor de Informática', active: true },
     { name: 'Professor', active: true },
-    { name: 'Aluno', active: true }
+    { name: 'Aluno', active: true },
+    { name: 'Formador', active: true }
 ];

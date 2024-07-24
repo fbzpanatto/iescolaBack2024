@@ -77,7 +77,7 @@ class TestController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacher = yield this.teacherByUser(req.body.user.user, CONN);
-                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM;
                     const { classrooms } = yield this.teacherClassrooms(req.body.user, CONN);
                     if (!classrooms.includes(Number(classroomId)) && !masterUser)
                         return { status: 403, message: "Você não tem permissão para acessar essa sala." };
@@ -155,7 +155,7 @@ class TestController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const { classrooms } = yield this.teacherClassrooms(request === null || request === void 0 ? void 0 : request.body.user, CONN);
                     const message = "Você não tem permissão para acessar essa sala.";
                     if (!classrooms.includes(classroomId) && !masterUser) {
@@ -371,7 +371,7 @@ class TestController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacher = yield this.teacherByUser(req.body.user.user, CONN);
-                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM;
                     const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } };
                     const test = yield CONN.findOne(Test_1.Test, Object.assign({}, op));
                     if (teacher.person.id !== (test === null || test === void 0 ? void 0 : test.person.id) && !masterUser)
@@ -401,8 +401,9 @@ class TestController extends genericController_1.GenericController {
                         return { status: 404, message: "Ano não encontrado" };
                     if (!checkYear.active)
                         return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." };
-                    const option = { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } };
-                    const period = yield CONN.findOne(Period_1.Period, option);
+                    const period = yield CONN.findOne(Period_1.Period, {
+                        relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester }
+                    });
                     if (!period)
                         return { status: 404, message: "Período não encontrado" };
                     const classes = yield CONN.getRepository(Classroom_1.Classroom)
@@ -422,23 +423,23 @@ class TestController extends genericController_1.GenericController {
                         .getMany();
                     if (!classes || classes.length < 1)
                         return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." };
-                    const test = yield CONN.save(Test_1.Test, {
-                        name: body.name,
-                        category: body.category,
-                        discipline: body.discipline,
-                        person: uTeacher.person,
-                        period: period,
-                        classrooms: classes,
-                        createdAt: new Date(),
-                        createdByUser: uTeacher.person.user.id
-                    });
-                    const tQts = body.testQuestions.map((el) => (Object.assign(Object.assign({}, el), { createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: Object.assign(Object.assign({}, el.question), { person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }), test })));
+                    const test = new Test_1.Test();
+                    test.name = body.name;
+                    test.category = body.category;
+                    test.discipline = body.discipline;
+                    test.person = uTeacher.person;
+                    test.period = period;
+                    test.classrooms = classes;
+                    test.createdAt = new Date();
+                    test.createdByUser = uTeacher.person.user.id;
+                    yield CONN.save(Test_1.Test, test);
+                    const tQts = body.testQuestions.map((el) => (Object.assign(Object.assign({}, el), { createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: Object.assign(Object.assign({}, el.question), { person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }), test: test })));
                     yield CONN.save(TestQuestion_1.TestQuestion, tQts);
                     return { status: 201, data: test };
                 }));
             }
             catch (error) {
-                console.log(error);
+                console.log('error', error);
                 return { status: 500, message: error.message };
             }
         });
@@ -449,7 +450,7 @@ class TestController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(req.body.user.user, CONN);
                     const userId = uTeacher.person.user.id;
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const test = yield CONN.findOne(Test_1.Test, { relations: ["person"], where: { id: Number(id) } });
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };

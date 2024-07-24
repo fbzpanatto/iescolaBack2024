@@ -28,7 +28,7 @@ exports.TopicRouter.post('/', (req, res) => __awaiter(void 0, void 0, void 0, fu
     return res.status(response.status).json(response);
 }));
 exports.TopicRouter.put('/:id', validators_1.ID_PARAM, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _b;
-    const response = yield topic_1.topicController.updateId((_b = req.params) === null || _b === void 0 ? void 0 : _b.id, req.body);
+    var _a;
+    const response = yield topic_1.topicController.updateId((_a = req.params) === null || _a === void 0 ? void 0 : _a.id, req.body);
     return res.status(response.status).json(response);
 }));

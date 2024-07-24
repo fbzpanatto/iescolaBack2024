@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generatePassword = void 0;
+exports.generatePassword = generatePassword;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 function generatePassword(userPass) {
     if (!userPass) {
@@ -27,4 +27,3 @@ function generatePassword(userPass) {
     const hashedPassword = bcrypt_1.default.hashSync(userPass, 10);
     return { password: userPass, hashedPassword };
 }
-exports.generatePassword = generatePassword;

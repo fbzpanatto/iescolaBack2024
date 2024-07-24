@@ -24,7 +24,7 @@ class QuestionController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(req.body.user.user, CONN);
-                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE;
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const question = yield CONN.findOne(Question_1.Question, { relations: ["person"], where: { id: parseInt(questionId) } });
                     return { status: 200, data: { isOwner: uTeacher.person.id === (question === null || question === void 0 ? void 0 : question.person.id) || masterUser } };
                 }));

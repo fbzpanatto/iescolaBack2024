@@ -23,8 +23,8 @@ class GenericController {
         this.entity = entity;
     }
     get repository() { return data_source_1.AppDataSource.getRepository(this.entity); }
-    findAllWhere(options = {}, request, CONN) {
-        return __awaiter(this, void 0, void 0, function* () {
+    findAllWhere() {
+        return __awaiter(this, arguments, void 0, function* (options = {}, request, CONN) {
             try {
                 if (!CONN) {
                     const result = yield this.repository.find();
@@ -173,8 +173,8 @@ class GenericController {
         });
     }
     teacherClassrooms(body, CONN) {
-        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
             if (!CONN) {
                 const result = (yield data_source_1.AppDataSource.createQueryBuilder()
                     .select("teacher.id", "teacher")
@@ -204,8 +204,8 @@ class GenericController {
         });
     }
     teacherDisciplines(body, CONN) {
-        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
             if (!CONN) {
                 const result = (yield data_source_1.AppDataSource.createQueryBuilder()
                     .select("teacher.id", "teacher")

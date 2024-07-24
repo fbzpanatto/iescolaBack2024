@@ -12,7 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.credentialsEmail = exports.resetPassword = exports.transferEmail = void 0;
+exports.transferEmail = transferEmail;
+exports.resetPassword = resetPassword;
+exports.credentialsEmail = credentialsEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 let INFO;
 const FRONT_URL = "http://localhost:4200/home";
@@ -42,7 +44,6 @@ function transferEmail(email, student, rClassroom, requester, rSchool) {
         return;
     });
 }
-exports.transferEmail = transferEmail;
 function resetPassword(email, token) {
     return __awaiter(this, void 0, void 0, function* () {
         INFO = yield TRANSPORTER.sendMail({
@@ -59,7 +60,6 @@ function resetPassword(email, token) {
         return console.log("Message sent: " + INFO.messageId);
     });
 }
-exports.resetPassword = resetPassword;
 function credentialsEmail(email, password, post) {
     return __awaiter(this, void 0, void 0, function* () {
         if (post) {
@@ -97,4 +97,3 @@ function credentialsEmail(email, password, post) {
         return;
     });
 }
-exports.credentialsEmail = credentialsEmail;

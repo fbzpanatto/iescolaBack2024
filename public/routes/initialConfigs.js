@@ -62,6 +62,8 @@ const TextGenderExamLevelGroup_1 = require("../model/TextGenderExamLevelGroup");
 const textGenderExamLevelGroup_1 = require("../mock/textGenderExamLevelGroup");
 const generatePassword_1 = require("../utils/generatePassword");
 const email_service_1 = require("../utils/email.service");
+const Student_1 = require("../model/Student");
+const StudentClassroom_1 = require("../model/StudentClassroom");
 exports.InitialConfigsRouter = (0, express_1.Router)();
 function createClassroom(school, classroom) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -74,7 +76,7 @@ function createClassroom(school, classroom) {
         newClass.school = school;
         newClass.active = classroom.active;
         newClass.shortName = classroom.shortName;
-        yield classSource.save(newClass);
+        return yield classSource.save(newClass);
     });
 }
 function createAdminUser(person) {
@@ -125,6 +127,8 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         const stateSource = new initialConfigs_1.dataSourceController(State_1.State).entity;
         const disabilitySource = new initialConfigs_1.dataSourceController(Disability_1.Disability).entity;
         const testCategorySource = new initialConfigs_1.dataSourceController(TestCategory_1.TestCategory).entity;
+        const studentClassroomSource = new initialConfigs_1.dataSourceController(StudentClassroom_1.StudentClassroom).entity;
+        const studentSource = new initialConfigs_1.dataSourceController(Student_1.Student).entity;
         const questionGroupSource = new initialConfigs_1.dataSourceController(QuestionGroup_1.QuestionGroup).entity;
         const topicSource = new initialConfigs_1.dataSourceController(Topic_1.Topic).entity;
         const descriptorSource = new initialConfigs_1.dataSourceController(Descriptor_1.Descriptor).entity;
@@ -218,13 +222,37 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
             yield schoolSource.save(newSchool);
         }
         const schools = yield schoolSource.find();
+        const personCategory = yield personCategorySource.findOneBy({ id: 9 });
+        const state = yield stateSource.findOne({ where: { id: 25 } });
+        let studentCounterIndex = 0;
         for (let school of schools) {
             for (let classroom of classroom_1.CLASSROOM) {
-                if (school.active && classroom.category !== 3) {
-                    yield createClassroom(school, classroom);
-                }
-                if (!school.active && classroom.category === 3 && !classroom.active) {
-                    yield createClassroom(school, classroom);
+                const createdClassroom = yield createClassroom(school, classroom);
+                for (let i = 0; i < 30; i++) {
+                    const person = new Person_1.Person();
+                    person.name = 'Aluno' + ' ' + studentCounterIndex;
+                    person.birth = new Date();
+                    person.category = personCategory;
+                    const student = new Student_1.Student();
+                    student.person = person;
+                    student.ra = '111111111';
+                    student.dv = '1';
+                    student.state = state;
+                    student.createdByUser = 1;
+                    student.createdAt = new Date();
+                    student.observationOne = 'obs1';
+                    student.observationTwo = 'obs2';
+                    const studentResult = yield studentSource.save(student);
+                    const studentClassroom = new StudentClassroom_1.StudentClassroom();
+                    studentClassroom.student = studentResult;
+                    studentClassroom.classroom = createdClassroom;
+                    studentClassroom.rosterNumber = 1;
+                    studentClassroom.startedAt = new Date();
+                    studentClassroom.createdByUser = 1;
+                    studentClassroom.year = newYear;
+                    const queryResult = yield studentClassroomSource.save(studentClassroom);
+                    console.log(queryResult);
+                    studentCounterIndex += 1;
                 }
             }
         }

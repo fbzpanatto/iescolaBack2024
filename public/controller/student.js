@@ -578,7 +578,7 @@ class StudentController extends genericController_1.GenericController {
                     allClassrooms = (yield CONN.find(Classroom_1.Classroom));
                 }
                 const result = yield CONN.createQueryBuilder()
-                    .select(["studentClassroom.id", "studentClassroom.rosterNumber", "studentClassroom.startedAt", "studentClassroom.endedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName'])
+                    .select(["studentClassroom.id", "studentClassroom.startedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName'])
                     .from(Student_1.Student, "student")
                     .leftJoin("student.person", "person")
                     .leftJoin("student.state", "state")
@@ -607,21 +607,21 @@ class StudentController extends genericController_1.GenericController {
                 return result.map((item) => {
                     return {
                         id: item.studentClassroom_id,
-                        rosterNumber: item.studentClassroom_rosterNumber,
+                        // rosterNumber: item.studentClassroom_rosterNumber,
                         startedAt: item.studentClassroom_startedAt,
-                        endedAt: item.studentClassroom_endedAt,
+                        // endedAt: item.studentClassroom_endedAt,
                         classroom: {
                             id: item.classroom_id,
                             shortName: item.classroom_shortName,
-                            teacher: options.teacherClasses,
-                            school: { id: item.school_id, shortName: item.school_shortName }
+                            // teacher: options.teacherClasses,
+                            school: { shortName: item.school_shortName }
                         },
                         student: {
                             id: item.student_id,
                             ra: item.student_ra,
                             dv: item.student_dv,
-                            state: { id: item.state_id, acronym: item.state_acronym },
-                            person: { id: item.person_id, name: item.person_name, birth: item.person_birth },
+                            state: { acronym: item.state_acronym },
+                            person: { name: item.person_name, birth: item.person_birth },
                             transfer: item.transfers_id ? { id: item.transfers_id, startedAt: item.transfers_startedAt, status: { name: item.transfersStatus_name }, requester: { name: item.requesterPerson_name }, requestedClassroom: { classroom: item.requestedClassroom_shortName, school: item.requestedClassroomSchool_shortName } } : false,
                         },
                     };

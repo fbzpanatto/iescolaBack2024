@@ -21,7 +21,7 @@ class SchoolController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const { year } = req.params;
             const { search } = req.query;
-            console.log(year, search);
+            console.log('year', year, 'search', search);
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const selectedYear = yield CONN.findOne(Year_1.Year, { where: { name: year } });
@@ -46,21 +46,7 @@ class SchoolController extends genericController_1.GenericController {
                             id: school.id,
                             name: school.name,
                             activeStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt === null)).length,
-                            inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)
-                                .reduce((acc, curr) => {
-                                const existingStudent = acc.find((existing) => existing.student.id === curr.student.id);
-                                if (existingStudent) {
-                                    if (curr.endedAt > existingStudent.endedAt) {
-                                        return acc.map((existing) => existing.student.id === curr.student.id ? curr : existing);
-                                    }
-                                    else {
-                                        return acc;
-                                    }
-                                }
-                                else {
-                                    return [...acc, curr];
-                                }
-                            }, [])).length
+                            inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)).length
                         };
                     });
                     return { status: 200, data: mappedResult };

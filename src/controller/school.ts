@@ -4,7 +4,6 @@ import { School } from "../model/School";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { Year } from "../model/Year";
-import {StudentClassroom} from "../model/StudentClassroom";
 
 class SchoolController extends GenericController<EntityTarget<School>> {
   constructor() { super(School) }
@@ -13,8 +12,6 @@ class SchoolController extends GenericController<EntityTarget<School>> {
 
     const { year } = req.params
     const { search } = req.query
-
-    console.log(year, search)
 
     try {
       return await AppDataSource.transaction(async(CONN: EntityManager) => {
@@ -41,23 +38,12 @@ class SchoolController extends GenericController<EntityTarget<School>> {
             id: school.id,
             name: school.name,
             activeStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt === null )).length,
-            inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)
-              .reduce((acc: any, curr: StudentClassroom) => {
-                const existingStudent = acc.find((existing: any) => existing.student.id === curr.student.id);
-                if (existingStudent) {
-                  if (curr.endedAt > existingStudent.endedAt) { return acc.map((existing: any) => existing.student.id === curr.student.id ? curr : existing) } else { return acc }
-                }
-                else { return [...acc, curr] }
-              }, [])
-            ).length
+            inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)).length
           }
         })
-
         return { status: 200, data: mappedResult };
       })
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

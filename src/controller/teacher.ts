@@ -240,9 +240,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const teacher = await CONN.save(Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
 
-        const { username, password, email } = this.generateUser(body);
+        const { username, passwordObject, email } = this.generateUser(body);
 
-        await CONN.save(User, { person, username, email, password });
+        await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
         if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }
 
@@ -260,7 +260,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           }
         }
 
-        await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
+        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -280,11 +280,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   generateUser(body: TeacherBody) {
     const username = body.email;
     const email = body.email;
-    const password = generatePassword().hashedPassword
+    const passwordObject = generatePassword()
 
-    console.log('User: ', { username, email })
-
-    return { username, password, email };
+    return { username, passwordObject, email };
   }
 
   private canChange( uCategory: number, tCategory: number ): boolean {

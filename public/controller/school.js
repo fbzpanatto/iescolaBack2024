@@ -21,7 +21,6 @@ class SchoolController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const { year } = req.params;
             const { search } = req.query;
-            console.log('year', year, 'search', search);
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const selectedYear = yield CONN.findOne(Year_1.Year, { where: { name: year } });
@@ -53,7 +52,6 @@ class SchoolController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                console.log(error);
                 return { status: 500, message: error.message };
             }
         });

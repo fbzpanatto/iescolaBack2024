@@ -17,7 +17,7 @@ const StudentClassroom_1 = require("./StudentClassroom");
 const State_1 = require("./State");
 const Transfer_1 = require("./Transfer");
 const LiteracyFirst_1 = require("./LiteracyFirst");
-// TODO: EM PRODUÇÃO DESCOMENTAR A LINHA ABAIXO.
+// TODO: TIRAR O COMENTÁRIO PARA PRODUÇÃO
 // @Index(["ra", "dv"], { unique: true })
 let Student = class Student {
 };

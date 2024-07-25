@@ -253,8 +253,8 @@ class TeacherController extends genericController_1.GenericController {
                     const category = (yield CONN.findOne(PersonCategory_1.PersonCategory, { where: { id: body.category.id } }));
                     const person = this.createPerson({ name: body.name, birth: body.birth, category });
                     const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
-                    const { username, password, email } = this.generateUser(body);
-                    yield CONN.save(User_1.User, { person, username, email, password });
+                    const { username, passwordObject, email } = this.generateUser(body);
+                    yield CONN.save(User_1.User, { person, username, email, password: passwordObject.hashedPassword });
                     if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE) {
                         return { status: 201, data: teacher };
                     }
@@ -270,7 +270,7 @@ class TeacherController extends genericController_1.GenericController {
                             yield CONN.save(el);
                         }
                     }
-                    yield (0, email_service_1.credentialsEmail)(body.email, password, true).catch((e) => console.log(e));
+                    yield (0, email_service_1.credentialsEmail)(body.email, passwordObject.password, true).catch((e) => console.log(e));
                     return { status: 201, data: teacher };
                 }));
             }
@@ -291,9 +291,8 @@ class TeacherController extends genericController_1.GenericController {
     generateUser(body) {
         const username = body.email;
         const email = body.email;
-        const password = (0, generatePassword_1.generatePassword)().hashedPassword;
-        console.log('User: ', { username, email });
-        return { username, password, email };
+        const passwordObject = (0, generatePassword_1.generatePassword)();
+        return { username, passwordObject, email };
     }
     canChange(uCategory, tCategory) {
         const allowedCat = [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.SUPE, personCategories_1.pc.ADMN];

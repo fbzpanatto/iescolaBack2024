@@ -595,7 +595,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           classroom: {
             id: item.classroom_id,
             shortName: item.classroom_shortName,
-            // teacher: options.teacherClasses,
+            teacher: options.teacherClasses,
             school: { shortName: item.school_shortName }
           },
           student: {

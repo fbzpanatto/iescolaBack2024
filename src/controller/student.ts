@@ -578,20 +578,23 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .leftJoin("classroom.school", "school")
         .leftJoin("studentClassroom.year", "year")
         .where("year.name = :yearName", { yearName })
-        .andWhere( new Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${options.search}%` }).orWhere("student.ra LIKE :search", { search: `%${options.search}%` }) }))
-        .andWhere( new Brackets((qb) => { if (!masterUser) { qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: options.teacherClasses?.classrooms } ) } else { qb.andWhere( isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id)})}}))
+        .andWhere( new Brackets((qb) => {
+          qb.where("person.name LIKE :search", { search: `%${options.search}%` }).orWhere("student.ra LIKE :search", { search: `%${options.search}%` })
+        }))
+        .andWhere( new Brackets((qb) => {
+          if (!masterUser) { qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: options.teacherClasses?.classrooms } ) } else { qb.andWhere( isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id)})}
+        }))
         .orderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .addOrderBy("person.name", "ASC")
+        .limit(100)
         .getRawMany();
 
       return result.map((item) => {
 
         return {
           id: item.studentClassroom_id,
-          // rosterNumber: item.studentClassroom_rosterNumber,
           startedAt: item.studentClassroom_startedAt,
-          // endedAt: item.studentClassroom_endedAt,
           classroom: {
             id: item.classroom_id,
             shortName: item.classroom_shortName,

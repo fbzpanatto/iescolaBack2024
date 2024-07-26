@@ -24,7 +24,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   async updateQuestion(id: number | string, body: ObjectLiteral) {
     try {
-      return await AppDataSource.transaction(async(CONN)=>{
+      return await AppDataSource.transaction(async(CONN)=> {
         const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } })
         if(!studentQuestion) { return { status: 404, message: 'Registro não encontrado' } }
         const entity = { id: body.id, answer: body.answer, studentClassroom: { id: body.studentClassroom.id }, testQuestion: { id: body.testQuestion.id }}

@@ -165,7 +165,8 @@ class TestController extends genericController_1.GenericController {
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
                     const questionGroups = yield this.getTestQuestionsGroups(testId, CONN);
-                    const testQuestions = yield this.getTestQuestions(test.id, CONN);
+                    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"];
+                    const testQuestions = yield this.getTestQuestions(test.id, CONN, fields);
                     const classroom = yield CONN.getRepository(Classroom_1.Classroom)
                         .createQueryBuilder("classroom")
                         .leftJoinAndSelect("classroom.school", "school")
@@ -228,10 +229,10 @@ class TestController extends genericController_1.GenericController {
                 .createQueryBuilder("studentClassroom")
                 .leftJoin("studentClassroom.year", "year")
                 .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-                .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-                .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-                .leftJoinAndSelect("studentClassroom.student", "student")
-                .leftJoinAndSelect("student.person", "person")
+                .leftJoin("studentClassroom.studentStatus", "studentStatus")
+                .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+                .leftJoin("studentClassroom.student", "student")
+                .leftJoin("student.person", "person")
                 .where("studentClassroom.classroom = :classroomId", { classroomId })
                 .andWhere(new typeorm_1.Brackets(qb => {
                 qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
@@ -513,11 +514,12 @@ class TestController extends genericController_1.GenericController {
                 .getOne();
         });
     }
-    getTestQuestions(testId, CONN) {
+    getTestQuestions(testId, CONN, selectFields) {
         return __awaiter(this, void 0, void 0, function* () {
+            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"];
             return yield CONN.getRepository(TestQuestion_1.TestQuestion)
                 .createQueryBuilder("testQuestion")
-                .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
+                .select(selectFields !== null && selectFields !== void 0 ? selectFields : fields)
                 .leftJoin("testQuestion.question", "question")
                 .leftJoin("question.person", "person")
                 .leftJoin("question.descriptor", "descriptor")

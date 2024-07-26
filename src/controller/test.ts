@@ -155,9 +155,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
 
-
-
-        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "person.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
         const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
 
         const classroom = await CONN.getRepository(Classroom)
@@ -227,10 +225,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
       .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.person", "person")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });

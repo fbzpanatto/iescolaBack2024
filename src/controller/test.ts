@@ -155,7 +155,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
 
-        const testQuestions = await this.getTestQuestions(test.id, CONN)
+
+
+        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "person.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+        const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
 
         const classroom = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
@@ -541,10 +544,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getTestQuestions(testId: number, CONN: EntityManager) {
+  async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
+
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+
     return await CONN.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
-      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"])
+      .select(selectFields ?? fields)
       .leftJoin("testQuestion.question", "question")
       .leftJoin("question.person", "person")
       .leftJoin("question.descriptor", "descriptor")

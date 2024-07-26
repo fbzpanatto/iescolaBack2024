@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 let INFO: SMTPTransport.SentMessageInfo;
-const FRONT_URL: string = "http://localhost:4200/home";
+const FRONT_URL: string = "http://localhost:4200/teacher";
 const RESET_URL: string = "http://localhost:4200/reset-password/?token=";
 const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }}
 const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodemailer.createTransport(transport);

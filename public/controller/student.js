@@ -593,23 +593,27 @@ class StudentController extends genericController_1.GenericController {
                     .leftJoin("classroom.school", "school")
                     .leftJoin("studentClassroom.year", "year")
                     .where("year.name = :yearName", { yearName })
-                    .andWhere(new typeorm_1.Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${options.search}%` }).orWhere("student.ra LIKE :search", { search: `%${options.search}%` }); }))
-                    .andWhere(new typeorm_1.Brackets((qb) => { var _a; if (!masterUser) {
-                    qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: (_a = options.teacherClasses) === null || _a === void 0 ? void 0 : _a.classrooms });
-                }
-                else {
-                    qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id) });
-                } }))
+                    .andWhere(new typeorm_1.Brackets((qb) => {
+                    qb.where("person.name LIKE :search", { search: `%${options.search}%` }).orWhere("student.ra LIKE :search", { search: `%${options.search}%` });
+                }))
+                    .andWhere(new typeorm_1.Brackets((qb) => {
+                    var _a;
+                    if (!masterUser) {
+                        qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: (_a = options.teacherClasses) === null || _a === void 0 ? void 0 : _a.classrooms });
+                    }
+                    else {
+                        qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id) });
+                    }
+                }))
                     .orderBy("school.shortName", "ASC")
                     .addOrderBy("classroom.shortName", "ASC")
                     .addOrderBy("person.name", "ASC")
+                    .limit(100)
                     .getRawMany();
                 return result.map((item) => {
                     return {
                         id: item.studentClassroom_id,
-                        // rosterNumber: item.studentClassroom_rosterNumber,
                         startedAt: item.studentClassroom_startedAt,
-                        // endedAt: item.studentClassroom_endedAt,
                         classroom: {
                             id: item.classroom_id,
                             shortName: item.classroom_shortName,

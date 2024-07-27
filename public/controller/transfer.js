@@ -19,10 +19,6 @@ const StudentClassroom_1 = require("../model/StudentClassroom");
 const Classroom_1 = require("../model/Classroom");
 const LiteracyTier_1 = require("../model/LiteracyTier");
 const Literacy_1 = require("../model/Literacy");
-const TextGenderExam_1 = require("../model/TextGenderExam");
-const TextGenderExamTier_1 = require("../model/TextGenderExamTier");
-const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
-const TextGenderGrade_1 = require("../model/TextGenderGrade");
 const Teacher_1 = require("../model/Teacher");
 const email_service_1 = require("../utils/email.service");
 const Student_1 = require("../model/Student");
@@ -57,6 +53,7 @@ class TransferController extends genericController_1.GenericController {
                     }))
                         .andWhere('year.name = :year', { year })
                         .orderBy('transfer.startedAt', 'DESC')
+                        .limit(100)
                         .getMany();
                     return { status: 200, data: result };
                 }));
@@ -205,35 +202,23 @@ class TransferController extends genericController_1.GenericController {
                                 }
                             }
                         }
-                        if (classNumber === 4 || classNumber === 5) {
-                            const textGenderExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
-                            const textGenderExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                            const textGenderClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ['textGender'] });
-                            if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id) {
-                                for (let tg of textGenderClassroom) {
-                                    for (let tier of textGenderExamTier) {
-                                        for (let exam of textGenderExam) {
-                                            const element = stClass.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null);
-                                            if (element) {
-                                                yield CONN.save(TextGenderGrade_1.TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: element.textGender, textGenderExam: element.textGenderExam, textGenderExamTier: element.textGenderExamTier, textGenderExamLevel: element.textGenderExamLevel, toRate: false });
-                                            }
-                                            else {
-                                                yield CONN.save(TextGenderGrade_1.TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier });
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else {
-                                for (let tg of textGenderClassroom) {
-                                    for (let tier of textGenderExamTier) {
-                                        for (let exam of textGenderExam) {
-                                            yield CONN.save(TextGenderGrade_1.TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier });
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // if (classNumber === 4 || classNumber === 5) {
+                        //   const textGenderExam = await CONN.find(TextGenderExam) as TextGenderExam[]
+                        //   const textGenderExamTier = await CONN.find(TextGenderExamTier) as TextGenderExamTier[]
+                        //   const textGenderClassroom = await CONN.find(TextGenderClassroom, {where: { classroomNumber: classNumber },relations: ['textGender']}) as TextGenderClassroom[]
+                        //   if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id ) {
+                        //     for (let tg of textGenderClassroom) {
+                        //       for (let tier of textGenderExamTier) {
+                        //         for (let exam of textGenderExam) {
+                        //           const element = stClass.textGenderGrades.find(el => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null )
+                        //           if (element) { await CONN.save(TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: element.textGender, textGenderExam: element.textGenderExam, textGenderExamTier: element.textGenderExamTier, textGenderExamLevel: element.textGenderExamLevel, toRate: false })}
+                        //           else { await CONN.save(TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier }) }
+                        //         }
+                        //       }
+                        //     }
+                        //   }
+                        //   else { for (let tg of textGenderClassroom) { for (let tier of textGenderExamTier) { for (let exam of textGenderExam) { await CONN.save(TextGenderGrade, { studentClassroom: newStudentClassroom, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}}}}
+                        // }
                         yield CONN.save(StudentClassroom_1.StudentClassroom, Object.assign(Object.assign({}, stClass), { endedAt: new Date(), updatedByUser: uTeacher.person.user.id }));
                         currTransfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.ACCEPTED, CONN));
                         currTransfer.endedAt = new Date();

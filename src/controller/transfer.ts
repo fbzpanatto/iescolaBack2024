@@ -8,10 +8,6 @@ import { Request } from "express";
 import { Classroom } from "../model/Classroom";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { Literacy } from "../model/Literacy";
-import { TextGenderExam } from "../model/TextGenderExam";
-import { TextGenderExamTier } from "../model/TextGenderExamTier";
-import { TextGenderClassroom } from "../model/TextGenderClassroom";
-import { TextGenderGrade } from "../model/TextGenderGrade";
 import { TransferStatus } from '../model/TransferStatus';
 import { Teacher } from "../model/Teacher";
 import { transferEmail } from "../utils/email.service";
@@ -49,6 +45,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           }))
           .andWhere('year.name = :year', { year })
           .orderBy('transfer.startedAt', 'DESC')
+          .limit(100)
           .getMany()
         return { status: 200, data: result };
       })

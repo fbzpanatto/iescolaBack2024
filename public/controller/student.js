@@ -86,6 +86,7 @@ class StudentController extends genericController_1.GenericController {
                         .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}`; })
                         .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})`; })
                         .orderBy("person.name", "ASC")
+                        .limit(100)
                         .getMany();
                     return { status: 200, data: preResult.map((student) => (Object.assign(Object.assign({}, student), { studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))) };
                 }));
@@ -160,7 +161,7 @@ class StudentController extends genericController_1.GenericController {
                         createdByUser: uTeacher.person.user.id
                     });
                     const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''));
-                    if (classroomNumber === 1) {
+                    if (classroomNumber >= 1 && classroomNumber <= 3) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier });
@@ -317,7 +318,7 @@ class StudentController extends genericController_1.GenericController {
                     const tStatus = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 5, name: "Novo" } }));
                     const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: yield this.currentYear(CONN) };
                     yield CONN.save(Transfer_1.Transfer, transfer);
-                    if (classroomNumber === 1) {
+                    if (classroomNumber >= 1 && classroomNumber <= 3) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() });
@@ -350,7 +351,7 @@ class StudentController extends genericController_1.GenericController {
                     if (!register) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    if (classroomNumber === 1 && register && register.literacyLevel === null) {
+                    if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
                         register.literacyLevel = body.literacyLevel;
                         register.updatedAt = new Date();
                         register.updatedByUser = uTeacher.person.user.id;

@@ -2,9 +2,9 @@ import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 let INFO: SMTPTransport.SentMessageInfo;
-const FRONT_URL: string = "http://localhost:4200/teacher";
-const RESET_URL: string = "http://localhost:4200/reset-password/?token=";
-const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" }}
+const FRONT_URL: string = process.env.FRONT_URL as string;
+const RESET_URL: string = process.env.RESET_URL as string;
+const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: process.env.EMAIL, pass: process.env.EMAIL_PASS }}
 const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodemailer.createTransport(transport);
 
 export async function transferEmail(email: string, student: string, rClassroom: string, requester: string, rSchool: string): Promise<void> {

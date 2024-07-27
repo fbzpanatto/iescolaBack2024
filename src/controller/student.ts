@@ -157,7 +157,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''))
 
-        if (classroomNumber >= 1 && classroomNumber <= 3) {
+        if (classroomNumber === 1) {
           const literacyTier = await CONN.find(LiteracyTier) as LiteracyTier[]
           for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
         }
@@ -317,7 +317,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await CONN.save(Transfer, transfer);
 
-        if (classroomNumber >= 1 && classroomNumber <= 3) {
+        if (classroomNumber === 1) {
           const literacyTier = await CONN.find(LiteracyTier)
           for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() } as Literacy) }
           await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
@@ -349,7 +349,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (!register) { return { status: 404, message: "Registro não encontrado" } }
 
-        if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
+        if (classroomNumber === 1 && register && register.literacyLevel === null) {
 
           register.literacyLevel = body.literacyLevel
           register.updatedAt = new Date()
@@ -434,7 +434,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           const notDigit = /\D/g; const classNumber = Number( bodyClass.shortName.replace(notDigit, "") );
 
-          if (classNumber >= 1 && classNumber <= 3) {
+          if (classNumber === 1) {
 
             const literacyTier = await CONN.find(LiteracyTier);
 

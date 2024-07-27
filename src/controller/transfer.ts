@@ -185,7 +185,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''))
           const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''))
 
-          if (classNumber >= 1 && classNumber <= 3) {
+          if (classNumber === 1) {
             const literacyTier = await CONN.find(LiteracyTier)
             if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id ) {
               for (let tier of literacyTier) {

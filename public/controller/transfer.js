@@ -127,10 +127,7 @@ class TransferController extends genericController_1.GenericController {
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const currTransfer = yield CONN.findOne(Transfer_1.Transfer, {
                         relations: ['status', 'requester.person', 'requestedClassroom'],
-                        where: {
-                            id: Number(transferId),
-                            status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)()
-                        }
+                        where: { id: Number(transferId), status: { id: transferStatus_1.transferStatus.PENDING }, endedAt: (0, typeorm_1.IsNull)() }
                     });
                     const isAdmin = uTeacher.person.category.id === personCategories_1.pc.ADMN;
                     if (!currTransfer)
@@ -139,10 +136,10 @@ class TransferController extends genericController_1.GenericController {
                         return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' };
                     }
                     if (body.reject && ![personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.SECR].includes(uTeacher.person.category.id)) {
-                        return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' };
+                        return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' };
                     }
                     if (body.accept && ![personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.SECR].includes(uTeacher.person.category.id)) {
-                        return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' };
+                        return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' };
                     }
                     if (body.cancel) {
                         currTransfer.status = (yield this.transferStatus(transferStatus_1.transferStatus.CANCELED, CONN));

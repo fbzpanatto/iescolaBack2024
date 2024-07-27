@@ -27,8 +27,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const morgan_1 = __importDefault(require("morgan"));
-// if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 const express_1 = __importStar(require("express"));
+const helmet_1 = __importDefault(require("helmet"));
+const cors_1 = __importDefault(require("cors"));
 const authorization_1 = __importDefault(require("./middleware/authorization"));
 const data_source_1 = require("./data-source");
 const bimester_1 = require("./routes/bimester");
@@ -60,8 +61,6 @@ const transfer_1 = require("./routes/transfer");
 const user_1 = require("./routes/user");
 const year_1 = require("./routes/year");
 const password_1 = require("./routes/password");
-const helmet_1 = __importDefault(require("helmet"));
-const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 const route = (0, express_1.Router)();
 app.use((0, morgan_1.default)("tiny"));
@@ -97,15 +96,11 @@ route.use("/topic", topic_1.TopicRouter);
 route.use("/transfer", authorization_1.default, transfer_1.TransferRouter);
 route.use("/user", authorization_1.default, user_1.UserRouter);
 route.use("/year", authorization_1.default, year_1.YearRouter);
-// route.use("/literacy-second", authorization, LiteracySecondRouter);
-// route.use("/text-gender-grade", authorization, TextGenderGradeRouter);
-// route.use("/text-gender-report", authorization, TextGenderGradeReportRouter);
-// route.use("/text-gender-tabs", TextGenderClassroomRouter);
 route.use("/login", login_1.LoginRouter);
 route.use("/reset-password", password_1.PasswordRouter);
 route.use("/initial-configs", initialConfigs_1.InitialConfigsRouter);
 route.use("/", (_, res) => { return res.json({ message: "OK" }); });
 app.use(route);
 data_source_1.AppDataSource.initialize()
-    .then(() => { app.listen(5000, () => { console.log("Server running at PORT:", 5000); }); })
+    .then(() => { app.listen(process.env.SERVER_PORT, () => { console.log("Server running at PORT:", process.env.SERVER_PORT); }); })
     .catch((err) => { console.log(err); });

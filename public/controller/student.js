@@ -161,7 +161,7 @@ class StudentController extends genericController_1.GenericController {
                         createdByUser: uTeacher.person.user.id
                     });
                     const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''));
-                    if (classroomNumber >= 1 && classroomNumber <= 3) {
+                    if (classroomNumber === 1) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier });
@@ -318,7 +318,7 @@ class StudentController extends genericController_1.GenericController {
                     const tStatus = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 5, name: "Novo" } }));
                     const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: yield this.currentYear(CONN) };
                     yield CONN.save(Transfer_1.Transfer, transfer);
-                    if (classroomNumber >= 1 && classroomNumber <= 3) {
+                    if (classroomNumber === 1) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() });
@@ -351,7 +351,7 @@ class StudentController extends genericController_1.GenericController {
                     if (!register) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
+                    if (classroomNumber === 1 && register && register.literacyLevel === null) {
                         register.literacyLevel = body.literacyLevel;
                         register.updatedAt = new Date();
                         register.updatedByUser = uTeacher.person.user.id;
@@ -401,7 +401,7 @@ class StudentController extends genericController_1.GenericController {
                         }
                     }
                     const canChange = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR];
-                    const message = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ATIVOS.";
+                    const message = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ALUNOS.";
                     if (!canChange.includes(uTeacher.person.category.id) && (stClass === null || stClass === void 0 ? void 0 : stClass.classroom.id) != bodyClass.id) {
                         return { status: 403, message };
                     }

@@ -160,30 +160,38 @@ class StudentController extends genericController_1.GenericController {
                         createdByUser: uTeacher.person.user.id
                     });
                     const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''));
-                    if (classroomNumber >= 1 && classroomNumber <= 3) {
+                    if (classroomNumber === 1) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier });
                         }
                     }
-                    if (classroomNumber === 4 || classroomNumber === 5) {
-                        const textGenderExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
-                        const textGenderExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                        const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] };
-                        const textGenderClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, options);
-                        for (let tg of textGenderClassroom) {
-                            for (let tier of textGenderExamTier) {
-                                for (let exam of textGenderExam) {
-                                    const textGenderGrade = new TextGenderGrade_1.TextGenderGrade();
-                                    textGenderGrade.studentClassroom = newStudentClassroom;
-                                    textGenderGrade.textGender = tg.textGender;
-                                    textGenderGrade.textGenderExam = exam;
-                                    textGenderGrade.textGenderExamTier = tier;
-                                    yield CONN.save(TextGenderGrade_1.TextGenderGrade, textGenderGrade);
-                                }
-                            }
-                        }
-                    }
+                    // if (classroomNumber >= 1 && classroomNumber <= 3) {
+                    //   const literacyTier = await CONN.find(LiteracyTier) as LiteracyTier[]
+                    //   for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
+                    // }
+                    // if (classroomNumber === 4 || classroomNumber === 5) {
+                    //
+                    //   const textGenderExam = await CONN.find(TextGenderExam) as TextGenderExam[]
+                    //   const textGenderExamTier = await CONN.find(TextGenderExamTier) as TextGenderExamTier[]
+                    //
+                    //   const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] }
+                    //   const textGenderClassroom = await CONN.find(TextGenderClassroom, options) as TextGenderClassroom[]
+                    //
+                    //   for (let tg of textGenderClassroom) {
+                    //     for (let tier of textGenderExamTier) {
+                    //       for (let exam of textGenderExam) {
+                    //         const textGenderGrade = new TextGenderGrade()
+                    //         textGenderGrade.studentClassroom = newStudentClassroom
+                    //         textGenderGrade.textGender = tg.textGender
+                    //         textGenderGrade.textGenderExam = exam
+                    //         textGenderGrade.textGenderExamTier = tier
+                    //
+                    //         await CONN.save(TextGenderGrade, textGenderGrade)
+                    //       }
+                    //     }
+                    //   }
+                    // }
                     yield data_source_1.AppDataSource.getRepository(Transfer_1.Transfer).save({
                         startedAt: new Date(),
                         endedAt: new Date(),
@@ -309,25 +317,21 @@ class StudentController extends genericController_1.GenericController {
                     const tStatus = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 5, name: "Novo" } }));
                     const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: yield this.currentYear(CONN) };
                     yield CONN.save(Transfer_1.Transfer, transfer);
-                    if (classroomNumber >= 1 && classroomNumber <= 3) {
+                    if (classroomNumber === 1) {
                         const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                         for (let tier of literacyTier) {
                             yield CONN.save(Literacy_1.Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() });
                         }
                         yield CONN.save(LiteracyFirst_1.LiteracyFirst, { student, createdAt: new Date(), createdByUser: uTeacher.person.user.id });
                     }
-                    if (classroomNumber === 4 || classroomNumber === 5) {
-                        const tgExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
-                        const tgExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                        const tgClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
-                        for (let tg of tgClassroom) {
-                            for (let tier of tgExamTier) {
-                                for (let exam of tgExam) {
-                                    yield CONN.save(TextGenderGrade_1.TextGenderGrade, { studentClassroom: stObject, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id });
-                                }
-                            }
-                        }
-                    }
+                    // if (classroomNumber === 4 || classroomNumber === 5) {
+                    //
+                    //   const tgExam = await CONN.find(TextGenderExam);
+                    //   const tgExamTier = await CONN.find(TextGenderExamTier);
+                    //   const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
+                    //
+                    //   for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) { await CONN.save(TextGenderGrade, { studentClassroom: stObject, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}}
+                    // }
                     return { status: 201, data: student };
                 }));
             }
@@ -346,7 +350,7 @@ class StudentController extends genericController_1.GenericController {
                     if (!register) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    if (classroomNumber >= 1 && classroomNumber <= 3 && register && register.literacyLevel === null) {
+                    if (classroomNumber === 1 && register && register.literacyLevel === null) {
                         register.literacyLevel = body.literacyLevel;
                         register.updatedAt = new Date();
                         register.updatedByUser = uTeacher.person.user.id;

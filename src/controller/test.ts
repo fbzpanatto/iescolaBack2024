@@ -187,10 +187,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentStatus.test", "stStatusTest")
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
-      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+      .leftJoin("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
       .leftJoin("testQuestion.test", "test")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {

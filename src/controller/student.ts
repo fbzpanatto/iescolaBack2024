@@ -161,28 +161,34 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
         }
 
-        if (classroomNumber === 4 || classroomNumber === 5) {
+        // if (classroomNumber >= 1 && classroomNumber <= 3) {
+        //   const literacyTier = await CONN.find(LiteracyTier) as LiteracyTier[]
+        //   for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
+        // }
 
-          const textGenderExam = await CONN.find(TextGenderExam) as TextGenderExam[]
-          const textGenderExamTier = await CONN.find(TextGenderExamTier) as TextGenderExamTier[]
+        // if (classroomNumber === 4 || classroomNumber === 5) {
+        //
+        //   const textGenderExam = await CONN.find(TextGenderExam) as TextGenderExam[]
+        //   const textGenderExamTier = await CONN.find(TextGenderExamTier) as TextGenderExamTier[]
+        //
+        //   const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] }
+        //   const textGenderClassroom = await CONN.find(TextGenderClassroom, options) as TextGenderClassroom[]
+        //
+        //   for (let tg of textGenderClassroom) {
+        //     for (let tier of textGenderExamTier) {
+        //       for (let exam of textGenderExam) {
+        //         const textGenderGrade = new TextGenderGrade()
+        //         textGenderGrade.studentClassroom = newStudentClassroom
+        //         textGenderGrade.textGender = tg.textGender
+        //         textGenderGrade.textGenderExam = exam
+        //         textGenderGrade.textGenderExamTier = tier
+        //
+        //         await CONN.save(TextGenderGrade, textGenderGrade)
+        //       }
+        //     }
+        //   }
+        // }
 
-          const options = { where: { classroomNumber: classroomNumber }, relations: ['textGender'] }
-          const textGenderClassroom = await CONN.find(TextGenderClassroom, options) as TextGenderClassroom[]
-
-          for (let tg of textGenderClassroom) {
-            for (let tier of textGenderExamTier) {
-              for (let exam of textGenderExam) {
-                const textGenderGrade = new TextGenderGrade()
-                textGenderGrade.studentClassroom = newStudentClassroom
-                textGenderGrade.textGender = tg.textGender
-                textGenderGrade.textGenderExam = exam
-                textGenderGrade.textGenderExamTier = tier
-
-                await CONN.save(TextGenderGrade, textGenderGrade)
-              }
-            }
-          }
-        }
         await AppDataSource.getRepository(Transfer).save({
           startedAt: new Date(),
           endedAt: new Date(),
@@ -316,14 +322,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
         }
 
-        if (classroomNumber === 4 || classroomNumber === 5) {
+        // if (classroomNumber === 4 || classroomNumber === 5) {
+        //
+        //   const tgExam = await CONN.find(TextGenderExam);
+        //   const tgExamTier = await CONN.find(TextGenderExamTier);
+        //   const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
+        //
+        //   for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) { await CONN.save(TextGenderGrade, { studentClassroom: stObject, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}}
+        // }
 
-          const tgExam = await CONN.find(TextGenderExam);
-          const tgExamTier = await CONN.find(TextGenderExamTier);
-          const tgClassroom = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classroomNumber }, relations: ["textGender"] });
-
-          for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) { await CONN.save(TextGenderGrade, { studentClassroom: stObject, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}}
-        }
         return { status: 201, data: student as unknown as Student }
       })
     } catch (error: any) { return { status: 500, message: error.message } }

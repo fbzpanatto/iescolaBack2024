@@ -242,6 +242,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const { username, passwordObject, email } = this.generateUser(body);
 
+        console.log('email', email)
+        console.log('password', passwordObject.password)
+
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
         if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }
@@ -263,7 +266,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   createTeacher(userId: number, person: Person, body: TeacherBody) {
@@ -287,7 +292,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   private canChange( uCategory: number, tCategory: number ): boolean {
 
-    const allowedCat = [pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE, pc.SUPE, pc.ADMN ];
+    const allowedCat = [pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE, pc.FORM, pc.SUPE, pc.ADMN,  ];
 
     let canPost = allowedCat.includes(tCategory);
 
@@ -295,7 +300,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     else if (uCategory === pc.COOR) { canPost = canPost && [pc.PROF, pc.MONI, pc.SECR].includes(tCategory ) }
     else if (uCategory === pc.VICE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR].includes(tCategory) }
     else if (uCategory === pc.DIRE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE ].includes(tCategory) }
-    else if (uCategory === pc.SUPE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE].includes(tCategory) }
+    else if (uCategory === pc.SUPE) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE, pc.FORM].includes(tCategory) }
+    else if (uCategory === pc.ADMN) { canPost = canPost && [ pc.PROF, pc.MONI, pc.SECR, pc.COOR, pc.VICE, pc.DIRE, pc.FORM, pc.SUPE].includes(tCategory) }
     return canPost;
   }
 }

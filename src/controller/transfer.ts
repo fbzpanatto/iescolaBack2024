@@ -118,10 +118,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         const uTeacher = await this.teacherByUser(body.user.user, CONN)
         const currTransfer = await CONN.findOne(Transfer, {
           relations: ['status', 'requester.person', 'requestedClassroom'],
-          where: {
-            id: Number(transferId),
-            status: { id: transferStatus.PENDING }, endedAt: IsNull()
-          }
+          where: { id: Number(transferId), status: { id: transferStatus.PENDING }, endedAt: IsNull() }
         })
 
         const isAdmin = uTeacher.person.category.id === pc.ADMN;
@@ -133,11 +130,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         }
 
         if(body.reject && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
-          return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' }
+          return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' }
         }
 
         if(body.accept && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
-          return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao secretário da unidade escolar.' }
+          return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' }
         }
 
         if (body.cancel) {

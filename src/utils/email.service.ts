@@ -15,11 +15,10 @@ export async function transferEmail(email: string, student: string, rClassroom: 
     subject: `EscolApp: Solicitação de transferência para: ${student}`,
     html: `
         <p>Olá,</p>
-        <p>Pedido de transferência</p>
+        <p>Você tem um novo pedido de transferência.</p>
         <p>Solicitante: ${requester}</p>
         <p>Sala: ${rClassroom}</p>
         <p>Escola: ${rSchool}</p>
-        <p>para</p>
         <p>Aluno: <b>${student}</b></p>
         <a href="${FRONT_URL}">Clique aqui para fazer login.</a>
         <p>Atenciosamente,</p>

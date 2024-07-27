@@ -6,8 +6,7 @@ import { State } from "./State";
 import { Transfer} from "./Transfer";
 import { LiteracyFirst } from "./LiteracyFirst";
 
-// TODO: TIRAR O COMENTÁRIO PARA PRODUÇÃO
-// @Index(["ra", "dv"], { unique: true })
+@Index(["ra", "dv"], { unique: true })
 @Entity()
 export class Student {
 

@@ -9,480 +9,136 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
   {
     category: pc.ADMN,
     permissions: [
-      {
-        entity: "classroom",
-        methods: getPostPut
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: getPostPut
-      },
-      {
-        entity: "test",
-        methods: getPostPut
-      },
-      {
-        entity: "year",
-        methods: getPostPut
-      },
-      {
-        entity: "report",
-        methods: getPostPut
-      },
-      {
-        entity: "personcategory",
-        methods: getPostPut
-      },
-      {
-        entity: "studentquestion",
-        methods: getPostPut
-      },
-      {
-        entity: "literacy",
-        methods: getPostPut
-      },
-      {
-        entity: "literacysecond",
-        methods: getPostPut
-      },
-      {
-        entity: "textgendergrade",
-        methods: getPostPut
-      },
-      {
-        entity: "textgenderreport",
-        methods: getPostPut
-      },
-      {
-        entity: "literacyreport",
-        methods: getPostPut
-      }
+      { entity: "classroom", methods: getPostPut },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "test", methods: getPostPut },
+      { entity: "year", methods: getPostPut },
+      { entity: "report", methods: getPostPut },
+      { entity: "personcategory", methods: getPostPut },
+      { entity: "studentquestion", methods: getPostPut },
+      { entity: "literacy", methods: getPostPut },
+      { entity: "literacyreport", methods: getPostPut }
     ]
   },
   {
     category: pc.FORM,
     permissions: [
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "report",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "test",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: getPostPut
-      },
-      {
-        entity: "studentquestion",
-        methods: getPostPut
-      },
-      {
-        entity: "literacy",
-        methods: getPostPut
-      },
-      {
-        entity: "literacysecond",
-        methods: getPostPut
-      },
-      {
-        entity: "textgendergrade",
-        methods: getPostPut
-      },
-      {
-        entity: "textgenderreport",
-        methods: getPostPut
-      },
-      {
-        entity: "literacyreport",
-        methods: onlyGET
-      }
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "year", methods: onlyGET },
+      { entity: "report", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "teacher", methods: onlyGET },
+      { entity: "student", methods: getPostPut },
+      { entity: "test", methods: getPostPut },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "studentquestion", methods: getPostPut },
+      { entity: "literacy", methods: getPostPut },
+      { entity: "literacyreport", methods: onlyGET }
     ]
   },
   {
     category: pc.SUPE,
     permissions: [
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "report",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: onlyGET
-      },
-      {
-        entity: "student",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "transfer",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
-      {
-        entity: "textgenderreport",
-        methods: onlyGET
-      },
-      {
-        entity: "literacyreport",
-        methods: onlyGET
-      }
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "year", methods: onlyGET },
+      { entity: "report", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "teacher", methods: onlyGET },
+      { entity: "student", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET },
+      { entity: "literacyreport", methods: onlyGET }
     ]
   },
   {
     category: pc.DIRE,
     permissions: [
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET },
+      { entity: "literacysecond", methods: onlyGET }
     ]
   },
   {
     category: pc.VICE,
     permissions: [
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET }
     ]
   },
   {
     category: pc.COOR,
     permissions: [
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET }
     ]
   },
   {
     category: pc.SECR,
     permissions: [
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: getPostPut
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: getPostPut
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
-    ]
-  },
-  {
-    category: pc.MONI,
-    permissions: [
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "test",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: onlyGET
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "studentquestion",
-        methods: onlyGET
-      },
-      {
-        entity: "literacy",
-        methods: onlyGET
-      },
-      {
-        entity: "literacysecond",
-        methods: onlyGET
-      },
-      {
-        entity: "textgendergrade",
-        methods: onlyGET
-      },
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET }
     ]
   },
   {
     category: pc.PROF,
     permissions: [
-      {
-        entity: "personcategory",
-        methods: onlyGET
-      },
-      {
-        entity: "classroom",
-        methods: onlyGET
-      },
-      {
-        entity: "year",
-        methods: onlyGET
-      },
-      {
-        entity: "teacher",
-        methods: onlyGET
-      },
-      {
-        entity: "student",
-        methods: getPostPut
-      },
-      {
-        entity: "transfer",
-        methods: getPostPut
-      },
-      {
-        entity: "test",
-        methods: getPostPut
-      },
-      {
-        entity: "studentquestion",
-        methods: getPostPut
-      },
-      {
-        entity: "literacy",
-        methods: getPostPut
-      },
-      {
-        entity: "literacysecond",
-        methods: getPostPut
-      },
-      {
-        entity: "textgendergrade",
-        methods: getPostPut
-      },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: onlyGET },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "studentquestion", methods: getPostPut },
+      { entity: "literacy", methods: getPostPut }
     ]
-  }
+  },
+  {
+    category: pc.MONI,
+    permissions: [
+      { entity: "year", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "teacher", methods: onlyGET },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "literacy", methods: onlyGET },
+      { entity: "student", methods: getPostPut },
+    ]
+  },
 ]
 
 function userHasPermission(category: number, entity: string, method: string) {

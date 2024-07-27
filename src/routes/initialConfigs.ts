@@ -233,50 +233,49 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     const schools = await schoolSource.find() as School[]
 
-    const personCategory = await personCategorySource.findOneBy({ id: 9 }) as PersonCategory
-    const state = await stateSource.findOne({ where: { id: 25 } }) as State
-
-    let studentCounterIndex = 0;
+    // const personCategory = await personCategorySource.findOneBy({ id: 9 }) as PersonCategory
+    // const state = await stateSource.findOne({ where: { id: 25 } }) as State
+    // let studentCounterIndex = 0;
 
     for(let school of schools) {
 
       for(let classroom of CLASSROOM) {
 
-        const createdClassroom = await createClassroom(school, classroom)
+        await createClassroom(school, classroom)
 
-        for(let i = 0; i < 30; i++) {
-
-          const person = new Person()
-          person.name = 'Aluno' + ' ' + studentCounterIndex
-          person.birth = new Date()
-          person.category = personCategory
-
-          const student = new Student()
-          student.person = person
-          student.ra = '111111111'
-          student.dv = '1'
-          student.state = state
-          student.createdByUser = 1
-          student.createdAt = new Date()
-          student.observationOne = 'obs1'
-          student.observationTwo = 'obs2'
-
-          const studentResult = await studentSource.save(student)
-          const studentClassroom = new StudentClassroom()
-
-          studentClassroom.student = studentResult
-          studentClassroom.classroom = createdClassroom
-          studentClassroom.rosterNumber = 1
-          studentClassroom.startedAt = new Date()
-          studentClassroom.createdByUser = 1
-          studentClassroom.year = newYear
-
-          const queryResult = await studentClassroomSource.save(studentClassroom)
-
-          console.log(queryResult)
-
-          studentCounterIndex += 1
-        }
+        // for(let i = 0; i < 30; i++) {
+        //
+        //   const person = new Person()
+        //   person.name = 'Aluno' + ' ' + studentCounterIndex
+        //   person.birth = new Date()
+        //   person.category = personCategory
+        //
+        //   const student = new Student()
+        //   student.person = person
+        //   student.ra = '111111111'
+        //   student.dv = '1'
+        //   student.state = state
+        //   student.createdByUser = 1
+        //   student.createdAt = new Date()
+        //   student.observationOne = 'obs1'
+        //   student.observationTwo = 'obs2'
+        //
+        //   const studentResult = await studentSource.save(student)
+        //   const studentClassroom = new StudentClassroom()
+        //
+        //   studentClassroom.student = studentResult
+        //   studentClassroom.classroom = createdClassroom
+        //   studentClassroom.rosterNumber = 1
+        //   studentClassroom.startedAt = new Date()
+        //   studentClassroom.createdByUser = 1
+        //   studentClassroom.year = newYear
+        //
+        //   const queryResult = await studentClassroomSource.save(studentClassroom)
+        //
+        //   console.log(queryResult)
+        //
+        //   studentCounterIndex += 1
+        // }
       }
     }
 

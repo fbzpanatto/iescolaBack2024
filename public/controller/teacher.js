@@ -254,6 +254,8 @@ class TeacherController extends genericController_1.GenericController {
                     const person = this.createPerson({ name: body.name, birth: body.birth, category });
                     const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
                     const { username, passwordObject, email } = this.generateUser(body);
+                    console.log('email', email);
+                    console.log('password', passwordObject.password);
                     yield CONN.save(User_1.User, { person, username, email, password: passwordObject.hashedPassword });
                     if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE) {
                         return { status: 201, data: teacher };
@@ -295,7 +297,7 @@ class TeacherController extends genericController_1.GenericController {
         return { username, passwordObject, email };
     }
     canChange(uCategory, tCategory) {
-        const allowedCat = [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.SUPE, personCategories_1.pc.ADMN];
+        const allowedCat = [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.FORM, personCategories_1.pc.SUPE, personCategories_1.pc.ADMN,];
         let canPost = allowedCat.includes(tCategory);
         if (uCategory === personCategories_1.pc.SECR) {
             canPost = canPost && [personCategories_1.pc.PROF, personCategories_1.pc.MONI].includes(tCategory);
@@ -310,7 +312,10 @@ class TeacherController extends genericController_1.GenericController {
             canPost = canPost && [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE].includes(tCategory);
         }
         else if (uCategory === personCategories_1.pc.SUPE) {
-            canPost = canPost && [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE].includes(tCategory);
+            canPost = canPost && [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.FORM].includes(tCategory);
+        }
+        else if (uCategory === personCategories_1.pc.ADMN) {
+            canPost = canPost && [personCategories_1.pc.PROF, personCategories_1.pc.MONI, personCategories_1.pc.SECR, personCategories_1.pc.COOR, personCategories_1.pc.VICE, personCategories_1.pc.DIRE, personCategories_1.pc.FORM, personCategories_1.pc.SUPE].includes(tCategory);
         }
         return canPost;
     }

@@ -17,8 +17,6 @@ const StudentClassroom_1 = require("./StudentClassroom");
 const State_1 = require("./State");
 const Transfer_1 = require("./Transfer");
 const LiteracyFirst_1 = require("./LiteracyFirst");
-// TODO: TIRAR O COMENTÁRIO PARA PRODUÇÃO
-// @Index(["ra", "dv"], { unique: true })
 let Student = class Student {
 };
 exports.Student = Student;
@@ -88,5 +86,6 @@ __decorate([
     __metadata("design:type", Number)
 ], Student.prototype, "updatedByUser", void 0);
 exports.Student = Student = __decorate([
+    (0, typeorm_1.Index)(["ra", "dv"], { unique: true }),
     (0, typeorm_1.Entity)()
 ], Student);

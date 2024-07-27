@@ -222,38 +222,45 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
             yield schoolSource.save(newSchool);
         }
         const schools = yield schoolSource.find();
-        const personCategory = yield personCategorySource.findOneBy({ id: 9 });
-        const state = yield stateSource.findOne({ where: { id: 25 } });
-        let studentCounterIndex = 0;
+        // const personCategory = await personCategorySource.findOneBy({ id: 9 }) as PersonCategory
+        // const state = await stateSource.findOne({ where: { id: 25 } }) as State
+        // let studentCounterIndex = 0;
         for (let school of schools) {
             for (let classroom of classroom_1.CLASSROOM) {
-                const createdClassroom = yield createClassroom(school, classroom);
-                for (let i = 0; i < 30; i++) {
-                    const person = new Person_1.Person();
-                    person.name = 'Aluno' + ' ' + studentCounterIndex;
-                    person.birth = new Date();
-                    person.category = personCategory;
-                    const student = new Student_1.Student();
-                    student.person = person;
-                    student.ra = '111111111';
-                    student.dv = '1';
-                    student.state = state;
-                    student.createdByUser = 1;
-                    student.createdAt = new Date();
-                    student.observationOne = 'obs1';
-                    student.observationTwo = 'obs2';
-                    const studentResult = yield studentSource.save(student);
-                    const studentClassroom = new StudentClassroom_1.StudentClassroom();
-                    studentClassroom.student = studentResult;
-                    studentClassroom.classroom = createdClassroom;
-                    studentClassroom.rosterNumber = 1;
-                    studentClassroom.startedAt = new Date();
-                    studentClassroom.createdByUser = 1;
-                    studentClassroom.year = newYear;
-                    const queryResult = yield studentClassroomSource.save(studentClassroom);
-                    console.log(queryResult);
-                    studentCounterIndex += 1;
-                }
+                yield createClassroom(school, classroom);
+                // for(let i = 0; i < 30; i++) {
+                //
+                //   const person = new Person()
+                //   person.name = 'Aluno' + ' ' + studentCounterIndex
+                //   person.birth = new Date()
+                //   person.category = personCategory
+                //
+                //   const student = new Student()
+                //   student.person = person
+                //   student.ra = '111111111'
+                //   student.dv = '1'
+                //   student.state = state
+                //   student.createdByUser = 1
+                //   student.createdAt = new Date()
+                //   student.observationOne = 'obs1'
+                //   student.observationTwo = 'obs2'
+                //
+                //   const studentResult = await studentSource.save(student)
+                //   const studentClassroom = new StudentClassroom()
+                //
+                //   studentClassroom.student = studentResult
+                //   studentClassroom.classroom = createdClassroom
+                //   studentClassroom.rosterNumber = 1
+                //   studentClassroom.startedAt = new Date()
+                //   studentClassroom.createdByUser = 1
+                //   studentClassroom.year = newYear
+                //
+                //   const queryResult = await studentClassroomSource.save(studentClassroom)
+                //
+                //   console.log(queryResult)
+                //
+                //   studentCounterIndex += 1
+                // }
             }
         }
         for (let discipline of discipline_1.DISCIPLINE) {

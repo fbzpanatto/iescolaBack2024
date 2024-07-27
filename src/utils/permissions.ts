@@ -23,35 +23,35 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.FORM,
-    permissions: [
-      { entity: "personcategory", methods: onlyGET },
-      { entity: "year", methods: onlyGET },
-      { entity: "report", methods: onlyGET },
-      { entity: "classroom", methods: onlyGET },
-      { entity: "teacher", methods: onlyGET },
-      { entity: "student", methods: getPostPut },
-      { entity: "test", methods: getPostPut },
-      { entity: "transfer", methods: onlyGET },
-      { entity: "studentquestion", methods: getPostPut },
-      { entity: "literacy", methods: getPostPut },
-      { entity: "literacyreport", methods: onlyGET }
-    ]
-  },
-  {
     category: pc.SUPE,
     permissions: [
       { entity: "personcategory", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "classroom", methods: onlyGET },
-      { entity: "teacher", methods: onlyGET },
-      { entity: "student", methods: onlyGET },
-      { entity: "test", methods: onlyGET },
+      { entity: "literacyreport", methods: onlyGET },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "test", methods: getPostPut },
+      { entity: "literacy", methods: getPostPut },
+      { entity: "studentquestion", methods: getPostPut },
+    ]
+  },
+  {
+    category: pc.FORM,
+    permissions: [
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "year", methods: onlyGET },
+      { entity: "report", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
       { entity: "transfer", methods: onlyGET },
-      { entity: "studentquestion", methods: onlyGET },
-      { entity: "literacy", methods: onlyGET },
-      { entity: "literacyreport", methods: onlyGET }
+      { entity: "literacyreport", methods: onlyGET },
+      { entity: "student", methods: getPostPut },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "test", methods: getPostPut },
+      { entity: "literacy", methods: getPostPut },
+      { entity: "studentquestion", methods: getPostPut },
     ]
   },
   {
@@ -59,14 +59,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: onlyGET },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: onlyGET },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
       { entity: "literacy", methods: onlyGET },
-      { entity: "literacysecond", methods: onlyGET }
+      { entity: "literacysecond", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
     ]
   },
   {
@@ -74,13 +74,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: onlyGET },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: onlyGET },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "literacy", methods: onlyGET }
+      { entity: "literacy", methods: onlyGET },
+      { entity: "literacysecond", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
     ]
   },
   {
@@ -88,13 +89,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: onlyGET },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: onlyGET },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "literacy", methods: onlyGET }
+      { entity: "literacy", methods: onlyGET },
+      { entity: "literacysecond", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
     ]
   },
   {
@@ -102,13 +104,13 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: onlyGET },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "student", methods: getPostPut },
-      { entity: "transfer", methods: getPostPut },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "literacy", methods: onlyGET }
+      { entity: "literacy", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
     ]
   },
   {

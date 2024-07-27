@@ -1,8 +1,10 @@
 import morgan from "morgan";
-
-// if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
 import express, { Application, Router } from "express";
+import helmet from "helmet";
+import cors from "cors";
+
 import authorization from "./middleware/authorization";
+
 import { AppDataSource } from "./data-source";
 import { BimesterRouter } from "./routes/bimester";
 import { CassroomCategoryRouter } from "./routes/classroomCategory";
@@ -33,14 +35,7 @@ import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 
-import { LiteracySecondRouter } from "./routes/literacySecond";
-import { TextGenderGradeReportRouter } from "./routes/textGenderGradeReport";
-import { TextGenderClassroomRouter } from "./routes/textGenderClassroom";
-import { TextGenderGradeRouter } from "./routes/textGenderGrade";
-
 import { PasswordRouter } from "./routes/password";
-import helmet from "helmet";
-import cors from "cors";
 
 const app: Application = express();
 const route = Router();
@@ -79,12 +74,7 @@ route.use("/test-category", authorization, TestCategoryRouter);
 route.use("/topic", TopicRouter);
 route.use("/transfer", authorization, TransferRouter);
 route.use("/user", authorization, UserRouter);
-route.use("/year", authorization, YearRouter);
-
-// route.use("/literacy-second", authorization, LiteracySecondRouter);
-// route.use("/text-gender-grade", authorization, TextGenderGradeRouter);
-// route.use("/text-gender-report", authorization, TextGenderGradeReportRouter);
-// route.use("/text-gender-tabs", TextGenderClassroomRouter);
+route.use("/year", authorization, YearRouter)
 
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);
@@ -96,5 +86,5 @@ route.use("/", (_, res) => { return res.json({ message: "OK" }) });
 app.use(route);
 
 AppDataSource.initialize()
-  .then(() => { app.listen(5000, () => { console.log("Server running at PORT:", 5000) }) })
+  .then(() => { app.listen(process.env.SERVER_PORT, () => { console.log("Server running at PORT:", process.env.SERVER_PORT) }) })
   .catch((err) => { console.log(err) });

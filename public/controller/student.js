@@ -433,7 +433,7 @@ class StudentController extends genericController_1.GenericController {
                         const newStClass = yield CONN.save(StudentClassroom_1.StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
                         const notDigit = /\D/g;
                         const classNumber = Number(bodyClass.shortName.replace(notDigit, ""));
-                        if (classNumber >= 1 && classNumber <= 3) {
+                        if (classNumber === 1) {
                             const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                             if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id) {
                                 for (let tier of literacyTier) {

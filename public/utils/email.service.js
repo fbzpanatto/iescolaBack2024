@@ -17,9 +17,9 @@ exports.resetPassword = resetPassword;
 exports.credentialsEmail = credentialsEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 let INFO;
-const FRONT_URL = "http://localhost:4200/teacher";
-const RESET_URL = "http://localhost:4200/reset-password/?token=";
-const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: "appescola7@gmail.com", pass: "paev fpmr arym prsb" } };
+const FRONT_URL = process.env.FRONT_URL;
+const RESET_URL = process.env.RESET_URL;
+const transport = { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: process.env.EMAIL, pass: process.env.EMAIL_PASS } };
 const TRANSPORTER = nodemailer_1.default.createTransport(transport);
 function transferEmail(email, student, rClassroom, requester, rSchool) {
     return __awaiter(this, void 0, void 0, function* () {

@@ -180,7 +180,7 @@ class TransferController extends genericController_1.GenericController {
                         const classNumber = Number(currTransfer.requestedClassroom.shortName.replace(/\D/g, ''));
                         const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''));
                         const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''));
-                        if (classNumber >= 1 && classNumber <= 3) {
+                        if (classNumber === 1) {
                             const literacyTier = yield CONN.find(LiteracyTier_1.LiteracyTier);
                             if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id) {
                                 for (let tier of literacyTier) {

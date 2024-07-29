@@ -23,6 +23,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   }
 
   async getReport(request: Request, CONN?: EntityManager) {
+
+    console.log('CAINDO AQUI..........................................................')
+
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)
@@ -138,6 +141,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let count = 0;
         school.studentClassrooms
           .filter((studentClassroom) => studentClassroom.studentStatus.find((register) => register.test.id === test.id )?.active,)
+          .filter((studentClassroom) => !studentClassroom.studentQuestions.every(el => el.answer === ''))
           .flatMap((studentClassroom) => studentClassroom.studentQuestions)
           .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id )
           .forEach((studentQuestion) => {

@@ -342,6 +342,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user);
+        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
         const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ""))
 
@@ -349,7 +350,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (!register) { return { status: 404, message: "Registro não encontrado" } }
 
-        if (classroomNumber === 1 && register && register.literacyLevel === null) {
+        if ((classroomNumber === 1 && register && register.literacyLevel === null) || masterUser) {
 
           register.literacyLevel = body.literacyLevel
           register.updatedAt = new Date()

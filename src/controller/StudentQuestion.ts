@@ -24,6 +24,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   async updateQuestion(id: number | string, body: ObjectLiteral) {
     try {
+      // TODO: não permitir alteração de nota após criação de novo teste ou virada de ano.
       return await AppDataSource.transaction(async(CONN)=> {
         const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } })
         if(!studentQuestion) { return { status: 404, message: 'Registro não encontrado' } }

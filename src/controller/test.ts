@@ -429,7 +429,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           test.discipline = body.discipline
           test.person = uTeacher.person
           test.period = period
-          test.classrooms = classes
+          test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
           test.createdAt = new Date()
           test.createdByUser = uTeacher.person.user.id
 

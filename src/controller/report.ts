@@ -24,8 +24,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getReport(request: Request, CONN?: EntityManager) {
 
-    console.log('CAINDO AQUI..........................................................')
-
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)

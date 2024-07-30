@@ -58,13 +58,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
-        const { classrooms } = await this.teacherClassrooms(req.body.user, CONN)
+        const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
         const classroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
         if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
-        const testQuestions = await this.getTestQuestions(parseInt(testId), CONN)
+        const classroomNumber = classroom.shortName.replace(/\D/g, "");
+
+        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"]
+
+        const testQuestions = await this.getTestQuestions(parseInt(testId), CONN, fields)
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 
         const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
@@ -104,26 +108,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let response = { ...test, testQuestions, questionGroups }
 
-        const allClasses = response.classrooms
-        allClasses.map((classroom: Classroom) => {
-          classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
-            studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
-              const testQuestion = testQuestions.find((testQuestion: TestQuestion) => testQuestion.id === studentQuestion.testQuestion.id) as TestQuestion
-              if(studentQuestion.answer.length === 0) return ({ ...studentQuestion, score: 0 })
-              const score = testQuestion?.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0
-              return {...studentQuestion, score}
-            })
-            return studentClassroom
-          })
-          return classroom
-        })
+        const testQuestionMap = new Map<number, TestQuestion>();
+        for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
-        const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id)
-        const cityHall = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+        const allClasses: Classroom[] = response.classrooms;
+
+        for (const classroom of allClasses) {
+          for (const studentClassroom of classroom.studentClassrooms) {
+            for (const studentQuestion of studentClassroom.studentQuestions) {
+
+              if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
+              else {
+                const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
+                else { studentQuestion.score = 0 }
+              }
+            }
+          }
+        }
+
+        const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
+        const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
 
         response.classrooms = [ ...filteredClasses, cityHall ]
 
-        const newReturn = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+        const newReturn = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
 
         return { status: 200, data: newReturn };
       })

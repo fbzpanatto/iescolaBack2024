@@ -17,6 +17,9 @@ export class StudentQuestion {
   @Column({ nullable: true })
   answer: string
 
+  @Column({nullable: true })
+  score: number
+
   @Column({ nullable: true, select: false })
   createdAt: Date
 

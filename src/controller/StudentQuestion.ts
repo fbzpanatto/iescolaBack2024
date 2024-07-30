@@ -3,6 +3,7 @@ import { EntityTarget, ObjectLiteral } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
+import { Request } from "express";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -22,12 +23,21 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateQuestion(id: number | string, body: ObjectLiteral) {
+  async updateQuestion(req: Request, body: ObjectLiteral) {
+
+    const { year } = req.query
+
     try {
-      // TODO: não permitir alteração de nota após criação de novo teste ou virada de ano.
       return await AppDataSource.transaction(async(CONN)=> {
+
+        const currentYear = await this.currentYear(CONN)
+        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(currentYear.name) != parseInt(year as string)) {
+          return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' }
+        }
+
         const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } })
-        if(!studentQuestion) { return { status: 404, message: 'Registro não encontrado' } }
+        if(!studentQuestion) { return { status: 400, message: 'Registro não encontrado' } }
         const entity = { id: body.id, answer: body.answer, studentClassroom: { id: body.studentClassroom.id }, testQuestion: { id: body.testQuestion.id }}
         const result = await CONN.save(StudentQuestion, entity)
         const mappedResult = { ...result, score: studentQuestion.testQuestion.answer.includes(result.answer.trim().toUpperCase()) ? 1 : 0 }

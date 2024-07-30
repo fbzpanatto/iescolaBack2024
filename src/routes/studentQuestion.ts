@@ -9,7 +9,7 @@ const UPDATE_VALIDATORS_STATUS = [ID_PARAM, VALIDATE_STUDENT_QUESTIONSTATUS, BOD
 export const StudentQuestionRouter = Router();
 
 StudentQuestionRouter.put('/:id/question', ...UPDATE_VALIDATORS_ANSWER, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.updateQuestion(req.params.id, req.body); return res.status(response.status).json(response)
+  const response = await controller.updateQuestion(req, req.body); return res.status(response.status).json(response)
 });
 
 StudentQuestionRouter.put('/:id/test-status', ...UPDATE_VALIDATORS_STATUS, havePermission, async (req: Request, res: Response) => {

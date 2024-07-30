@@ -67,7 +67,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
         const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"]
-
         const testQuestions = await this.getTestQuestions(parseInt(testId), CONN, fields)
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 

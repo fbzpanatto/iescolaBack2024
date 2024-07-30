@@ -708,7 +708,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 201, data: transferResponse };
       })
-    } catch (error: any) { return { status: 500, message: error.message } } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const stController = new StudentController();

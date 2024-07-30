@@ -1,4 +1,3 @@
-import morgan from "morgan";
 import express, { Application, Router } from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -40,7 +39,6 @@ import { PasswordRouter } from "./routes/password";
 const app: Application = express();
 const route = Router();
 
-app.use(morgan("tiny"));
 app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
 
 app.use(helmet());

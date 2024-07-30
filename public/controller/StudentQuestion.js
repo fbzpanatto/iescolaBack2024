@@ -41,6 +41,7 @@ class StudentQuestionController extends genericController_1.GenericController {
     updateQuestion(id, body) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                // TODO: não permitir alteração de nota após criação de novo teste ou virada de ano.
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const studentQuestion = yield CONN.findOne(StudentQuestion_1.StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } });
                     if (!studentQuestion) {

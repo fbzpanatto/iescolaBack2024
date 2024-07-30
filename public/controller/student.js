@@ -346,12 +346,13 @@ class StudentController extends genericController_1.GenericController {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(body.user.user);
+                    const masterUser = uTeacher.person.category.id === personCategories_1.pc.ADMN || uTeacher.person.category.id === personCategories_1.pc.SUPE || uTeacher.person.category.id === personCategories_1.pc.FORM;
                     const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ""));
                     const register = yield CONN.findOne(LiteracyFirst_1.LiteracyFirst, { relations: ["literacyLevel"], where: { student: { id: body.studentClassroom.student.id } } });
                     if (!register) {
                         return { status: 404, message: "Registro não encontrado" };
                     }
-                    if (classroomNumber === 1 && register && register.literacyLevel === null) {
+                    if ((classroomNumber === 1 && register && register.literacyLevel === null) || masterUser) {
                         register.literacyLevel = body.literacyLevel;
                         register.updatedAt = new Date();
                         register.updatedByUser = uTeacher.person.user.id;

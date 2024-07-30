@@ -430,7 +430,7 @@ class TestController extends genericController_1.GenericController {
                     test.discipline = body.discipline;
                     test.person = uTeacher.person;
                     test.period = period;
-                    test.classrooms = classes;
+                    test.classrooms = classes.map(el => ({ id: el.id }));
                     test.createdAt = new Date();
                     test.createdByUser = uTeacher.person.user.id;
                     yield CONN.save(Test_1.Test, test);

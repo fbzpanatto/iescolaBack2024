@@ -37,6 +37,7 @@ class ReportController extends genericController_1.GenericController {
     }
     getReport(request, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('CAINDO AQUI..........................................................');
             try {
                 if (!CONN) {
                     return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () { return yield this.wrapper(CONN, request === null || request === void 0 ? void 0 : request.params.id, request === null || request === void 0 ? void 0 : request.params.year); }));
@@ -154,6 +155,7 @@ class ReportController extends genericController_1.GenericController {
                     let count = 0;
                     school.studentClassrooms
                         .filter((studentClassroom) => { var _a; return (_a = studentClassroom.studentStatus.find((register) => register.test.id === test.id)) === null || _a === void 0 ? void 0 : _a.active; })
+                        .filter((studentClassroom) => !studentClassroom.studentQuestions.every(el => el.answer === ''))
                         .flatMap((studentClassroom) => studentClassroom.studentQuestions)
                         .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id)
                         .forEach((studentQuestion) => {

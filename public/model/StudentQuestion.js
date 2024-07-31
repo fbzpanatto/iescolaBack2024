@@ -33,6 +33,10 @@ __decorate([
     __metadata("design:type", String)
 ], StudentQuestion.prototype, "answer", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Number)
+], StudentQuestion.prototype, "score", void 0);
+__decorate([
     (0, typeorm_1.Column)({ nullable: true, select: false }),
     __metadata("design:type", Date)
 ], StudentQuestion.prototype, "createdAt", void 0);

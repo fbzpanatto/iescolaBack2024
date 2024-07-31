@@ -71,6 +71,8 @@ class LiteracyController extends genericController_1.GenericController {
                     const literacyLevels = yield CONN.find(LiteracyLevel_1.LiteracyLevel);
                     const literacyTiers = yield CONN.find(LiteracyTier_1.LiteracyTier);
                     const classroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: Number(classroomId) } });
+                    if (!classroom)
+                        return { status: 400, message: "Sala não encontrada" };
                     const studentClassrooms = yield this.studentClassesLiteracy(classroom, userBody, teacherClasses, yearName, CONN);
                     const resultArray = [];
                     for (let tier of literacyTiers) {

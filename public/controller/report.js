@@ -37,7 +37,6 @@ class ReportController extends genericController_1.GenericController {
     }
     getReport(request, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('CAINDO AQUI..........................................................');
             try {
                 if (!CONN) {
                     return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () { return yield this.wrapper(CONN, request === null || request === void 0 ? void 0 : request.params.id, request === null || request === void 0 ? void 0 : request.params.year); }));

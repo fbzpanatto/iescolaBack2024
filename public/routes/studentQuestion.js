@@ -20,8 +20,8 @@ const havePermission_1 = __importDefault(require("../middleware/havePermission")
 const UPDATE_VALIDATORS_ANSWER = [validators_1.ID_PARAM, validators_1.VALIDATE_STUDENT_QUESTIONANSWER, validators_1.BODY_VALIDATION_STUDENT_ANSWER];
 const UPDATE_VALIDATORS_STATUS = [validators_1.ID_PARAM, validators_1.VALIDATE_STUDENT_QUESTIONSTATUS, validators_1.BODY_VALIDATION_STUDENT_QUESTION];
 exports.StudentQuestionRouter = (0, express_1.Router)();
-exports.StudentQuestionRouter.put('/:id/question', ...UPDATE_VALIDATORS_ANSWER, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield StudentQuestion_1.stuQuestCtrl.updateQuestion(req.params.id, req.body);
+exports.StudentQuestionRouter.put('/:id/question', validators_1.YEAR_NAME_PARAM, ...UPDATE_VALIDATORS_ANSWER, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const response = yield StudentQuestion_1.stuQuestCtrl.updateQuestion(req, req.body);
     return res.status(response.status).json(response);
 }));
 exports.StudentQuestionRouter.put('/:id/test-status', ...UPDATE_VALIDATORS_STATUS, havePermission_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {

@@ -84,7 +84,9 @@ class TestController extends genericController_1.GenericController {
                     const classroom = yield CONN.findOne(Classroom_1.Classroom, { where: { id: Number(classroomId) }, relations: ["school"] });
                     if (!classroom)
                         return { status: 404, message: "Sala não encontrada" };
-                    const testQuestions = yield this.getTestQuestions(parseInt(testId), CONN);
+                    const classroomNumber = classroom.shortName.replace(/\D/g, "");
+                    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"];
+                    const testQuestions = yield this.getTestQuestions(parseInt(testId), CONN, fields);
                     if (!testQuestions)
                         return { status: 404, message: "Questões não encontradas" };
                     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
@@ -121,21 +123,30 @@ class TestController extends genericController_1.GenericController {
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
                     let response = Object.assign(Object.assign({}, test), { testQuestions, questionGroups });
+                    const testQuestionMap = new Map();
+                    for (const testQuestion of testQuestions) {
+                        testQuestionMap.set(testQuestion.id, testQuestion);
+                    }
                     const allClasses = response.classrooms;
-                    allClasses.map((classroom) => {
-                        classroom.studentClassrooms = classroom.studentClassrooms.map((studentClassroom) => {
-                            studentClassroom.studentQuestions = studentClassroom.studentQuestions.map((studentQuestion) => {
-                                const testQuestion = testQuestions.find((testQuestion) => testQuestion.id === studentQuestion.testQuestion.id);
-                                if (studentQuestion.answer.length === 0)
-                                    return (Object.assign(Object.assign({}, studentQuestion), { score: 0 }));
-                                const score = (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0;
-                                return Object.assign(Object.assign({}, studentQuestion), { score });
-                            });
-                            return studentClassroom;
-                        });
-                        return classroom;
-                    });
-                    const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id);
+                    for (const classroom of allClasses) {
+                        for (const studentClassroom of classroom.studentClassrooms) {
+                            for (const studentQuestion of studentClassroom.studentQuestions) {
+                                if (studentQuestion.answer.length === 0) {
+                                    studentQuestion.score = 0;
+                                }
+                                else {
+                                    const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                                    if (testQuestion) {
+                                        studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
+                                    }
+                                    else {
+                                        studentQuestion.score = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    const filteredClasses = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber);
                     const cityHall = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms) };
                     response.classrooms = [...filteredClasses, cityHall];
                     const newReturn = Object.assign(Object.assign({}, response), { classrooms: response.classrooms.map((classroom) => { return Object.assign(Object.assign({}, classroom), { studentClassrooms: classroom.studentClassrooms.map((studentClassroom) => { return Object.assign(Object.assign({}, studentClassroom), { studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }); }) }); }) });
@@ -172,6 +183,8 @@ class TestController extends genericController_1.GenericController {
                         .leftJoinAndSelect("classroom.school", "school")
                         .where("classroom.id = :classroomId", { classroomId })
                         .getOne();
+                    if (!classroom)
+                        return { status: 404, message: "Sala não encontrada" };
                     const studentClassrooms = yield this.studentClassrooms(test, Number(classroomId), yearName, CONN);
                     yield this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN);
                     const studentClassroomsWithQuestions = yield this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName, CONN);
@@ -187,6 +200,10 @@ class TestController extends genericController_1.GenericController {
     setQuestionsForStudent(test, testQuestions, classroomId, yearName, CONN) {
         return __awaiter(this, void 0, void 0, function* () {
             const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
+            const testQuestionMap = new Map();
+            for (const testQuestion of testQuestions) {
+                testQuestionMap.set(testQuestion.id, testQuestion);
+            }
             const preResult = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
                 .createQueryBuilder("studentClassroom")
                 .leftJoinAndSelect("studentClassroom.student", "student")
@@ -199,6 +216,7 @@ class TestController extends genericController_1.GenericController {
                 .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
                 .leftJoin("testQuestion.questionGroup", "questionGroup")
                 .leftJoin("testQuestion.test", "test")
+                .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
                 .where("studentClassroom.classroom = :classroomId", { classroomId })
                 .andWhere(new typeorm_1.Brackets(qb => {
                 qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
@@ -213,10 +231,8 @@ class TestController extends genericController_1.GenericController {
                 .getMany();
             return preResult.map(studentClassroom => {
                 const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
-                    const testQuestion = testQuestions.find(testQuestion => testQuestion.id === studentQuestion.testQuestion.id);
-                    if (studentQuestion.answer.length === 0)
-                        return (Object.assign(Object.assign({}, studentQuestion), { score: 0 }));
-                    const score = (testQuestion === null || testQuestion === void 0 ? void 0 : testQuestion.answer.includes(studentQuestion.answer.toUpperCase())) ? 1 : 0;
+                    const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                    const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : (testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
                     return Object.assign(Object.assign({}, studentQuestion), { score });
                 });
                 return Object.assign(Object.assign({}, studentClassroom), { studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id), studentQuestions });

@@ -38,14 +38,21 @@ class StudentQuestionController extends genericController_1.GenericController {
             }
         });
     }
-    updateQuestion(id, body) {
+    updateQuestion(req, body) {
         return __awaiter(this, void 0, void 0, function* () {
+            const { year } = req.query;
             try {
-                // TODO: não permitir alteração de nota após criação de novo teste ou virada de ano.
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const currentYear = yield this.currentYear(CONN);
+                    if (!currentYear) {
+                        return { status: 400, message: 'Ano não encontrado' };
+                    }
+                    if (parseInt(currentYear.name) != parseInt(year)) {
+                        return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' };
+                    }
                     const studentQuestion = yield CONN.findOne(StudentQuestion_1.StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } });
                     if (!studentQuestion) {
-                        return { status: 404, message: 'Registro não encontrado' };
+                        return { status: 400, message: 'Registro não encontrado' };
                     }
                     const entity = { id: body.id, answer: body.answer, studentClassroom: { id: body.studentClassroom.id }, testQuestion: { id: body.testQuestion.id } };
                     const result = yield CONN.save(StudentQuestion_1.StudentQuestion, entity);

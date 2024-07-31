@@ -66,6 +66,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
         const literacyTiers = await CONN.find(LiteracyTier)
         const classroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) } })
 
+        if (!classroom) return { status: 400, message: "Sala não encontrada" }
+
         const studentClassrooms = await this.studentClassesLiteracy(classroom as Classroom, userBody, teacherClasses, yearName, CONN);
 
         const resultArray: iLocalTier[] = [];

@@ -172,6 +172,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .where("classroom.id = :classroomId", { classroomId })
           .getOne();
 
+        if(!classroom) return { status: 404, message: "Sala não encontrada" }
+
         const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
         await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
@@ -205,6 +207,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoin("testQuestion.questionGroup", "questionGroup")
       .leftJoin("testQuestion.test", "test")
+      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })

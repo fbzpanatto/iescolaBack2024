@@ -110,7 +110,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
           .getRawOne();
 
-        if (!el) { return { status: 404, message: "Dado não encontrado" } }
+        if (!el.teacher_id) { return { status: 404, message: "Dado não encontrado" } }
 
         let newResult = {
           id: el.teacher_id,

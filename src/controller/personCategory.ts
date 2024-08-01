@@ -21,12 +21,12 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
         if (uTeacher.person.category.id != userBody.category) { return { status: 403, message: "Usuário não autorizado" } }
 
         if(uTeacher.person.category.id === pc.SUPE){ excludeIds = [...excludeIds, pc.ADMN] }
-        if(uTeacher.person.category.id === pc.DIRE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE] }
-        if(uTeacher.person.category.id === pc.VICE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE] }
-        if(uTeacher.person.category.id === pc.COOR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE] }
-        if(uTeacher.person.category.id === pc.SECR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR] }
-        if(uTeacher.person.category.id === pc.MONI){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
-        if(uTeacher.person.category.id === pc.PROF){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
+        if(uTeacher.person.category.id === pc.DIRE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE] }
+        if(uTeacher.person.category.id === pc.VICE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE] }
+        if(uTeacher.person.category.id === pc.COOR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE] }
+        if(uTeacher.person.category.id === pc.SECR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR] }
+        if(uTeacher.person.category.id === pc.MONI){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
+        if(uTeacher.person.category.id === pc.PROF){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
 
         const result = await AppDataSource.getRepository(PersonCategory).createQueryBuilder("personCategory").where("personCategory.id NOT IN (:...ids)", { ids: excludeIds }).getMany();
         return { status: 200, data: result };
@@ -38,12 +38,12 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
       if (uTeacher.person.category.id != userBody.category) { return { status: 403, message: "Usuário não autorizado" } }
 
       if(uTeacher.person.category.id === pc.SUPE){ excludeIds = [...excludeIds, pc.ADMN] }
-      if(uTeacher.person.category.id === pc.DIRE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE] }
-      if(uTeacher.person.category.id === pc.VICE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE] }
-      if(uTeacher.person.category.id === pc.COOR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE] }
-      if(uTeacher.person.category.id === pc.SECR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR] }
-      if(uTeacher.person.category.id === pc.MONI){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
-      if(uTeacher.person.category.id === pc.PROF){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
+      if(uTeacher.person.category.id === pc.DIRE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE] }
+      if(uTeacher.person.category.id === pc.VICE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE] }
+      if(uTeacher.person.category.id === pc.COOR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE] }
+      if(uTeacher.person.category.id === pc.SECR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR] }
+      if(uTeacher.person.category.id === pc.MONI){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
+      if(uTeacher.person.category.id === pc.PROF){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
 
       const result = await CONN?.getRepository(PersonCategory).createQueryBuilder("personCategory").where("personCategory.id NOT IN (:...ids)", { ids: excludeIds }).getMany();
       return { status: 200, data: result };

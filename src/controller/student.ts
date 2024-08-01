@@ -214,7 +214,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async(CONN) => {
         const teacher = await this.teacherByUser(req.body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(req?.body.user, CONN);
-        const studentsClassrooms = await this.studentsClassrooms({ search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }, teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE )
+        const studentsClassrooms = await this.studentsClassrooms({ search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }, teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM )
         return { status: 200, data: studentsClassrooms }
       })
 

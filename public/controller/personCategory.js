@@ -32,23 +32,26 @@ class PersonCategoryController extends genericController_1.GenericController {
                     if (uTeacher.person.category.id === personCategories_1.pc.SUPE) {
                         excludeIds = [...excludeIds, personCategories_1.pc.ADMN];
                     }
+                    if (uTeacher.person.category.id === personCategories_1.pc.FORM) {
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE];
+                    }
                     if (uTeacher.person.category.id === personCategories_1.pc.DIRE) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM];
                     }
                     if (uTeacher.person.category.id === personCategories_1.pc.VICE) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE];
                     }
                     if (uTeacher.person.category.id === personCategories_1.pc.COOR) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
                     }
                     if (uTeacher.person.category.id === personCategories_1.pc.SECR) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR];
                     }
                     if (uTeacher.person.category.id === personCategories_1.pc.MONI) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.PROF];
                     }
                     if (uTeacher.person.category.id === personCategories_1.pc.PROF) {
-                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                        excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
                     }
                     const result = yield data_source_1.AppDataSource.getRepository(PersonCategory_1.PersonCategory).createQueryBuilder("personCategory").where("personCategory.id NOT IN (:...ids)", { ids: excludeIds }).getMany();
                     return { status: 200, data: result };
@@ -63,23 +66,26 @@ class PersonCategoryController extends genericController_1.GenericController {
                 if (uTeacher.person.category.id === personCategories_1.pc.SUPE) {
                     excludeIds = [...excludeIds, personCategories_1.pc.ADMN];
                 }
+                if (uTeacher.person.category.id === personCategories_1.pc.FORM) {
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE];
+                }
                 if (uTeacher.person.category.id === personCategories_1.pc.DIRE) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM];
                 }
                 if (uTeacher.person.category.id === personCategories_1.pc.VICE) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE];
                 }
                 if (uTeacher.person.category.id === personCategories_1.pc.COOR) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE];
                 }
                 if (uTeacher.person.category.id === personCategories_1.pc.SECR) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR];
                 }
                 if (uTeacher.person.category.id === personCategories_1.pc.MONI) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.PROF];
                 }
                 if (uTeacher.person.category.id === personCategories_1.pc.PROF) {
-                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
+                    excludeIds = [...excludeIds, personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM, personCategories_1.pc.DIRE, personCategories_1.pc.VICE, personCategories_1.pc.COOR, personCategories_1.pc.SECR, personCategories_1.pc.MONI];
                 }
                 const result = yield (CONN === null || CONN === void 0 ? void 0 : CONN.getRepository(PersonCategory_1.PersonCategory).createQueryBuilder("personCategory").where("personCategory.id NOT IN (:...ids)", { ids: excludeIds }).getMany());
                 return { status: 200, data: result };

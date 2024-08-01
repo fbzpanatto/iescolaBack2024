@@ -61,8 +61,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           .leftJoin("teacherClassDiscipline.classroom", "classroom")
           .where(
             new Brackets((qb) => {
-              if (teacher.person.category.id === pc.PROF) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
-              if ( teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE ) {
+              if (teacher.person.category.id === pc.PROF || teacher.person.category.id === pc.MONI) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
+              if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.FORM) {
                 qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
                   .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
                   .andWhere("teacherClassDiscipline.endedAt IS NULL");
@@ -166,7 +166,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         teacher.person.name = body.name; teacher.person.birth = body.birth;
         teacher.updatedAt = new Date(); teacher.updatedByUser = tUser.person.user.id
 
-        if ( teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE ) {
+        if ( teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM ) {
           await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
         }
 
@@ -242,9 +242,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const { username, passwordObject, email } = this.generateUser(body);
 
-        console.log('email', email)
-        console.log('password', passwordObject.password)
-
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
         if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }
@@ -267,7 +264,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return { status: 201, data: teacher };
       });
     } catch (error: any) {
-      console.log(error)
+      console.log('saveTeacher', error)
       return { status: 500, message: error.message } }
   }
 

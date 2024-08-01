@@ -65,11 +65,11 @@ class TeacherController extends genericController_1.GenericController {
                         .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
                         .leftJoin("teacherClassDiscipline.classroom", "classroom")
                         .where(new typeorm_1.Brackets((qb) => {
-                        if (teacher.person.category.id === personCategories_1.pc.PROF) {
+                        if (teacher.person.category.id === personCategories_1.pc.PROF || teacher.person.category.id === personCategories_1.pc.MONI) {
                             qb.where("teacher.id = :teacherId", { teacherId: teacher.id });
                             return;
                         }
-                        if (teacher.person.category.id != personCategories_1.pc.ADMN && teacher.person.category.id != personCategories_1.pc.SUPE) {
+                        if (teacher.person.category.id != personCategories_1.pc.ADMN && teacher.person.category.id != personCategories_1.pc.SUPE && teacher.person.category.id != personCategories_1.pc.FORM) {
                             qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
                                 .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
                                 .andWhere("teacherClassDiscipline.endedAt IS NULL");
@@ -117,7 +117,7 @@ class TeacherController extends genericController_1.GenericController {
                         .leftJoin("teacherClassDiscipline.discipline", "discipline")
                         .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
                         .getRawOne();
-                    if (!el) {
+                    if (!el.teacher_id) {
                         return { status: 404, message: "Dado não encontrado" };
                     }
                     let newResult = {
@@ -180,7 +180,7 @@ class TeacherController extends genericController_1.GenericController {
                     teacher.person.birth = body.birth;
                     teacher.updatedAt = new Date();
                     teacher.updatedByUser = tUser.person.user.id;
-                    if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE) {
+                    if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM) {
                         yield CONN.save(Teacher_1.Teacher, teacher);
                         return { status: 200, data: teacher };
                     }
@@ -254,8 +254,6 @@ class TeacherController extends genericController_1.GenericController {
                     const person = this.createPerson({ name: body.name, birth: body.birth, category });
                     const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
                     const { username, passwordObject, email } = this.generateUser(body);
-                    console.log('email', email);
-                    console.log('password', passwordObject.password);
                     yield CONN.save(User_1.User, { person, username, email, password: passwordObject.hashedPassword });
                     if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE) {
                         return { status: 201, data: teacher };
@@ -277,7 +275,7 @@ class TeacherController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
-                console.log(error);
+                console.log('saveTeacher', error);
                 return { status: 500, message: error.message };
             }
         });

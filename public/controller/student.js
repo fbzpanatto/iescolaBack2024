@@ -219,7 +219,7 @@ class StudentController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacher = yield this.teacherByUser(req.body.user.user, CONN);
                     const teacherClasses = yield this.teacherClassrooms(req === null || req === void 0 ? void 0 : req.body.user, CONN);
-                    const studentsClassrooms = yield this.studentsClassrooms({ search: req.query.search, year: req.params.year, teacherClasses, owner: req.query.owner }, teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE);
+                    const studentsClassrooms = yield this.studentsClassrooms({ search: req.query.search, year: req.params.year, teacherClasses, owner: req.query.owner }, teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM);
                     return { status: 200, data: studentsClassrooms };
                 }));
             }

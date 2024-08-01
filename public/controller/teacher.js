@@ -270,6 +270,7 @@ class TeacherController extends genericController_1.GenericController {
                             yield CONN.save(el);
                         }
                     }
+                    console.log('createdUser', body.email, passwordObject.password);
                     yield (0, email_service_1.credentialsEmail)(body.email, passwordObject.password, true).catch((e) => console.log(e));
                     return { status: 201, data: teacher };
                 }));

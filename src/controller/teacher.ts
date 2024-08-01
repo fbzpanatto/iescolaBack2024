@@ -218,6 +218,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async saveTeacher(body: TeacherBody) {
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
@@ -244,7 +245,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
-        if (body.category.id === pc.ADMN || body.category.id === pc.SUPE ) { return { status: 201, data: teacher } }
+        if (body.category.id === pc.ADMN || body.category.id === pc.SUPE || body.category.id === pc.FORM ) {
+          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
+          return { status: 201, data: teacher }
+        }
 
         const classrooms = await CONN.findBy(Classroom, {id: In(body.teacherClasses) });
         const disciplines = await CONN.findBy(Discipline, { id: In(body.teacherDisciplines) });
@@ -263,10 +267,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
-    } catch (error: any) {
-      console.log('saveTeacher', error)
-      return { status: 500, message: error.message } }
-  }
+    } catch (error: any) { return { status: 500, message: error.message } } }
 
   createTeacher(userId: number, person: Person, body: TeacherBody) {
     const teacher = new Teacher();

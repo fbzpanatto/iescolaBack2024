@@ -26,6 +26,9 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
     const yearName = req.params.year as string;
     const userBody = req.body.user;
 
+    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
@@ -45,6 +48,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           .andWhere("year.name = :yearName", { yearName })
           .andWhere( new Brackets((qb) => { if (search) { qb.where("school.name LIKE :search", { search: `%${search}%` }).orWhere("school.shortName LIKE :search", { search: `%${search}%` })}}))
           .orderBy("school.name", "ASC")
+          .limit(limit)
+          .offset(offset)
           .getMany();
 
         return { status: 200, data };

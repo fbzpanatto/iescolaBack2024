@@ -255,7 +255,8 @@ class TeacherController extends genericController_1.GenericController {
                     const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
                     const { username, passwordObject, email } = this.generateUser(body);
                     yield CONN.save(User_1.User, { person, username, email, password: passwordObject.hashedPassword });
-                    if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE) {
+                    if (body.category.id === personCategories_1.pc.ADMN || body.category.id === personCategories_1.pc.SUPE || body.category.id === personCategories_1.pc.FORM) {
+                        yield (0, email_service_1.credentialsEmail)(body.email, passwordObject.password, true).catch((e) => console.log(e));
                         return { status: 201, data: teacher };
                     }
                     const classrooms = yield CONN.findBy(Classroom_1.Classroom, { id: (0, typeorm_1.In)(body.teacherClasses) });
@@ -270,13 +271,11 @@ class TeacherController extends genericController_1.GenericController {
                             yield CONN.save(el);
                         }
                     }
-                    console.log('createdUser', body.email, passwordObject.password);
                     yield (0, email_service_1.credentialsEmail)(body.email, passwordObject.password, true).catch((e) => console.log(e));
                     return { status: 201, data: teacher };
                 }));
             }
             catch (error) {
-                console.log('saveTeacher', error);
                 return { status: 500, message: error.message };
             }
         });

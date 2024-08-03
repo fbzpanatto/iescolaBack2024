@@ -85,8 +85,14 @@ class TestController extends genericController_1.GenericController {
                     if (!classroom)
                         return { status: 404, message: "Sala não encontrada" };
                     const classroomNumber = classroom.shortName.replace(/\D/g, "");
-                    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"];
-                    const testQuestions = yield this.getTestQuestions(parseInt(testId), CONN, fields);
+                    const testQuestions = yield CONN.getRepository(TestQuestion_1.TestQuestion)
+                        .createQueryBuilder("testQuestion")
+                        .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"])
+                        .leftJoin("testQuestion.questionGroup", "questionGroup")
+                        .where("testQuestion.test = :testId", { testId })
+                        .orderBy("questionGroup.id", "ASC")
+                        .addOrderBy("testQuestion.order", "ASC")
+                        .getMany();
                     if (!testQuestions)
                         return { status: 404, message: "Questões não encontradas" };
                     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
@@ -128,21 +134,18 @@ class TestController extends genericController_1.GenericController {
                         testQuestionMap.set(testQuestion.id, testQuestion);
                     }
                     const allClasses = response.classrooms;
-                    for (const classroom of allClasses) {
-                        for (const studentClassroom of classroom.studentClassrooms) {
-                            for (const studentQuestion of studentClassroom.studentQuestions) {
-                                if (studentQuestion.answer.length === 0) {
-                                    studentQuestion.score = 0;
-                                }
-                                else {
-                                    const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-                                    if (testQuestion) {
-                                        studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
-                                    }
-                                    else {
-                                        studentQuestion.score = 0;
-                                    }
-                                }
+                    const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.studentQuestions));
+                    for (const studentQuestion of studentQuestions) {
+                        if (studentQuestion.answer.length === 0) {
+                            studentQuestion.score = 0;
+                        }
+                        else {
+                            const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                            if (testQuestion) {
+                                studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0;
+                            }
+                            else {
+                                studentQuestion.score = 0;
                             }
                         }
                     }

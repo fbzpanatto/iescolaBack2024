@@ -219,7 +219,12 @@ class StudentController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacher = yield this.teacherByUser(req.body.user.user, CONN);
                     const teacherClasses = yield this.teacherClassrooms(req === null || req === void 0 ? void 0 : req.body.user, CONN);
-                    const studentsClassrooms = yield this.studentsClassrooms({ search: req.query.search, year: req.params.year, teacherClasses, owner: req.query.owner }, teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM);
+                    const masterTeacher = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM;
+                    const studentsClassrooms = yield this.studentsClassrooms({
+                        search: req.query.search,
+                        year: req.params.year, teacherClasses,
+                        owner: req.query.owner
+                    }, masterTeacher, parseInt(req.query.limit), parseInt(req.query.offset));
                     return { status: 200, data: studentsClassrooms };
                 }));
             }
@@ -573,8 +578,11 @@ class StudentController extends genericController_1.GenericController {
                 .getRawOne();
         });
     }
-    studentsClassrooms(options, masterUser) {
+    studentsClassrooms(options, masterUser, limit, offset) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log(options);
+            console.log(masterUser);
+            console.log(limit, offset);
             return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                 var _a;
                 const isOwner = options.owner === owner_1.ISOWNER.OWNER;
@@ -615,7 +623,9 @@ class StudentController extends genericController_1.GenericController {
                     .addOrderBy("classroom.shortName", "ASC")
                     .addOrderBy("person.name", "ASC")
                     .limit(100)
+                    .offset(offset)
                     .getRawMany();
+                console.log(result);
                 return result.map((item) => {
                     return {
                         id: item.studentClassroom_id,

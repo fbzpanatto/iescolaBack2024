@@ -66,8 +66,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"]
-        const testQuestions = await this.getTestQuestions(parseInt(testId), CONN, fields)
+        const testQuestions = await CONN.getRepository(TestQuestion)
+          .createQueryBuilder("testQuestion")
+          .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"])
+          .leftJoin("testQuestion.questionGroup", "questionGroup")
+          .where("testQuestion.test = :testId", { testId })
+          .orderBy("questionGroup.id", "ASC")
+          .addOrderBy("testQuestion.order", "ASC")
+          .getMany();
+
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 
         const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
@@ -112,17 +119,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const allClasses: Classroom[] = response.classrooms;
 
-        for (const classroom of allClasses) {
-          for (const studentClassroom of classroom.studentClassrooms) {
-            for (const studentQuestion of studentClassroom.studentQuestions) {
+        const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.studentQuestions))
 
-              if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
-              else {
-                const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-                if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
-                else { studentQuestion.score = 0 }
-              }
-            }
+        for (const studentQuestion of studentQuestions) {
+
+          if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
+          else {
+            const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+            if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
+            else { studentQuestion.score = 0 }
           }
         }
 
@@ -349,6 +354,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const yearName = request.params.year
     const search = request.query.search as string
+    const limit =  parseInt(request.query.limit as string)
+    const offset =  parseInt(request.query.offset as string)
+
     const userBody = request.body.user
 
     try {
@@ -370,6 +378,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .where(new Brackets(qb => { if(userBody.category != pc.ADMN && userBody.category != pc.SUPE) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms }) } }))
           .andWhere("year.name = :yearName", { yearName })
           .andWhere("test.name LIKE :search", { search: `%${search}%` })
+          .limit(limit)
+          .offset(offset)
           .getMany();
 
         return { status: 200, data: testClasses };

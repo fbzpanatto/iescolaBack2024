@@ -214,7 +214,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async(CONN) => {
         const teacher = await this.teacherByUser(req.body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(req?.body.user, CONN);
-        const studentsClassrooms = await this.studentsClassrooms({ search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }, teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM )
+
+        const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+
+        const studentsClassrooms = await this.studentsClassrooms(
+          {
+            search: req.query.search as string,
+            year: req.params.year, teacherClasses,
+            owner: req.query.owner as string
+          }, masterTeacher, parseInt(req.query.limit as string), parseInt(req.query.offset as string)
+        )
+
         return { status: 200, data: studentsClassrooms }
       })
 
@@ -560,8 +570,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .getRawOne();
   }
 
-  async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean) {
-
+  async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number ) {
     return await AppDataSource.transaction(async(CONN) => {
 
       const isOwner = options.owner === ISOWNER.OWNER;
@@ -596,8 +605,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .orderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .addOrderBy("person.name", "ASC")
-        .limit(100)
+        .limit(limit)
+        .offset(offset)
         .getRawMany();
+
+      console.log(result);
 
       return result.map((item) => {
 

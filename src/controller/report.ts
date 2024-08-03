@@ -54,6 +54,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   }
 
   async reportFindAll(request: Request) {
+
+    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN);
@@ -72,6 +76,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .where( new Brackets((qb) => { if (!masterUser) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
           .andWhere("year.name = :yearName", { yearName: request.params.year as string })
           .andWhere("test.name LIKE :search", { search: `%${ request.query.search as string }%` })
+          .limit(limit)
+          .offset(offset)
           .getMany();
         return { status: 200, data: testClasses };
       })

@@ -22,8 +22,6 @@ export function generatePassword(userPass?: string) {
     password = password.split('').sort(() => 0.5 - Math.random()).join('');
     const hashedPassword: string = bcrypt.hashSync(password, 10);
 
-    console.log('Password: ', { password });
-
     return { password, hashedPassword };
   }
 

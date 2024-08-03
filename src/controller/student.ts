@@ -612,8 +612,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .offset(offset)
         .getRawMany();
 
-      console.log(result);
-
       return result.map((item) => {
 
         return {

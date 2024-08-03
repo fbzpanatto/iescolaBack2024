@@ -217,12 +217,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
+        const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+        const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+
         const studentsClassrooms = await this.studentsClassrooms(
           {
             search: req.query.search as string,
             year: req.params.year, teacherClasses,
             owner: req.query.owner as string
-          }, masterTeacher, parseInt(req.query.limit as string), parseInt(req.query.offset as string)
+          }, masterTeacher, limit, offset
         )
 
         return { status: 200, data: studentsClassrooms }

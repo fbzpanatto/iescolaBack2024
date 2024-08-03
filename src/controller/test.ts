@@ -354,8 +354,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const yearName = request.params.year
     const search = request.query.search as string
-    const limit =  parseInt(request.query.limit as string)
-    const offset =  parseInt(request.query.offset as string)
+    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
 
     const userBody = request.body.user
 

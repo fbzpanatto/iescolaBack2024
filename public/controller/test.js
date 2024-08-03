@@ -357,6 +357,8 @@ class TestController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const yearName = request.params.year;
             const search = request.query.search;
+            const limit = !isNaN(parseInt(request.query.limit)) ? parseInt(request.query.limit) : 100;
+            const offset = !isNaN(parseInt(request.query.offset)) ? parseInt(request.query.offset) : 0;
             const userBody = request.body.user;
             try {
                 return data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
@@ -376,6 +378,8 @@ class TestController extends genericController_1.GenericController {
                     } }))
                         .andWhere("year.name = :yearName", { yearName })
                         .andWhere("test.name LIKE :search", { search: `%${search}%` })
+                        .limit(limit)
+                        .offset(offset)
                         .getMany();
                     return { status: 200, data: testClasses };
                 }));

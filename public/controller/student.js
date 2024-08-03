@@ -580,9 +580,6 @@ class StudentController extends genericController_1.GenericController {
     }
     studentsClassrooms(options, masterUser, limit, offset) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(options);
-            console.log(masterUser);
-            console.log(limit, offset);
             return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                 var _a;
                 const isOwner = options.owner === owner_1.ISOWNER.OWNER;
@@ -622,7 +619,7 @@ class StudentController extends genericController_1.GenericController {
                     .orderBy("school.shortName", "ASC")
                     .addOrderBy("classroom.shortName", "ASC")
                     .addOrderBy("person.name", "ASC")
-                    .limit(100)
+                    .limit(limit)
                     .offset(offset)
                     .getRawMany();
                 console.log(result);

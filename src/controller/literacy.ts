@@ -48,8 +48,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           .andWhere("year.name = :yearName", { yearName })
           .andWhere( new Brackets((qb) => { if (search) { qb.where("school.name LIKE :search", { search: `%${search}%` }).orWhere("school.shortName LIKE :search", { search: `%${search}%` })}}))
           .orderBy("school.name", "ASC")
-          .limit(limit)
-          .offset(offset)
+          .take(limit)
+          .skip(offset)
           .getMany();
 
         return { status: 200, data };

@@ -21,6 +21,10 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const year = request?.params.year as string
     const search = request?.query.search as string
+
+    const limit =  !isNaN(parseInt(request?.query.limit as string)) ? parseInt(request?.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(request?.query.offset as string)) ? parseInt(request?.query.offset as string) : 0
+
     try {
       return await AppDataSource.transaction(async(CONN)=> {
         const result = await CONN.getRepository(Transfer)
@@ -45,7 +49,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           }))
           .andWhere('year.name = :year', { year })
           .orderBy('transfer.startedAt', 'DESC')
-          .limit(100)
+          .limit(limit)
+          .offset(offset)
           .getMany()
         return { status: 200, data: result };
       })

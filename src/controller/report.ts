@@ -72,12 +72,12 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("test.category", "category")
           .leftJoinAndSelect("test.discipline", "discipline")
           .leftJoinAndSelect("test.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.school", "school")
+          .leftJoin("classroom.school", "school")
           .where( new Brackets((qb) => { if (!masterUser) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
           .andWhere("year.name = :yearName", { yearName: request.params.year as string })
           .andWhere("test.name LIKE :search", { search: `%${ request.query.search as string }%` })
-          .limit(limit)
-          .offset(offset)
+          .take(limit)
+          .skip(offset)
           .getMany();
         return { status: 200, data: testClasses };
       })

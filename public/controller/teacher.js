@@ -164,28 +164,37 @@ class TeacherController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    const tUser = yield this.teacherByUser(body.user.user, CONN);
-                    const teacher = yield CONN.findOne(Teacher_1.Teacher, { relations: ["person.category"], where: { id: Number(id) } });
+                    const uTeacher = yield this.teacherByUser(body.user.user, CONN);
+                    const teacher = yield CONN.findOne(Teacher_1.Teacher, { relations: ["person.category", "person.user"], where: { id: Number(id) } });
                     if (!teacher) {
                         return { status: 404, message: "Data not found" };
                     }
                     const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu.";
-                    if (!this.canChange(tUser.person.category.id, teacher.person.category.id)) {
+                    if (!this.canChange(uTeacher.person.category.id, teacher.person.category.id)) {
                         return { status: 403, message };
                     }
-                    if (tUser.person.category.id === personCategories_1.pc.PROF || (tUser.person.category.id === personCategories_1.pc.MONI && tUser.id !== teacher.id)) {
+                    if (uTeacher.person.category.id === personCategories_1.pc.PROF || (uTeacher.person.category.id === personCategories_1.pc.MONI && uTeacher.id !== teacher.id)) {
                         return { status: 403, message: "Você não tem permissão para editar este registro." };
                     }
                     teacher.person.name = body.name;
                     teacher.person.birth = body.birth;
                     teacher.updatedAt = new Date();
-                    teacher.updatedByUser = tUser.person.user.id;
+                    teacher.updatedByUser = uTeacher.person.user.id;
                     if (teacher.email != body.email) {
                         const emailExists = yield CONN.findOne(Teacher_1.Teacher, { where: { email: body.email } });
                         if (emailExists) {
                             return { status: 409, message: "Já existe um registro com este email." };
                         }
                         teacher.email = body.email;
+                        const { password, hashedPassword } = (0, generatePassword_1.generatePassword)();
+                        const user = {
+                            id: teacher.person.user.id,
+                            username: body.email,
+                            email: body.email,
+                            password: hashedPassword
+                        };
+                        yield CONN.save(User_1.User, user);
+                        yield (0, email_service_1.credentialsEmail)(body.email, password, true).catch((e) => console.log(e));
                     }
                     if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM) {
                         yield CONN.save(Teacher_1.Teacher, teacher);

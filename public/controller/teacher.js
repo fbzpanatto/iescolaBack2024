@@ -180,6 +180,13 @@ class TeacherController extends genericController_1.GenericController {
                     teacher.person.birth = body.birth;
                     teacher.updatedAt = new Date();
                     teacher.updatedByUser = tUser.person.user.id;
+                    if (teacher.email != body.email) {
+                        const emailExists = yield CONN.findOne(Teacher_1.Teacher, { where: { email: body.email } });
+                        if (emailExists) {
+                            return { status: 409, message: "Já existe um registro com este email." };
+                        }
+                        teacher.email = body.email;
+                    }
                     if (teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM) {
                         yield CONN.save(Teacher_1.Teacher, teacher);
                         return { status: 200, data: teacher };

@@ -150,21 +150,44 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async updateTeacher(id: string, body: TeacherBody) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const tUser = await this.teacherByUser(body.user.user, CONN)
+        const uTeacher = await this.teacherByUser(body.user.user, CONN)
 
-        const teacher = await CONN.findOne(Teacher,{ relations: ["person.category"], where: { id: Number(id) }})
+        const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user"], where: { id: Number(id) }})
 
         if (!teacher) { return { status: 404, message: "Data not found" } }
 
         const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
-        if (!this.canChange(tUser.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
+        if (!this.canChange(uTeacher.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
 
-        if (tUser.person.category.id === pc.PROF || (tUser.person.category.id === pc.MONI && tUser.id !== teacher.id)) {
+        if (uTeacher.person.category.id === pc.PROF || (uTeacher.person.category.id === pc.MONI && uTeacher.id !== teacher.id)) {
           return { status: 403, message: "Você não tem permissão para editar este registro." };
         }
 
-        teacher.person.name = body.name; teacher.person.birth = body.birth;
-        teacher.updatedAt = new Date(); teacher.updatedByUser = tUser.person.user.id
+        teacher.person.name = body.name;
+        teacher.person.birth = body.birth;
+        teacher.updatedAt = new Date();
+        teacher.updatedByUser = uTeacher.person.user.id
+
+        if(teacher.email != body.email) {
+
+          const emailExists = await CONN.findOne(Teacher, {where: { email: body.email }});
+          if (emailExists) { return { status: 409,message: "Já existe um registro com este email." } }
+
+          teacher.email = body.email
+
+          const { password, hashedPassword } = generatePassword()
+
+          const user = {
+            id: teacher.person.user.id,
+            username: body.email,
+            email: body.email,
+            password: hashedPassword
+          }
+
+          await CONN.save(User, user)
+
+          await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
+        }
 
         if ( teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM ) {
           await CONN.save(Teacher, teacher); return { status: 200, data: teacher }

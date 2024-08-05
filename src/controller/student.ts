@@ -270,7 +270,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const classroom = await this.classroom(body.classroom, CONN);
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
-        const person = this.createPerson({ name: body.name, birth: body.birth, category });
+        const person = this.createPerson({ name: body.name.toUpperCase(), birth: body.birth, category });
 
         if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
@@ -295,7 +295,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           if (actStClassroom) { preR = actStClassroom }
           else { preR = el.studentClassrooms.find((sc) => getTimeZone(sc.endedAt) === Math.max(...el.studentClassrooms.map((sc) => getTimeZone(sc.endedAt)))) as StudentClassroom }
-
 
           if (!el.active) {
             return { status: 409, message: `RA existente. ${el.person.name} se formou em: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano de ${preR?.year.name}.` }
@@ -464,25 +463,25 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             else { for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}
           }
 
-          if (classNumber === 4 || classNumber === 5) {
-
-            const tgExam:TextGenderExam[] = await CONN.find(TextGenderExam);
-            const tgExamTier:TextGenderExamTier[] = await CONN.find(TextGenderExamTier);
-            const tgClassroom: TextGenderClassroom[] = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] } );
-
-            if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
-              for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
-                const textGenderGrade = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
-                if (textGenderGrade) { await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: textGenderGrade.textGender, textGenderExam: textGenderGrade.textGenderExam, textGenderExamTier: textGenderGrade.textGenderExamTier, textGenderExamLevel: textGenderGrade.textGenderExamLevel, toRate: false } as TextGenderGrade)}
-                else { await CONN.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
-              }}}
-            }
-            else {
-              for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
-                await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier } as TextGenderGrade )
-              }}}
-            }
-          }
+          // if (classNumber === 4 || classNumber === 5) {
+          //
+          //   const tgExam:TextGenderExam[] = await CONN.find(TextGenderExam);
+          //   const tgExamTier:TextGenderExamTier[] = await CONN.find(TextGenderExamTier);
+          //   const tgClassroom: TextGenderClassroom[] = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] } );
+          //
+          //   if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
+          //     for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+          //       const textGenderGrade = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
+          //       if (textGenderGrade) { await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: textGenderGrade.textGender, textGenderExam: textGenderGrade.textGenderExam, textGenderExamTier: textGenderGrade.textGenderExamTier, textGenderExamLevel: textGenderGrade.textGenderExamLevel, toRate: false } as TextGenderGrade)}
+          //       else { await CONN.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
+          //     }}}
+          //   }
+          //   else {
+          //     for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+          //       await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier } as TextGenderGrade )
+          //     }}}
+          //   }
+          // }
 
           const transfer = new Transfer();
           transfer.createdByUser = uTeacher.person.user.id;
@@ -505,7 +504,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         dbStudent.dv = body.dv;
         dbStudent.updatedAt = new Date();
         dbStudent.updatedByUser = uTeacher.person.user.id;
-        dbStudent.person.name = body.name;
+        dbStudent.person.name = body.name.toUpperCase();
         dbStudent.person.birth = body.birth;
         dbStudent.observationOne = body.observationOne;
         dbStudent.observationTwo = body.observationTwo;

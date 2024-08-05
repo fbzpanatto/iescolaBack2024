@@ -36,6 +36,8 @@ export async function resetPassword(email: string, token: string) {
     subject: "EscolApp: Redefinir Senha",
     html: `
       <p>Olá,</p>
+      <p>Você solicitou um link para redefinição de senha.</p>
+      <p style="font-weight: bold">A senha deve conter pelo menos uma letra minúscula, uma maiúscula, um número, e possuir no máximo 8 carateres.</p>
       <a href="${RESET_URL}${token}">Clique aqui para redefinir sua senha.</a>
       <p>Atenciosamente,</p>
       <p>Equipe EscolApp - Prefeitura de Itatiba</p>

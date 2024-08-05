@@ -29,6 +29,8 @@ class LiteracyController extends genericController_1.GenericController {
             const search = req.query.search;
             const yearName = req.params.year;
             const userBody = req.body.user;
+            const limit = !isNaN(parseInt(req.query.limit)) ? parseInt(req.query.limit) : 100;
+            const offset = !isNaN(parseInt(req.query.offset)) ? parseInt(req.query.offset) : 0;
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacherClasses = yield this.teacherClassrooms(req.body.user, CONN);
@@ -50,6 +52,8 @@ class LiteracyController extends genericController_1.GenericController {
                         qb.where("school.name LIKE :search", { search: `%${search}%` }).orWhere("school.shortName LIKE :search", { search: `%${search}%` });
                     } }))
                         .orderBy("school.name", "ASC")
+                        .take(limit)
+                        .skip(offset)
                         .getMany();
                     return { status: 200, data };
                 }));

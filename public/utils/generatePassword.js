@@ -21,7 +21,6 @@ function generatePassword(userPass) {
         }
         password = password.split('').sort(() => 0.5 - Math.random()).join('');
         const hashedPassword = bcrypt_1.default.hashSync(password, 10);
-        console.log('Password: ', { password });
         return { password, hashedPassword };
     }
     const hashedPassword = bcrypt_1.default.hashSync(userPass, 10);

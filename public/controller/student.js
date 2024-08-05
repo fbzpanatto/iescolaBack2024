@@ -31,10 +31,6 @@ const Year_1 = require("../model/Year");
 const Literacy_1 = require("../model/Literacy");
 const LiteracyTier_1 = require("../model/LiteracyTier");
 const LiteracyFirst_1 = require("../model/LiteracyFirst");
-const TextGenderExam_1 = require("../model/TextGenderExam");
-const TextGenderExamTier_1 = require("../model/TextGenderExamTier");
-const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
-const TextGenderGrade_1 = require("../model/TextGenderGrade");
 const disability_1 = require("./disability");
 const state_1 = require("./state");
 const teacherClassrooms_1 = require("./teacherClassrooms");
@@ -220,11 +216,13 @@ class StudentController extends genericController_1.GenericController {
                     const teacher = yield this.teacherByUser(req.body.user.user, CONN);
                     const teacherClasses = yield this.teacherClassrooms(req === null || req === void 0 ? void 0 : req.body.user, CONN);
                     const masterTeacher = teacher.person.category.id === personCategories_1.pc.ADMN || teacher.person.category.id === personCategories_1.pc.SUPE || teacher.person.category.id === personCategories_1.pc.FORM;
+                    const limit = !isNaN(parseInt(req.query.limit)) ? parseInt(req.query.limit) : 100;
+                    const offset = !isNaN(parseInt(req.query.offset)) ? parseInt(req.query.offset) : 0;
                     const studentsClassrooms = yield this.studentsClassrooms({
                         search: req.query.search,
                         year: req.params.year, teacherClasses,
                         owner: req.query.owner
-                    }, masterTeacher, parseInt(req.query.limit), parseInt(req.query.offset));
+                    }, masterTeacher, limit, offset);
                     return { status: 200, data: studentsClassrooms };
                 }));
             }
@@ -270,7 +268,7 @@ class StudentController extends genericController_1.GenericController {
                     const classroom = yield this.classroom(body.classroom, CONN);
                     const category = yield this.studentCategory(CONN);
                     const disabilities = yield this.disabilities(body.disabilities, CONN);
-                    const person = this.createPerson({ name: body.name, birth: body.birth, category });
+                    const person = this.createPerson({ name: body.name.toUpperCase(), birth: body.birth, category });
                     if (!year) {
                         return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." };
                     }
@@ -458,35 +456,25 @@ class StudentController extends genericController_1.GenericController {
                                 }
                             }
                         }
-                        if (classNumber === 4 || classNumber === 5) {
-                            const tgExam = yield CONN.find(TextGenderExam_1.TextGenderExam);
-                            const tgExamTier = yield CONN.find(TextGenderExamTier_1.TextGenderExamTier);
-                            const tgClassroom = yield CONN.find(TextGenderClassroom_1.TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] });
-                            if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id) {
-                                for (let tg of tgClassroom) {
-                                    for (let tier of tgExamTier) {
-                                        for (let exam of tgExam) {
-                                            const textGenderGrade = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null);
-                                            if (textGenderGrade) {
-                                                yield CONN.save(TextGenderGrade_1.TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: textGenderGrade.textGender, textGenderExam: textGenderGrade.textGenderExam, textGenderExamTier: textGenderGrade.textGenderExamTier, textGenderExamLevel: textGenderGrade.textGenderExamLevel, toRate: false });
-                                            }
-                                            else {
-                                                yield CONN.save(TextGenderGrade_1.TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier });
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else {
-                                for (let tg of tgClassroom) {
-                                    for (let tier of tgExamTier) {
-                                        for (let exam of tgExam) {
-                                            yield CONN.save(TextGenderGrade_1.TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier });
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // if (classNumber === 4 || classNumber === 5) {
+                        //
+                        //   const tgExam:TextGenderExam[] = await CONN.find(TextGenderExam);
+                        //   const tgExamTier:TextGenderExamTier[] = await CONN.find(TextGenderExamTier);
+                        //   const tgClassroom: TextGenderClassroom[] = await CONN.find(TextGenderClassroom, { where: { classroomNumber: classNumber }, relations: ["textGender"] } );
+                        //
+                        //   if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
+                        //     for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+                        //       const textGenderGrade = stClass.textGenderGrades.find((el) => el.textGender.id === tg.textGender.id && el.textGenderExam.id === exam.id && el.textGenderExamTier.id === tier.id && el.textGenderExamLevel != null );
+                        //       if (textGenderGrade) { await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: textGenderGrade.textGender, textGenderExam: textGenderGrade.textGenderExam, textGenderExamTier: textGenderGrade.textGenderExamTier, textGenderExamLevel: textGenderGrade.textGenderExamLevel, toRate: false } as TextGenderGrade)}
+                        //       else { await CONN.save(TextGenderGrade, { studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier })}
+                        //     }}}
+                        //   }
+                        //   else {
+                        //     for (let tg of tgClassroom) { for (let tier of tgExamTier) { for (let exam of tgExam) {
+                        //       await CONN.save(TextGenderGrade, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, studentClassroom: newStClass, textGender: tg.textGender, textGenderExam: exam, textGenderExamTier: tier } as TextGenderGrade )
+                        //     }}}
+                        //   }
+                        // }
                         const transfer = new Transfer_1.Transfer();
                         transfer.createdByUser = uTeacher.person.user.id;
                         transfer.startedAt = new Date();
@@ -507,7 +495,7 @@ class StudentController extends genericController_1.GenericController {
                     dbStudent.dv = body.dv;
                     dbStudent.updatedAt = new Date();
                     dbStudent.updatedByUser = uTeacher.person.user.id;
-                    dbStudent.person.name = body.name;
+                    dbStudent.person.name = body.name.toUpperCase();
                     dbStudent.person.birth = body.birth;
                     dbStudent.observationOne = body.observationOne;
                     dbStudent.observationTwo = body.observationTwo;
@@ -622,7 +610,6 @@ class StudentController extends genericController_1.GenericController {
                     .limit(limit)
                     .offset(offset)
                     .getRawMany();
-                console.log(result);
                 return result.map((item) => {
                     return {
                         id: item.studentClassroom_id,

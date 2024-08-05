@@ -75,6 +75,8 @@ class ReportController extends genericController_1.GenericController {
     }
     reportFindAll(request) {
         return __awaiter(this, void 0, void 0, function* () {
+            const limit = !isNaN(parseInt(request.query.limit)) ? parseInt(request.query.limit) : 100;
+            const offset = !isNaN(parseInt(request.query.offset)) ? parseInt(request.query.offset) : 0;
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const uTeacher = yield this.teacherByUser(request === null || request === void 0 ? void 0 : request.body.user.user, CONN);
@@ -89,12 +91,14 @@ class ReportController extends genericController_1.GenericController {
                         .leftJoinAndSelect("test.category", "category")
                         .leftJoinAndSelect("test.discipline", "discipline")
                         .leftJoinAndSelect("test.classrooms", "classroom")
-                        .leftJoinAndSelect("classroom.school", "school")
+                        .leftJoin("classroom.school", "school")
                         .where(new typeorm_1.Brackets((qb) => { if (!masterUser) {
                         qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
                     } }))
                         .andWhere("year.name = :yearName", { yearName: request.params.year })
                         .andWhere("test.name LIKE :search", { search: `%${request.query.search}%` })
+                        .take(limit)
+                        .skip(offset)
                         .getMany();
                     return { status: 200, data: testClasses };
                 }));

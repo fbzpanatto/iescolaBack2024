@@ -29,6 +29,8 @@ class TransferController extends genericController_1.GenericController {
         return __awaiter(this, void 0, void 0, function* () {
             const year = request === null || request === void 0 ? void 0 : request.params.year;
             const search = request === null || request === void 0 ? void 0 : request.query.search;
+            const limit = !isNaN(parseInt(request === null || request === void 0 ? void 0 : request.query.limit)) ? parseInt(request === null || request === void 0 ? void 0 : request.query.limit) : 100;
+            const offset = !isNaN(parseInt(request === null || request === void 0 ? void 0 : request.query.offset)) ? parseInt(request === null || request === void 0 ? void 0 : request.query.offset) : 0;
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const result = yield CONN.getRepository(Transfer_1.Transfer)
@@ -53,7 +55,8 @@ class TransferController extends genericController_1.GenericController {
                     }))
                         .andWhere('year.name = :year', { year })
                         .orderBy('transfer.startedAt', 'DESC')
-                        .limit(100)
+                        .limit(limit)
+                        .offset(offset)
                         .getMany();
                     return { status: 200, data: result };
                 }));

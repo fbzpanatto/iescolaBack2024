@@ -10,7 +10,6 @@ exports.invalidValues = invalidValues;
 const unexpectedFn = (req, res, next, schema) => {
     const msg = 'Campo(s) inesperado(s) no corpo da requisição.';
     const unexpectedFields = Object.keys(req.body).filter(key => !schema.hasOwnProperty(key));
-    console.log('unexpectedFields', unexpectedFields);
     return unexpectedFields.length ? res.status(400).json((0, response_1.ojbRes)(400, msg)) : next();
 };
 exports.unexpectedFn = unexpectedFn;

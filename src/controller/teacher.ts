@@ -243,9 +243,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const { username, passwordObject, email } = this.generateUser(body);
 
-        // TODO: Delete this line on production
-        console.log('email: ', email, 'password: ', passwordObject.password)
-
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
         if (body.category.id === pc.ADMN || body.category.id === pc.SUPE || body.category.id === pc.FORM ) {

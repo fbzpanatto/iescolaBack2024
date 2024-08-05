@@ -1,57 +1,55 @@
-import {Router} from "express";
-import {dataSourceController} from "../controller/initialConfigs";
-import {Year} from "../model/Year";
-import {Bimester} from "../model/Bimester";
-import {School} from "../model/School";
-import {Classroom} from "../model/Classroom";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Period} from "../model/Period";
-import {BIMESTER} from "../mock/bimester";
-import {DISABILITY} from "../mock/disability";
-import {CLASSROOM_CATEGORY} from "../mock/classroomCategory";
-import {SCHOOLS} from "../mock/school";
-import {CLASSROOM} from "../mock/classroom";
-import {DISCIPLINE} from "../mock/discipline";
-import {Discipline} from "../model/Discipline";
-import {PersonCategory} from "../model/PersonCategory";
-import {PERSON_CATEGORY} from "../mock/personCategory";
-import {STATES} from "../mock/state";
-import {State} from "../model/State";
-import {Disability} from "../model/Disability";
-import {TransferStatus} from "../model/TransferStatus";
-import {TRANSFER_STATUS} from "../mock/transferStatus";
-import {User} from "../model/User";
-import {Person} from "../model/Person";
-import {TestCategory} from "../model/TestCategory";
-import {TESTCATEGORY} from "../mock/testCategory";
-import {QUESTION_GROUP} from "../mock/questionGroup";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {Topic} from "../model/Topic";
-import {TOPIC} from "../mock/topic";
-import {DESCRIPTOR} from "../mock/descriptor";
-import {Descriptor} from "../model/Descriptor";
-import {Teacher} from "../model/Teacher";
-import {pc} from "../utils/personCategories";
-import {LITERACYTIER} from "../mock/literacyTier";
-import {LiteracyTier} from "../model/LiteracyTier";
-import {LiteracyLevel} from "../model/LiteracyLevel";
-import {LITERACYLEVEL} from "../mock/literacyLevel";
-import {TextGender} from "../model/TextGender";
-import {TextGenderExam} from "../model/TextGenderExam";
-import {TEXTGENDER} from "../mock/textGender";
-import {TEXTGENDEREXAM} from "../mock/textGenderExam";
-import {TextGenderExamTier} from "../model/TextGenderExamTier";
-import {TextGenderExamLevel} from "../model/TextGenderExamLevel";
-import {TEXTGENDEREXAMTIER} from "../mock/textGenderExamTier";
-import {TEXTGENDEREXAMLEVEL} from "../mock/textGenderExamLevel";
-import {TextGenderClassroom} from "../model/TextGenderClassroom";
-import {TEXTGENDERCLASSROOM} from "../mock/textGenderClassroom";
-import {TextGenderExamLevelGroup} from "../model/TextGenderExamLevelGroup";
-import {TEXTGENDEREXAMLEVELGROUP} from "../mock/textGenderExamLevelGroup";
-import {generatePassword} from "../utils/generatePassword";
-import {credentialsEmail} from "../utils/email.service";
-import {Student} from "../model/Student";
-import {StudentClassroom} from "../model/StudentClassroom";
+import { Router } from "express";
+import { dataSourceController } from "../controller/initialConfigs";
+import { Year } from "../model/Year";
+import { Bimester } from "../model/Bimester";
+import { School } from "../model/School";
+import { Classroom } from "../model/Classroom";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Period } from "../model/Period";
+import { BIMESTER } from "../mock/bimester";
+import { DISABILITY } from "../mock/disability";
+import { CLASSROOM_CATEGORY } from "../mock/classroomCategory";
+import { SCHOOLS } from "../mock/school";
+import { CLASSROOM } from "../mock/classroom";
+import { DISCIPLINE } from "../mock/discipline";
+import { Discipline } from "../model/Discipline";
+import { PersonCategory } from "../model/PersonCategory";
+import { PERSON_CATEGORY } from "../mock/personCategory";
+import { STATES } from "../mock/state";
+import { State } from "../model/State";
+import { Disability } from "../model/Disability";
+import { TransferStatus } from "../model/TransferStatus";
+import { TRANSFER_STATUS } from "../mock/transferStatus";
+import { User } from "../model/User";
+import { Person } from "../model/Person";
+import { TestCategory } from "../model/TestCategory";
+import { TESTCATEGORY } from "../mock/testCategory";
+import { QUESTION_GROUP } from "../mock/questionGroup";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { Topic } from "../model/Topic";
+import { TOPIC } from "../mock/topic";
+import { DESCRIPTOR } from "../mock/descriptor";
+import { Descriptor } from "../model/Descriptor";
+import { Teacher } from "../model/Teacher";
+import { pc } from "../utils/personCategories";
+import { LITERACYTIER } from "../mock/literacyTier";
+import { LiteracyTier } from "../model/LiteracyTier";
+import { LiteracyLevel } from "../model/LiteracyLevel";
+import { LITERACYLEVEL } from "../mock/literacyLevel";
+import { TextGender } from "../model/TextGender";
+import { TextGenderExam } from "../model/TextGenderExam";
+import { TEXTGENDER } from "../mock/textGender";
+import { TEXTGENDEREXAM } from "../mock/textGenderExam";
+import { TextGenderExamTier } from "../model/TextGenderExamTier";
+import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
+import { TEXTGENDEREXAMTIER } from "../mock/textGenderExamTier";
+import { TEXTGENDEREXAMLEVEL } from "../mock/textGenderExamLevel";
+import { TextGenderClassroom } from "../model/TextGenderClassroom";
+import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
+import { TextGenderExamLevelGroup } from "../model/TextGenderExamLevelGroup";
+import { TEXTGENDEREXAMLEVELGROUP } from "../mock/textGenderExamLevelGroup";
+import { generatePassword } from "../utils/generatePassword";
+import { credentialsEmail } from "../utils/email.service";
 
 export const InitialConfigsRouter = Router();
 
@@ -121,8 +119,6 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const stateSource = new dataSourceController(State).entity
     const disabilitySource = new dataSourceController(Disability).entity
     const testCategorySource = new dataSourceController(TestCategory).entity
-    const studentClassroomSource = new dataSourceController(StudentClassroom).entity
-    const studentSource = new dataSourceController(Student).entity
     const questionGroupSource = new dataSourceController(QuestionGroup).entity
     const topicSource = new dataSourceController(Topic).entity
     const descriptorSource = new dataSourceController(Descriptor).entity
@@ -233,49 +229,11 @@ InitialConfigsRouter.get('/', async (req, res) => {
 
     const schools = await schoolSource.find() as School[]
 
-    // const personCategory = await personCategorySource.findOneBy({ id: 9 }) as PersonCategory
-    // const state = await stateSource.findOne({ where: { id: 25 } }) as State
-    // let studentCounterIndex = 0;
-
     for(let school of schools) {
 
       for(let classroom of CLASSROOM) {
 
         await createClassroom(school, classroom)
-
-        // for(let i = 0; i < 30; i++) {
-        //
-        //   const person = new Person()
-        //   person.name = 'Aluno' + ' ' + studentCounterIndex
-        //   person.birth = new Date()
-        //   person.category = personCategory
-        //
-        //   const student = new Student()
-        //   student.person = person
-        //   student.ra = '111111111'
-        //   student.dv = '1'
-        //   student.state = state
-        //   student.createdByUser = 1
-        //   student.createdAt = new Date()
-        //   student.observationOne = 'obs1'
-        //   student.observationTwo = 'obs2'
-        //
-        //   const studentResult = await studentSource.save(student)
-        //   const studentClassroom = new StudentClassroom()
-        //
-        //   studentClassroom.student = studentResult
-        //   studentClassroom.classroom = createdClassroom
-        //   studentClassroom.rosterNumber = 1
-        //   studentClassroom.startedAt = new Date()
-        //   studentClassroom.createdByUser = 1
-        //   studentClassroom.year = newYear
-        //
-        //   const queryResult = await studentClassroomSource.save(studentClassroom)
-        //
-        //   console.log(queryResult)
-        //
-        //   studentCounterIndex += 1
-        // }
       }
     }
 

@@ -375,7 +375,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("test.discipline", "discipline")
           .leftJoinAndSelect("test.classrooms", "classroom")
           .leftJoinAndSelect("classroom.school", "school")
-          .where(new Brackets(qb => { if(userBody.category != pc.ADMN && userBody.category != pc.SUPE) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms }) } }))
+          .where(new Brackets(qb => { if(userBody.category != pc.ADMN && userBody.category != pc.SUPE && userBody.category != pc.FORM) { qb.where("classroom.id IN" +
+            " (:...teacherClasses)", { teacherClasses: classrooms }) } }))
           .andWhere("year.name = :yearName", { yearName })
           .andWhere("test.name LIKE :search", { search: `%${search}%` })
           .limit(limit)

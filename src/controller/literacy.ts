@@ -41,7 +41,8 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
           .leftJoinAndSelect("studentClassroom.year", "year")
           .leftJoin("studentClassroom.literacies", "literacies")
-          .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE ) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
+          .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE && userBody.category != pc.FORM ) { qb.where("classroom.id IN" +
+            " (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
           .andWhere("category.id = :categoryId", { categoryId: classroomCategory.PEB_I })
           .andWhere("literacies.id IS NOT NULL")
           .andWhere("classroom.active = :active", { active: true })
@@ -128,7 +129,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .leftJoinAndSelect("literacies.literacyTier", "literacyTier")
       .leftJoinAndSelect("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
-      .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE ) {
+      .where( new Brackets((qb) => { if ( userBody.category != pc.ADMN && userBody.category != pc.SUPE && userBody.category != pc.FORM ) {
         qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
       }}))
       .andWhere("classroom.id = :classroomId", { classroomId: classroom.id })
@@ -296,7 +297,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
           .leftJoin("literacy.studentClassroom", "studentClassroom")
           .leftJoin("studentClassroom.classroom", "classroom")
           .leftJoin("literacy.literacyTier", "literacyTier")
-          .where(new Brackets((qb) => { if ( user.category != pc.ADMN && user.category != pc.SUPE ) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
+          .where(new Brackets((qb) => { if ( user.category != pc.ADMN && user.category != pc.SUPE && user.category != pc.FORM ) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
           .andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId: studentClassroom.id })
           .andWhere("literacy.literacyTier = :literacyTierId", { literacyTierId: literacyTier.id })
           .getOne();

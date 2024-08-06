@@ -51,7 +51,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const teacher = await this.teacherByUser(body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(body?.user, CONN);
-        const notInCategories = [pc.ADMN, pc.SUPE];
+        const notInCategories = [pc.ADMN, pc.SUPE, pc.FORM];
 
         const newResult = await CONN.getRepository(Teacher)
           .createQueryBuilder("teacher")

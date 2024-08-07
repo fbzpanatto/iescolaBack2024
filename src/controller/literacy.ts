@@ -123,6 +123,7 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.year", "year")
       .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("studentClassroom.literacies", "literacies")
       .leftJoinAndSelect("literacies.literacyLevel", "literacyLevel")

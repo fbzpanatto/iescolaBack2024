@@ -57,7 +57,7 @@ class TeacherController extends genericController_1.GenericController {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
                     const teacher = yield this.teacherByUser(body.user.user, CONN);
                     const teacherClasses = yield this.teacherClassrooms(body === null || body === void 0 ? void 0 : body.user, CONN);
-                    const notInCategories = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE];
+                    const notInCategories = [personCategories_1.pc.ADMN, personCategories_1.pc.SUPE, personCategories_1.pc.FORM];
                     const newResult = yield CONN.getRepository(Teacher_1.Teacher)
                         .createQueryBuilder("teacher")
                         .leftJoinAndSelect("teacher.person", "person")

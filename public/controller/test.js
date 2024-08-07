@@ -373,9 +373,12 @@ class TestController extends genericController_1.GenericController {
                         .leftJoinAndSelect("test.discipline", "discipline")
                         .leftJoinAndSelect("test.classrooms", "classroom")
                         .leftJoinAndSelect("classroom.school", "school")
-                        .where(new typeorm_1.Brackets(qb => { if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE) {
-                        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
-                    } }))
+                        .where(new typeorm_1.Brackets(qb => {
+                        if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE && userBody.category != personCategories_1.pc.FORM) {
+                            qb.where("classroom.id IN" +
+                                " (:...teacherClasses)", { teacherClasses: classrooms });
+                        }
+                    }))
                         .andWhere("year.name = :yearName", { yearName })
                         .andWhere("test.name LIKE :search", { search: `%${search}%` })
                         .limit(limit)

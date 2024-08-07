@@ -41,9 +41,12 @@ class LiteracyController extends genericController_1.GenericController {
                         .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
                         .leftJoinAndSelect("studentClassroom.year", "year")
                         .leftJoin("studentClassroom.literacies", "literacies")
-                        .where(new typeorm_1.Brackets((qb) => { if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE) {
-                        qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
-                    } }))
+                        .where(new typeorm_1.Brackets((qb) => {
+                        if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE && userBody.category != personCategories_1.pc.FORM) {
+                            qb.where("classroom.id IN" +
+                                " (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
+                        }
+                    }))
                         .andWhere("category.id = :categoryId", { categoryId: classroomCategory_1.classroomCategory.PEB_I })
                         .andWhere("literacies.id IS NOT NULL")
                         .andWhere("classroom.active = :active", { active: true })
@@ -122,6 +125,7 @@ class LiteracyController extends genericController_1.GenericController {
                 .createQueryBuilder("studentClassroom")
                 .leftJoinAndSelect("studentClassroom.year", "year")
                 .leftJoinAndSelect("studentClassroom.student", "student")
+                .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
                 .leftJoinAndSelect("student.person", "person")
                 .leftJoinAndSelect("studentClassroom.literacies", "literacies")
                 .leftJoinAndSelect("literacies.literacyLevel", "literacyLevel")
@@ -129,7 +133,7 @@ class LiteracyController extends genericController_1.GenericController {
                 .leftJoinAndSelect("studentClassroom.classroom", "classroom")
                 .leftJoinAndSelect("classroom.school", "school")
                 .where(new typeorm_1.Brackets((qb) => {
-                if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE) {
+                if (userBody.category != personCategories_1.pc.ADMN && userBody.category != personCategories_1.pc.SUPE && userBody.category != personCategories_1.pc.FORM) {
                     qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
                 }
             }))
@@ -284,7 +288,7 @@ class LiteracyController extends genericController_1.GenericController {
                         .leftJoin("literacy.studentClassroom", "studentClassroom")
                         .leftJoin("studentClassroom.classroom", "classroom")
                         .leftJoin("literacy.literacyTier", "literacyTier")
-                        .where(new typeorm_1.Brackets((qb) => { if (user.category != personCategories_1.pc.ADMN && user.category != personCategories_1.pc.SUPE) {
+                        .where(new typeorm_1.Brackets((qb) => { if (user.category != personCategories_1.pc.ADMN && user.category != personCategories_1.pc.SUPE && user.category != personCategories_1.pc.FORM) {
                         qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
                     } }))
                         .andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId: studentClassroom.id })

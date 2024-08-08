@@ -5,7 +5,6 @@ import { Year} from "./Year";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
 import { Literacy } from "./Literacy";
-import { TextGenderGrade } from "./TextGenderGrade";
 
 @Entity()
 export class StudentClassroom {
@@ -30,9 +29,6 @@ export class StudentClassroom {
 
   @OneToMany(() => Literacy, literacy => literacy.studentClassroom)
   literacies: Literacy[]
-
-  @OneToMany(() => TextGenderGrade, textGenderGrade => textGenderGrade.studentClassroom)
-  textGenderGrades: TextGenderGrade[]
 
   //TODO: não permitir cadastrar dois números iguais para uma mesma sala de aula
   @Column({ nullable: false })

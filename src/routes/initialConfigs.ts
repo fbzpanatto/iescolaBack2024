@@ -36,18 +36,6 @@ import { LITERACYTIER } from "../mock/literacyTier";
 import { LiteracyTier } from "../model/LiteracyTier";
 import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LITERACYLEVEL } from "../mock/literacyLevel";
-import { TextGender } from "../model/TextGender";
-import { TextGenderExam } from "../model/TextGenderExam";
-import { TEXTGENDER } from "../mock/textGender";
-import { TEXTGENDEREXAM } from "../mock/textGenderExam";
-import { TextGenderExamTier } from "../model/TextGenderExamTier";
-import { TextGenderExamLevel } from "../model/TextGenderExamLevel";
-import { TEXTGENDEREXAMTIER } from "../mock/textGenderExamTier";
-import { TEXTGENDEREXAMLEVEL } from "../mock/textGenderExamLevel";
-import { TextGenderClassroom } from "../model/TextGenderClassroom";
-import { TEXTGENDERCLASSROOM } from "../mock/textGenderClassroom";
-import { TextGenderExamLevelGroup } from "../model/TextGenderExamLevelGroup";
-import { TEXTGENDEREXAMLEVELGROUP } from "../mock/textGenderExamLevelGroup";
 import { generatePassword } from "../utils/generatePassword";
 import { credentialsEmail } from "../utils/email.service";
 
@@ -124,12 +112,6 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const descriptorSource = new dataSourceController(Descriptor).entity
     const literacyTierSource = new dataSourceController(LiteracyTier).entity
     const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
-    const textGender = new dataSourceController(TextGender).entity
-    const textGenderExam = new dataSourceController(TextGenderExam).entity
-    const textGenderExamTier = new dataSourceController(TextGenderExamTier).entity
-    const textGenderExamLevel = new dataSourceController(TextGenderExamLevel).entity
-    const textGenderClassroom = new dataSourceController(TextGenderClassroom).entity
-    const textGenderExamLevelGroup = new dataSourceController(TextGenderExamLevelGroup).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -275,47 +257,6 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newDescriptor.code = descriptor.code
       newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic
       await descriptorSource.save(newDescriptor)
-    }
-
-    for(let el of TEXTGENDER) {
-      const newTextGender = new TextGender()
-      newTextGender.name = el.name
-      await textGender.save(newTextGender)
-    }
-
-    for(let el of TEXTGENDEREXAM) {
-      const newTextGenderExam = new TextGenderExam()
-      newTextGenderExam.name = el.name
-      newTextGenderExam.color = el.color
-      await textGenderExam.save(newTextGenderExam)
-    }
-
-    for(let el of TEXTGENDEREXAMTIER) {
-      const newTextGenderExamTier = new TextGenderExamTier()
-      newTextGenderExamTier.name = el.name
-      newTextGenderExamTier.color = el.color
-      await textGenderExamTier.save(newTextGenderExamTier)
-    }
-
-    for(let el of TEXTGENDEREXAMLEVEL) {
-      const newTextGenderExamLevel = new TextGenderExamLevel()
-      newTextGenderExamLevel.name = el.name
-      newTextGenderExamLevel.color = el.color
-      await textGenderExamLevel.save(newTextGenderExamLevel)
-    }
-
-    for(let el of TEXTGENDERCLASSROOM) {
-      const newTextGenderClassroom = new TextGenderClassroom()
-      newTextGenderClassroom.classroomNumber = el.classroomNumber
-      newTextGenderClassroom.textGender = await textGender.findOneBy({ id: el.textGender.id }) as TextGender
-      await textGenderClassroom.save(newTextGenderClassroom)
-    }
-
-    for(let el of TEXTGENDEREXAMLEVELGROUP) {
-      const newTextGenderExamLevelGroup = new TextGenderExamLevelGroup()
-      newTextGenderExamLevelGroup.textGenderExam = await textGenderExam.findOneBy({ id: el.textGenderExam.id }) as TextGenderExam
-      newTextGenderExamLevelGroup.textGenderExamLevel = await textGenderExamLevel.findOneBy({ id: el.textGenderExamLevel.id }) as TextGenderExamLevel
-      await textGenderExamLevelGroup.save(newTextGenderExamLevelGroup)
     }
 
     await createAdminPerson()

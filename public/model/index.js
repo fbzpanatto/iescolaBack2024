@@ -34,6 +34,9 @@ const LiteracyTier_1 = require("./LiteracyTier");
 const LiteracyLevel_1 = require("./LiteracyLevel");
 const LiteracyFirst_1 = require("./LiteracyFirst");
 const TestClassroom_1 = require("./TestClassroom");
+const ReadingFluencyExam_1 = require("./ReadingFluencyExam");
+const ReadingFluencyLevel_1 = require("./ReadingFluencyLevel");
+const ReadingFluencyGroup_1 = require("./ReadingFluencyGroup");
 exports.entities = [
     Bimester_1.Bimester,
     Classroom_1.Classroom,
@@ -58,6 +61,9 @@ exports.entities = [
     StudentDisability_1.StudentDisability,
     StudentQuestion_1.StudentQuestion,
     StudentTestStatus_1.StudentTestStatus,
+    ReadingFluencyExam_1.ReadingFluencyExam,
+    ReadingFluencyLevel_1.ReadingFluencyLevel,
+    ReadingFluencyGroup_1.ReadingFluencyGroup,
     Teacher_1.Teacher,
     TeacherClassDiscipline_1.TeacherClassDiscipline,
     Test_1.Test,

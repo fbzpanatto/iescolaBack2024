@@ -161,7 +161,7 @@ class TransferController extends genericController_1.GenericController {
                         return { status: 200, data: 'Rejeitada com sucesso.' };
                     }
                     if (body.accept) {
-                        const relations = ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year'];
+                        const relations = ['student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'year'];
                         const stClass = yield CONN.findOne(StudentClassroom_1.StudentClassroom, { relations: relations, where: { student: body.student, classroom: body.classroom, endedAt: (0, typeorm_1.IsNull)() } });
                         if (!stClass) {
                             return { status: 404, message: 'Registro não encontrado.' };

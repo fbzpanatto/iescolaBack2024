@@ -348,7 +348,7 @@ class StudentController extends genericController_1.GenericController {
                     };
                     const dbStudent = yield CONN.findOne(Student_1.Student, dbStudentOptions);
                     const bodyClass = yield CONN.findOne(Classroom_1.Classroom, { where: { id: body.classroom } });
-                    const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year"];
+                    const arrRel = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "year"];
                     const stClassroomOptions = {
                         relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: (0, typeorm_1.IsNull)() }
                     };
@@ -454,6 +454,7 @@ class StudentController extends genericController_1.GenericController {
                 }));
             }
             catch (error) {
+                console.log(error);
                 return { status: 500, message: error.message };
             }
         });

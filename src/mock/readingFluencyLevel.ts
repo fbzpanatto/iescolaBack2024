@@ -1,4 +1,4 @@
-export const READINGFLUENCYEXAM = [
+export const READINGFLUENCYLEVEL = [
   { name: "NL", color: "#d75858" },
   { name: "LS", color: "#96d66b" },
   { name: "LF", color: "#d7be58" },

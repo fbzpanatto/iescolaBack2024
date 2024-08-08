@@ -6,7 +6,7 @@ import { TestCategory } from "./TestCategory";
 import { Person } from "./Person";
 import { TestQuestion } from "./TestQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
-import {TestClassroom} from "./TestClassroom";
+import { TestClassroom } from "./TestClassroom";
 
 @Entity()
 export class Test {
@@ -16,6 +16,9 @@ export class Test {
 
   @Column()
   name: string
+
+  @Column({ default: true })
+  active: boolean
 
   @ManyToOne(() => Discipline, discipline => discipline.tests)
   discipline: Discipline

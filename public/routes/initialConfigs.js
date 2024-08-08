@@ -50,6 +50,12 @@ const LiteracyLevel_1 = require("../model/LiteracyLevel");
 const literacyLevel_1 = require("../mock/literacyLevel");
 const generatePassword_1 = require("../utils/generatePassword");
 const email_service_1 = require("../utils/email.service");
+const ReadingFluencyExam_1 = require("../model/ReadingFluencyExam");
+const ReadingFluencyLevel_1 = require("../model/ReadingFluencyLevel");
+const ReadingFluencyGroup_1 = require("../model/ReadingFluencyGroup");
+const readingFluencyExam_1 = require("../mock/readingFluencyExam");
+const readingFluencyLevel_1 = require("../mock/readingFluencyLevel");
+const readingFluencyGroup_1 = require("../mock/readingFluencyGroup");
 exports.InitialConfigsRouter = (0, express_1.Router)();
 function createClassroom(school, classroom) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -118,6 +124,9 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         const descriptorSource = new initialConfigs_1.dataSourceController(Descriptor_1.Descriptor).entity;
         const literacyTierSource = new initialConfigs_1.dataSourceController(LiteracyTier_1.LiteracyTier).entity;
         const literacyLevelSource = new initialConfigs_1.dataSourceController(LiteracyLevel_1.LiteracyLevel).entity;
+        const readingFluencyExamSource = new initialConfigs_1.dataSourceController(ReadingFluencyExam_1.ReadingFluencyExam).entity;
+        const readingFluencyLevelSource = new initialConfigs_1.dataSourceController(ReadingFluencyLevel_1.ReadingFluencyLevel).entity;
+        const readingFluencyGroupSource = new initialConfigs_1.dataSourceController(ReadingFluencyGroup_1.ReadingFluencyGroup).entity;
         const currentYear = new Date().getFullYear();
         const date = new Date(currentYear, 0, 1, 0, 0, 0, 0);
         for (let literacyTier of literacyTier_1.LITERACYTIER) {
@@ -240,6 +249,24 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
             newDescriptor.code = descriptor.code;
             newDescriptor.topic = (yield topicSource.findOneBy({ id: descriptor.topic.id }));
             yield descriptorSource.save(newDescriptor);
+        }
+        for (let element of readingFluencyExam_1.READINGFLUENCYEXAM) {
+            const el = new ReadingFluencyExam_1.ReadingFluencyExam();
+            el.name = element.name;
+            el.color = element.color;
+            yield readingFluencyExamSource.save(el);
+        }
+        for (let element of readingFluencyLevel_1.READINGFLUENCYLEVEL) {
+            const el = new ReadingFluencyLevel_1.ReadingFluencyLevel();
+            el.name = element.name;
+            el.color = element.color;
+            yield readingFluencyLevelSource.save(el);
+        }
+        for (let element of readingFluencyGroup_1.READINGFLUENCYGROUP) {
+            const el = new ReadingFluencyGroup_1.ReadingFluencyGroup();
+            el.readingFluencyExam = (yield readingFluencyExamSource.findOneBy({ id: element.readingFluencyExam.id }));
+            el.readingFluencyLevel = (yield readingFluencyLevelSource.findOneBy({ id: element.readingFluencyLevel.id }));
+            yield readingFluencyGroupSource.save(el);
         }
         yield createAdminPerson();
         return res.status(200).json({ message: 'Configurações iniciais criadas com sucesso!' });

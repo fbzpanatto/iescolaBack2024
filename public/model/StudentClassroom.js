@@ -17,7 +17,6 @@ const Year_1 = require("./Year");
 const StudentQuestion_1 = require("./StudentQuestion");
 const StudentTestStatus_1 = require("./StudentTestStatus");
 const Literacy_1 = require("./Literacy");
-const TextGenderGrade_1 = require("./TextGenderGrade");
 let StudentClassroom = class StudentClassroom {
 };
 exports.StudentClassroom = StudentClassroom;
@@ -49,10 +48,6 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => Literacy_1.Literacy, literacy => literacy.studentClassroom),
     __metadata("design:type", Array)
 ], StudentClassroom.prototype, "literacies", void 0);
-__decorate([
-    (0, typeorm_1.OneToMany)(() => TextGenderGrade_1.TextGenderGrade, textGenderGrade => textGenderGrade.studentClassroom),
-    __metadata("design:type", Array)
-], StudentClassroom.prototype, "textGenderGrades", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: false }),
     __metadata("design:type", Number)

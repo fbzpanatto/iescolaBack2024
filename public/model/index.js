@@ -33,13 +33,6 @@ const Literacy_1 = require("./Literacy");
 const LiteracyTier_1 = require("./LiteracyTier");
 const LiteracyLevel_1 = require("./LiteracyLevel");
 const LiteracyFirst_1 = require("./LiteracyFirst");
-const TextGender_1 = require("./TextGender");
-const TextGenderExam_1 = require("./TextGenderExam");
-const TextGenderExamLevel_1 = require("./TextGenderExamLevel");
-const TextGenderExamTier_1 = require("./TextGenderExamTier");
-const TextGenderGrade_1 = require("./TextGenderGrade");
-const TextGenderClassroom_1 = require("./TextGenderClassroom");
-const TextGenderExamLevelGroup_1 = require("./TextGenderExamLevelGroup");
 const TestClassroom_1 = require("./TestClassroom");
 exports.entities = [
     Bimester_1.Bimester,
@@ -70,13 +63,6 @@ exports.entities = [
     Test_1.Test,
     TestCategory_1.TestCategory,
     TestQuestion_1.TestQuestion,
-    TextGender_1.TextGender,
-    TextGenderExam_1.TextGenderExam,
-    TextGenderExamTier_1.TextGenderExamTier,
-    TextGenderExamLevel_1.TextGenderExamLevel,
-    TextGenderGrade_1.TextGenderGrade,
-    TextGenderClassroom_1.TextGenderClassroom,
-    TextGenderExamLevelGroup_1.TextGenderExamLevelGroup,
     Topic_1.Topic,
     Transfer_1.Transfer,
     TransferStatus_1.TransferStatus,

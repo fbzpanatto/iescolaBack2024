@@ -48,18 +48,6 @@ const literacyTier_1 = require("../mock/literacyTier");
 const LiteracyTier_1 = require("../model/LiteracyTier");
 const LiteracyLevel_1 = require("../model/LiteracyLevel");
 const literacyLevel_1 = require("../mock/literacyLevel");
-const TextGender_1 = require("../model/TextGender");
-const TextGenderExam_1 = require("../model/TextGenderExam");
-const textGender_1 = require("../mock/textGender");
-const textGenderExam_1 = require("../mock/textGenderExam");
-const TextGenderExamTier_1 = require("../model/TextGenderExamTier");
-const TextGenderExamLevel_1 = require("../model/TextGenderExamLevel");
-const textGenderExamTier_1 = require("../mock/textGenderExamTier");
-const textGenderExamLevel_1 = require("../mock/textGenderExamLevel");
-const TextGenderClassroom_1 = require("../model/TextGenderClassroom");
-const textGenderClassroom_1 = require("../mock/textGenderClassroom");
-const TextGenderExamLevelGroup_1 = require("../model/TextGenderExamLevelGroup");
-const textGenderExamLevelGroup_1 = require("../mock/textGenderExamLevelGroup");
 const generatePassword_1 = require("../utils/generatePassword");
 const email_service_1 = require("../utils/email.service");
 exports.InitialConfigsRouter = (0, express_1.Router)();
@@ -130,12 +118,6 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
         const descriptorSource = new initialConfigs_1.dataSourceController(Descriptor_1.Descriptor).entity;
         const literacyTierSource = new initialConfigs_1.dataSourceController(LiteracyTier_1.LiteracyTier).entity;
         const literacyLevelSource = new initialConfigs_1.dataSourceController(LiteracyLevel_1.LiteracyLevel).entity;
-        const textGender = new initialConfigs_1.dataSourceController(TextGender_1.TextGender).entity;
-        const textGenderExam = new initialConfigs_1.dataSourceController(TextGenderExam_1.TextGenderExam).entity;
-        const textGenderExamTier = new initialConfigs_1.dataSourceController(TextGenderExamTier_1.TextGenderExamTier).entity;
-        const textGenderExamLevel = new initialConfigs_1.dataSourceController(TextGenderExamLevel_1.TextGenderExamLevel).entity;
-        const textGenderClassroom = new initialConfigs_1.dataSourceController(TextGenderClassroom_1.TextGenderClassroom).entity;
-        const textGenderExamLevelGroup = new initialConfigs_1.dataSourceController(TextGenderExamLevelGroup_1.TextGenderExamLevelGroup).entity;
         const currentYear = new Date().getFullYear();
         const date = new Date(currentYear, 0, 1, 0, 0, 0, 0);
         for (let literacyTier of literacyTier_1.LITERACYTIER) {
@@ -258,41 +240,6 @@ exports.InitialConfigsRouter.get('/', (req, res) => __awaiter(void 0, void 0, vo
             newDescriptor.code = descriptor.code;
             newDescriptor.topic = (yield topicSource.findOneBy({ id: descriptor.topic.id }));
             yield descriptorSource.save(newDescriptor);
-        }
-        for (let el of textGender_1.TEXTGENDER) {
-            const newTextGender = new TextGender_1.TextGender();
-            newTextGender.name = el.name;
-            yield textGender.save(newTextGender);
-        }
-        for (let el of textGenderExam_1.TEXTGENDEREXAM) {
-            const newTextGenderExam = new TextGenderExam_1.TextGenderExam();
-            newTextGenderExam.name = el.name;
-            newTextGenderExam.color = el.color;
-            yield textGenderExam.save(newTextGenderExam);
-        }
-        for (let el of textGenderExamTier_1.TEXTGENDEREXAMTIER) {
-            const newTextGenderExamTier = new TextGenderExamTier_1.TextGenderExamTier();
-            newTextGenderExamTier.name = el.name;
-            newTextGenderExamTier.color = el.color;
-            yield textGenderExamTier.save(newTextGenderExamTier);
-        }
-        for (let el of textGenderExamLevel_1.TEXTGENDEREXAMLEVEL) {
-            const newTextGenderExamLevel = new TextGenderExamLevel_1.TextGenderExamLevel();
-            newTextGenderExamLevel.name = el.name;
-            newTextGenderExamLevel.color = el.color;
-            yield textGenderExamLevel.save(newTextGenderExamLevel);
-        }
-        for (let el of textGenderClassroom_1.TEXTGENDERCLASSROOM) {
-            const newTextGenderClassroom = new TextGenderClassroom_1.TextGenderClassroom();
-            newTextGenderClassroom.classroomNumber = el.classroomNumber;
-            newTextGenderClassroom.textGender = (yield textGender.findOneBy({ id: el.textGender.id }));
-            yield textGenderClassroom.save(newTextGenderClassroom);
-        }
-        for (let el of textGenderExamLevelGroup_1.TEXTGENDEREXAMLEVELGROUP) {
-            const newTextGenderExamLevelGroup = new TextGenderExamLevelGroup_1.TextGenderExamLevelGroup();
-            newTextGenderExamLevelGroup.textGenderExam = (yield textGenderExam.findOneBy({ id: el.textGenderExam.id }));
-            newTextGenderExamLevelGroup.textGenderExamLevel = (yield textGenderExamLevel.findOneBy({ id: el.textGenderExamLevel.id }));
-            yield textGenderExamLevelGroup.save(newTextGenderExamLevelGroup);
         }
         yield createAdminPerson();
         return res.status(200).json({ message: 'Configurações iniciais criadas com sucesso!' });

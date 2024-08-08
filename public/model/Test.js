@@ -30,6 +30,10 @@ __decorate([
     __metadata("design:type", String)
 ], Test.prototype, "name", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], Test.prototype, "active", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => Discipline_1.Discipline, discipline => discipline.tests),
     __metadata("design:type", Discipline_1.Discipline)
 ], Test.prototype, "discipline", void 0);

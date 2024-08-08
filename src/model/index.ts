@@ -31,6 +31,9 @@ import { LiteracyTier } from "./LiteracyTier";
 import { LiteracyLevel } from "./LiteracyLevel";
 import { LiteracyFirst } from "./LiteracyFirst";
 import { TestClassroom } from "./TestClassroom";
+import { ReadingFluencyExam } from "./ReadingFluencyExam";
+import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
+import { ReadingFluencyGroup } from "./ReadingFluencyGroup";
 export const entities = [
   Bimester,
   Classroom,
@@ -55,6 +58,9 @@ export const entities = [
   StudentDisability,
   StudentQuestion,
   StudentTestStatus,
+  ReadingFluencyExam,
+  ReadingFluencyLevel,
+  ReadingFluencyGroup,
   Teacher,
   TeacherClassDiscipline,
   Test,

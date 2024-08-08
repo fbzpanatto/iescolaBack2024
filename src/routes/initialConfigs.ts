@@ -38,6 +38,12 @@ import { LiteracyLevel } from "../model/LiteracyLevel";
 import { LITERACYLEVEL } from "../mock/literacyLevel";
 import { generatePassword } from "../utils/generatePassword";
 import { credentialsEmail } from "../utils/email.service";
+import { ReadingFluencyExam } from "../model/ReadingFluencyExam";
+import { ReadingFluencyLevel } from "../model/ReadingFluencyLevel";
+import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
+import { READINGFLUENCYEXAM } from "../mock/readingFluencyExam";
+import { READINGFLUENCYLEVEL } from "../mock/readingFluencyLevel";
+import { READINGFLUENCYGROUP } from "../mock/readingFluencyGroup";
 
 export const InitialConfigsRouter = Router();
 
@@ -112,6 +118,9 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const descriptorSource = new dataSourceController(Descriptor).entity
     const literacyTierSource = new dataSourceController(LiteracyTier).entity
     const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
+    const readingFluencyExamSource = new dataSourceController(ReadingFluencyExam).entity
+    const readingFluencyLevelSource = new dataSourceController(ReadingFluencyLevel).entity
+    const readingFluencyGroupSource = new dataSourceController(ReadingFluencyGroup).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
@@ -257,6 +266,27 @@ InitialConfigsRouter.get('/', async (req, res) => {
       newDescriptor.code = descriptor.code
       newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic
       await descriptorSource.save(newDescriptor)
+    }
+
+    for(let element of READINGFLUENCYEXAM) {
+      const el = new ReadingFluencyExam()
+      el.name = element.name
+      el.color = element.color
+      await readingFluencyExamSource.save(el)
+    }
+
+    for(let element of READINGFLUENCYLEVEL) {
+      const el = new ReadingFluencyLevel()
+      el.name = element.name
+      el.color = element.color
+      await readingFluencyLevelSource.save(el)
+    }
+
+    for(let element of READINGFLUENCYGROUP) {
+      const el = new ReadingFluencyGroup()
+      el.readingFluencyExam = await readingFluencyExamSource.findOneBy({ id: element.readingFluencyExam.id }) as  ReadingFluencyExam
+      el.readingFluencyLevel = await readingFluencyLevelSource.findOneBy({ id: element.readingFluencyLevel.id }) as ReadingFluencyLevel
+      await readingFluencyGroupSource.save(el)
     }
 
     await createAdminPerson()

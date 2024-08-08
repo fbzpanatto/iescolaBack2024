@@ -164,7 +164,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         if (body.accept) {
 
-          const relations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'textGenderGrades.textGender', 'textGenderGrades.textGenderExam', 'textGenderGrades.textGenderExamTier', 'textGenderGrades.textGenderExamLevel', 'year' ]
+          const relations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'year' ]
 
           const stClass = await CONN.findOne(StudentClassroom, { relations: relations, where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
 

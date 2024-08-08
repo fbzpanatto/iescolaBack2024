@@ -350,7 +350,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const bodyClass: Classroom | null = await CONN.findOne(Classroom, { where: { id: body.classroom } })
 
-        const arrRel: string[] = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "textGenderGrades.textGender", "textGenderGrades.textGenderExam", "textGenderGrades.textGenderExamTier", "textGenderGrades.textGenderExamLevel", "year" ]
+        const arrRel: string[] = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "year" ]
 
         const stClassroomOptions:  FindOneOptions<StudentClassroom> = {
           relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: IsNull() }
@@ -457,7 +457,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 200, data: result };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   async setDisabilities(uTeacherId:number, student: Student, studentDisabilities: StudentDisability[], body: number[], CONN: EntityManager ) {

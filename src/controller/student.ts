@@ -336,6 +336,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   override async updateId(studentId: number | string, body: any) {
+
     try {
       let result: any;
       return await AppDataSource.transaction(async (CONN) => {
@@ -362,9 +363,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (!stClass) { return { status: 404, message: "Registro não encontrado" } }
         if (!bodyClass) { return { status: 404, message: "Sala não encontrada" } }
 
-        const cBodySRA: string = `${body.ra}${body.dv}`; const cSRA = `${dbStudent.ra}${dbStudent.dv}`;
+        const cBodySRA: string = `${body.ra}${body.dv}`;
+        const databaseStudentRa = `${dbStudent.ra}${dbStudent.dv}`;
 
-        if (cSRA !== cBodySRA) {
+        if(databaseStudentRa !== cBodySRA && uTeacher.person.category.id != pc.ADMN) {
+          return { status: 403, message: 'Você não tem permissão para modificar o RA de um aluno. Solicite ao Administrador do sistema.' }
+        }
+
+        if (databaseStudentRa !== cBodySRA) {
           const exists: Student | null = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } });
           if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }
         }
@@ -577,10 +583,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   createStudent(body: SaveStudent, person: Person, state: State, userId: number) {
+
+    let formatedDv;
+
+    const digit = body.dv.replace(/\D/g, "");
+    if(digit.length) { formatedDv = body.dv }
+    else { formatedDv = body.dv.toUpperCase() }
+
     const student = new Student()
     student.person = person
     student.ra = body.ra
-    student.dv = body.dv
+    student.dv = formatedDv
     student.state = state
     student.createdByUser = userId
     student.createdAt = new Date()

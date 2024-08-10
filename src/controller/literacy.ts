@@ -290,6 +290,13 @@ class LiteracyController extends GenericController<EntityTarget<Literacy>> {
 
       return await AppDataSource.transaction(async (CONN) => {
 
+        const currentYear = await this.currentYear(CONN)
+
+        // TODO: Review!!! Temporary rule.
+        if(literacyTier.id === 1 || literacyTier.id === 2 && currentYear.name === '2024'){
+          return { status: 403, message: '1º e 2º avaliações não estão permitindo lançamentos.' }
+        }
+
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(user, CONN);
 

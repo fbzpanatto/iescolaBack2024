@@ -227,6 +227,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   override async save(body: SaveStudent) {
+
+    const rosterNumber = parseInt(body.rosterNumber, 10)
+
     try {
 
       return await AppDataSource.transaction(async (CONN) => {
@@ -283,11 +286,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await CONN.save(StudentDisability, mappDis);
         }
 
-        const stClassroom = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: year.id }, classroom: { id: classroom.id } }, order: { rosterNumber: "DESC" }, take: 1 })
-
-        let last = 1; if (stClassroom[0]?.rosterNumber) { last = stClassroom[0].rosterNumber + 1 }
-
-        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
+        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
 
         const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 

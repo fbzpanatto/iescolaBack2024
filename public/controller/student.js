@@ -232,9 +232,9 @@ class StudentController extends genericController_1.GenericController {
     }
     save(body) {
         return __awaiter(this, void 0, void 0, function* () {
+            const rosterNumber = parseInt(body.rosterNumber, 10);
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
-                    var _a;
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const tClasses = yield this.teacherClassrooms(body.user, CONN);
                     const year = yield this.currentYear(CONN);
@@ -284,12 +284,7 @@ class StudentController extends genericController_1.GenericController {
                         const mappDis = disabilities.map((disability) => { return { student: student, startedAt: new Date(), disability, createdByUser: uTeacher.person.user.id }; });
                         yield CONN.save(StudentDisability_1.StudentDisability, mappDis);
                     }
-                    const stClassroom = yield CONN.find(StudentClassroom_1.StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: year.id }, classroom: { id: classroom.id } }, order: { rosterNumber: "DESC" }, take: 1 });
-                    let last = 1;
-                    if ((_a = stClassroom[0]) === null || _a === void 0 ? void 0 : _a.rosterNumber) {
-                        last = stClassroom[0].rosterNumber + 1;
-                    }
-                    const stObject = (yield CONN.save(StudentClassroom_1.StudentClassroom, { student, classroom, year, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id }));
+                    const stObject = (yield CONN.save(StudentClassroom_1.StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: uTeacher.person.user.id }));
                     const notDigit = /\D/g;
                     const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
                     const tStatus = (yield CONN.findOne(TransferStatus_1.TransferStatus, { where: { id: 5, name: "Novo" } }));

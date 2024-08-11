@@ -241,7 +241,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const classroom = await this.classroom(body.classroom, CONN);
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
-        const person = this.createPerson({ name: body.name.toUpperCase(), birth: body.birth, category });
+        const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
 
         if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 

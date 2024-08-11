@@ -260,7 +260,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const category = (await CONN.findOne(PersonCategory, {where: { id: body.category.id }})) as PersonCategory;
 
-        const person = this.createPerson({name: body.name,birth: body.birth,category});
+        const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth,category });
 
         const teacher = await CONN.save(Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
 

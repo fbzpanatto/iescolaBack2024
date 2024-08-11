@@ -281,6 +281,11 @@ class LiteracyController extends genericController_1.GenericController {
             try {
                 let result = {};
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {
+                    const currentYear = yield this.currentYear(CONN);
+                    // TODO: Review!!! Temporary rule.
+                    if (literacyTier.id === 1 || literacyTier.id === 2 && currentYear.name === '2024') {
+                        return { status: 403, message: '1º e 2º avaliações não estão permitindo lançamentos.' };
+                    }
                     const uTeacher = yield this.teacherByUser(body.user.user, CONN);
                     const teacherClasses = yield this.teacherClassrooms(user, CONN);
                     const stLiteracy = yield CONN.getRepository(Literacy_1.Literacy)

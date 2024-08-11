@@ -267,7 +267,7 @@ class TeacherController extends genericController_1.GenericController {
                         return { status: 409, message: "Já existe um registro com este email." };
                     }
                     const category = (yield CONN.findOne(PersonCategory_1.PersonCategory, { where: { id: body.category.id } }));
-                    const person = this.createPerson({ name: body.name, birth: body.birth, category });
+                    const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
                     const teacher = yield CONN.save(Teacher_1.Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
                     const { username, passwordObject, email } = this.generateUser(body);
                     yield CONN.save(User_1.User, { person, username, email, password: passwordObject.hashedPassword });

@@ -307,6 +307,91 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
+  async bulkInsert(body: any) {
+
+    try {
+
+      return await AppDataSource.transaction(async (CONN) => {
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const tClasses = await this.teacherClassrooms(body.user, CONN);
+        const year = await this.currentYear(CONN);
+
+        for(let element of body.arrayOfData) {
+
+          const rosterNumber = parseInt(element.rosterNumber, 10)
+
+          const state = await this.state(element.state, CONN);
+          const classroom = await this.classroom(element.classroom, CONN);
+          const category = await this.studentCategory(CONN);
+          const person = this.createPerson({ name: element.name.toUpperCase().trim(), birth: element.birth, category });
+
+          if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
+
+          const exists = await CONN.findOne(Student, { where: { ra: element.ra, dv: element.dv } })
+
+          if (exists) {
+            const el = (await CONN.getRepository(Student)
+              .createQueryBuilder("student")
+              .leftJoinAndSelect("student.person", "person")
+              .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+              .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+              .leftJoinAndSelect("classroom.school", "school")
+              .leftJoinAndSelect("studentClassroom.year", "year")
+              .where("student.ra = :ra", { ra: element.ra })
+              .andWhere("student.dv = :dv", { dv: element.dv })
+              .andWhere( new Brackets((qb) => { qb.where("studentClassroom.endedAt IS NULL").orWhere("studentClassroom.endedAt < :currentDate", { currentDate: new Date() })}) )
+              .getOne()) as Student;
+
+            let preR: StudentClassroom;
+
+            const actStClassroom = el.studentClassrooms.find((sc) => sc.endedAt === null) as StudentClassroom;
+
+            if (actStClassroom) { preR = actStClassroom }
+            else { preR = el.studentClassrooms.find((sc) => getTimeZone(sc.endedAt) === Math.max(...el.studentClassrooms.map((sc) => getTimeZone(sc.endedAt)))) as StudentClassroom }
+
+            if (!el.active) {
+              return { status: 409, message: `RA existente. ${el.person.name} se formou em: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano de ${preR?.year.name}.` }
+            }
+
+            return { status: 409, message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano ${preR?.year.name}. ${preR.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS no ano de ${preR.year.name}.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}`};
+          }
+
+          const message = "Você não tem permissão para criar um aluno nesta sala."
+          if (body.user.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
+
+          let student: Student | null = null;
+
+          student = await CONN.save(Student, this.createStudentBulk(element, person, state, uTeacher.person.user.id));
+
+          const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
+
+          const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
+
+          const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
+
+          const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
+
+          await CONN.save(Transfer, transfer);
+
+          if (classroomNumber === 1) {
+            const literacyTier = await CONN.find(LiteracyTier)
+            for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() } as Literacy) }
+            await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
+          }
+
+        }
+
+        return { status: 201, data: {} as unknown as Student }
+      })
+    } catch (error: any) {
+
+      console.log('error', error)
+
+      return { status: 500, message: error.message }
+    }
+  }
+
   async putLiteracyBeforeLevel(body: LiteracyBeforeLevel) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
@@ -587,6 +672,25 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const digit = body.dv.replace(/\D/g, "");
     if(digit.length) { formatedDv = body.dv }
+    else { formatedDv = body.dv.toUpperCase() }
+
+    const student = new Student()
+    student.person = person
+    student.ra = body.ra
+    student.dv = formatedDv
+    student.state = state
+    student.createdByUser = userId
+    student.createdAt = new Date()
+    student.observationOne = body.observationOne
+    student.observationTwo = body.observationTwo
+    return student
+  }
+
+  createStudentBulk(body: SaveStudent, person: Person, state: State, userId: number) {
+
+    let formatedDv;
+
+    if(typeof body.dv === 'number') { formatedDv = body.dv }
     else { formatedDv = body.dv.toUpperCase() }
 
     const student = new Student()

@@ -146,6 +146,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getStudents(request?: Request) {
 
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+    // TODO: IAM HERE
+
     const testId = parseInt(request?.params.id as string)
     const classroomId = parseInt(request?.params.classroom as string)
     const yearName = request?.params.year as string
@@ -167,11 +175,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
-        const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
-
-        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-        const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-
         const classroom = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .leftJoinAndSelect("classroom.school", "school")
@@ -182,11 +185,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
-        await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+        let data;
 
-        const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
-
-        let data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
+        console.log('test.category.id', test.category.id)
+        switch (test.category.id) {
+          case (TEST_CATEGORIES_IDS.TEST): {
+            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+            const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+            await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+            const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
+            data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
+          }
+        }
 
         return { status: 200, data };
       })

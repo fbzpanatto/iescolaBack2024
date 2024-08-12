@@ -11,6 +11,7 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { StudentQuestion as SQues } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { Year } from "../model/Year";
 import { Brackets, DeepPartial, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
 import { Teacher } from "../model/Teacher";
@@ -462,21 +463,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        const tQts = body.testQuestions.map((el: any) => ({
-          ...el,
-          createdAt: new Date(),
-          createdByUser: uTeacher.person.user.id,
-          question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
-          test: test
-        }))
+        if(TEST_CATEGORIES_IDS.TEST === parseInt(body.category)) {
+          const tQts = body.testQuestions.map((el: any) => ({
+            ...el,
+            createdAt: new Date(),
+            createdByUser: uTeacher.person.user.id,
+            question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
+            test: test
+          }))
+          await CONN.save(TestQuestion, tQts)
+        }
 
-        await CONN.save(TestQuestion, tQts)
         return { status: 201, data: test };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateTest(id: number | string, req: Request) {

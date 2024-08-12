@@ -417,6 +417,7 @@ class TestController extends genericController_1.GenericController {
     }
     saveTest(body) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('body', body);
             const classesIds = body.classroom.map((classroom) => classroom.id);
             try {
                 return yield data_source_1.AppDataSource.transaction((CONN) => __awaiter(this, void 0, void 0, function* () {

@@ -22,6 +22,7 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -187,8 +188,46 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let data;
 
-        console.log('test.category.id', test.category.id)
         switch (test.category.id) {
+
+          case(TEST_CATEGORIES_IDS.READ): {
+
+            const preHeaders = await CONN.getRepository(ReadingFluencyGroup)
+              .createQueryBuilder("rfg")
+              .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
+              .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
+              .getMany() as ReadingFluencyGroup[]
+
+            interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
+
+            let headers = preHeaders.reduce((acc: ReadingHeaders[], prev) => {
+
+              let exam = acc.find(el => el.exam_id === prev.readingFluencyExam.id);
+
+              if (!exam) {
+                exam = {
+                  exam_id: prev.readingFluencyExam.id,
+                  exam_name: prev.readingFluencyExam.name,
+                  exam_color: prev.readingFluencyExam.color,
+                  exam_levels: []
+                };
+                acc.push(exam);
+              }
+
+              exam.exam_levels.push({
+                level_id: prev.readingFluencyLevel.id,
+                level_name: prev.readingFluencyLevel.name,
+                level_color: prev.readingFluencyLevel.color
+              });
+
+              return acc;
+            }, []);
+
+            data = { headers }
+
+            break;
+          }
+
           case (TEST_CATEGORIES_IDS.TEST): {
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
@@ -196,6 +235,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
             data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
+            break;
           }
         }
 

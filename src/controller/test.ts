@@ -23,6 +23,7 @@ import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
+import {ReadingFluency} from "../model/ReadingFluency";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -185,13 +186,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
 
-        const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
         let data;
 
         switch (test.category.id) {
 
           case(TEST_CATEGORIES_IDS.READ): {
+
+            const studentClassrooms = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
 
             const preHeaders = await CONN.getRepository(ReadingFluencyGroup)
               .createQueryBuilder("rfg")
@@ -201,14 +203,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const fluencyHeaders = this.readingFluencyHeaders(preHeaders)
 
-            // await this.createLinkReadingFluency(studentClassrooms, test, uTeacher.person.user.id, CONN)
+            await this.createLinkReadingFluency(preHeaders, studentClassrooms, test, uTeacher.person.user.id, CONN)
 
-            data = { test, classroom, fluencyHeaders }
+            data = { test, classroom, studentClassrooms, fluencyHeaders }
 
             break;
           }
 
           case (TEST_CATEGORIES_IDS.TEST): {
+
+            const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
+
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
@@ -222,6 +227,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+    for(let studentClassroom of studentClassrooms) {
+
+      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
+      const stStatus = await CONN.findOne(StudentTestStatus, options)
+
+      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+
+      for(let exam of headers.flatMap(el => el.readingFluencyExam)) {
+        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } }
+        const sReadingFluency = await CONN.findOne(ReadingFluency, options)
+
+        if(!sReadingFluency) {
+          console.log('entrando aqui...')
+          await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, studentClassroom, test, readingFluencyExam: exam })
+        }
+      }
+    }
   }
 
   async setQuestionsForStudent(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
@@ -291,6 +317,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
+  async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.readingFluency", "readingFluency")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+        qb.orWhere("readingFluency.id IS NOT NULL")
+      }))
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany();
+  }
+
   async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
     return await CONN.getRepository(QuestionGroup)
       .createQueryBuilder("questionGroup")
@@ -316,17 +360,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: response };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async createLinkReadingFluency(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
-    for(let studentClassroom of studentClassrooms) {
-
-      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
-      const stStatus = await CONN.findOne(StudentTestStatus, options)
-
-      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
-    }
   }
 
   async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {

@@ -23,9 +23,6 @@ export class ReadingFluency {
   @JoinColumn({ name: "testId" })
   test: Test;
 
-  @Column({ nullable: true })
-  observation: string
-
   @Column({ nullable: true, select: false })
   createdAt: Date
 

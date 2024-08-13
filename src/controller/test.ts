@@ -149,14 +149,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getStudents(request?: Request) {
 
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-    // TODO: IAM HERE
-
     const testId = parseInt(request?.params.id as string)
     const classroomId = parseInt(request?.params.classroom as string)
     const yearName = request?.params.year as string
@@ -186,14 +178,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
 
-
         let data;
 
         switch (test.category.id) {
 
           case(TEST_CATEGORIES_IDS.READ): {
 
-            const studentClassrooms = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
+            const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
 
             const preHeaders = await CONN.getRepository(ReadingFluencyGroup)
               .createQueryBuilder("rfg")
@@ -203,7 +194,29 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const fluencyHeaders = this.readingFluencyHeaders(preHeaders)
 
-            await this.createLinkReadingFluency(preHeaders, studentClassrooms, test, uTeacher.person.user.id, CONN)
+            await this.createLinkReadingFluency(preHeaders, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
+
+            const studentClassrooms = await CONN.getRepository(StudentClassroom)
+              .createQueryBuilder("studentClassroom")
+              .leftJoinAndSelect("studentClassroom.student", "student")
+              .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+              .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+              .leftJoin("studentStatus.test", "stStatusTest")
+              .leftJoin("readingFluency.test", "stReadFluenTest")
+              .leftJoin("studentClassroom.year", "year")
+              .leftJoinAndSelect("student.person", "person")
+              .leftJoin("studentClassroom.classroom", "classroom")
+              .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+              .where("studentClassroom.classroom = :classroomId", { classroomId })
+              .andWhere(new Brackets(qb => {
+                qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+                qb.orWhere("readingFluency.id IS NOT NULL")
+              }))
+              .andWhere("stReadFluenTest.id = :testId", { testId: test.id })
+              .andWhere("stStatusTest.id = :testId", { testId: test.id })
+              .andWhere("year.name = :yearName", { yearName })
+              .addOrderBy("studentClassroom.rosterNumber", "ASC")
+              .getMany();
 
             data = { test, classroom, studentClassrooms, fluencyHeaders }
 
@@ -243,7 +256,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const sReadingFluency = await CONN.findOne(ReadingFluency, options)
 
         if(!sReadingFluency) {
-          console.log('entrando aqui...')
           await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, studentClassroom, test, readingFluencyExam: exam })
         }
       }

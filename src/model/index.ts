@@ -34,6 +34,7 @@ import { TestClassroom } from "./TestClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { ReadingFluencyGroup } from "./ReadingFluencyGroup";
+import {ReadingFluency} from "./ReadingFluency";
 export const entities = [
   Bimester,
   Classroom,
@@ -58,6 +59,7 @@ export const entities = [
   StudentDisability,
   StudentQuestion,
   StudentTestStatus,
+  ReadingFluency,
   ReadingFluencyExam,
   ReadingFluencyLevel,
   ReadingFluencyGroup,

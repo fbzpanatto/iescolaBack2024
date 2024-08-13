@@ -201,6 +201,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const fluencyHeaders = this.readingFluencyHeaders(preHeaders)
 
+            // await this.createLinkReadingFluency(studentClassrooms, test, uTeacher.person.user.id, CONN)
+
             data = { test, classroom, fluencyHeaders }
 
             break;
@@ -314,6 +316,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: response };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async createLinkReadingFluency(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+    for(let studentClassroom of studentClassrooms) {
+
+      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
+      const stStatus = await CONN.findOne(StudentTestStatus, options)
+
+      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+    }
   }
 
   async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {

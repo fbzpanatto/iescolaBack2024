@@ -1,5 +1,6 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import {ReadingFluencyGroup} from "./ReadingFluencyGroup";
+import {ReadingFluency} from "./ReadingFluency";
 
 @Entity()
 export class ReadingFluencyLevel {
@@ -15,4 +16,7 @@ export class ReadingFluencyLevel {
 
   @OneToMany(() => ReadingFluencyGroup, readingFluencyGroup => readingFluencyGroup.readingFluencyLevel)
   readingFluencyGroup: ReadingFluencyGroup[]
+
+  @OneToMany(() => ReadingFluency, readingFluency => readingFluency.readingFluencyExam)
+  readingFluencies: ReadingFluency[]
 }

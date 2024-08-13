@@ -201,6 +201,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .leftJoinAndSelect("studentClassroom.student", "student")
               .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
               .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+              .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
+              .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
               .leftJoin("studentStatus.test", "stStatusTest")
               .leftJoin("readingFluency.test", "stReadFluenTest")
               .leftJoin("studentClassroom.year", "year")

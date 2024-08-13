@@ -22,10 +22,11 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
-import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
+import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
+interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -198,32 +199,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
               .getMany() as ReadingFluencyGroup[]
 
-            interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
+            const fluencyHeaders = this.readingFluencyHeaders(preHeaders)
 
-            let headers = preHeaders.reduce((acc: ReadingHeaders[], prev) => {
-
-              let exam = acc.find(el => el.exam_id === prev.readingFluencyExam.id);
-
-              if (!exam) {
-                exam = {
-                  exam_id: prev.readingFluencyExam.id,
-                  exam_name: prev.readingFluencyExam.name,
-                  exam_color: prev.readingFluencyExam.color,
-                  exam_levels: []
-                };
-                acc.push(exam);
-              }
-
-              exam.exam_levels.push({
-                level_id: prev.readingFluencyLevel.id,
-                level_name: prev.readingFluencyLevel.name,
-                level_color: prev.readingFluencyLevel.color
-              });
-
-              return acc;
-            }, []);
-
-            data = { headers }
+            data = { test, classroom, fluencyHeaders }
 
             break;
           }
@@ -637,6 +615,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany();
+  }
+
+  readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {
+    return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
+
+      let exam = acc.find(el => el.exam_id === prev.readingFluencyExam.id);
+
+      if (!exam) {
+        exam = {
+          exam_id: prev.readingFluencyExam.id,
+          exam_name: prev.readingFluencyExam.name,
+          exam_color: prev.readingFluencyExam.color,
+          exam_levels: []
+        };
+        acc.push(exam);
+      }
+
+      exam.exam_levels.push({
+        level_id: prev.readingFluencyLevel.id,
+        level_name: prev.readingFluencyLevel.name,
+        level_color: prev.readingFluencyLevel.color
+      });
+
+      return acc;
+    }, []);
   }
 }
 

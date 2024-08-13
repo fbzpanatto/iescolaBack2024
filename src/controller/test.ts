@@ -23,7 +23,7 @@ import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
-import {ReadingFluency} from "../model/ReadingFluency";
+import { ReadingFluency } from "../model/ReadingFluency";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }

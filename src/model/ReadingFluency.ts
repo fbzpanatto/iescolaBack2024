@@ -1,7 +1,8 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn} from "typeorm";
 import { StudentClassroom } from "./StudentClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
+import {Test} from "./Test";
 
 @Entity()
 export class ReadingFluency {
@@ -17,6 +18,10 @@ export class ReadingFluency {
 
   @ManyToOne(() => ReadingFluencyLevel, readingFluencyLevel => readingFluencyLevel.readingFluencies)
   readingFluencyLevel: ReadingFluencyLevel
+
+  @ManyToOne(() => Test, test => test.readingFluencies)
+  @JoinColumn({ name: "testId" })
+  test: Test;
 
   @Column({ nullable: true })
   observation: string

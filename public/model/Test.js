@@ -18,6 +18,7 @@ const TestCategory_1 = require("./TestCategory");
 const Person_1 = require("./Person");
 const StudentTestStatus_1 = require("./StudentTestStatus");
 const TestClassroom_1 = require("./TestClassroom");
+const ReadingFluency_1 = require("./ReadingFluency");
 let Test = class Test {
 };
 exports.Test = Test;
@@ -61,6 +62,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => TestClassroom_1.TestClassroom, testClassroom => testClassroom.test),
     __metadata("design:type", Array)
 ], Test.prototype, "testClassrooms", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => ReadingFluency_1.ReadingFluency, readingFluency => readingFluency.test),
+    __metadata("design:type", Array)
+], Test.prototype, "readingFluencies", void 0);
 __decorate([
     (0, typeorm_1.ManyToMany)(() => Classroom_1.Classroom, { cascade: true }),
     (0, typeorm_1.JoinTable)({ name: "test_classroom" }),

@@ -22,6 +22,7 @@ const QuestionGroup_1 = require("../model/QuestionGroup");
 const StudentQuestion_1 = require("../model/StudentQuestion");
 const StudentTestStatus_1 = require("../model/StudentTestStatus");
 const personCategories_1 = require("../utils/personCategories");
+const testCategory_1 = require("../utils/testCategory");
 const Year_1 = require("../model/Year");
 const typeorm_1 = require("typeorm");
 const Question_1 = require("../model/Question");
@@ -31,6 +32,8 @@ const ClassroomCategory_1 = require("../model/ClassroomCategory");
 const Discipline_1 = require("../model/Discipline");
 const Bimester_1 = require("../model/Bimester");
 const TestCategory_1 = require("../model/TestCategory");
+const ReadingFluencyGroup_1 = require("../model/ReadingFluencyGroup");
+const ReadingFluency_1 = require("../model/ReadingFluency");
 class TestController extends genericController_1.GenericController {
     constructor() {
         super(Test_1.Test);
@@ -178,9 +181,6 @@ class TestController extends genericController_1.GenericController {
                     const test = yield this.getTest(testId, yearName, CONN);
                     if (!test)
                         return { status: 404, message: "Teste não encontrado" };
-                    const questionGroups = yield this.getTestQuestionsGroups(testId, CONN);
-                    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"];
-                    const testQuestions = yield this.getTestQuestions(test.id, CONN, fields);
                     const classroom = yield CONN.getRepository(Classroom_1.Classroom)
                         .createQueryBuilder("classroom")
                         .leftJoinAndSelect("classroom.school", "school")
@@ -188,15 +188,78 @@ class TestController extends genericController_1.GenericController {
                         .getOne();
                     if (!classroom)
                         return { status: 404, message: "Sala não encontrada" };
-                    const studentClassrooms = yield this.studentClassrooms(test, Number(classroomId), yearName, CONN);
-                    yield this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN);
-                    const studentClassroomsWithQuestions = yield this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName, CONN);
-                    let data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups };
+                    let data;
+                    switch (test.category.id) {
+                        case (testCategory_1.TEST_CATEGORIES_IDS.READ): {
+                            const studentsBeforeSet = yield this.studentClassroomsReadingFluency(test, Number(classroomId), yearName, CONN);
+                            const preHeaders = yield CONN.getRepository(ReadingFluencyGroup_1.ReadingFluencyGroup)
+                                .createQueryBuilder("rfg")
+                                .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
+                                .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
+                                .getMany();
+                            const fluencyHeaders = this.readingFluencyHeaders(preHeaders);
+                            yield this.createLinkReadingFluency(preHeaders, studentsBeforeSet, test, uTeacher.person.user.id, CONN);
+                            const studentClassrooms = yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
+                                .createQueryBuilder("studentClassroom")
+                                .leftJoinAndSelect("studentClassroom.student", "student")
+                                .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+                                .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+                                .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
+                                .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
+                                .leftJoin("studentStatus.test", "stStatusTest")
+                                .leftJoin("readingFluency.test", "stReadFluenTest")
+                                .leftJoin("studentClassroom.year", "year")
+                                .leftJoinAndSelect("student.person", "person")
+                                .leftJoin("studentClassroom.classroom", "classroom")
+                                .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+                                .where("studentClassroom.classroom = :classroomId", { classroomId })
+                                .andWhere(new typeorm_1.Brackets(qb => {
+                                qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+                                qb.orWhere("readingFluency.id IS NOT NULL");
+                            }))
+                                .andWhere("stReadFluenTest.id = :testId", { testId: test.id })
+                                .andWhere("stStatusTest.id = :testId", { testId: test.id })
+                                .andWhere("year.name = :yearName", { yearName })
+                                .addOrderBy("studentClassroom.rosterNumber", "ASC")
+                                .getMany();
+                            data = { test, classroom, studentClassrooms, fluencyHeaders };
+                            break;
+                        }
+                        case (testCategory_1.TEST_CATEGORIES_IDS.TEST): {
+                            const studentClassrooms = yield this.studentClassrooms(test, Number(classroomId), yearName, CONN);
+                            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"];
+                            const questionGroups = yield this.getTestQuestionsGroups(testId, CONN);
+                            const testQuestions = yield this.getTestQuestions(test.id, CONN, fields);
+                            yield this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN);
+                            const studentClassroomsWithQuestions = yield this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName, CONN);
+                            data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups };
+                            break;
+                        }
+                    }
                     return { status: 200, data };
                 }));
             }
             catch (error) {
                 return { status: 500, message: error.message };
+            }
+        });
+    }
+    createLinkReadingFluency(headers, studentClassrooms, test, userId, CONN) {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let studentClassroom of studentClassrooms) {
+                const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } };
+                const stStatus = yield CONN.findOne(StudentTestStatus_1.StudentTestStatus, options);
+                const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId };
+                if (!stStatus) {
+                    yield CONN.save(StudentTestStatus_1.StudentTestStatus, el);
+                }
+                for (let exam of headers.flatMap(el => el.readingFluencyExam)) {
+                    const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } };
+                    const sReadingFluency = yield CONN.findOne(ReadingFluency_1.ReadingFluency, options);
+                    if (!sReadingFluency) {
+                        yield CONN.save(ReadingFluency_1.ReadingFluency, { createdAt: new Date(), createdByUser: userId, studentClassroom, test, readingFluencyExam: exam });
+                    }
+                }
             }
         });
     }
@@ -256,6 +319,25 @@ class TestController extends genericController_1.GenericController {
                 .andWhere(new typeorm_1.Brackets(qb => {
                 qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
                 qb.orWhere("studentQuestions.id IS NOT NULL");
+            }))
+                .andWhere("year.name = :yearName", { yearName })
+                .getMany();
+        });
+    }
+    studentClassroomsReadingFluency(test, classroomId, yearName, CONN) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield CONN.getRepository(StudentClassroom_1.StudentClassroom)
+                .createQueryBuilder("studentClassroom")
+                .leftJoin("studentClassroom.year", "year")
+                .leftJoin("studentClassroom.readingFluency", "readingFluency")
+                .leftJoin("studentClassroom.studentStatus", "studentStatus")
+                .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+                .leftJoin("studentClassroom.student", "student")
+                .leftJoin("student.person", "person")
+                .where("studentClassroom.classroom = :classroomId", { classroomId })
+                .andWhere(new typeorm_1.Brackets(qb => {
+                qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+                qb.orWhere("readingFluency.id IS NOT NULL");
             }))
                 .andWhere("year.name = :yearName", { yearName })
                 .getMany();
@@ -460,13 +542,14 @@ class TestController extends genericController_1.GenericController {
                     test.createdAt = new Date();
                     test.createdByUser = uTeacher.person.user.id;
                     yield CONN.save(Test_1.Test, test);
-                    const tQts = body.testQuestions.map((el) => (Object.assign(Object.assign({}, el), { createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: Object.assign(Object.assign({}, el.question), { person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }), test: test })));
-                    yield CONN.save(TestQuestion_1.TestQuestion, tQts);
+                    if (testCategory_1.TEST_CATEGORIES_IDS.TEST === parseInt(body.category)) {
+                        const tQts = body.testQuestions.map((el) => (Object.assign(Object.assign({}, el), { createdAt: new Date(), createdByUser: uTeacher.person.user.id, question: Object.assign(Object.assign({}, el.question), { person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id }), test: test })));
+                        yield CONN.save(TestQuestion_1.TestQuestion, tQts);
+                    }
                     return { status: 201, data: test };
                 }));
             }
             catch (error) {
-                console.log('error', error);
                 return { status: 500, message: error.message };
             }
         });
@@ -557,6 +640,26 @@ class TestController extends genericController_1.GenericController {
                 .addOrderBy("testQuestion.order", "ASC")
                 .getMany();
         });
+    }
+    readingFluencyHeaders(preHeaders) {
+        return preHeaders.reduce((acc, prev) => {
+            let exam = acc.find(el => el.exam_id === prev.readingFluencyExam.id);
+            if (!exam) {
+                exam = {
+                    exam_id: prev.readingFluencyExam.id,
+                    exam_name: prev.readingFluencyExam.name,
+                    exam_color: prev.readingFluencyExam.color,
+                    exam_levels: []
+                };
+                acc.push(exam);
+            }
+            exam.exam_levels.push({
+                level_id: prev.readingFluencyLevel.id,
+                level_name: prev.readingFluencyLevel.name,
+                level_color: prev.readingFluencyLevel.color
+            });
+            return acc;
+        }, []);
     }
 }
 exports.testController = new TestController();

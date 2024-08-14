@@ -549,31 +549,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
 
         const test = new Test()
-          test.name = body.name
-          test.category = body.category
-          test.discipline = body.discipline
-          test.person = uTeacher.person
-          test.period = period
-          test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
-          test.createdAt = new Date()
-          test.createdByUser = uTeacher.person.user.id
+        test.name = body.name
+        test.category = body.category
+        test.discipline = body.discipline
+        test.person = uTeacher.person
+        test.period = period
+        test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
+        test.createdAt = new Date()
+        test.createdByUser = uTeacher.person.user.id
 
         await CONN.save(Test, test);
 
-        if(TEST_CATEGORIES_IDS.TEST === parseInt(body.category)) {
-          const tQts = body.testQuestions.map((el: any) => ({
-            ...el,
-            createdAt: new Date(),
-            createdByUser: uTeacher.person.user.id,
-            question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
-            test: test
-          }))
-          await CONN.save(TestQuestion, tQts)
-        }
+        const tQts = body.testQuestions.map((el: any) => ({
+          ...el,
+          createdAt: new Date(),
+          createdByUser: uTeacher.person.user.id,
+          question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
+          test: test
+        }))
 
+        await CONN.save(TestQuestion, tQts)
         return { status: 201, data: test };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async updateTest(id: number | string, req: Request) {

@@ -11,7 +11,6 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { StudentQuestion as SQues } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { Year } from "../model/Year";
 import { Brackets, DeepPartial, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
 import { Teacher } from "../model/Teacher";
@@ -24,6 +23,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }

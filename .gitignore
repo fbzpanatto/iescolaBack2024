@@ -47,6 +47,8 @@ public/controller
 public/utils
 public/routes
 public/schemas
+public/middleware
+public/model
 
 # Dependency directories
 node_modules/

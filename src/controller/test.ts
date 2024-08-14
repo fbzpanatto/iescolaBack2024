@@ -196,14 +196,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             await this.createLinkReadingFluency(preHeaders, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
 
-            const studentClassrooms = await CONN.getRepository(StudentClassroom)
+            const preResult = await CONN.getRepository(StudentClassroom)
               .createQueryBuilder("studentClassroom")
               .leftJoinAndSelect("studentClassroom.student", "student")
               .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
               .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
               .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
               .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
-              .leftJoin("studentStatus.test", "stStatusTest")
+              .leftJoinAndSelect("studentStatus.test", "stStatusTest")
               .leftJoin("readingFluency.test", "stReadFluenTest")
               .leftJoin("studentClassroom.year", "year")
               .leftJoinAndSelect("student.person", "person")
@@ -218,7 +218,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .andWhere("stStatusTest.id = :testId", { testId: test.id })
               .andWhere("year.name = :yearName", { yearName })
               .addOrderBy("studentClassroom.rosterNumber", "ASC")
-              .getMany();
+              .getMany()
+
+            const studentClassrooms = preResult.map(el => ({
+              ...el,
+              studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
+            }))
 
             data = { test, classroom, studentClassrooms, fluencyHeaders }
 
@@ -241,7 +246,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {

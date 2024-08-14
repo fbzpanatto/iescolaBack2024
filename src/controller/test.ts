@@ -247,10 +247,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('getStudents error', error)
-      return { status: 500, message: error.message } }
-  }
+    } catch (error: any) { return { status: 500, message: error.message } } }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
@@ -512,8 +509,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async saveTest(body: DeepPartial<ObjectLiteral>) {
-
-    console.log('-----------------------------------------------------------------------------', body)
 
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
 

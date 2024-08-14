@@ -558,30 +558,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.createdAt = new Date()
         test.createdByUser = uTeacher.person.user.id
 
-        const testResult = await CONN.save(Test, test);
+        await CONN.save(Test, test);
 
-        if(TEST_CATEGORIES_IDS.TEST === parseInt(body.category)) {
+        const tQts = body.testQuestions.map((el: any) => ({
+          ...el,
+          createdAt: new Date(),
+          createdByUser: uTeacher.person.user.id,
+          question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
+          test: test
+        }))
 
-          const tQts = body.testQuestions.map((el: any) => ({
-            ...el,
-            createdAt: new Date(),
-            createdByUser: uTeacher.person.user.id,
-            question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
-            test: testResult
-          }))
-
-          console.log(testResult)
-
-          const questionsResult = await CONN.save(TestQuestion, tQts)
-
-          console.log(questionsResult)
-
-        }
-
+        await CONN.save(TestQuestion, tQts)
         return { status: 201, data: test };
       })
     } catch (error: any) {
-      console.log('SAVE error', error)
+      console.log('error', error)
       return { status: 500, message: error.message }
     }
   }

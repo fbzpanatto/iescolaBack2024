@@ -4,15 +4,43 @@ import { AppDataSource } from "../data-source";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { Request } from "express";
+import { ReadingFluency } from "../model/ReadingFluency";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
   constructor() { super(StudentQuestion)}
 
   async updateReadingFluency(req: Request){
+
+    const { body, query } = req
+    const { year } = query
+
     try {
-      const data = {};
-      return { status: 201, data }
+      return await AppDataSource.transaction(async(CONN) => {
+
+        let data;
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+
+        const currentYear = await this.currentYear(CONN)
+        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(currentYear.name) != parseInt(year as string)) {
+          return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' }
+        }
+
+        const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, studentClassroom: { id: body.studentClassroom.id } } }
+        const register = await CONN.findOne(ReadingFluency, options)
+
+        if(!register) {
+          data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
+          return { status: 201, data }
+        }
+
+        register.readingFluencyLevel = body.readingFluencyLevel
+        await CONN.save(ReadingFluency, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+
+        return { status: 201, data }
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

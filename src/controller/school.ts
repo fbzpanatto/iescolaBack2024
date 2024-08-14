@@ -31,7 +31,7 @@ class SchoolController extends GenericController<EntityTarget<School>> {
               qb.where("school.name LIKE :search", { search: `%${search}%` })
                 .orWhere("school.shortName LIKE :search", { search: `%${search}%` })
             }}))
-          .getMany();
+          .getMany()
 
         const mappedResult = data.map(school => {
           return {

@@ -9,6 +9,13 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   constructor() { super(StudentQuestion)}
 
+  async updateReadingFluency(req: Request){
+    try {
+      const data = {};
+      return { status: 201, data }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   async updateTestStatus(id: number | string, body: ObjectLiteral) {
     try {
       return await AppDataSource.transaction(async(CONN) => {

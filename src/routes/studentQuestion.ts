@@ -12,6 +12,10 @@ StudentQuestionRouter.put('/:id/question', YEAR_NAME_PARAM, ...UPDATE_VALIDATORS
   const response = await controller.updateQuestion(req, req.body); return res.status(response.status).json(response)
 });
 
+StudentQuestionRouter.put('/:id/reading-fluency', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.updateReadingFluency(req); return res.status(response.status).json(response)
+});
+
 StudentQuestionRouter.put('/:id/test-status', ...UPDATE_VALIDATORS_STATUS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.updateTestStatus(req.params.id, req.body); return res.status(response.status).json(response)
 });

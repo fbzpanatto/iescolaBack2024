@@ -12,7 +12,7 @@ import { StudentQuestion as SQues } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
-import { Brackets, DeepPartial, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
 import { Teacher } from "../model/Teacher";
 import { Question } from "../model/Question";
 import { Descriptor } from "../model/Descriptor";
@@ -24,6 +24,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TestBodySave } from "../interfaces/interfaces";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -508,7 +509,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async saveTest(body: DeepPartial<ObjectLiteral>) {
+  async saveTest(body: TestBodySave) {
 
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
 
@@ -547,8 +548,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const test = new Test()
         test.name = body.name
-        test.category = body.category
-        test.discipline = body.discipline
+        test.category = body.category as TestCategory
+        test.discipline = body.discipline as Discipline
         test.person = uTeacher.person
         test.period = period
         test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
@@ -557,8 +558,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        if(TEST_CATEGORIES_IDS.TEST === parseInt(body.category.id)) {
-          const tQts = body.testQuestions.map((el: any) => ({
+        if(TEST_CATEGORIES_IDS.TEST === body.category.id) {
+          const tQts = body.testQuestions!.map((el: any) => ({
             ...el,
             createdAt: new Date(),
             createdByUser: uTeacher.person.user.id,

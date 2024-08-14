@@ -16,3 +16,4 @@ export interface GraduateBody  { user: UserInterface; student: { id: number; act
 export interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
 export interface LiteracyBeforeLevel { user: { user: number; username: string; category: number; iat: number; exp: number }; studentClassroom: StudentClassroom; literacyLevel: LiteracyLevel }
 export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
+export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, testQuestions?: {}[], year: { id: number }, user: UserInterface }

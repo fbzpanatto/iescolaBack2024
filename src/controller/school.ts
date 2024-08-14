@@ -41,7 +41,10 @@ class SchoolController extends GenericController<EntityTarget<School>> {
             inactiveStudents: school.classrooms.flatMap(el => el.studentClassrooms.filter(st => st.endedAt !== null)).length
           }
         })
-        return { status: 200, data: mappedResult };
+
+        const sortedResult = mappedResult.sort((a, b) => b.activeStudents - a.activeStudents);
+
+        return { status: 200, data: sortedResult };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

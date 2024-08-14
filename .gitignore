@@ -43,6 +43,10 @@ build/Release
 public
 public*
 public/
+public/controller
+public/utils
+public/routes
+public/schemas
 
 # Dependency directories
 node_modules/

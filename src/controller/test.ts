@@ -232,12 +232,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case (TEST_CATEGORIES_IDS.TEST): {
 
-            console.log('entrando aqui......................................')
-
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
-            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+
+            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
             await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)

@@ -232,6 +232,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case (TEST_CATEGORIES_IDS.TEST): {
 
+            console.log('entrando aqui......................................')
+
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]

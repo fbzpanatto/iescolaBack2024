@@ -184,19 +184,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         switch (test.category.id) {
 
           case(TEST_CATEGORIES_IDS.READ): {
-
             const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
-
-            const preHeaders = await CONN.getRepository(ReadingFluencyGroup)
-              .createQueryBuilder("rfg")
-              .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
-              .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
-              .getMany() as ReadingFluencyGroup[]
-
-            const fluencyHeaders = this.readingFluencyHeaders(preHeaders)
-
-            await this.createLinkReadingFluency(preHeaders, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-
+            const headers = await this.getReadingFluencyHeaders(CONN)
+            const fluencyHeaders = this.readingFluencyHeaders(headers)
+            await this.createLinkReadingFluency(headers, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
             const preResult = await CONN.getRepository(StudentClassroom)
               .createQueryBuilder("studentClassroom")
               .leftJoinAndSelect("studentClassroom.student", "student")
@@ -414,20 +405,53 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await this.getTest(body.test.id, body.year, CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
-        const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, CONN)
-        if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+        switch (test.category.id) {
+          case (TEST_CATEGORIES_IDS.READ): {
+            const stClassrooms = await this.notIncludedReadingFluency(test, body.classroom.id, body.year, CONN)
+            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
+            const headers = await this.getReadingFluencyHeaders(CONN)
+            await this.createLinkReadingFluency(headers, filteredSC, test, uTeacher.person.user.id, CONN)
+            break;
+          }
+          case (TEST_CATEGORIES_IDS.TEST): {
+            const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, CONN)
+            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
+            const testQuestions = await this.getTestQuestions(test.id, CONN)
+            await this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
+            break;
+          }
+          default: {
+            break;
+          }
+        }
 
-        const testQuestions = await this.getTestQuestions(test.id, CONN)
-
-        const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-
-        await this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
         return { status: 200, data: {} };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async notIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
+
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", {classroomId})
+      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+      .andWhere("studentClassroom.endedAt IS NULL")
+      .andWhere("year.name = :yearName", {yearName})
+      .andWhere("studentQuestions.id IS NULL")
+      .getRawMany() as unknown as notIncludedInterface[]
+  }
+
+  async notIncludedReadingFluency(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
 
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -680,6 +704,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany();
+  }
+
+  async getReadingFluencyHeaders(CONN: EntityManager) {
+    return await CONN.getRepository(ReadingFluencyGroup)
+      .createQueryBuilder("rfg")
+      .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
+      .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
+      .getMany() as ReadingFluencyGroup[]
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

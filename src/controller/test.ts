@@ -367,10 +367,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const test = await this.getTest(Number(testId), Number(yearName), CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
-        const response = await this.notIncluded(test, Number(classroomId), Number(yearName), CONN)
-        return { status: 200, data: response };
+
+        let data;
+
+        switch (test.category.id) {
+          case TEST_CATEGORIES_IDS.READ: {
+            data = await this.notIncludedReadingFluency(test, Number(classroomId), Number(yearName), CONN)
+            break;
+          }
+          case TEST_CATEGORIES_IDS.TEST: {
+            data = await this.notIncluded(test, Number(classroomId), Number(yearName), CONN)
+            break;
+          }
+        }
+
+        return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {

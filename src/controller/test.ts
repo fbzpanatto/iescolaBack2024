@@ -195,9 +195,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
               studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
             }))
 
-            console.log('getting here...')
+            const validStudents = 0
+            const totalNuColumn = []
+            const percentColumn = []
 
-            data = { test, classroom, studentClassrooms, fluencyHeaders }
+            const allFluencies = studentClassrooms.flatMap(el => el.readingFluency)
+
+            for(let item of headers) {
+              const el = allFluencies.filter(el => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
+              totalNuColumn.push(el.length ?? 0)
+            }
+
+            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn }
 
             break;
           }
@@ -219,7 +228,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {

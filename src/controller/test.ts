@@ -195,18 +195,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
               studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
             }))
 
-            const validStudents = 0
             const totalNuColumn = []
-            const percentColumn = []
-
             const allFluencies = studentClassrooms.flatMap(el => el.readingFluency)
+            const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
             for(let item of headers) {
               const el = allFluencies.filter(el => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
-              totalNuColumn.push(el.length ?? 0)
+              const value = el.length ?? 0
+              totalNuColumn.push({ total: value, divideByExamId: item.readingFluencyExam.id })
+              percentColumn[item.readingFluencyExam.id] += value
             }
 
-            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn }
+            const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
+
+            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), percentColumn, totalPeColumn }
 
             break;
           }

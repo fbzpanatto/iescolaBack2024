@@ -393,18 +393,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async insertStudents(req: Request) {
-
     const body = req.body as insertStudentsBody
-
     try {
-
       return await AppDataSource.transaction(async (CONN) => {
-
         const uTeacher = await this.teacherByUser(body.user.user, CONN)
-
         const test = await this.getTest(body.test.id, body.year, CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
-
         switch (test.category.id) {
           case (TEST_CATEGORIES_IDS.READ): {
             const stClassrooms = await this.notIncludedReadingFluency(test, body.classroom.id, body.year, CONN)
@@ -426,7 +420,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
         }
-
         return { status: 200, data: {} };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -452,12 +445,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async notIncludedReadingFluency(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
-
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
       .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoin("studentClassroom.readingFluency", "readingFluency")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
       .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
       .leftJoin("studentClassroom.student", "student")
@@ -466,7 +458,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
       .andWhere("studentClassroom.endedAt IS NULL")
       .andWhere("year.name = :yearName", {yearName})
-      .andWhere("studentQuestions.id IS NULL")
+      .andWhere("readingFluency.id IS NULL")
       .getRawMany() as unknown as notIncludedInterface[]
   }
 

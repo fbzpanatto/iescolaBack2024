@@ -62,7 +62,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
-        const testCategory = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] })
+        const { category } = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] }) as Test
 
         const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -72,15 +72,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-        switch (testCategory?.id) {
+        switch (category?.id) {
           case TEST_CATEGORIES_IDS.LITE: {
             break;
           }
           case TEST_CATEGORIES_IDS.READ: {
-
-
-
-            data = {}
+            const headers = await this.getReadingFluencyHeaders(CONN)
+            const fluencyHeaders = this.readingFluencyHeaders(headers)
+            const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
+            let response = { ...test, fluencyHeaders }
+            const allClasses: Classroom[] = response.classrooms
+            const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
+            const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+            response.classrooms = [...filteredClasses, cityHall]
+            data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
             break;
           }
           case TEST_CATEGORIES_IDS.TEST: {
@@ -169,7 +174,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
@@ -522,7 +528,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return false;
   }
 
-  async getTest(testId:number , yearName: number | string, CONN: EntityManager) {
+  async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
     return CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.person", "person")
@@ -631,8 +637,35 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
       .getOne()
-
     return { test, testQuestions }
+  }
+
+  async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+    return await CONN.getRepository(Test)
+      .createQueryBuilder("test")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.bimester", "periodBimester")
+      .leftJoinAndSelect("period.year", "periodYear")
+      .leftJoinAndSelect("test.discipline", "discipline")
+      .leftJoinAndSelect("test.category", "category")
+      .leftJoinAndSelect("test.person", "testPerson")
+      .leftJoinAndSelect("test.classrooms", "classroom")
+      .leftJoinAndSelect("classroom.school", "school")
+      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+      .leftJoinAndSelect("student.person", "studentPerson")
+      .leftJoin("studentClassroom.year", "studentClassroomYear")
+      .where("test.id = :testId", { testId })
+      .andWhere("periodYear.id = :yearId", { yearId })
+      .andWhere("studentClassroomYear.id = :yearId", { yearId })
+      .andWhere("readingFluency.test = :testId", { testId })
+      .andWhere("studentStatusTest.id = :testId", { testId })
+      .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .addOrderBy("classroom.shortName", "ASC")
+      .getOne()
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

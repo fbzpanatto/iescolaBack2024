@@ -77,6 +77,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case TEST_CATEGORIES_IDS.READ: {
+
+
+
             data = {}
             break;
           }
@@ -85,9 +88,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
             let response = { ...test, testQuestions, questionGroups }
-
-            console.log(response)
-
             const testQuestionMap = new Map<number, TestQuestion>();
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
             const allClasses: Classroom[] = response.classrooms;

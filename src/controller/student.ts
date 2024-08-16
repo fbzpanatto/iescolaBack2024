@@ -547,9 +547,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 200, data: result };
       })
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async setDisabilities(uTeacherId:number, student: Student, studentDisabilities: StudentDisability[], body: number[], CONN: EntityManager ) {

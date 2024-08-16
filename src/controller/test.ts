@@ -71,21 +71,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-        const testQuestions = await CONN.getRepository(TestQuestion)
-          .createQueryBuilder("testQuestion")
-          .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"])
-          .leftJoin("testQuestion.questionGroup", "questionGroup")
-          .where("testQuestion.test = :testId", { testId })
-          .orderBy("questionGroup.id", "ASC")
-          .addOrderBy("testQuestion.order", "ASC")
-          .getMany();
+        const testQuestions = await this.getTestQuestionsSimple(testId, CONN)
 
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
 
         const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-        const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
 
         const test = await this.getTestForGraphic(testQuestionsIds, testId, yearId as string, CONN)
+
+        const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
 
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
@@ -661,25 +655,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-
-    return await CONN.getRepository(TestQuestion)
-      .createQueryBuilder("testQuestion")
-      .select(selectFields ?? fields)
-      .leftJoin("testQuestion.question", "question")
-      .leftJoin("question.person", "person")
-      .leftJoin("question.descriptor", "descriptor")
-      .leftJoin("descriptor.topic", "topic")
-      .leftJoin("topic.classroomCategory", "classroomCategory")
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .where("testQuestion.test = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .getMany();
-  }
-
   async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -712,6 +687,36 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
       .getMany() as ReadingFluencyGroup[]
+  }
+
+  async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
+
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+
+    return await CONN.getRepository(TestQuestion)
+      .createQueryBuilder("testQuestion")
+      .select(selectFields ?? fields)
+      .leftJoin("testQuestion.question", "question")
+      .leftJoin("question.person", "person")
+      .leftJoin("question.descriptor", "descriptor")
+      .leftJoin("descriptor.topic", "topic")
+      .leftJoin("topic.classroomCategory", "classroomCategory")
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+      .where("testQuestion.test = :testId", { testId })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
+  }
+
+  async getTestQuestionsSimple(testId: string, CONN: EntityManager){
+    return await CONN.getRepository(TestQuestion)
+      .createQueryBuilder("testQuestion")
+      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"])
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+      .where("testQuestion.test = :testId", { testId })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .getMany();
   }
 
   async getTestForGraphic(testQuestionsIds: number[], testId: string, yearId: string, CONN: EntityManager) {

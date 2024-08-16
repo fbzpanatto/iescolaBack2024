@@ -60,8 +60,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
 
       return await AppDataSource.transaction(async(CONN) => {
+
+        let data;
+
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+
+        const testCategory = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] })
 
         const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -71,39 +76,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-        const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
-
-        const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
-
-        if(!test) return { status: 404, message: "Teste não encontrado" }
-
-        let response = { ...test, testQuestions, questionGroups }
-
-        const testQuestionMap = new Map<number, TestQuestion>();
-        for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
-
-        const allClasses: Classroom[] = response.classrooms;
-
-        const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.studentQuestions))
-
-        for (const studentQuestion of studentQuestions) {
-
-          if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
-          else {
-            const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-            if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
-            else { studentQuestion.score = 0 }
+        switch (testCategory?.id) {
+          case TEST_CATEGORIES_IDS.LITE: {
+            break;
+          }
+          case TEST_CATEGORIES_IDS.READ: {
+            break;
+          }
+          case TEST_CATEGORIES_IDS.TEST: {
+            const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
+            const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
+            if(!test) return { status: 404, message: "Teste não encontrado" }
+            let response = { ...test, testQuestions, questionGroups }
+            const testQuestionMap = new Map<number, TestQuestion>();
+            for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
+            const allClasses: Classroom[] = response.classrooms;
+            const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.studentQuestions))
+            for (const studentQuestion of studentQuestions) {
+              if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
+              else {
+                const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
+                else { studentQuestion.score = 0 }
+              }
+            }
+            const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
+            const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+            response.classrooms = [ ...filteredClasses, cityHall ]
+            data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+            break;
           }
         }
-
-        const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
-        const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
-
-        response.classrooms = [ ...filteredClasses, cityHall ]
-
-        const newReturn = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
-
-        return { status: 200, data: newReturn };
+        return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

@@ -71,13 +71,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const classroomNumber = classroom.shortName.replace(/\D/g, "");
 
-        const testQuestions = await this.getTestQuestionsSimple(testId, CONN)
-
-        if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
-
-        const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-
-        const test = await this.getTestForGraphic(testQuestionsIds, testId, yearId as string, CONN)
+        const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
 
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
 
@@ -719,8 +713,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async getTestForGraphic(testQuestionsIds: number[], testId: string, yearId: string, CONN: EntityManager) {
-    return await CONN.getRepository(Test)
+  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+
+    const testQuestions = await this.getTestQuestionsSimple(testId, CONN)
+    if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
+    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+
+    const test = await CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.period", "period")
       .leftJoinAndSelect("period.bimester", "periodBimester")
@@ -749,6 +748,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
       .getOne()
+
+    return { test, testQuestions }
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

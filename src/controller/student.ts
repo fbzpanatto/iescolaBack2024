@@ -614,7 +614,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       if (masterUser) { allClassrooms = (await CONN.find(Classroom)) }
 
       const result = await CONN.createQueryBuilder()
-        .select(["studentClassroom.id", "studentClassroom.startedAt", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName' ])
+        .select(["studentClassroom.id", "studentClassroom.startedAt", "studentClassroom.rosterNumber", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName' ])
         .from(Student, "student")
         .leftJoin("student.person", "person")
         .leftJoin("student.state", "state")
@@ -637,7 +637,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }))
         .orderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
-        .addOrderBy("person.name", "ASC")
+        .addOrderBy("studentClassroom.rosterNumber", "ASC")
         .limit(limit)
         .offset(offset)
         .getRawMany();

@@ -5,6 +5,7 @@ import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { Request } from "express";
 import { ReadingFluency } from "../model/ReadingFluency";
+import { Test } from "../model/Test";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -24,9 +25,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const currentYear = await this.currentYear(CONN)
         if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
-        if(parseInt(currentYear.name) != parseInt(year as string)) {
-          return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' }
-        }
+        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+
+        const test = await CONN.findOne(Test, { where: { id: body.test.id } })
+        if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
 
         const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, studentClassroom: { id: body.studentClassroom.id } } }
         const register = await CONN.findOne(ReadingFluency, options)
@@ -67,9 +69,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const currentYear = await this.currentYear(CONN)
         if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
-        if(parseInt(currentYear.name) != parseInt(year as string)) {
-          return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' }
-        }
+        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
         const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } })
         if(!studentQuestion) { return { status: 400, message: 'Registro não encontrado' } }

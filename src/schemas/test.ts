@@ -127,6 +127,11 @@ export const TEST_SCHEMA: Schema = {
     optional: true,
     escape: true,
   },
+  active: {
+    optional: true,
+    escape: true,
+    toBoolean: true,
+  },
   testQuestions: {
     optional: true
   },

@@ -70,8 +70,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const classroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
         if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
-        const classroomNumber = classroom.shortName.replace(/\D/g, "");
-
         switch (category?.id) {
           case TEST_CATEGORIES_IDS.LITE: {
             break;
@@ -82,10 +80,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
             let response = { ...test, fluencyHeaders }
             const allClasses: Classroom[] = response.classrooms
-            const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
-            const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
-            response.classrooms = [...filteredClasses, cityHall]
-            data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+            response.classrooms = this.responseClassrooms(classroom, allClasses)
+            data = {
+              ...response,
+              classrooms: response.classrooms.map((classroom: Classroom) => {
+                return {
+                  id: classroom.id,
+                  name: classroom.name,
+                  school: classroom.school,
+                  percent: this.readingFluencyTotalizator(headers, classroom)
+                }
+              })
+            }
             break;
           }
           case TEST_CATEGORIES_IDS.TEST: {
@@ -105,9 +111,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 else { studentQuestion.score = 0 }
               }
             }
-            const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
-            const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
-            response.classrooms = [ ...filteredClasses, cityHall ]
+            response.classrooms = this.responseClassrooms(classroom, allClasses)
             data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
             break;
           }
@@ -115,6 +119,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  responseClassrooms(classroom: Classroom, allClasses: Classroom[]){
+    const classroomNumber = classroom.shortName.replace(/\D/g, "");
+    const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
+    const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+    return [ ...filteredClasses, cityHall ]
+  }
+
+  readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
+
+    let totalNuColumn: any[] = []
+    const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+    for(let header of headers) {
+      const el = classroom.studentClassrooms.flatMap(item => item.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+      const value = el.length ?? 0
+      totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+      percentColumn[header.readingFluencyExam.id] += value
+    }
+    return totalNuColumn.map((el: any) => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
   }
 
   async getStudents(request?: Request) {
@@ -145,8 +170,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             await this.createLinkReadingFluency(headers, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
             const preResult = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
             const studentClassrooms = preResult.map(el => ({
-              ...el,
-              studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
+              ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
             }))
             const totalNuColumn = []
             const allFluencies = studentClassrooms.flatMap(el => el.readingFluency)
@@ -158,7 +182,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               percentColumn[item.readingFluencyExam.id] += value
             }
             const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
-            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), percentColumn, totalPeColumn }
+            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
           case (TEST_CATEGORIES_IDS.TEST): {
@@ -545,32 +569,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
-      .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
-      .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
-      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoin("readingFluency.test", "stReadFluenTest")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoin("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("readingFluency.id IS NOT NULL")
-      }))
-      .andWhere("stReadFluenTest.id = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .getMany()
-  }
-
   async getReadingFluencyHeaders(CONN: EntityManager) {
     return await CONN.getRepository(ReadingFluencyGroup)
       .createQueryBuilder("rfg")
@@ -643,6 +641,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, testQuestions }
   }
 
+  async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+      .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
+      .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
+      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
+      .leftJoin("readingFluency.test", "stReadFluenTest")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+        qb.orWhere("readingFluency.id IS NOT NULL")
+      }))
+      .andWhere("stReadFluenTest.id = :testId", { testId: test.id })
+      .andWhere("stStatusTest.id = :testId", { testId: test.id })
+      .andWhere("year.name = :yearName", { yearName })
+      .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .getMany()
+  }
+
   async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {
     return await CONN.getRepository(Test)
       .createQueryBuilder("test")
@@ -659,6 +683,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+      .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
+      .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })

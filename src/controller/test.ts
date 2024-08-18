@@ -87,6 +87,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 return {
                   id: classroom.id,
                   name: classroom.name,
+                  shortName: classroom.shortName,
                   school: classroom.school,
                   percent: this.readingFluencyTotalizator(headers, classroom)
                 }

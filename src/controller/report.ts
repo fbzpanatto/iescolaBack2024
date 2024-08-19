@@ -10,6 +10,7 @@ import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { testController } from "./test";
+import { Year } from "../model/Year";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -110,10 +111,31 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       }
       case(TEST_CATEGORIES_IDS.READ): {
 
+        const year = await CONN.findOneBy(Year, { name: yearName })
+
+        if(!year) return { status: 404, message: "Ano não encontrado." }
+
+        const yearId = year.id.toString()
         const headers = await testController.getReadingFluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
+        const readingFluencyTest = await testController.getReadingFluencyForGraphic(testId, yearId, CONN) as Test
 
-        let response = { ...test, fluencyHeaders }
+        const schools = await CONN.getRepository(School)
+          .createQueryBuilder("school")
+          .leftJoinAndSelect("school.classrooms", "classroom")
+          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.year", "studentClassroomYear")
+          .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+          .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
+          .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+          .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
+          .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
+          .where("studentClassroomYear.id = :yearId", { yearId })
+          .andWhere("readingFluency.test = :testId", { testId })
+          .andWhere("studentStatusTest.id = :testId", { testId })
+          .getMany()
+
+        let response = { ...readingFluencyTest, fluencyHeaders, schools }
 
         data = response
 

@@ -75,9 +75,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case TEST_CATEGORIES_IDS.READ: {
-
-            // TODO: I AM HERE
-
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test

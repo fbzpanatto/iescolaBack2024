@@ -152,7 +152,17 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           return acc
         }, [])
 
-        data = {...test, fluencyHeaders, schools: allSchools }
+        const cityHall = {
+          id: 99,
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          percentTotalByColumn: allSchools.reduce((acc: number[], prev) => {
+            if (acc.length === 0) { acc = new Array(prev.percentTotalByColumn.length).fill(0) }
+            prev.percentTotalByColumn.forEach((value: number, index: number) => { acc[index] += value })
+            return acc;
+          }, []).map(total => total / allSchools.length)
+        }
+
+        data = {...test, fluencyHeaders, schools: [...allSchools, cityHall] }
 
         break;
       }

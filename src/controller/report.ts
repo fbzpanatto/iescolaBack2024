@@ -134,25 +134,40 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .andWhere("studentStatusTest.id = :testId", { testId })
           .getMany()
 
-        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], prev) => {
+        const totalCityHallColumn: any[] = []
+        const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], school) => {
 
           let totalNuColumn: any[] = []
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-          for(let header of headers){
-            const el = prev.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.readingFluency)).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+          for(let header of headers) {
+            const el = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.readingFluency)).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
             const value = el.length ?? 0
             totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+
+            const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === header.readingFluencyExam.id && el.readingFluencyLevelId === header.readingFluencyLevel.id)
+            if(!cityHallColumn) { totalCityHallColumn.push({ total: value, readingFluencyExamId: header.readingFluencyExam.id, readingFluencyLevelId: header.readingFluencyLevel.id })}
+            else { cityHallColumn.total += value }
+
             percentColumn[header.readingFluencyExam.id] += value
+            examTotalCityHall[header.readingFluencyExam.id] += value
           }
           const percentTotalByColumn = totalNuColumn.map((el: any) => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
 
-          acc.push({ id: prev.id, name: prev.name, percentTotalByColumn })
+          acc.push({ id: school.id, name: school.name, percentTotalByColumn })
 
           return acc
         }, [])
 
-        data = {...test, fluencyHeaders, schools: [...allSchools] }
+        const cityHall = {
+          id: 99,
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.round((item.total / examTotalCityHall[item.readingFluencyExamId]) * 100))
+        }
+
+        data = {...test, fluencyHeaders, schools: [...allSchools, cityHall] }
 
         break;
       }

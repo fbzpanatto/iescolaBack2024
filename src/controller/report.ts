@@ -134,7 +134,24 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .andWhere("studentStatusTest.id = :testId", { testId })
           .getMany()
 
-        data = {...test, fluencyHeaders, schools}
+        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], prev) => {
+          let totalNuColumn: any[] = []
+          const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+          for(let header of headers){
+            const el = prev.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.readingFluency))
+            const value = el.length ?? 0
+            totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+            percentColumn[header.readingFluencyExam.id] += value
+          }
+          const percentTotalByColumn = totalNuColumn.map((el: any) => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
+
+          acc.push({ id: prev.id, name: prev.name, percentTotalByColumn })
+
+          return acc
+        }, [])
+
+        data = {...test, fluencyHeaders, schools: allSchools }
 
         break;
       }

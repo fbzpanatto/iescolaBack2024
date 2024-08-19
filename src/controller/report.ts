@@ -1,16 +1,16 @@
-import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget } from "typeorm";
-import { Test } from "../model/Test";
-import { AppDataSource } from "../data-source";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { School } from "../model/School";
-import { pc } from "../utils/personCategories";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { testController } from "./test";
-import { Year } from "../model/Year";
+import {GenericController} from "./genericController";
+import {Brackets, EntityManager, EntityTarget} from "typeorm";
+import {Test} from "../model/Test";
+import {AppDataSource} from "../data-source";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {School} from "../model/School";
+import {pc} from "../utils/personCategories";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {testController} from "./test";
+import {Year} from "../model/Year";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -118,15 +118,14 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const yearId = year.id.toString()
         const headers = await testController.getReadingFluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
-        const readingFluencyTest = await testController.getReadingFluencyForGraphic(testId, yearId, CONN) as Test
 
         const schools = await CONN.getRepository(School)
           .createQueryBuilder("school")
           .leftJoinAndSelect("school.classrooms", "classroom")
           .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-          .leftJoinAndSelect("studentClassroom.year", "studentClassroomYear")
-          .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-          .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
+          .leftJoin("studentClassroom.year", "studentClassroomYear")
+          .leftJoin("studentClassroom.studentStatus", "studentStatus")
+          .leftJoin("studentStatus.test", "studentStatusTest")
           .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
           .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
           .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
@@ -135,9 +134,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .andWhere("studentStatusTest.id = :testId", { testId })
           .getMany()
 
-        let response = { ...readingFluencyTest, fluencyHeaders, schools }
-
-        data = response
+        data = {...test, fluencyHeaders, schools}
 
         break;
       }

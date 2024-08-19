@@ -8,7 +8,8 @@ import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
 import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { testController } from "./test";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -108,6 +109,14 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         break;
       }
       case(TEST_CATEGORIES_IDS.READ): {
+
+        const headers = await testController.getReadingFluencyHeaders(CONN)
+        const fluencyHeaders = testController.readingFluencyHeaders(headers)
+
+        let response = { ...test, fluencyHeaders }
+
+        data = response
+
         break;
       }
       case (TEST_CATEGORIES_IDS.TEST): {

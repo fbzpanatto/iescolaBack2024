@@ -159,7 +159,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             if (acc.length === 0) { acc = new Array(prev.percentTotalByColumn.length).fill(0) }
             prev.percentTotalByColumn.forEach((value: number, index: number) => { acc[index] += value })
             return acc;
-          }, []).map(total => total / allSchools.length)
+          }, [])
         }
 
         data = {...test, fluencyHeaders, schools: [...allSchools, cityHall] }

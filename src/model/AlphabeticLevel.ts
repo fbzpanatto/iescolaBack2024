@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Alphabetic } from "./Alphabetic";
-import {AlphabeticFirst} from "./AlphabeticFirst";
+import { AlphabeticFirst } from "./AlphabeticFirst";
 
 @Entity()
 export class AlphabeticLevel {

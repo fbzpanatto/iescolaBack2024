@@ -26,6 +26,7 @@ import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { TestBodySave } from "../interfaces/interfaces";
 import {TestClassroom} from "../model/TestClassroom";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -169,6 +170,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
         let data;
         switch (test.category.id) {
+          case(TEST_CATEGORIES_IDS.LITE): {
+
+            const year = await CONN.getRepository(Year)
+              .createQueryBuilder("year")
+              .select(['year.id', 'year.name', 'periods.id', 'bimester.id', 'bimester.name'])
+              .leftJoinAndSelect("year.periods", "periods")
+              .leftJoinAndSelect("periods.bimester", "bimester")
+              .where("year.name = :yearName", { yearName })
+              .getMany()
+
+            const alphabeticLevels = await CONN.getRepository(AlphabeticLevel)
+              .createQueryBuilder("alphabeticLevel")
+              .select(['alphabeticLevel.id', 'alphabeticLevel.shortName', 'alphabeticLevel.color', ])
+              .getMany()
+
+            const headers = year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
+
+            data = { test, classroom, headers  }
+            break;
+          }
           case(TEST_CATEGORIES_IDS.READ): {
             const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
             const headers = await this.getReadingFluencyHeaders(CONN)
@@ -204,7 +225,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {

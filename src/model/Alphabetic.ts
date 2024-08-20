@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { AlphabeticLevel } from "./AlphabeticLevel";
 import { Test } from "./Test";
+import {StudentClassroom} from "./StudentClassroom";
 
 @Entity()
 export class Alphabetic {
@@ -10,6 +11,9 @@ export class Alphabetic {
 
   @ManyToOne(() => AlphabeticLevel, alphabeticLevel => alphabeticLevel.alphabetic, { nullable: true })
   alphabeticLevel: AlphabeticLevel
+
+  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.alphabetic)
+  studentClassroom: StudentClassroom
 
   @ManyToOne(() => Test, test => test.readingFluencies)
   @JoinColumn({ name: "testId" })

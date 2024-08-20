@@ -5,6 +5,7 @@ import { Year} from "./Year";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
 import { ReadingFluency } from "./ReadingFluency";
+import {Alphabetic} from "./Alphabetic";
 
 @Entity()
 export class StudentClassroom {
@@ -27,13 +28,12 @@ export class StudentClassroom {
   @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.studentClassroom)
   studentStatus: StudentTestStatus[]
 
-  // @OneToMany(() => Literacy, literacy => literacy.studentClassroom)
-  // literacies: Literacy[]
-
   @OneToMany(() => ReadingFluency, readingFluency => readingFluency.studentClassroom)
   readingFluency: ReadingFluency[]
 
-  //TODO: não permitir cadastrar dois números iguais para uma mesma sala de aula
+  @OneToMany(() => Alphabetic, alphabetic => alphabetic.studentClassroom)
+  alphabetic: Alphabetic[]
+
   @Column({ nullable: false })
   rosterNumber: number
 

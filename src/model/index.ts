@@ -34,8 +34,12 @@ import { TestClassroom } from "./TestClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { ReadingFluencyGroup } from "./ReadingFluencyGroup";
-import {ReadingFluency} from "./ReadingFluency";
+import { ReadingFluency } from "./ReadingFluency";
+import { Alphabetic } from "./Alphabetic";
+import { AlphabeticLevel } from "./AlphabeticLevel";
 export const entities = [
+  Alphabetic,
+  AlphabeticLevel,
   Bimester,
   Classroom,
   ClassroomCategory,

@@ -5,7 +5,7 @@ import { Year} from "./Year";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
 import { ReadingFluency } from "./ReadingFluency";
-import {Alphabetic} from "./Alphabetic";
+import { Alphabetic } from "./Alphabetic";
 
 @Entity()
 export class StudentClassroom {

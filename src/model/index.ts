@@ -37,9 +37,11 @@ import { ReadingFluencyGroup } from "./ReadingFluencyGroup";
 import { ReadingFluency } from "./ReadingFluency";
 import { Alphabetic } from "./Alphabetic";
 import { AlphabeticLevel } from "./AlphabeticLevel";
+import { AlphabeticFirst } from "./AlphabeticFirst";
 export const entities = [
   Alphabetic,
   AlphabeticLevel,
+  AlphabeticFirst,
   Bimester,
   Classroom,
   ClassroomCategory,

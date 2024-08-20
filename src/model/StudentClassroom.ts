@@ -4,8 +4,7 @@ import { Classroom } from "./Classroom";
 import { Year} from "./Year";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
-import { Literacy } from "./Literacy";
-import {ReadingFluency} from "./ReadingFluency";
+import { ReadingFluency } from "./ReadingFluency";
 
 @Entity()
 export class StudentClassroom {
@@ -28,8 +27,8 @@ export class StudentClassroom {
   @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.studentClassroom)
   studentStatus: StudentTestStatus[]
 
-  @OneToMany(() => Literacy, literacy => literacy.studentClassroom)
-  literacies: Literacy[]
+  // @OneToMany(() => Literacy, literacy => literacy.studentClassroom)
+  // literacies: Literacy[]
 
   @OneToMany(() => ReadingFluency, readingFluency => readingFluency.studentClassroom)
   readingFluency: ReadingFluency[]

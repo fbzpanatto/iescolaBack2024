@@ -26,10 +26,6 @@ import { TestQuestion } from "./TestQuestion";
 import { QuestionGroup } from "./QuestionGroup";
 import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
-import { Literacy } from "./Literacy";
-import { LiteracyTier } from "./LiteracyTier";
-import { LiteracyLevel } from "./LiteracyLevel";
-import { LiteracyFirst } from "./LiteracyFirst";
 import { TestClassroom } from "./TestClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
@@ -48,10 +44,6 @@ export const entities = [
   Descriptor,
   Discipline,
   Disability,
-  Literacy,
-  LiteracyFirst,
-  LiteracyLevel,
-  LiteracyTier,
   Person,
   PersonCategory,
   Period,

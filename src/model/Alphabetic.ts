@@ -1,6 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { AlphabeticLevel } from "./AlphabeticLevel";
-import { StudentClassroom } from "./StudentClassroom";
 import { Test } from "./Test";
 
 @Entity()
@@ -8,9 +7,6 @@ export class Alphabetic {
 
   @PrimaryGeneratedColumn()
   id: number
-
-  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.literacies)
-  studentClassroom: StudentClassroom
 
   @ManyToOne(() => AlphabeticLevel, alphabeticLevel => alphabeticLevel.alphabetic, { nullable: true })
   alphabeticLevel: AlphabeticLevel

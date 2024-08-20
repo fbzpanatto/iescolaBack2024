@@ -32,10 +32,6 @@ import { DESCRIPTOR } from "../mock/descriptor";
 import { Descriptor } from "../model/Descriptor";
 import { Teacher } from "../model/Teacher";
 import { pc } from "../utils/personCategories";
-import { LITERACYTIER } from "../mock/literacyTier";
-import { LiteracyTier } from "../model/LiteracyTier";
-import { LiteracyLevel } from "../model/LiteracyLevel";
-import { LITERACYLEVEL } from "../mock/literacyLevel";
 import { generatePassword } from "../utils/generatePassword";
 import { credentialsEmail } from "../utils/email.service";
 import { ReadingFluencyExam } from "../model/ReadingFluencyExam";
@@ -116,28 +112,12 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const questionGroupSource = new dataSourceController(QuestionGroup).entity
     const topicSource = new dataSourceController(Topic).entity
     const descriptorSource = new dataSourceController(Descriptor).entity
-    const literacyTierSource = new dataSourceController(LiteracyTier).entity
-    const literacyLevelSource = new dataSourceController(LiteracyLevel).entity
     const readingFluencyExamSource = new dataSourceController(ReadingFluencyExam).entity
     const readingFluencyLevelSource = new dataSourceController(ReadingFluencyLevel).entity
     const readingFluencyGroupSource = new dataSourceController(ReadingFluencyGroup).entity
 
     const currentYear = new Date().getFullYear()
     const date = new Date(currentYear, 0, 1, 0, 0 ,0, 0)
-
-    for(let literacyTier of LITERACYTIER) {
-      const newLiteracyTier = new LiteracyTier()
-      newLiteracyTier.name = literacyTier.name
-      await literacyTierSource.save(newLiteracyTier)
-    }
-
-    for(let literacyLevel of LITERACYLEVEL) {
-      const newLiteracyLevel = new LiteracyLevel()
-      newLiteracyLevel.name = literacyLevel.name
-      newLiteracyLevel.shortName = literacyLevel.shortName
-      newLiteracyLevel.color = literacyLevel.color
-      await literacyLevelSource.save(newLiteracyLevel)
-    }
 
     const newYear = new Year()
     newYear.name = date.getFullYear().toString()
@@ -221,9 +201,7 @@ InitialConfigsRouter.get('/', async (req, res) => {
     const schools = await schoolSource.find() as School[]
 
     for(let school of schools) {
-
       for(let classroom of CLASSROOM) {
-
         await createClassroom(school, classroom)
       }
     }

@@ -4,7 +4,6 @@ import { StudentDisability } from "./StudentDisability";
 import { StudentClassroom } from "./StudentClassroom";
 import { State } from "./State";
 import { Transfer} from "./Transfer";
-import { LiteracyFirst } from "./LiteracyFirst";
 
 @Index(["ra", "dv"], { unique: true })
 @Entity()
@@ -43,9 +42,6 @@ export class Student {
 
   @Column({ nullable: true, default: true })
   active: boolean;
-
-  @OneToOne(() => LiteracyFirst, literacyfirst => literacyfirst.student, { cascade: true })
-  literacyFirst: LiteracyFirst
 
   @Column({ nullable: true, select: false })
   createdAt: Date

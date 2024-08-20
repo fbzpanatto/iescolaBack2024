@@ -36,10 +36,6 @@ StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Reques
   const response = await controller.save(req.body); return res.status(response.status).json(response)
 })
 
-StudentRouter.put("/literacy-first/:id", ID_PARAM, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.putLiteracyBeforeLevel(req.body); return res.status(response.status).json(response)
-})
-
 StudentRouter.put("/:id/graduate", ID_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.graduate(req.params.id, req.body); return res.status(response.status).json(response)
 })

@@ -6,8 +6,6 @@ import { transferStatus } from "../utils/transferStatus";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
 import { Classroom } from "../model/Classroom";
-import { LiteracyTier } from "../model/LiteracyTier";
-import { Literacy } from "../model/Literacy";
 import { TransferStatus } from '../model/TransferStatus';
 import { Teacher } from "../model/Teacher";
 import { transferEmail } from "../utils/email.service";
@@ -164,7 +162,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         if (body.accept) {
 
-          const relations = [ 'student', 'classroom', 'literacies.literacyTier', 'literacies.literacyLevel', 'year' ]
+          const relations = [ 'student', 'classroom', 'year' ]
 
           const stClass = await CONN.findOne(StudentClassroom, { relations: relations, where: { student: body.student, classroom: body.classroom, endedAt: IsNull() }})
 
@@ -186,28 +184,12 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             year: await this.currentYear(CONN)
           }) as StudentClassroom
 
-          const classNumber = Number(currTransfer.requestedClassroom.shortName.replace(/\D/g, ''))
-          const newNumber = Number(newStudentClassroom.classroom.shortName.replace(/\D/g, ''))
-          const oldNumber = Number(stClass.classroom.shortName.replace(/\D/g, ''))
-
-          if (classNumber === 1) {
-            const literacyTier = await CONN.find(LiteracyTier)
-            if (stClass.classroom.id != newStudentClassroom.classroom.id && oldNumber === newNumber && stClass.year.id === newStudentClassroom.year.id ) {
-              for (let tier of literacyTier) {
-                const element = stClass.literacies.find(el => el.literacyTier.id === tier.id && el.literacyLevel != null)
-                if (element) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: element.literacyTier, literacyLevel: element.literacyLevel, toRate: false })}
-                else { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier })}
-              }
-            }
-            else { for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier })}}
-          }
-
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id })
           currTransfer.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = uTeacher
           await CONN.save(Transfer, currTransfer)
-          return { status: 200, data: 'Aceita com sucesso.' }
+          return { status: 200, data: newStudentClassroom }
         }
         let data = {}
         return { status: 200, data };

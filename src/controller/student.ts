@@ -8,7 +8,7 @@ import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { GraduateBody, InactiveNewClassroom, LiteracyBeforeLevel, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn } from "../interfaces/interfaces";
+import { GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -16,9 +16,6 @@ import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import { Year } from "../model/Year";
-import { Literacy } from "../model/Literacy";
-import { LiteracyTier } from "../model/LiteracyTier";
-import { LiteracyFirst } from "../model/LiteracyFirst";
 import { disabilityController } from "./disability";
 import { stateController } from "./state";
 import { teacherClassroomsController } from "./teacherClassrooms";
@@ -150,13 +147,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           startedAt: new Date(),
           createdByUser: uTeacher.person.user.id
         }) as StudentClassroom
-
-        const classroomNumber = Number(classroom.shortName.replace(/\D/g, ''))
-
-        if (classroomNumber === 1) {
-          const literacyTier = await CONN.find(LiteracyTier) as LiteracyTier[]
-          for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStudentClassroom, literacyTier: tier }) }
-        }
 
         await AppDataSource.getRepository(Transfer).save({
           startedAt: new Date(),
@@ -296,12 +286,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         await CONN.save(Transfer, transfer);
 
-        if (classroomNumber === 1) {
-          const literacyTier = await CONN.find(LiteracyTier)
-          for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() } as Literacy) }
-          await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
-        }
-
         return { status: 201, data: student as unknown as Student }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -373,13 +357,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
 
           await CONN.save(Transfer, transfer);
-
-          if (classroomNumber === 1) {
-            const literacyTier = await CONN.find(LiteracyTier)
-            for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: stObject, literacyTier: tier, createdByUser: uTeacher.person.user.id, createdAt: new Date() } as Literacy) }
-            await CONN.save(LiteracyFirst,{ student, createdAt: new Date(), createdByUser: uTeacher.person.user.id  })
-          }
-
         }
 
         return { status: 201, data: {} as unknown as Student }
@@ -390,33 +367,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return { status: 500, message: error.message }
     }
-  }
-
-  async putLiteracyBeforeLevel(body: LiteracyBeforeLevel) {
-    try {
-      return await AppDataSource.transaction(async (CONN) => {
-
-        const uTeacher = await this.teacherByUser(body.user.user);
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
-
-        const classroomNumber = Number(body.studentClassroom.classroom.shortName.replace(/\D/g, ""))
-
-        const register = await CONN.findOne(LiteracyFirst, { relations: ["literacyLevel"], where: { student: { id: body.studentClassroom.student.id } }})
-
-        if (!register) { return { status: 404, message: "Registro não encontrado" } }
-
-        if ((classroomNumber === 1 && register && register.literacyLevel === null) || masterUser) {
-
-          register.literacyLevel = body.literacyLevel
-          register.updatedAt = new Date()
-          register.updatedByUser = uTeacher.person.user.id
-
-          await CONN.save(LiteracyFirst, register)
-          return { status: 201, data: {} }
-        }
-        return { status: 201, data: {} }
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   override async updateId(studentId: number | string, body: any) {
@@ -435,7 +385,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const bodyClass: Classroom | null = await CONN.findOne(Classroom, { where: { id: body.classroom } })
 
-        const arrRel: string[] = ["student", "classroom", "literacies.literacyTier", "literacies.literacyLevel", "year" ]
+        const arrRel: string[] = ["student", "classroom", "year" ]
 
         const stClassroomOptions:  FindOneOptions<StudentClassroom> = {
           relations: arrRel, where: { id: Number(body.currentStudentClassroomId), student: { id: dbStudent.id }, endedAt: IsNull() }
@@ -495,22 +445,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const newStClass = await CONN.save(StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
 
           const notDigit = /\D/g; const classNumber = Number( bodyClass.shortName.replace(notDigit, "") );
-
-          if (classNumber === 1) {
-
-            const literacyTier = await CONN.find(LiteracyTier);
-
-            if (stClass.classroom.id != newStClass.classroom.id && oldNumber === newNumber && stClass.year.id === newStClass.year.id ) {
-              for (let tier of literacyTier) {
-                const literacy = stClass.literacies.find((el) => el.literacyTier.id === tier.id && el.literacyLevel != null )
-
-                if (literacy) { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: literacy.literacyTier, literacyLevel: literacy.literacyLevel, toRate: false, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}
-
-                else { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}
-              }
-            }
-            else { for (let tier of literacyTier) { await CONN.save(Literacy, { studentClassroom: newStClass, literacyTier: tier, createdAt: new Date(), createdByUser: uTeacher.person.user.id })}}
-          }
 
           const transfer = new Transfer();
           transfer.createdByUser = uTeacher.person.user.id;

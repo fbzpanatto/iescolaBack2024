@@ -8,9 +8,9 @@ export class AlphabeticFirst {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToOne(() => Student, student => student.literacyFirst, { nullable: false })
-  @JoinColumn()
-  student: Student
+  // @OneToOne(() => Student, student => student.literacyFirst, { nullable: false })
+  // @JoinColumn()
+  // student: Student
 
   @ManyToOne(() => AlphabeticLevel, alphabeticLevel => alphabeticLevel.alphabeticFirst, { nullable: true })
   alphabeticFirst: AlphabeticLevel

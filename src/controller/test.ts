@@ -187,7 +187,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const headers = year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
 
-            data = { test, classroom, headers  }
+            data = { test, classroom, alphabeticHeaders: headers  }
             break;
           }
           case(TEST_CATEGORIES_IDS.READ): {

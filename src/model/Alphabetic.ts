@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { AlphabeticLevel } from "./AlphabeticLevel";
 import { Test } from "./Test";
-import {StudentClassroom} from "./StudentClassroom";
+import { StudentClassroom } from "./StudentClassroom";
 
 @Entity()
 export class Alphabetic {

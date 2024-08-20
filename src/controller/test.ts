@@ -25,6 +25,7 @@ import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { TestBodySave } from "../interfaces/interfaces";
+import {TestClassroom} from "../model/TestClassroom";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -149,6 +150,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const yearName = request?.params.year as string
     try {
       return await AppDataSource.transaction(async (CONN) => {
+
+        const testClassroom = await CONN.findOne(TestClassroom, { where: { testId, classroomId } })
+        if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
+
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
         const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)

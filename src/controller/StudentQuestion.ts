@@ -6,6 +6,7 @@ import { StudentTestStatus } from "../model/StudentTestStatus";
 import { Request } from "express";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { Test } from "../model/Test";
+import {Alphabetic} from "../model/Alphabetic";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -40,6 +41,50 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         register.readingFluencyLevel = body.readingFluencyLevel
         await CONN.save(ReadingFluency, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+
+        return { status: 201, data }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async updateAlphabetic(req: Request){
+
+    const { body, query } = req
+    const { year } = query
+
+    try {
+      return await AppDataSource.transaction(async(CONN) => {
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+
+        let data;
+
+        const currentYear = await this.currentYear(CONN)
+        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+
+        const test = await CONN.findOne(Test, {
+          where: {
+            category: { id: body.testCategory.id },
+            period: {
+              year: { name: body.year },
+              bimester: { id: body.examBimester.id },
+            }
+          }
+        }) as Test
+
+        if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
+
+        const options = { where: { test: { id: test?.id }, student: { id: body.student.id } } }
+        const register = await CONN.findOne(Alphabetic, options)
+
+        if(!register) {
+          data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, test, student: body.student })
+          return { status: 201, data }
+        }
+
+        register.alphabeticLevel = body.examLevel
+        data = await CONN.save(Alphabetic, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }
       })

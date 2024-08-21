@@ -177,10 +177,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.alphabeticHeaders(yearName, CONN)
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
             const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-            const studentClassrooms = preResult.map(el => ({
-              ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
-            }))
-            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms }
+            // const studentClassrooms = preResult.map(el => ({
+            //   ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
+            // }))
+            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms: preResult }
             break;
           }
           case(TEST_CATEGORIES_IDS.READ): {
@@ -218,15 +218,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
-    for(let studentClassroom of studentClassrooms) {
-      const stStatus = await CONN.findOne(StudentTestStatus, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
-      if(!stStatus) { await CONN.save(StudentTestStatus, { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } ) }
-      const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
-      if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, studentClassroom, test } ) }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
     }
   }
 
@@ -234,11 +228,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.alphabetic", "alphabetic")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoin("studentClassroom.student", "student")
-      .leftJoin("student.person", "person")
+      // .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      // .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoin("student.alphabetic", "alphabetic")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
@@ -248,15 +242,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
+  async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+    for(let studentClassroom of studentClassrooms) {
+      // TODO: check for student too.
+      // const stStatus = await CONN.findOne(StudentTestStatus, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
+      // if(!stStatus) { await CONN.save(StudentTestStatus, { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } ) }
+      const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student.id } } } )
+      if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test } ) }
+    }
+  }
+
   async getAlphabeticStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentClassroom.alphabetic", "alphabetic")
+      // .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("student.alphabetic", "alphabetic")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoin("alphabetic.test", "stAlphabeticTest")
+      // .leftJoinAndSelect("studentStatus.test", "stStatusTest")
+      .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
+      .leftJoinAndSelect("stAlphabeticTest.period", "period")
+      .leftJoinAndSelect("period.bimester", "bimester")
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
       .leftJoin("studentClassroom.classroom", "classroom")
@@ -266,8 +272,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         qb.orWhere("alphabetic.id IS NOT NULL")
       }))
-      .andWhere("stAlphabeticTest.id = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
+      // .andWhere("stAlphabeticTest.id = :testId", { testId: test.id })
+      // .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany()
@@ -769,6 +775,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async alphabeticHeaders(yearName: string, CONN: EntityManager){
+
     const year = await CONN.getRepository(Year)
       .createQueryBuilder("year")
       .select(['year.id', 'year.name', 'periods.id', 'bimester.id', 'bimester.name'])
@@ -781,6 +788,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("alphabeticLevel")
       .select(['alphabeticLevel.id', 'alphabeticLevel.shortName', 'alphabeticLevel.color', ])
       .getMany()
+
+    // const bimesterIds = year.flatMap(el => el.periods).map(el => el.bimester.id)
+
+    // const tests = await CONN.getRepository(Test)
+    //   .createQueryBuilder("test")
+    //   .leftJoinAndSelect("test.period", "period")
+    //   .leftJoinAndSelect("period.bimester", "bimester")
+    //   .leftJoinAndSelect("period.year", "year")
+    //   .leftJoinAndSelect("test.category", "category")
+    //   .where("year.name = :yearName", { yearName })
+    //   .andWhere("bimester.id IN (:...ids)", { ids: bimesterIds })
+    //   .andWhere("category.id = :categoryId", { categoryId: TEST_CATEGORIES_IDS.LITE })
+    //   .getMany()
+    //
+    // console.log(tests)
 
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
   }

@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { Student } from "./Student";
 import { AlphabeticLevel } from "./AlphabeticLevel";
 
+@Index(["student"], { unique: true })
 @Entity()
 export class AlphabeticFirst {
 

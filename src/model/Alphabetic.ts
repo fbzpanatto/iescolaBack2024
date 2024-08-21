@@ -1,8 +1,9 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { AlphabeticLevel } from "./AlphabeticLevel";
+import { Student } from "./Student";
 import { Test } from "./Test";
-import { StudentClassroom } from "./StudentClassroom";
 
+@Index(["test", "student"], { unique: true })
 @Entity()
 export class Alphabetic {
 
@@ -12,8 +13,8 @@ export class Alphabetic {
   @ManyToOne(() => AlphabeticLevel, alphabeticLevel => alphabeticLevel.alphabetic, { nullable: true })
   alphabeticLevel: AlphabeticLevel
 
-  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.alphabetic)
-  studentClassroom: StudentClassroom
+  @ManyToOne(() => Student, student => student.alphabetic)
+  student: Student
 
   @ManyToOne(() => Test, test => test.readingFluencies)
   @JoinColumn({ name: "testId" })

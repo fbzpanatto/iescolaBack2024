@@ -5,6 +5,7 @@ import { StudentClassroom } from "./StudentClassroom";
 import { State } from "./State";
 import { Transfer} from "./Transfer";
 import { AlphabeticFirst } from "./AlphabeticFirst";
+import { Alphabetic } from "./Alphabetic";
 
 @Index(["ra", "dv"], { unique: true })
 @Entity()
@@ -19,6 +20,9 @@ export class Student {
 
   @OneToOne(() => AlphabeticFirst, alphabeticFirst => alphabeticFirst.student)
   alphabeticFirst: AlphabeticFirst;
+
+  @OneToMany(() => Alphabetic, alphabetic => alphabetic.student)
+  alphabetic: AlphabeticFirst;
 
   @Column({ nullable: false })
   ra: string;

@@ -70,10 +70,13 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
               year: { name: body.year },
               bimester: { id: body.examBimester.id },
             }
-          }
+          },
+          relations: ["period.bimester"]
         }) as Test
 
-        if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
+        const bimester = test.period.bimester.name
+
+        if(test && !test.active){ return { status: 403, message: `A avaliação do ${bimester} não permite novos lançamentos.` } }
 
         const options = { where: { test: { id: test?.id }, student: { id: body.student.id } } }
         const register = await CONN.findOne(Alphabetic, options)

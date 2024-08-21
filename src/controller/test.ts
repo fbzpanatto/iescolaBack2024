@@ -27,7 +27,7 @@ import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { TestBodySave } from "../interfaces/interfaces";
 import { TestClassroom } from "../model/TestClassroom";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import {Alphabetic} from "../model/Alphabetic";
+import { Alphabetic } from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -218,10 +218,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
@@ -231,6 +228,49 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
       if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, studentClassroom, test } ) }
     }
+  }
+
+  async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoin("studentClassroom.alphabetic", "alphabetic")
+      .leftJoin("studentClassroom.studentStatus", "studentStatus")
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoin("studentClassroom.student", "student")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+        qb.orWhere("alphabetic.id IS NOT NULL")
+      }))
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany();
+  }
+
+  async getAlphabeticStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentClassroom.alphabetic", "alphabetic")
+      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
+      .leftJoin("alphabetic.test", "stAlphabeticTest")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+        qb.orWhere("alphabetic.id IS NOT NULL")
+      }))
+      .andWhere("stAlphabeticTest.id = :testId", { testId: test.id })
+      .andWhere("stStatusTest.id = :testId", { testId: test.id })
+      .andWhere("year.name = :yearName", { yearName })
+      .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .getMany()
   }
 
   async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
@@ -302,48 +342,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }))
       .andWhere("year.name = :yearName", { yearName })
       .getMany();
-  }
-
-  async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.alphabetic", "alphabetic")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoin("studentClassroom.student", "student")
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-        qb.orWhere("alphabetic.id IS NOT NULL")
-      }))
-      .andWhere("year.name = :yearName", { yearName })
-      .getMany();
-  }
-
-  async getAlphabeticStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentClassroom.alphabetic", "alphabetic")
-      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoin("alphabetic.test", "stAlphabeticTest")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoin("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("alphabetic.id IS NOT NULL")
-      }))
-      .andWhere("stAlphabeticTest.id = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .getMany()
   }
 
   async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

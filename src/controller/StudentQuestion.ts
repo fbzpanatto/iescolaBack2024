@@ -72,9 +72,11 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
             }
           },
           relations: ["period.bimester"]
-        }) as Test
+        })
 
-        const bimester = test.period.bimester.name
+        if(!test) { return { status: 404, message: 'Avaliação ainda não disponível.' } }
+
+        const bimester = test?.period.bimester.name
 
         if(test && !test.active){ return { status: 403, message: `A avaliação do ${bimester} não permite novos lançamentos.` } }
 

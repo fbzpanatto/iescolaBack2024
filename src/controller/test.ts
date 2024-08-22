@@ -537,8 +537,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             " (:...teacherClasses)", { teacherClasses: classrooms }) } }))
           .andWhere("year.name = :yearName", { yearName })
           .andWhere("test.name LIKE :search", { search: `%${search}%` })
-          .limit(limit)
-          .offset(offset)
+          .take(limit)
+          .skip(offset)
           .getMany();
         return { status: 200, data: testClasses };
       })

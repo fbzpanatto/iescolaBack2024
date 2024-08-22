@@ -44,6 +44,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async getAllInactivates(request: Request) {
 
+    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+
     try {
 
       return AppDataSource.transaction(async(CONN) => {
@@ -72,7 +75,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}` })
           .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})` })
           .orderBy("person.name", "ASC")
-          .limit(100)
+          .take(limit)
+          .skip(offset)
           .getMany();
 
         return { status: 200, data: preResult.map((student) => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))};
@@ -570,8 +574,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .orderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .addOrderBy("studentClassroom.rosterNumber", "ASC")
-        .limit(limit)
-        .offset(offset)
+        .take(limit)
+        .skip(offset)
         .getRawMany();
 
       return result.map((item) => {

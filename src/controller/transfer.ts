@@ -46,9 +46,9 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
               .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
           }))
           .andWhere('year.name = :year', { year })
-          .orderBy('transfer.startedAt', 'DESC')
-          .limit(limit)
-          .offset(offset)
+          .take(limit)
+          .skip(offset)
+          .orderBy('transfer.id', 'DESC')
           .getMany()
         return { status: 200, data: result };
       })

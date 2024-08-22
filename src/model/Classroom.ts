@@ -3,8 +3,9 @@ import { School } from "./School";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { StudentClassroom } from "./StudentClassroom";
-import {Transfer} from "./Transfer";
-import {TestClassroom} from "./TestClassroom";
+import { Transfer } from "./Transfer";
+import { TestClassroom } from "./TestClassroom";
+import { Alphabetic } from "./Alphabetic";
 
 @Entity()
 export class Classroom {
@@ -32,6 +33,9 @@ export class Classroom {
 
   @OneToMany(() => StudentClassroom, studentClassroom => studentClassroom.classroom)
   studentClassrooms: StudentClassroom[]
+
+  @OneToMany(() => Alphabetic, alphabetic => alphabetic.rClassroom)
+  alphabetic: Alphabetic[]
 
   @OneToMany(() => TestClassroom, testClassroom => testClassroom.classroom)
   testClassrooms: TestClassroom[];

@@ -2,6 +2,7 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } 
 import { AlphabeticLevel } from "./AlphabeticLevel";
 import { Student } from "./Student";
 import { Test } from "./Test";
+import { Classroom } from "./Classroom";
 
 @Index(["test", "student"], { unique: true })
 @Entity()
@@ -19,6 +20,9 @@ export class Alphabetic {
   @ManyToOne(() => Test, test => test.readingFluencies)
   @JoinColumn({ name: "testId" })
   test: Test;
+
+  @ManyToOne(() => Classroom, classroom => classroom.alphabetic, { nullable: true })
+  rClassroom: Classroom
 
   @Column({ nullable: true, select: false })
   createdAt: Date

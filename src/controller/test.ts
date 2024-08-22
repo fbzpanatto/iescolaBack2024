@@ -260,6 +260,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
       .leftJoinAndSelect("stAlphabeticTest.period", "period")
       .leftJoinAndSelect("period.bimester", "bimester")
+      .leftJoinAndSelect("period.year", "pYear")
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
       .leftJoin("studentClassroom.classroom", "classroom")
@@ -272,6 +273,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       // .andWhere("stAlphabeticTest.id = :testId", { testId: test.id })
       // .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })
+      .andWhere("pYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany()
   }

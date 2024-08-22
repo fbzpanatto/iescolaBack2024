@@ -84,11 +84,24 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const register = await CONN.findOne(Alphabetic, options)
 
         if(!register) {
-          data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, test, student: body.student })
+          data = await CONN.save(Alphabetic, {
+            createdAt: new Date(),
+            createdByUser: uTeacher.person.user.id,
+            alphabeticLevel: body.examLevel,
+            student: body.student,
+            rClassroom: body.classroom,
+            test
+          })
           return { status: 201, data }
         }
 
+        if(register.rClassroom.id && register.rClassroom.id != body.classroom.id) {
+          return { status: 403, message: 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.' }
+        }
+
+        register.rClassroom = body.classroom
         register.alphabeticLevel = body.examLevel
+
         data = await CONN.save(Alphabetic, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }

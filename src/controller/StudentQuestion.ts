@@ -106,10 +106,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         return { status: 201, data }
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateTestStatus(id: number | string, body: ObjectLiteral) {

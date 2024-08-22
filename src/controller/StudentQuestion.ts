@@ -80,7 +80,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         if(test && !test.active){ return { status: 403, message: `A avaliação do ${bimester} não permite novos lançamentos.` } }
 
-        const options = { where: { test: { id: test?.id }, student: { id: body.student.id } } }
+        const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom'] }
         const register = await CONN.findOne(Alphabetic, options)
 
         if(!register) {
@@ -95,7 +95,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
           return { status: 201, data }
         }
 
-        if(register.rClassroom.id && register.rClassroom.id != body.classroom.id) {
+        if(register.rClassroom && register.rClassroom.id != body.classroom.id) {
           return { status: 403, message: 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.' }
         }
 
@@ -106,7 +106,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         return { status: 201, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async updateTestStatus(id: number | string, body: ObjectLiteral) {

@@ -218,10 +218,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -247,7 +244,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       // TODO: check for student too.
       // const stStatus = await CONN.findOne(StudentTestStatus, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
       // if(!stStatus) { await CONN.save(StudentTestStatus, { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } ) }
-      const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student.id } } } )
+      const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
       if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test } ) }
     }
   }
@@ -389,6 +386,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!test) return { status: 404, message: "Teste não encontrado" }
         let data;
         switch (test.category.id) {
+          case TEST_CATEGORIES_IDS.LITE: {
+            data = await this.notIncludedAlphabetic(test, Number(classroomId), Number(yearName), CONN)
+            break;
+          }
           case TEST_CATEGORIES_IDS.READ: {
             data = await this.notIncludedReadingFluency(test, Number(classroomId), Number(yearName), CONN)
             break;
@@ -425,9 +426,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await this.getTest(body.test.id, body.year, CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
         switch (test.category.id) {
+          case (TEST_CATEGORIES_IDS.LITE): {
+            const stClassrooms = await this.notIncludedAlphabetic(test, body.classroom.id, body.year, CONN)
+            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
+            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
+            for(let register of filteredSC){
+              const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: register.student_id } } } )
+              if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, student: { id: register.student_id }, test } ) }
+            }
+            break;
+          }
           case (TEST_CATEGORIES_IDS.READ): {
             const stClassrooms = await this.notIncludedReadingFluency(test, body.classroom.id, body.year, CONN)
-            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.getReadingFluencyHeaders(CONN)
             await this.createLinkReadingFluency(headers, filteredSC, test, uTeacher.person.user.id, CONN)
@@ -435,7 +446,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
           case (TEST_CATEGORIES_IDS.TEST): {
             const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, CONN)
-            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados" }
+            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const testQuestions = await this.getTestQuestions(test.id, CONN)
             await this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
@@ -477,7 +488,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("studentClassroom.readingFluency", "readingFluency")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
       .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
-      .leftJoin("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoin("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", {classroomId})
       .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
@@ -485,6 +496,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("year.name = :yearName", {yearName})
       .andWhere("readingFluency.id IS NULL")
       .getRawMany() as unknown as notIncludedInterface[]
+  }
+
+  async notIncludedAlphabetic(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoin("student.alphabetic", "alphabetic")
+      .leftJoin("student.person", "person")
+      .where("studentClassroom.classroom = :classroomId", {classroomId})
+      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+      .andWhere("studentClassroom.endedAt IS NULL")
+      .andWhere("year.name = :yearName", {yearName})
+      .andWhere("alphabetic.id IS NULL")
+      .getRawMany()
   }
 
   async findAllByYear(request: Request) {

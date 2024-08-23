@@ -32,7 +32,6 @@ import { Alphabetic } from "../model/Alphabetic";
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
-interface AlphabeticHeaders { levels: AlphabeticLevel[], id: number, name: string, periods: Period[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -177,10 +176,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.alphabeticHeaders(yearName, CONN)
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
             const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-            // const studentClassrooms = preResult.map(el => ({
-            //   ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
-            // }))
-            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms: preResult }
+            const allAlphabetic = preResult.flatMap(el => el.student.alphabetic)
+            const totalNuColumn = []
+            const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+            for(let bimester of headers) {
+              for(let level of bimester.levels) {
+                const count = allAlphabetic.reduce((acc, prev) => {
+                  return acc + ( prev.rClassroom.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel.id === level.id ? 1 : 0)
+                }, 0)
+                totalNuColumn.push({ total: count, bimesterId: bimester.id })
+                percentBimesterColumn[bimester.id] += count
+              }
+            }
+            const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms: preResult, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
           case(TEST_CATEGORIES_IDS.READ): {
@@ -255,6 +264,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.student", "student")
       // .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("student.alphabetic", "alphabetic")
+      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
       // .leftJoinAndSelect("studentStatus.test", "stStatusTest")
       .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")

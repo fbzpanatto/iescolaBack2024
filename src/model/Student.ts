@@ -22,7 +22,7 @@ export class Student {
   alphabeticFirst: AlphabeticFirst;
 
   @OneToMany(() => Alphabetic, alphabetic => alphabetic.student)
-  alphabetic: AlphabeticFirst;
+  alphabetic: Alphabetic;
 
   @Column({ nullable: false })
   ra: string;

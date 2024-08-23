@@ -176,20 +176,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.alphabeticHeaders(yearName, CONN)
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
             const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-            const allAlphabetic = preResult.flatMap(el => el.student.alphabetic)
+            const studentClassrooms = preResult.map(el => {
+              return {
+                ...el,
+                studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
+              }
+            })
+            const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
             const totalNuColumn = []
             const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
             for(let bimester of headers) {
               for(let level of bimester.levels) {
                 const count = allAlphabetic.reduce((acc, prev) => {
-                  return acc + ( prev.rClassroom.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel.id === level.id ? 1 : 0)
+                  return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
                 }, 0)
                 totalNuColumn.push({ total: count, bimesterId: bimester.id })
                 percentBimesterColumn[bimester.id] += count
               }
             }
             const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms: preResult, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
           case(TEST_CATEGORIES_IDS.READ): {
@@ -227,7 +233,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

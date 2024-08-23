@@ -7,6 +7,7 @@ import { Request } from "express";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { Test } from "../model/Test";
 import {Alphabetic} from "../model/Alphabetic";
+import {AlphabeticFirst} from "../model/AlphabeticFirst";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -41,6 +42,36 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         register.readingFluencyLevel = body.readingFluencyLevel
         await CONN.save(ReadingFluency, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+
+        return { status: 201, data }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async updateAlphabeticFirstLevel(req: Request){
+
+    const { body } = req
+
+    try {
+      return await AppDataSource.transaction(async(CONN) => {
+
+        let data;
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+
+        const student = body.student
+        const alphabeticFirst = body.alphabeticFirst
+
+        const first = await CONN.findOne(AlphabeticFirst, { where: { student } })
+
+        if(!first){
+          data = await CONN.save(AlphabeticFirst, { student, alphabeticFirst, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
+          return { status: 201, data }
+        }
+
+        first.alphabeticFirst = alphabeticFirst
+
+        data = await CONN.save(AlphabeticFirst, { ...first, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }
       })

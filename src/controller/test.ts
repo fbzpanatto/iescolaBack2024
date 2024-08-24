@@ -74,10 +74,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
         switch (category?.id) {
-          case TEST_CATEGORIES_IDS.LITE: {
+          case TEST_CATEGORIES_IDS.LITE_1: {
+            const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
+            if(!year) return { status: 404, message: "Ano não encontrado." }
+            const headers = await this.alphabeticHeaders(year.name, CONN)
+            const test = await this.getAlphabeticForGraphic(testId, yearId as string, CONN) as Test
+            data = { alphabeticHeaders: headers, test }
             break;
           }
-          case TEST_CATEGORIES_IDS.READ: {
+          case TEST_CATEGORIES_IDS.READ_2:
+          case TEST_CATEGORIES_IDS.READ_3: {
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
@@ -98,7 +104,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
-          case TEST_CATEGORIES_IDS.TEST: {
+          case TEST_CATEGORIES_IDS.TEST_4_9: {
             const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -171,7 +177,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
         let data;
         switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE): {
+          case(TEST_CATEGORIES_IDS.LITE_1): {
             const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
             const headers = await this.alphabeticHeaders(yearName, CONN)
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
@@ -198,7 +204,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
-          case(TEST_CATEGORIES_IDS.READ): {
+          case(TEST_CATEGORIES_IDS.READ_2):
+          case(TEST_CATEGORIES_IDS.READ_3): {
             const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
@@ -220,7 +227,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
-          case (TEST_CATEGORIES_IDS.TEST): {
+          case (TEST_CATEGORIES_IDS.TEST_4_9): {
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
@@ -405,15 +412,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!test) return { status: 404, message: "Teste não encontrado" }
         let data;
         switch (test.category.id) {
-          case TEST_CATEGORIES_IDS.LITE: {
+          case TEST_CATEGORIES_IDS.LITE_1: {
             data = await this.notIncludedAlphabetic(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
-          case TEST_CATEGORIES_IDS.READ: {
+          case TEST_CATEGORIES_IDS.READ_2:
+          case TEST_CATEGORIES_IDS.READ_3: {
             data = await this.notIncludedReadingFluency(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
-          case TEST_CATEGORIES_IDS.TEST: {
+          case TEST_CATEGORIES_IDS.TEST_4_9: {
             data = await this.notIncluded(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
@@ -445,7 +453,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await this.getTest(body.test.id, body.year, CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
         switch (test.category.id) {
-          case (TEST_CATEGORIES_IDS.LITE): {
+          case (TEST_CATEGORIES_IDS.LITE_1): {
             const stClassrooms = await this.notIncludedAlphabetic(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
@@ -455,7 +463,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
-          case (TEST_CATEGORIES_IDS.READ): {
+          case (TEST_CATEGORIES_IDS.READ_2):
+          case (TEST_CATEGORIES_IDS.READ_3): {
             const stClassrooms = await this.notIncludedReadingFluency(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
@@ -463,7 +472,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             await this.createLinkReadingFluency(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }
-          case (TEST_CATEGORIES_IDS.TEST): {
+          case (TEST_CATEGORIES_IDS.TEST_4_9): {
             const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
@@ -617,7 +626,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.createdAt = new Date()
         test.createdByUser = uTeacher.person.user.id
         await CONN.save(Test, test);
-        if(TEST_CATEGORIES_IDS.TEST === body.category.id) {
+        if(TEST_CATEGORIES_IDS.TEST_4_9 === body.category.id) {
           const tQts = body.testQuestions!.map((el: any) => ({
             ...el,
             createdAt: new Date(),
@@ -820,6 +829,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
+  async getAlphabeticForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+    return await CONN.getRepository(Test)
+      .createQueryBuilder("test")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.bimester", "periodBimester")
+      .leftJoinAndSelect("period.year", "periodYear")
+      .leftJoinAndSelect("test.discipline", "discipline")
+      .leftJoinAndSelect("test.category", "category")
+      .leftJoinAndSelect("test.person", "testPerson")
+      .leftJoinAndSelect("test.classrooms", "classroom")
+      .leftJoinAndSelect("classroom.school", "school")
+      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.alphabetic", "alphabetic")
+      .leftJoinAndSelect("alphabetic.test", "alphabeticTest")
+      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
+      .leftJoinAndSelect("student.person", "studentPerson")
+      .leftJoin("studentClassroom.year", "studentClassroomYear")
+      .where("test.id = :testId", { testId })
+      .andWhere("periodYear.id = :yearId", { yearId })
+      .andWhere("studentClassroomYear.id = :yearId", { yearId })
+      .andWhere("alphabeticTest.id = :testId", { testId })
+      .addOrderBy("classroom.shortName", "ASC")
+      .getOne()
+  }
+
   async alphabeticHeaders(yearName: string, CONN: EntityManager){
 
     const year = await CONN.getRepository(Year)
@@ -834,21 +870,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("alphabeticLevel")
       .select(['alphabeticLevel.id', 'alphabeticLevel.shortName', 'alphabeticLevel.color', ])
       .getMany()
-
-    // const bimesterIds = year.flatMap(el => el.periods).map(el => el.bimester.id)
-
-    // const tests = await CONN.getRepository(Test)
-    //   .createQueryBuilder("test")
-    //   .leftJoinAndSelect("test.period", "period")
-    //   .leftJoinAndSelect("period.bimester", "bimester")
-    //   .leftJoinAndSelect("period.year", "year")
-    //   .leftJoinAndSelect("test.category", "category")
-    //   .where("year.name = :yearName", { yearName })
-    //   .andWhere("bimester.id IN (:...ids)", { ids: bimesterIds })
-    //   .andWhere("category.id = :categoryId", { categoryId: TEST_CATEGORIES_IDS.LITE })
-    //   .getMany()
-    //
-    // console.log(tests)
 
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
   }

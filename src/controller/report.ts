@@ -106,10 +106,11 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     if (!test) return { status: 404, message: "Teste não encontrado" };
 
     switch (test.category.id) {
-      case(TEST_CATEGORIES_IDS.LITE): {
+      case(TEST_CATEGORIES_IDS.LITE_1): {
         break;
       }
-      case(TEST_CATEGORIES_IDS.READ): {
+      case(TEST_CATEGORIES_IDS.READ_2):
+      case(TEST_CATEGORIES_IDS.READ_3): {
 
         const year = await CONN.findOneBy(Year, { name: yearName })
 
@@ -171,7 +172,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         break;
       }
-      case (TEST_CATEGORIES_IDS.TEST): {
+      case (TEST_CATEGORIES_IDS.TEST_4_9): {
 
         const testQuestions = await this.getTestQuestions(Number(testId), CONN);
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" };

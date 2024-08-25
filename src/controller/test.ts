@@ -65,7 +65,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
-        const { category } = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] }) as Test
+        const entryPointTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] }) as Test
 
         const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -73,13 +73,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const classroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
         if (!classroom) return { status: 404, message: "Sala não encontrada" }
 
-        switch (category?.id) {
-          case TEST_CATEGORIES_IDS.LITE_1: {
+        switch (entryPointTest.category?.id) {
+          case TEST_CATEGORIES_IDS.LITE_1:
+          case TEST_CATEGORIES_IDS.LITE_2:
+          case TEST_CATEGORIES_IDS.LITE_3: {
             const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
             if(!year) return { status: 404, message: "Ano não encontrado." }
             const headers = await this.alphabeticHeaders(year.name, CONN)
-            const test = await this.getAlphabeticForGraphic(testId, yearId as string, CONN) as Test
-            data = { alphabeticHeaders: headers, test }
+            const allClassrooms = this.responseClassrooms(classroom, await this.getAlphabeticForGraphic(entryPointTest, yearId as string, CONN))
+            const test = {
+              id: 99,
+              name: 'NOME DO TESTE',
+              classrooms: [classroom],
+              person: { name: 'PESSOA TESTE' },
+              category: { id: entryPointTest.category.id, name: 'CATEGORIA TESTE' },
+              discipline: { name: 'DISCIPLINA TESTE' },
+              period: { bimester: { name: 'TODOS' }, year }
+            }
+            const mappedAllClassrooms = allClassrooms.map((classroom) => {
+              return {
+                id: classroom.id,
+                name: classroom.name,
+                shortName: classroom.shortName,
+                school: classroom.school,
+                percent: ''
+              }
+            })
+            data = { ...test, alphabeticHeaders: headers, classrooms: mappedAllClassrooms }
             break;
           }
           case TEST_CATEGORIES_IDS.READ_2:
@@ -177,7 +197,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
         let data;
         switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE_1): {
+          case(TEST_CATEGORIES_IDS.LITE_1):
+          case(TEST_CATEGORIES_IDS.LITE_2):
+          case(TEST_CATEGORIES_IDS.LITE_3): {
             const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
             const headers = await this.alphabeticHeaders(yearName, CONN)
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
@@ -250,8 +272,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
-      // .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      // .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
       .leftJoin("student.alphabetic", "alphabetic")
@@ -829,32 +849,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getAlphabeticForGraphic(testId: string, yearId: string, CONN: EntityManager) {
-    // TODO: CONTINUE HERE!
-    return await CONN.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "periodBimester")
-      .leftJoinAndSelect("period.year", "periodYear")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .leftJoinAndSelect("test.person", "testPerson")
-      .leftJoinAndSelect("test.classrooms", "classroom")
+  async getAlphabeticForGraphic(test: Test, yearId: string, CONN: EntityManager) {
+    return await CONN.getRepository(Classroom)
+      .createQueryBuilder("classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("student.alphabetic", "alphabetic")
-      .leftJoinAndSelect("alphabetic.test", "alphabeticTest")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
-      .leftJoinAndSelect("student.person", "studentPerson")
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .where("test.id = :testId", { testId })
-      .andWhere("periodYear.id = :yearId", { yearId })
-      .andWhere("studentClassroomYear.id = :yearId", { yearId })
-      .andWhere("alphabeticTest.id = :testId", { testId })
-      .addOrderBy("classroom.shortName", "ASC")
-      .getOne()
+      .leftJoinAndSelect("alphabetic.test", "test")
+      .leftJoinAndSelect("test.category", "testCategory")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.year", "year")
+      .leftJoinAndSelect("period.bimester", "bimester")
+      .where("testCategory.id = :testCategory", { testCategory: test.category.id })
+      .andWhere("year.id = :yearId", { yearId })
+      .andWhere("alphabetic.test = test.id")
+      .andWhere("alphabeticLevel.id IS NOT NULL")
+      .orderBy("classroom.shortName", "ASC")
+      .orderBy("studentClassroom.rosterNumber", "ASC")
+      .getMany();
   }
 
   async alphabeticHeaders(yearName: string, CONN: EntityManager){

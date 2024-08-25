@@ -1,5 +1,5 @@
-import { Router, Request, Response } from "express";
-import { testController as controller } from "../controller/test";
+import { Router, Request, Response } from "express"
+import { testController as controller } from "../controller/test"
 import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 

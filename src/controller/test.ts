@@ -830,6 +830,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getAlphabeticForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+    // TODO: CONTINUE HERE
     return await CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.period", "period")

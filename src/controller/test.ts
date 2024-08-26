@@ -1,33 +1,33 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion as SQues } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
-import { pc } from "../utils/personCategories";
-import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Teacher } from "../model/Teacher";
-import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { TestBodySave } from "../interfaces/interfaces";
-import { TestClassroom } from "../model/TestClassroom";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import { Alphabetic } from "../model/Alphabetic";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion as SQues} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
+import {pc} from "../utils/personCategories";
+import {Year} from "../model/Year";
+import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import {Teacher} from "../model/Teacher";
+import {Question} from "../model/Question";
+import {Descriptor} from "../model/Descriptor";
+import {Topic} from "../model/Topic";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {TestBodySave} from "../interfaces/interfaces";
+import {TestClassroom} from "../model/TestClassroom";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
+import {Alphabetic} from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -149,13 +149,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   responseClassrooms(classroom: Classroom, allClasses: Classroom[]){
     const classroomNumber = classroom.shortName.replace(/\D/g, "");
     const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
-    const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+    const cityHall: Classroom = { id: 999, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
     return [ ...filteredClasses, cityHall ]
   }
 
@@ -166,8 +168,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     for(let bimester of headers) {
       for(let level of bimester.levels) {
         const count = allAlphabetic.reduce((acc, prev) => {
-          // prev.rClassroom?.id === classroomId &&
-          return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+          if(classroom.id === 999) {
+            return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+          }
+          return acc + (classroom.id === prev.rClassroom.id && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
         }, 0)
         totalNuColumn.push({ total: count, bimesterId: bimester.id })
         percentBimesterColumn[bimester.id] += count
@@ -875,6 +879,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("student.alphabetic", "alphabetic")
+      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
       .leftJoinAndSelect("alphabetic.test", "test")
       .leftJoinAndSelect("test.category", "testCategory")

@@ -903,7 +903,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("alphabetic.test = test.id")
       .andWhere("alphabeticLevel.id IS NOT NULL")
       .orderBy("classroom.shortName", "ASC")
-      .orderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
   }
 

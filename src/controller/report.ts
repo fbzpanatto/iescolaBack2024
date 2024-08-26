@@ -11,6 +11,7 @@ import {pc} from "../utils/personCategories";
 import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
 import {testController} from "./test";
 import {Year} from "../model/Year";
+import {Classroom} from "../model/Classroom";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -106,7 +107,94 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     if (!test) return { status: 404, message: "Teste não encontrado" };
 
     switch (test.category.id) {
-      case(TEST_CATEGORIES_IDS.LITE_1): {
+      case(TEST_CATEGORIES_IDS.LITE_1):
+      case(TEST_CATEGORIES_IDS.LITE_2):
+      case(TEST_CATEGORIES_IDS.LITE_3): {
+
+        const year = await CONN.findOneBy(Year, { name: yearName })
+        if(!year) return { status: 404, message: "Ano não encontrado." }
+        const yearId = year.id.toString()
+        const headers = await testController.alphabeticHeaders(year.name, CONN)
+
+        const entryPoint = {
+          id: 99,
+          name: 'NOME DO TESTE',
+          person: { name: 'PESSOA TESTE' },
+          category: { id: test.category.id, name: 'CATEGORIA TESTE' },
+          discipline: { name: 'DISCIPLINA TESTE' },
+          period: { bimester: { name: 'TODOS' }, year }
+        }
+
+        const schools = await CONN.getRepository(School)
+          .createQueryBuilder("school")
+          .leftJoinAndSelect("school.classrooms", "classroom")
+          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.classroom", "currClassroom")
+          .leftJoinAndSelect("studentClassroom.student", "student")
+          .leftJoinAndSelect("student.person", "person")
+          .leftJoinAndSelect("student.alphabetic", "alphabetic")
+          .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
+          .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+          .leftJoinAndSelect("alphabetic.test", "test")
+          .leftJoinAndSelect("test.category", "testCategory")
+          .leftJoinAndSelect("test.period", "period")
+          .leftJoinAndSelect("period.year", "year")
+          .leftJoinAndSelect("period.bimester", "bimester")
+          .where("testCategory.id = :testCategory", { testCategory: test.category.id })
+          .andWhere("year.id = :yearId", { yearId })
+          .andWhere("alphabetic.test = test.id")
+          .andWhere("alphabeticLevel.id IS NOT NULL")
+          .orderBy("school.name", "ASC")
+          .getMany();
+
+        const totalCityHallColumn: any[] = []
+        const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
+
+        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], school) => {
+
+          const mappedArr = school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(el => ({ currentClassroom: el.classroom.id, alphabetic: el.student.alphabetic })))
+
+          let totalNuColumn: {  total: number, bimesterId: number }[] = [];
+          const percentColumn = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
+
+          for (let bimester of headers) {
+            for (let level of bimester.levels) {
+              const count = mappedArr.reduce((acc, el) => {
+                return acc + el.alphabetic.reduce((sum, prev) => {
+                  const sameClassroom = el.currentClassroom === prev.rClassroom.id;
+                  const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
+                  const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
+
+                  return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
+                }, 0);
+              }, 0);
+
+              totalNuColumn.push({ total: count, bimesterId: bimester.id });
+
+              const cityHallColumn = totalCityHallColumn.find(el => el.bimesterId === bimester.id && el.levelId === level.id)
+              if(!cityHallColumn) { totalCityHallColumn.push({ total: count, bimesterId: bimester.id, levelId: level.id })}
+              else { cityHallColumn.total += count }
+
+              percentColumn[bimester.id] += count;
+              examTotalCityHall[bimester.id] += count
+            }
+          }
+
+          const percentTotalByColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100));
+
+          acc.push({ id: school.id, name: school.name, percentTotalByColumn })
+
+          return acc;
+        }, []);
+
+        const cityHall = {
+          id: 99,
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.round((item.total / examTotalCityHall[item.bimesterId]) * 100))
+        }
+
+        data = {...entryPoint, alphabeticHeaders: headers, schools: [ ...allSchools, cityHall ] }
+
         break;
       }
       case(TEST_CATEGORIES_IDS.READ_2):

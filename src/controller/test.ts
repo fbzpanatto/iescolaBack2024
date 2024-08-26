@@ -166,7 +166,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }));
 
     let totalNuColumn: any[] = [];
-    const percentBimesterColumn = headers.reduce((acc, prev) => {
+    const percentColumn = headers.reduce((acc, prev) => {
       const key = prev.id;
       if (!acc[key]) { acc[key] = 0; }
       return acc;
@@ -185,11 +185,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }, 0);
 
         totalNuColumn.push({ total: count, bimesterId: bimester.id });
-        percentBimesterColumn[bimester.id] += count;
+        percentColumn[bimester.id] += count;
       }
     }
 
-    return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100)
+    return totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100)
     )
   }
 

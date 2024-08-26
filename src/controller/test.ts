@@ -1,33 +1,33 @@
-import {GenericController} from "./genericController";
-import {Test} from "../model/Test";
-import {classroomController} from "./classroom";
-import {AppDataSource} from "../data-source";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {StudentQuestion as SQues} from "../model/StudentQuestion";
-import {StudentTestStatus} from "../model/StudentTestStatus";
-import {pc} from "../utils/personCategories";
-import {Year} from "../model/Year";
-import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
-import {Teacher} from "../model/Teacher";
-import {Question} from "../model/Question";
-import {Descriptor} from "../model/Descriptor";
-import {Topic} from "../model/Topic";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Discipline} from "../model/Discipline";
-import {Bimester} from "../model/Bimester";
-import {TestCategory} from "../model/TestCategory";
-import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
-import {ReadingFluency} from "../model/ReadingFluency";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {TestBodySave} from "../interfaces/interfaces";
-import {TestClassroom} from "../model/TestClassroom";
-import {AlphabeticLevel} from "../model/AlphabeticLevel";
-import {Alphabetic} from "../model/Alphabetic";
+import { GenericController } from "./genericController";
+import { Test } from "../model/Test";
+import { classroomController } from "./classroom";
+import { AppDataSource } from "../data-source";
+import { Period } from "../model/Period";
+import { Classroom } from "../model/Classroom";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { StudentQuestion as SQues } from "../model/StudentQuestion";
+import { StudentTestStatus } from "../model/StudentTestStatus";
+import { pc } from "../utils/personCategories";
+import { Year } from "../model/Year";
+import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { Teacher } from "../model/Teacher";
+import { Question } from "../model/Question";
+import { Descriptor } from "../model/Descriptor";
+import { Topic } from "../model/Topic";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Discipline } from "../model/Discipline";
+import { Bimester } from "../model/Bimester";
+import { TestCategory } from "../model/TestCategory";
+import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
+import { ReadingFluency } from "../model/ReadingFluency";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TestBodySave } from "../interfaces/interfaces";
+import { TestClassroom } from "../model/TestClassroom";
+import { AlphabeticLevel } from "../model/AlphabeticLevel";
+import { Alphabetic } from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -149,9 +149,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   responseClassrooms(classroom: Classroom, allClasses: Classroom[]){
@@ -160,25 +158,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const cityHall: Classroom = { id: 999, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
     return [ ...filteredClasses, cityHall ]
   }
-
-  // alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number){
-  //   const allAlphabetic = classroom.studentClassrooms.flatMap(el => el.student.alphabetic)
-  //   let totalNuColumn: any[] = []
-  //   const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-  //   for(let bimester of headers) {
-  //     for(let level of bimester.levels) {
-  //       const count = allAlphabetic.reduce((acc, prev) => {
-  //         if(classroom.id === 999) {
-  //           return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-  //         }
-  //         return acc + (classroom.id === prev.rClassroom.id && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-  //       }, 0)
-  //       totalNuColumn.push({ total: count, bimesterId: bimester.id })
-  //       percentBimesterColumn[bimester.id] += count
-  //     }
-  //   }
-  //   return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-  // }
 
   alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number) {
     const mappedArr = classroom.studentClassrooms.map(el => ({
@@ -198,7 +177,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const count = mappedArr.reduce((acc, el) => {
           return acc + el.alphabetic.reduce((sum, prev) => {
             const sameClassroom = el.currentClassroom === prev.rClassroom.id
-            // const isMatchingClassroom = classroom.id === 999 || classroom.id === prev.rClassroom.id;
             const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
             const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
 
@@ -211,9 +189,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     }
 
-    return totalNuColumn.map(el =>
-      Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100)
-    );
+    return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100)
+    )
   }
 
 
@@ -345,9 +322,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
-      // TODO: check for student too.
-      // const stStatus = await CONN.findOne(StudentTestStatus, { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } } )
-      // if(!stStatus) { await CONN.save(StudentTestStatus, { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } ) }
       const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
       if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test } ) }
     }

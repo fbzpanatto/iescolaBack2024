@@ -26,6 +26,30 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
+  async getAllAlphabeticSchool(test: Test, yearId: number | string, CONN: EntityManager) {
+    return await CONN.getRepository(School)
+      .createQueryBuilder("school")
+      .leftJoinAndSelect("school.classrooms", "classroom")
+      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "currClassroom")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoinAndSelect("student.alphabetic", "alphabetic")
+      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
+      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+      .leftJoinAndSelect("alphabetic.test", "test")
+      .leftJoinAndSelect("test.category", "testCategory")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.year", "year")
+      .leftJoinAndSelect("period.bimester", "bimester")
+      .where("testCategory.id = :testCategory", { testCategory: test.category.id })
+      .andWhere("year.id = :yearId", { yearId })
+      .andWhere("alphabetic.test = test.id")
+      .andWhere("alphabeticLevel.id IS NOT NULL")
+      .orderBy("school.name", "ASC")
+      .getMany();
+  }
+
   async getReport(request: Request, CONN?: EntityManager) {
 
     try {
@@ -116,6 +140,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const yearId = year.id.toString()
         const headers = await testController.alphabeticHeaders(year.name, CONN)
 
+        const schools = await this.getAllAlphabeticSchool(test, yearId, CONN)
+
         const entryPoint = {
           id: 99,
           name: 'NOME DO TESTE',
@@ -125,29 +151,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           period: { bimester: { name: 'TODOS' }, year }
         }
 
-        const schools = await CONN.getRepository(School)
-          .createQueryBuilder("school")
-          .leftJoinAndSelect("school.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-          .leftJoinAndSelect("studentClassroom.classroom", "currClassroom")
-          .leftJoinAndSelect("studentClassroom.student", "student")
-          .leftJoinAndSelect("student.person", "person")
-          .leftJoinAndSelect("student.alphabetic", "alphabetic")
-          .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
-          .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-          .leftJoinAndSelect("alphabetic.test", "test")
-          .leftJoinAndSelect("test.category", "testCategory")
-          .leftJoinAndSelect("test.period", "period")
-          .leftJoinAndSelect("period.year", "year")
-          .leftJoinAndSelect("period.bimester", "bimester")
-          .where("testCategory.id = :testCategory", { testCategory: test.category.id })
-          .andWhere("year.id = :yearId", { yearId })
-          .andWhere("alphabetic.test = test.id")
-          .andWhere("alphabeticLevel.id IS NOT NULL")
-          .orderBy("school.name", "ASC")
-          .getMany();
-
-        const totalCityHallColumn: any[] = []
+        const totalCityHallColumn: { total: number, bimesterId: number, levelId: number }[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
 
         const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], school) => {

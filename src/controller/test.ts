@@ -161,24 +161,61 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return [ ...filteredClasses, cityHall ]
   }
 
-  alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number){
-    const allAlphabetic = classroom.studentClassrooms.flatMap(el => el.student.alphabetic)
-    let totalNuColumn: any[] = []
-    const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-    for(let bimester of headers) {
-      for(let level of bimester.levels) {
-        const count = allAlphabetic.reduce((acc, prev) => {
-          if(classroom.id === 999) {
-            return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-          }
-          return acc + (classroom.id === prev.rClassroom.id && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-        }, 0)
-        totalNuColumn.push({ total: count, bimesterId: bimester.id })
-        percentBimesterColumn[bimester.id] += count
+  // alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number){
+  //   const allAlphabetic = classroom.studentClassrooms.flatMap(el => el.student.alphabetic)
+  //   let totalNuColumn: any[] = []
+  //   const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+  //   for(let bimester of headers) {
+  //     for(let level of bimester.levels) {
+  //       const count = allAlphabetic.reduce((acc, prev) => {
+  //         if(classroom.id === 999) {
+  //           return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+  //         }
+  //         return acc + (classroom.id === prev.rClassroom.id && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+  //       }, 0)
+  //       totalNuColumn.push({ total: count, bimesterId: bimester.id })
+  //       percentBimesterColumn[bimester.id] += count
+  //     }
+  //   }
+  //   return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+  // }
+
+  alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number) {
+    const mappedArr = classroom.studentClassrooms.map(el => ({
+      currentClassroom: el.classroom.id,
+      alphabetic: el.student.alphabetic
+    }));
+
+    let totalNuColumn: any[] = [];
+    const percentBimesterColumn = headers.reduce((acc, prev) => {
+      const key = prev.id;
+      if (!acc[key]) { acc[key] = 0; }
+      return acc;
+    }, {} as Record<number, number>);
+
+    for (let bimester of headers) {
+      for (let level of bimester.levels) {
+        const count = mappedArr.reduce((acc, el) => {
+          return acc + el.alphabetic.reduce((sum, prev) => {
+            const sameClassroom = el.currentClassroom === prev.rClassroom.id
+            // const isMatchingClassroom = classroom.id === 999 || classroom.id === prev.rClassroom.id;
+            const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
+            const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
+
+            return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
+          }, 0);
+        }, 0);
+
+        totalNuColumn.push({ total: count, bimesterId: bimester.id });
+        percentBimesterColumn[bimester.id] += count;
       }
     }
-    return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+
+    return totalNuColumn.map(el =>
+      Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100)
+    );
   }
+
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 
@@ -876,6 +913,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "currClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("student.alphabetic", "alphabetic")

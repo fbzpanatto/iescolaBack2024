@@ -32,6 +32,7 @@ import { Alphabetic } from "../model/Alphabetic";
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
+interface AlphabeticHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -96,7 +97,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 name: classroom.name,
                 shortName: classroom.shortName,
                 school: classroom.school,
-                percent: ''
+                percent: this.alphabeticTotalizator(headers, classroom, parseInt(classroomId as string))
               }
             })
             data = { ...test, alphabeticHeaders: headers, classrooms: mappedAllClassrooms }
@@ -156,6 +157,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === classroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
     const cityHall: Classroom = { id: 'ITA', name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
     return [ ...filteredClasses, cityHall ]
+  }
+
+  alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number){
+    const allAlphabetic = classroom.studentClassrooms.flatMap(el => el.student.alphabetic)
+    let totalNuColumn: any[] = []
+    const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+    for(let bimester of headers) {
+      for(let level of bimester.levels) {
+        const count = allAlphabetic.reduce((acc, prev) => {
+          // prev.rClassroom?.id === classroomId &&
+          return acc + (prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+        }, 0)
+        totalNuColumn.push({ total: count, bimesterId: bimester.id })
+        percentBimesterColumn[bimester.id] += count
+      }
+    }
+    return totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
   }
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){

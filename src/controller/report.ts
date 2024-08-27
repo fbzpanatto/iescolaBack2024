@@ -144,10 +144,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const entryPoint = {
           id: 99,
-          name: 'NOME DO TESTE',
-          person: { name: 'PESSOA TESTE' },
-          category: { id: test.category.id, name: 'CATEGORIA TESTE' },
-          discipline: { name: 'DISCIPLINA TESTE' },
+          name: test.name,
+          person: { name: test.person.name },
+          category: { id: test.category.id, name: test.category.name },
+          discipline: { name: test.discipline.name },
           period: { bimester: { name: 'TODOS' }, year }
         }
 

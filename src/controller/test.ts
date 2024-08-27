@@ -66,7 +66,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const teacher = await this.teacherByUser(req.body.user.user, CONN)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
-        const entryPointTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category'] }) as Test
+        const entryPointTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category', 'discipline'] }) as Test
 
         const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
@@ -84,11 +84,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const allClassrooms = this.responseClassrooms(classroom, await this.getAlphabeticForGraphic(entryPointTest, yearId as string, CONN))
             const test = {
               id: 99,
-              name: 'NOME DO TESTE',
+              name: entryPointTest.name,
               classrooms: [classroom],
-              person: { name: 'PESSOA TESTE' },
-              category: { id: entryPointTest.category.id, name: 'CATEGORIA TESTE' },
-              discipline: { name: 'DISCIPLINA TESTE' },
+              category: { id: entryPointTest.category.id, name: entryPointTest.category.name },
+              discipline: { name: entryPointTest.discipline.name },
               period: { bimester: { name: 'TODOS' }, year }
             }
             const mappedAllClassrooms = allClassrooms.map((classroom) => {

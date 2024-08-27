@@ -22,9 +22,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let data;
         const response = (await this.getReport(request, CONN) as any).data;
-
-        console.log('response', response)
-
         if (!response) return { status: 404, message: "Teste não encontrado" };
         switch (response.category.id) {
           case(TEST_CATEGORIES_IDS.LITE_1):
@@ -172,7 +169,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const totalCityHallColumn: { total: number, bimesterId: number, levelId: number }[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
 
-        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], school) => {
+        const allSchools = schools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
 
           const mappedArr = school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(el => ({ currentClassroom: el.classroom.id, alphabetic: el.student.alphabetic })))
 
@@ -204,7 +201,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           const percentTotalByColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100));
 
-          acc.push({ id: school.id, name: school.name, percentTotalByColumn })
+          acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
 
           return acc;
         }, []);
@@ -212,6 +209,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const cityHall = {
           id: 99,
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          shortName: 'ITATIBA',
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.round((item.total / examTotalCityHall[item.bimesterId]) * 100))
         }
 

@@ -43,8 +43,6 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
         const frontDecoded = verify(frontToken, "SECRET") as JwtPayload;
 
-        console.log('frontDecoded', frontDecoded)
-
         if(!frontDecoded) {
           return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha na tela de login da aplicação.' }
         }

@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { Data } from "../interfaces/interfaces"
 import { reportController as controller } from "../controller/report";
 import havePermission from "../middleware/havePermission";
-import {ID_PARAM, YEAR_NAME_PARAM} from "../middleware/validators";
+import { ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 
 export const ReportRouter = Router();
 

@@ -18,11 +18,30 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getSchoolAvg(request: Request) {
     try {
-      const response = (await this.getReport(request) as any).data;
-      if (!response) return { status: 404, message: "Teste não encontrado" };
-      const schools = response.schools as { id: number; name: string; shortName: string; qRate: ({ id: number; rate: string } | { id: number; rate: number })[]}[]
-      const schoolAvg = schools.map((school) => ({ ...school, qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length}));
-      return { status: 200, data: { ...response, schoolAvg } };
+      return await AppDataSource.transaction(async(CONN) => {
+
+        let data;
+        const response = (await this.getReport(request, CONN) as any).data;
+
+        console.log('response', response)
+
+        if (!response) return { status: 404, message: "Teste não encontrado" };
+        switch (response.category.id) {
+          case(TEST_CATEGORIES_IDS.LITE_1):
+          case(TEST_CATEGORIES_IDS.LITE_2):
+          case(TEST_CATEGORIES_IDS.LITE_3): {
+            data = { ...response }
+            break;
+          }
+          case(TEST_CATEGORIES_IDS.TEST_4_9): {
+            const schools = response.schools as { id: number; name: string; shortName: string; qRate: ({ id: number; rate: string } | { id: number; rate: number })[]}[]
+            const schoolAvg = schools.map((school) => ({ ...school, qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length}));
+            data = { ...response, schoolAvg }
+            break;
+          }
+        }
+        return { status: 200, data };
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
@@ -51,7 +70,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   }
 
   async getReport(request: Request, CONN?: EntityManager) {
-
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)

@@ -678,7 +678,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.createdAt = new Date()
         test.createdByUser = uTeacher.person.user.id
         await CONN.save(Test, test);
-        if(TEST_CATEGORIES_IDS.TEST_4_9 === body.category.id) {
+
+        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.TEST_4_9]
+
+        if(haveQuestions.includes(body.category.id)) {
           const tQts = body.testQuestions!.map((el: any) => ({
             ...el,
             createdAt: new Date(),

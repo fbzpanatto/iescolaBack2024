@@ -311,11 +311,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "person")
       .leftJoin("student.alphabetic", "alphabetic")
+      .leftJoin("alphabetic.test", "test")
+      .leftJoin("test.category", "testCategory")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
         qb.orWhere("alphabetic.id IS NOT NULL")
       }))
+      .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
       .andWhere("year.name = :yearName", { yearName })
       .getMany();
   }
@@ -337,6 +340,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
       .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
+      .leftJoinAndSelect("stAlphabeticTest.category", "testCategory")
       .leftJoinAndSelect("stAlphabeticTest.period", "period")
       .leftJoinAndSelect("period.bimester", "bimester")
       .leftJoinAndSelect("period.year", "pYear")
@@ -349,6 +353,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         qb.orWhere("alphabetic.id IS NOT NULL")
       }))
+      .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
       .andWhere("year.name = :yearName", { yearName })
       .andWhere("pYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")

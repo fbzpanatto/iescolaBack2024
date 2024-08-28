@@ -238,14 +238,41 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_1):
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
+
+            const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
+
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticClassroomReturn(test, classroomId, classroom, yearName, uTeacher, CONN)
+
+                const headers = await this.alphabeticHeaders(yearName, CONN)
+                await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
+
+                const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+                const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+                const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
+
+                const totalNuColumn = []
+                const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+                for(let bimester of headers) {
+                  for(let level of bimester.levels) {
+                    const count = allAlphabetic.reduce((acc, prev) => {
+                      return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+                    }, 0)
+                    totalNuColumn.push({ total: count, bimesterId: bimester.id })
+                    percentBimesterColumn[bimester.id] += count
+                  }
+                }
+
+                const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+
+                data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticClassroomReturnWithTestQuestions(test, classroomId, classroom, yearName, uTeacher, CONN)
+
                 break;
               }
             }
@@ -290,6 +317,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+    return await CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.person", "person")
+      .leftJoin("student.alphabetic", "alphabetic")
+      .leftJoin("alphabetic.test", "test")
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+        qb.orWhere("alphabetic.id IS NOT NULL")
+      }))
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany();
   }
 
   async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
@@ -904,44 +948,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
 
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
-  }
-
-  async alphabeticClassroomReturn(test: Test, classroomId: number, classroom: Classroom, yearName: string, uTeacher: any, CONN: EntityManager){
-    const headers = await this.alphabeticHeaders(yearName, CONN)
-    const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-    await this.createLinkAlphabetic(preResult, test, uTeacher.person.user.id, CONN)
-
-    const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
-    const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-
-    const totalNuColumn = []
-    const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-
-    for(let bimester of headers) {
-      for(let level of bimester.levels) {
-        const count = allAlphabetic.reduce((acc, prev) => {
-          return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-        }, 0)
-        totalNuColumn.push({ total: count, bimesterId: bimester.id })
-        percentBimesterColumn[bimester.id] += count
-      }
-    }
-
-    const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-
-    return { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
-  }
-
-  async alphabeticClassroomReturnWithTestQuestions(test: Test, classroomId: number, classroom: Classroom, yearName: string, uTeacher: any, CONN: EntityManager){
-
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-
-    let result = await this.alphabeticClassroomReturn(test, classroomId, classroom, yearName, uTeacher, CONN)
-
-    const questionGroups = await this.getTestQuestionsGroups(test.id, CONN)
-    const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-
-    return { ...result, questionGroups, testQuestions }
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

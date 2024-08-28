@@ -28,7 +28,6 @@ import { TestBodySave } from "../interfaces/interfaces";
 import { TestClassroom } from "../model/TestClassroom";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
-import {Student} from "../model/Student";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -220,18 +219,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+
         const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
-        const message = "Você não tem permissão para acessar essa sala."
-        if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message } }
+        if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+
         const test = await this.getTest(testId, yearName, CONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
+
         const classroom = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .leftJoinAndSelect("classroom.school", "school")
           .where("classroom.id = :classroomId", { classroomId })
           .getOne();
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
+
         let data;
+
         switch (test.category.id) {
           case(TEST_CATEGORIES_IDS.LITE_1):
           case(TEST_CATEGORIES_IDS.LITE_2):
@@ -239,46 +242,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
 
-            const headers = await this.alphabeticHeaders(yearName, CONN)
-            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
-            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-
-            await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-            await this.createLinkTestQuestions(studentsBeforeSet, test, testQuestions, uTeacher.person.user.id, CONN)
-
-
-            let preResult: StudentClassroom[] = []
-
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+                data = await this.alphabeticClassroomReturn(test, classroomId, classroom, studentsBeforeSet, yearName, uTeacher, CONN)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
+
+                const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+                const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+                const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+
+                await this.createLinkTestQuestions(studentsBeforeSet, test, testQuestions, uTeacher.person.user.id, CONN)
+
                 // TODO: get studentsClassrooms with testQuestions and Alphabetics.
+
                 break;
               }
             }
-
-            const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
-
-            const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-            const totalNuColumn = []
-            const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-            for(let bimester of headers) {
-              for(let level of bimester.levels) {
-                const count = allAlphabetic.reduce((acc, prev) => {
-                  return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-                }, 0)
-                totalNuColumn.push({ total: count, bimesterId: bimester.id })
-                percentBimesterColumn[bimester.id] += count
-              }
-            }
-
-            const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, questionGroups, testQuestions }
             break;
           }
 
@@ -944,6 +926,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
 
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
+  }
+
+  async alphabeticClassroomReturn(test: Test, classroomId: number, classroom: Classroom, studentsBeforeSet: StudentClassroom[], yearName: string, uTeacher: any, CONN: EntityManager){
+    const headers = await this.alphabeticHeaders(yearName, CONN)
+    const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+    await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
+
+    const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+    const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
+
+    const totalNuColumn = []
+    const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+    for(let bimester of headers) {
+      for(let level of bimester.levels) {
+        const count = allAlphabetic.reduce((acc, prev) => {
+          return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+        }, 0)
+        totalNuColumn.push({ total: count, bimesterId: bimester.id })
+        percentBimesterColumn[bimester.id] += count
+      }
+    }
+
+    const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+
+    return { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

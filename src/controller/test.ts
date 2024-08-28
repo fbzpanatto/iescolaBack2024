@@ -96,7 +96,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 name: classroom.name,
                 shortName: classroom.shortName,
                 school: classroom.school,
-                percent: this.alphabeticTotalizator(headers, classroom, parseInt(classroomId as string))
+                percent: this.alphabeticTotalizator(headers, classroom)
               }
             })
             data = { ...test, alphabeticHeaders: headers, classrooms: mappedAllClassrooms }
@@ -158,7 +158,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return [ ...filteredClasses, cityHall ]
   }
 
-  alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom, classroomId: number) {
+  alphabeticTotalizator(headers: AlphabeticHeaders[], classroom: Classroom) {
     const mappedArr = classroom.studentClassrooms.map(el => ({
       currentClassroom: el.classroom.id,
       alphabetic: el.student.alphabetic
@@ -191,7 +191,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100)
     )
   }
-
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 
@@ -249,15 +248,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-
-                const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
-                const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-                const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-
-                await this.createLinkTestQuestions(studentsBeforeSet, test, testQuestions, uTeacher.person.user.id, CONN)
-
-                // TODO: get studentsClassrooms with testQuestions and Alphabetics.
-
+                data = await this.alphabeticClassroomReturnWithTestQuestions(test, classroomId, classroom, studentsBeforeSet, yearName, uTeacher, CONN)
                 break;
               }
             }
@@ -961,6 +952,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
 
     return { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+  }
+
+  async alphabeticClassroomReturnWithTestQuestions(test: Test, classroomId: number, classroom: Classroom, studentsBeforeSet: StudentClassroom[], yearName: string, uTeacher: any, CONN: EntityManager){
+
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+
+    let result = await this.alphabeticClassroomReturn(test, classroomId, classroom, studentsBeforeSet, yearName, uTeacher, CONN)
+
+    const questionGroups = await this.getTestQuestionsGroups(test.id, CONN)
+    const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+    await this.createLinkTestQuestions(studentsBeforeSet, test, testQuestions, uTeacher.person.user.id, CONN)
+
+    return { ...result, questionGroups, testQuestions }
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

@@ -33,7 +33,7 @@ class SchoolController extends GenericController<EntityTarget<School>> {
             }}))
           .getMany()
 
-        const mappedResult = data.map(school => {
+        const preResult = data.map(school => {
           return {
             id: school.id,
             name: school.name,
@@ -42,7 +42,14 @@ class SchoolController extends GenericController<EntityTarget<School>> {
           }
         })
 
-        const sortedResult = mappedResult.sort((a, b) => b.activeStudents - a.activeStudents);
+        const cityHall = {
+          id: '00',
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          activeStudents: preResult.reduce((acc, prev) => acc + prev.activeStudents, 0),
+          inactiveStudents: preResult.reduce((acc, prev) => acc + prev.inactiveStudents, 0),
+        }
+
+        const sortedResult = [ cityHall, ...preResult ].sort((a, b) => b.activeStudents - a.activeStudents);
 
         return { status: 200, data: sortedResult };
       })

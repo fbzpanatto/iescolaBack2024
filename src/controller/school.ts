@@ -43,7 +43,7 @@ class SchoolController extends GenericController<EntityTarget<School>> {
         })
 
         const cityHall = {
-          id: '00',
+          id: '--',
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           activeStudents: preResult.reduce((acc, prev) => acc + prev.activeStudents, 0),
           inactiveStudents: preResult.reduce((acc, prev) => acc + prev.inactiveStudents, 0),

@@ -28,6 +28,7 @@ import { TestBodySave } from "../interfaces/interfaces";
 import { TestClassroom } from "../model/TestClassroom";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
+import {Student} from "../model/Student";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -235,16 +236,34 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_1):
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
+
             const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
+
             const headers = await this.alphabeticHeaders(yearName, CONN)
+            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+            const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+
             await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-            const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-            const studentClassrooms = preResult.map(el => {
-              return {
-                ...el,
-                studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
+            await this.createLinkTestQuestions(studentsBeforeSet, test, testQuestions, uTeacher.person.user.id, CONN)
+
+
+            let preResult: StudentClassroom[] = []
+
+            switch (test.category.id) {
+              case(TEST_CATEGORIES_IDS.LITE_1): {
+                preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+                break;
               }
-            })
+              case(TEST_CATEGORIES_IDS.LITE_2):
+              case(TEST_CATEGORIES_IDS.LITE_3): {
+                // TODO: get studentsClassrooms with testQuestions and Alphabetics.
+                break;
+              }
+            }
+
+            const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+
             const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
             const totalNuColumn = []
             const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
@@ -257,10 +276,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 percentBimesterColumn[bimester.id] += count
               }
             }
+
             const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+            data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, questionGroups, testQuestions }
             break;
           }
+
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
             const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
@@ -284,12 +305,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
+
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-            await this.createLink(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.createLinkTestQuestions(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
             data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
             break;
@@ -297,10 +319,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -397,6 +416,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
+
     return preResult.map(studentClassroom => {
       const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
         const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
@@ -483,7 +503,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async createLink(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+  async createLinkTestQuestions(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
       const stStatus = await CONN.findOne(StudentTestStatus, options)
@@ -529,7 +549,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            await this.createLink(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.createLinkTestQuestions(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
             break;
           }
           default: {

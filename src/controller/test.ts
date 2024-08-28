@@ -955,13 +955,57 @@ class TestController extends GenericController<EntityTarget<Test>> {
     let data;
 
     await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-    const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+    let preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
 
     if(withTestQuestions) {
       const questionGroups = await this.getTestQuestionsGroups(test.id, CONN)
       const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
       const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+      const testQuestionMap = new Map<number, TestQuestion>();
+      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
+      for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
       await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
+
+      //   .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+      //   .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+      //   .leftJoin("testQuestion.questionGroup", "questionGroup")
+      //   .leftJoin("testQuestion.test", "test")
+      //   .andWhere(new Brackets(qb => {
+      //     qb.orWhere("studentQuestions.id IS NOT NULL")
+      //   }))
+      //   .andWhere("testQuestion.test = :testId", { testId: test.id })
+      //   .andWhere("stStatusTest.id = :testId", { testId: test.id })
+      //   .andWhere("year.name = :yearName", { yearName })
+      //   .orderBy("questionGroup.id", "ASC")
+      //   .addOrderBy("testQuestion.order", "ASC")
+
+      preResult = await CONN.getRepository(StudentClassroom)
+        .createQueryBuilder("studentClassroom")
+        .leftJoinAndSelect("studentClassroom.student", "student")
+        .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
+        .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
+        .leftJoinAndSelect("student.alphabetic", "alphabetic")
+        .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
+        .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+        .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
+        .leftJoinAndSelect("stAlphabeticTest.category", "testCategory")
+        .leftJoinAndSelect("stAlphabeticTest.period", "period")
+        .leftJoinAndSelect("period.bimester", "bimester")
+        .leftJoinAndSelect("period.year", "pYear")
+        .leftJoin("studentClassroom.year", "year")
+        .leftJoinAndSelect("student.person", "person")
+        .leftJoin("studentClassroom.classroom", "classroom")
+        .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+        .where("studentClassroom.classroom = :classroomId", { classroomId })
+        .andWhere(new Brackets(qb => {
+          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+          qb.orWhere("alphabetic.id IS NOT NULL")
+        }))
+        .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
+        .andWhere("year.name = :yearName", { yearName })
+        .andWhere("pYear.name = :yearName", { yearName })
+        .addOrderBy("studentClassroom.rosterNumber", "ASC")
+        .getMany()
 
       data = { testQuestions, questionGroups }
     }

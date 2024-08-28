@@ -240,39 +240,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
             const studentsBeforeSet = await this.studentClassroomsAlphabetic(test, Number(classroomId), (yearName as string), CONN)
+            const alphabeticHeaders = await this.alphabeticHeaders(yearName, CONN)
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-
-                const headers = await this.alphabeticHeaders(yearName, CONN)
-                await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-
-                const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
-                const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
-                const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-
-                const totalNuColumn = []
-                const percentBimesterColumn = headers.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-
-                for(let bimester of headers) {
-                  for(let level of bimester.levels) {
-                    const count = allAlphabetic.reduce((acc, prev) => {
-                      return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-                    }, 0)
-                    totalNuColumn.push({ total: count, bimesterId: bimester.id })
-                    percentBimesterColumn[bimester.id] += count
-                  }
-                }
-
-                const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
-
-                data = { test, classroom, alphabeticHeaders: headers, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
-
+                data = await this.myTest(false, alphabeticHeaders, test, studentsBeforeSet, classroom, classroomId, uTeacher, yearName, CONN)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-
+                data = await this.myTest(true, alphabeticHeaders, test, studentsBeforeSet, classroom, classroomId, uTeacher, yearName, CONN)
                 break;
               }
             }
@@ -308,8 +285,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
-            await this.createLinkTestQuestions(studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const studentClassroomsWithQuestions = await this.setQuestionsForStudent(test, testQuestions, Number(classroomId), yearName as string, CONN)
+            await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+            const studentClassroomsWithQuestions = await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN)
             data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
             break;
           }
@@ -387,7 +364,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async setQuestionsForStudent(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
+  async getStudentsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
     const testQuestionMap = new Map<number, TestQuestion>();
     for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
@@ -503,12 +480,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async createLinkTestQuestions(studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+  async createLinkTestQuestions(withTestStatus: boolean, studentClassrooms: ObjectLiteral[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
-      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
-      const stStatus = await CONN.findOne(StudentTestStatus, options)
-      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+      if(withTestStatus){
+        const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
+        const stStatus = await CONN.findOne(StudentTestStatus, options)
+        const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+        if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+      }
       for(let testQuestion of testQuestions) {
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } } }
         const sQuestion = await CONN.findOne(SQues, options) as SQues
@@ -551,7 +530,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            await this.createLinkTestQuestions(filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.createLinkTestQuestions(true, filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
             break;
           }
           default: {
@@ -969,6 +948,45 @@ class TestController extends GenericController<EntityTarget<Test>> {
       });
       return acc;
     }, []);
+  }
+
+  async myTest(withTestQuestions: boolean, alphabeticHeaders: AlphabeticHeaders[], test: Test, studentsBeforeSet: StudentClassroom[], classroom: Classroom, classroomId: number, uTeacher: Teacher, yearName: string, CONN: EntityManager){
+
+    let data;
+
+    await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
+    const preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+
+    if(withTestQuestions) {
+      const questionGroups = await this.getTestQuestionsGroups(test.id, CONN)
+      const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+      const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+      await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
+
+      data = { testQuestions, questionGroups }
+    }
+
+    const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+    const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
+
+    const totalNuColumn = []
+    const percentBimesterColumn = alphabeticHeaders.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
+    for(let bimester of alphabeticHeaders) {
+      for(let level of bimester.levels) {
+        const count = allAlphabetic.reduce((acc, prev) => {
+          return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
+        }, 0)
+        totalNuColumn.push({ total: count, bimesterId: bimester.id })
+        percentBimesterColumn[bimester.id] += count
+      }
+    }
+
+    const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+
+    data = { test, classroom, alphabeticHeaders, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, ...data }
+    return data
+
   }
 }
 

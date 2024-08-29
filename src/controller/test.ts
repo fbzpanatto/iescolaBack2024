@@ -1,33 +1,33 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion as SQues } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
-import { pc } from "../utils/personCategories";
-import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Teacher } from "../model/Teacher";
-import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { TestBodySave } from "../interfaces/interfaces";
-import { TestClassroom } from "../model/TestClassroom";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import { Alphabetic } from "../model/Alphabetic";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion as SQues} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
+import {pc} from "../utils/personCategories";
+import {Year} from "../model/Year";
+import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import {Teacher} from "../model/Teacher";
+import {Question} from "../model/Question";
+import {Descriptor} from "../model/Descriptor";
+import {Topic} from "../model/Topic";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {TestBodySave} from "../interfaces/interfaces";
+import {TestClassroom} from "../model/TestClassroom";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
+import {Alphabetic} from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -293,7 +293,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async studentClassroomsAlphabetic(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -952,15 +955,48 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async alphabeticTest(withTestQuestions: boolean, alphabeticHeaders: AlphabeticHeaders[], test: Test, studentsBeforeSet: StudentClassroom[], classroom: Classroom, classroomId: number, uTeacher: Teacher, yearName: string, CONN: EntityManager){
 
+    let data;
+    let headers = alphabeticHeaders
+
     await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
     let preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
 
     if(withTestQuestions) {
-      const testQuestions = await this.getTestQuestions(test.id, CONN)
-      const testQuestionMap = new Map<number, TestQuestion>();
-      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-      for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
-      await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
+
+      const tests = await CONN.getRepository(Test)
+        .createQueryBuilder('test')
+        .select('test.id')
+        .leftJoinAndSelect("test.period", "period")
+        .leftJoin("period.bimester", "bimester")
+        .addSelect(['bimester.id'])
+        .leftJoin("period.year", "year")
+        .addSelect(['year.id'])
+        .leftJoin("test.category", "category")
+        .addSelect(['category.id'])
+        .where("category.id = :testCategory", { testCategory: test.category.id })
+        .andWhere("year.name = :yearName", { yearName })
+        .getMany()
+
+      let testQuestionsIds: number[] = []
+
+      for(let test of tests) {
+
+        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
+
+        const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+        test.testQuestions = testQuestions
+
+        const testQuestionMap = new Map<number, TestQuestion>();
+        testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+
+        for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
+
+        await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
+      }
+
+      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+
+      data = { tests }
 
       preResult = await CONN.getRepository(StudentClassroom)
         .createQueryBuilder("studentClassroom")
@@ -971,6 +1007,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
         .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
         .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
+        .leftJoin("stAlphabeticTest.category", "stAlphabeticTestCategory")
         .leftJoinAndSelect("stAlphabeticTest.period", "alphaTestPeriod")
         .leftJoinAndSelect("alphaTestPeriod.bimester", "alphaBimester")
         .leftJoinAndSelect("alphaTestPeriod.year", "alphaYear")
@@ -1001,7 +1038,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }))
 
         .andWhere("test.category = :testCategory", { testCategory: test.category.id })
-        .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
+        .andWhere("stAlphabeticTestCategory.id = :testCategory", { testCategory: test.category.id })
         .andWhere("year.name = :yearName", { yearName })
         .andWhere("pYear.name = :yearName", { yearName })
         .andWhere("alphaYear.name = :yearName", { yearName })
@@ -1029,7 +1066,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
 
-    return { test, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, classroom, alphabeticHeaders }
+    return { ...data, test, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, classroom, alphabeticHeaders: headers }
   }
 }
 

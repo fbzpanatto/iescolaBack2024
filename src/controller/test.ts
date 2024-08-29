@@ -955,7 +955,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async alphabeticTest(withTestQuestions: boolean, alphabeticHeaders: AlphabeticHeaders[], test: Test, studentsBeforeSet: StudentClassroom[], classroom: Classroom, classroomId: number, uTeacher: Teacher, yearName: string, CONN: EntityManager){
 
-    let data;
     let headers = alphabeticHeaders
 
     await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
@@ -995,8 +994,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
-
-      data = { tests }
 
       preResult = await CONN.getRepository(StudentClassroom)
         .createQueryBuilder("studentClassroom")
@@ -1066,7 +1063,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
 
-    return { ...data, test, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, classroom, alphabeticHeaders: headers }
+    return { test, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, classroom, alphabeticHeaders: headers }
   }
 }
 

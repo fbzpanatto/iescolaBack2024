@@ -992,8 +992,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })),
         bimesterCounter
       };
-    });
-
+    })
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }

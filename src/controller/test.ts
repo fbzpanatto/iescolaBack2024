@@ -994,7 +994,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     })
 
-
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }
 

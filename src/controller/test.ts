@@ -975,14 +975,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const levels = bimester.levels.map(level => {
         const levelCounter = allAlphabetic.reduce((acc, prev) => {
           return acc + (prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
-        }, 0)
+        }, 0);
 
         bimesterCounter += levelCounter;
         return {
           ...level,
           levelCounter
-        }
-      })
+        };
+      });
 
       return {
         ...bimester,
@@ -991,8 +991,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
           levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0
         })),
         bimesterCounter
-      }
-    })
+      };
+    });
+
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }

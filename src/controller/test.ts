@@ -969,22 +969,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
 
-    const totalNuColumn = []
-    const percentBimesterColumn = alphabeticHeaders.reduce((acc, prev) => { const key = prev.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
-
-    for(let bimester of alphabeticHeaders) {
-      for(let level of bimester.levels) {
-        const count = allAlphabetic.reduce((acc, prev) => {
-          return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)
-        }, 0)
-        totalNuColumn.push({ total: count, bimesterId: bimester.id })
-        percentBimesterColumn[bimester.id] += count
+    headers = headers.map(bimester => {
+      let bimesterCounter = 0
+      return {
+        ...bimester,
+        levels: bimester.levels.map(level => {
+          const levelCounter = allAlphabetic.reduce((acc, prev) => { return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)}, 0)
+          bimesterCounter += levelCounter
+          return { ...level, levelCounter }
+        }),
+        bimesterCounter
       }
-    }
+    })
 
-    const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+    headers = headers.map(bimester => {
+      return {
+        ...bimester,
+        levels: bimester.levels.map(level => {
+          return {
+            ...level
+          }
+        })
+      }
+    })
 
-    return { test, studentClassrooms, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn, classroom, alphabeticHeaders: headers }
+    // const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
+
+    return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

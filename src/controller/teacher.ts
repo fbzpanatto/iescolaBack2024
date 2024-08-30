@@ -72,6 +72,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           )
           .andWhere("person.name LIKE :search", { search: `%${search}%` })
           .groupBy("teacher.id")
+          .addOrderBy('category.id', 'DESC')
+          .addOrderBy('person.name', 'ASC')
           .getMany();
 
         return { status: 200, data: newResult };

@@ -1026,6 +1026,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoinAndSelect("test.period", "period")
         .leftJoinAndSelect("period.bimester", "bimester")
         .addOrderBy("bimester.id", "ASC")
+        .addOrderBy("testQuestion.order", "ASC")
         .leftJoin("period.year", "pYear")
         .addSelect(['pYear.id', 'pYear.name'])
 

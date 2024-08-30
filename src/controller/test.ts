@@ -970,30 +970,30 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
 
     headers = headers.map(bimester => {
-      let bimesterCounter = 0
+      let bimesterCounter = 0;
+
+      const levels = bimester.levels.map(level => {
+        const levelCounter = allAlphabetic.reduce((acc, prev) => {
+          return acc + (prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
+        }, 0)
+
+        bimesterCounter += levelCounter;
+        return {
+          ...level,
+          levelCounter
+        }
+      })
+
       return {
         ...bimester,
-        levels: bimester.levels.map(level => {
-          const levelCounter = allAlphabetic.reduce((acc, prev) => { return acc + ( prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0)}, 0)
-          bimesterCounter += levelCounter
-          return { ...level, levelCounter }
-        }),
+        levels: levels.map(level => ({
+          ...level,
+          levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0
+        })),
         bimesterCounter
       }
     })
 
-    headers = headers.map(bimester => {
-      return {
-        ...bimester,
-        levels: bimester.levels.map(level => {
-          return {
-            ...level
-          }
-        })
-      }
-    })
-
-    // const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentBimesterColumn[el.bimesterId]) * 100))
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }

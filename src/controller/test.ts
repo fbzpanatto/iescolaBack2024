@@ -977,18 +977,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const filteredQuestions = allQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
 
         const counter = filteredQuestions.reduce((acc, prev) => {
-          if (prev.answer && testQuestion.answer?.includes(prev.answer.toUpperCase())) {
-            return acc + 1;
-          }
-          return acc;
-        }, 0);
+          if (prev.answer && testQuestion.answer?.includes(prev.answer.toUpperCase())) { return acc + 1 } return acc
+        }, 0)
 
-        return {
-          ...testQuestion,
-          counter
-        }
+        return { ...testQuestion, counter }
       })
-
 
       const levels = bimester.levels.map(level => {
         const levelCounter = allAlphabetic.reduce((acc, prev) => {
@@ -1000,17 +993,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
           ...level,
           levelCounter
         };
-      });
+      })
 
-      return {
-        ...bimester,
-        testQuestions,
-        levels: levels.map(level => ({
+      return { ...bimester, testQuestions, levels: levels.map(level => ({
           ...level,
           levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0
-        })),
-        bimesterCounter
-      };
+        })), bimesterCounter }
     })
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }

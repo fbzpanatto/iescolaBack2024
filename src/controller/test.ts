@@ -8,7 +8,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion as SQues } from "../model/StudentQuestion";
+import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
@@ -32,7 +32,7 @@ import { Alphabetic } from "../model/Alphabetic";
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
-interface AlphabeticHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[] }
+interface AlphabeticHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup }[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -435,8 +435,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
       for(let testQuestion of testQuestions) {
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, studentClassroom: { id: studentClassroom.id } } }
-        const sQuestion = await CONN.findOne(SQues, options) as SQues
-        if(!sQuestion) { await CONN.save(SQues, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId })}
+        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
+        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: testQuestion, studentClassroom: studentClassroom, createdAt: new Date(), createdByUser: userId })}
       }
     }
   }
@@ -904,7 +904,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
       preResult = await CONN.getRepository(StudentClassroom)
         .createQueryBuilder("studentClassroom")
@@ -928,7 +928,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoin("studentQuestions.studentClassroom", "studentQuestionsStudentClassroom")
         .leftJoin("studentQuestionsStudentClassroom.student", "studentQuestionsStudentClassroomStudent")
         .leftJoin("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-        .addSelect(['testQuestion.id', 'testQuestion.order', 'testQuestion.answer'])
+        .addSelect(['testQuestion.id', 'testQuestion.order', 'testQuestion.answer', 'testQuestion.active'])
         .leftJoin("testQuestion.questionGroup", "questionGroup")
 
         .leftJoin("testQuestion.test", "test")
@@ -968,9 +968,27 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
+    const allQuestions = studentClassrooms.flatMap(el => el.studentQuestions)
 
     headers = headers.map(bimester => {
       let bimesterCounter = 0;
+
+      const testQuestions = bimester.testQuestions?.map(testQuestion => {
+        const filteredQuestions = allQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
+
+        const counter = filteredQuestions.reduce((acc, prev) => {
+          if (prev.answer && testQuestion.answer?.includes(prev.answer.toUpperCase())) {
+            return acc + 1;
+          }
+          return acc;
+        }, 0);
+
+        return {
+          ...testQuestion,
+          counter
+        }
+      })
+
 
       const levels = bimester.levels.map(level => {
         const levelCounter = allAlphabetic.reduce((acc, prev) => {
@@ -986,6 +1004,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return {
         ...bimester,
+        testQuestions,
         levels: levels.map(level => ({
           ...level,
           levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0

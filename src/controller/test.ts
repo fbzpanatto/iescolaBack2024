@@ -968,19 +968,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-    const allQuestions = studentClassrooms.flatMap(el => el.studentQuestions)
+    const allStudentQuestions = studentClassrooms.flatMap(el => el.studentQuestions)
 
     headers = headers.map(bimester => {
       let bimesterCounter = 0;
 
       const testQuestions = bimester.testQuestions?.map(testQuestion => {
-        const filteredQuestions = allQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
+        const studentQuestions = allStudentQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
 
-        const counter = filteredQuestions.reduce((acc, prev) => {
-          if (prev.answer && testQuestion.answer?.includes(prev.answer.toUpperCase())) { return acc + 1 } return acc
+        let counterPercentage = 0
+
+        const counter = studentQuestions.reduce((acc, studentQuestion) => {
+
+          const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score;
+
+          if (studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
-        return { ...testQuestion, counter }
+        return { ...testQuestion, counter, counterPercentage: counterPercentage > 0 ? Math.round((counter / counterPercentage) * 100) : 0 }
       })
 
       const levels = bimester.levels.map(level => {
@@ -995,10 +1000,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
         };
       })
 
-      return { ...bimester, testQuestions, levels: levels.map(level => ({
-          ...level,
-          levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0
-        })), bimesterCounter }
+      return {
+        ...bimester,
+        bimesterCounter,
+        testQuestions,
+        levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0}))
+      }
     })
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }

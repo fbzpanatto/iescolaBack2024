@@ -8,6 +8,13 @@ export const STUDENT_QUESTIONSANSWER_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
+  classroom: { exists: true },
+  'classroom.id': {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
   answer: {
     exists: true,
     escape: true,

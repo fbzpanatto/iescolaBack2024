@@ -6,6 +6,7 @@ import { StudentClassroom } from "./StudentClassroom";
 import { Transfer } from "./Transfer";
 import { TestClassroom } from "./TestClassroom";
 import { Alphabetic } from "./Alphabetic";
+import { StudentQuestion } from "./StudentQuestion";
 
 @Entity()
 export class Classroom {
@@ -36,6 +37,9 @@ export class Classroom {
 
   @OneToMany(() => Alphabetic, alphabetic => alphabetic.rClassroom)
   alphabetic: Alphabetic[]
+
+  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.rClassroom)
+  studentQuestion: StudentQuestion[]
 
   @OneToMany(() => TestClassroom, testClassroom => testClassroom.classroom)
   testClassrooms: TestClassroom[];

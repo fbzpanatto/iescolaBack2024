@@ -2,7 +2,6 @@ import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "ty
 import { Student } from "./Student";
 import { Classroom } from "./Classroom";
 import { Year} from "./Year";
-import { StudentQuestion } from "./StudentQuestion";
 import { StudentTestStatus } from "./StudentTestStatus";
 import { ReadingFluency } from "./ReadingFluency";
 
@@ -20,9 +19,6 @@ export class StudentClassroom {
 
   @ManyToOne(() => Year, year => year.studentClassrooms)
   year: Year
-
-  @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.studentClassroom)
-  studentQuestions: StudentQuestion[]
 
   @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.studentClassroom)
   studentStatus: StudentTestStatus[]

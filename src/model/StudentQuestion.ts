@@ -1,6 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { TestQuestion } from "./TestQuestion";
-import { StudentClassroom } from "./StudentClassroom";
+import { Classroom } from "./Classroom";
+import { Student } from "./Student";
 
 @Entity()
 export class StudentQuestion {
@@ -8,14 +9,17 @@ export class StudentQuestion {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.studentQuestions, { nullable: false })
-  studentClassroom: StudentClassroom
+  @Column({ nullable: true })
+  answer: string
+
+  @ManyToOne(() => Student, student => student.studentQuestions)
+  student: Student
 
   @ManyToOne(() => TestQuestion, testQuestion => testQuestion.studentQuestions, { nullable: false })
   testQuestion: TestQuestion
 
-  @Column({ nullable: true })
-  answer: string
+  @ManyToOne(() => Classroom, classroom => classroom.alphabetic, { nullable: true })
+  rClassroom: Classroom
 
   @Column({nullable: true })
   score: number

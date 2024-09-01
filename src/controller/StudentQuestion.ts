@@ -165,9 +165,20 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-        const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion'], where: { id: Number(body.id) } })
+        const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion', 'rClassroom'], where: { id: Number(body.id) } })
         if(!studentQuestion) { return { status: 400, message: 'Registro não encontrado' } }
-        const entity = { id: body.id, answer: body.answer, studentClassroom: { id: body.studentClassroom.id }, testQuestion: { id: body.testQuestion.id }}
+
+        if(studentQuestion.rClassroom && studentQuestion.rClassroom.id != body.classroom.id) {
+          return { status: 403, message: 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.' }
+        }
+
+        const entity = {
+          id: body.id,
+          answer: body.answer,
+          testQuestion: { id: body.testQuestion.id },
+          rClassroom: { id: body.classroom.id },
+        }
+
         const result = await CONN.save(StudentQuestion, entity)
         const mappedResult = { ...result, score: studentQuestion.testQuestion.answer.includes(result.answer.trim().toUpperCase()) ? 1 : 0 }
         return { status: 200, data: mappedResult };

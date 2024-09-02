@@ -244,9 +244,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -427,7 +425,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case TEST_CATEGORIES_IDS.TEST_4_9: {
-            data = await this.notIncluded(test, Number(classroomId), Number(yearName), CONN)
+            data = await this.notTestIncluded(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
         }
@@ -436,7 +434,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async createLinkTestQuestions(withTestStatus: boolean, studentClassrooms: StudentClassroom[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+  async createLinkTestQuestions(withTestStatus: boolean, studentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       if(withTestStatus){
         const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
@@ -445,9 +443,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!stStatus) { await CONN.save(StudentTestStatus, el) }
       }
       for(let testQuestion of testQuestions) {
-        const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: studentClassroom.student.id } } }
+        const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: studentClassroom.student?.id ?? studentClassroom.student_id } } }
         const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
-        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: testQuestion, student: studentClassroom.student, createdAt: new Date(), createdByUser: userId })}
+        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: testQuestion, student: { id: studentClassroom.student?.id ?? studentClassroom.student_id }, createdAt: new Date(), createdByUser: userId })}
       }
     }
   }
@@ -482,14 +480,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
-            const stClassrooms = await this.notIncluded(test, body.classroom.id, body.year, CONN)
+            const stClassrooms = await this.notTestIncluded(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
             await this.createLinkTestQuestions(true, filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
-            break;
-          }
-          default: {
             break;
           }
         }
@@ -498,23 +493,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async notIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
+  async notTestIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
 
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
       .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
+      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
       .leftJoin("test.category", "testCategory")
-      .leftJoin("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoin("student.studentQuestions", "studentQuestions")
       .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", {classroomId})
-      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere("studentClassroom.startedAt > :testCreatedAt", { testCreatedAt: test.createdAt })
       .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
-      .andWhere("year.name = :yearName", {yearName})
+      .andWhere("year.name = :yearName", { yearName })
       .andWhere("studentQuestions.id IS NULL")
       .getRawMany() as unknown as notIncludedInterface[]
   }

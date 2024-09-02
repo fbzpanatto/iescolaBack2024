@@ -125,6 +125,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case TEST_CATEGORIES_IDS.TEST_4_9: {
+
             const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }

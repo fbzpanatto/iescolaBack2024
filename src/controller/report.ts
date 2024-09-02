@@ -1,17 +1,15 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityManager, EntityTarget} from "typeorm";
-import {Test} from "../model/Test";
-import {AppDataSource} from "../data-source";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {School} from "../model/School";
-import {pc} from "../utils/personCategories";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {testController} from "./test";
-import {Year} from "../model/Year";
-import {Classroom} from "../model/Classroom";
+import { GenericController } from "./genericController";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
+import { Test } from "../model/Test";
+import { AppDataSource } from "../data-source";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { School } from "../model/School";
+import { pc } from "../utils/personCategories";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { testController } from "./test";
+import { Year } from "../model/Year";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -280,81 +278,47 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         break;
       }
-      case (TEST_CATEGORIES_IDS.TEST_4_9): {
+      case(TEST_CATEGORIES_IDS.TEST_4_9): {
 
-        console.log('chegando aqui.............................................................')
-
-        const testQuestions = await this.getTestQuestions(Number(testId), CONN);
-        if (!testQuestions) return { status: 404, message: "Questões não encontradas" };
-
-        const testQuestionsIds = testQuestions.map((testQuestion) => testQuestion.id );
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
+        const { schools, testQuestions } = await this.getTestForGraphic(testId, yearName, CONN)
 
-        const schools = await CONN.getRepository(School)
-          .createQueryBuilder("school")
-          .leftJoinAndSelect("school.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-          .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-          .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-          .leftJoinAndSelect("studentClassroom.student", "student")
-          .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-          .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds },)
-          .leftJoin("testQuestion.test", "test")
-          .leftJoin("studentClassroom.year", "year")
-          .where("year.name = :yearName", { yearName })
-          .andWhere("test.id = :testId", { testId })
-          .andWhere("studentStatusTest.id = :testId", { testId })
-          .andWhere( new Brackets((qb) => { qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt,});qb.orWhere("studentQuestions.id IS NOT NULL")}))
-          .getMany();
+        console.log(schools)
 
-        const simplifiedSchools = schools.map((school) => ({
-          ...school,
-          studentClassrooms: school.classrooms.flatMap((classroom) =>
-            classroom.studentClassrooms.map((studentClassroom) => ({
-              ...studentClassroom,
-              studentQuestions: studentClassroom.student.studentQuestions.map((studentQuestion) => {
-                const testQuestion = testQuestions.find((tq) => tq.id === studentQuestion.testQuestion.id );
-                const score = studentQuestion.answer.length === 0 ? 0 : testQuestion?.answer.includes(studentQuestion.answer.toUpperCase() ) ? 1 : 0;
-                return { ...studentQuestion, score };
-              }),
-            })) as StudentClassroom[],
-          )
-        }))
-
-        const simplifiedArray = simplifiedSchools.map((school) => {
-          const { id, name, shortName } = school;
-          const qRate = testQuestions.map((testQuestion) => {
-            if (!testQuestion.active) { return { id: testQuestion.id, rate: "N/A" } }
-            let sum = 0;
-            let count = 0;
-            school.studentClassrooms
-              .filter((studentClassroom) => studentClassroom.studentStatus.find((register) => register.test.id === test.id )?.active,)
-              .filter((studentClassroom) => !studentClassroom.student.studentQuestions.every(el => el.answer === ''))
-              .flatMap((studentClassroom) => studentClassroom.student.studentQuestions)
-              .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id )
-              .forEach((studentQuestion) => {
-                const studentQuestionAny = studentQuestion as any;
-                sum += studentQuestionAny.score;
-                count += 1;
-              })
-            return { id: testQuestion.id, rate: count === 0 ? 0 : (sum / count) * 100 };
-          })
-          return { id, name, shortName, qRate };
-        })
-
-        simplifiedArray.sort((a, b) => {
-          const totalA = a.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0,)
-          const totalB = b.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0 )
-          return totalB - totalA;
-        })
-
-        data = {...test, testQuestions, questionGroups, schools: simplifiedArray }
+        data = { test, testQuestions, questionGroups }
 
         break;
       }
     }
 
     return { status: 200, data }
+  }
+
+  async getTestForGraphic(testId: string, yearName: string, CONN: EntityManager) {
+
+    const year = await CONN.findOne(Year, { where: { name: yearName } })
+    if (!year) return { status: 404, message: "Ano não encontrado." }
+
+    const testQuestions = await testController.getTestQuestionsSimple(testId, CONN)
+    if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
+    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+
+    const schools = await CONN.getRepository(School)
+      .createQueryBuilder("school")
+      .leftJoinAndSelect("school.classrooms", "classroom")
+      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoin("studentClassroom.year", "studentClassroomYear")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
+      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+      .leftJoinAndSelect("testQuestion.test", "test")
+      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+      .where("test.id = :testId", { testId })
+      .andWhere("studentClassroomYear.id = :yearId", { yearId: year.id })
+      .getMany()
+
+    return { schools, testQuestions }
   }
 }
 

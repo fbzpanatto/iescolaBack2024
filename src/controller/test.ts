@@ -148,13 +148,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   const counter = classroom.studentClassrooms
                     .flatMap(el => el.student.studentQuestions)
                     .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-                    .reduce((questionTotal, studentQuestion) => {
-                      if(studentQuestion.rClassroom?.id != parseInt(classroomId)){ return questionTotal }
-                      const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                      if (studentQuestion.rClassroom?.id === parseInt(classroomId) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
-                        return questionTotal + 1
-                      }
-                      return questionTotal
+                    .reduce((qTotal, sQ) => {
+                      if(sQ.rClassroom?.id != parseInt(classroomId)){ return qTotal }
+                      const score = (sQ.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
+                      if (sQ.rClassroom?.id === parseInt(classroomId) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
+                      return qTotal
                   }, 0)
                   total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
                   return total

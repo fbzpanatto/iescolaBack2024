@@ -124,27 +124,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
-          // case TEST_CATEGORIES_IDS.TEST_4_9: {
-          //   const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
-          //   const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
-          //   if(!test) return { status: 404, message: "Teste não encontrado" }
-          //   let response = { ...test, testQuestions, questionGroups }
-          //   const testQuestionMap = new Map<number, TestQuestion>();
-          //   for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
-          //   const allClasses: Classroom[] = response.classrooms;
-          //   const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.studentQuestions))
-          //   for (const studentQuestion of studentQuestions) {
-          //     if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
-          //     else {
-          //       const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-          //       if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
-          //       else { studentQuestion.score = 0 }
-          //     }
-          //   }
-          //   response.classrooms = this.responseClassrooms(classroom, allClasses)
-          //   data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
-          //   break;
-          // }
+          case TEST_CATEGORIES_IDS.TEST_4_9: {
+            const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
+            const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
+            if(!test) return { status: 404, message: "Teste não encontrado" }
+
+            let response = { ...test, testQuestions, questionGroups }
+
+            const testQuestionMap = new Map<number, TestQuestion>();
+            for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
+
+            const allClasses: Classroom[] = response.classrooms;
+            const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.student.studentQuestions))
+
+            for (const studentQuestion of studentQuestions) {
+              if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
+              else {
+                const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+                if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
+                else { studentQuestion.score = 0 }
+              }
+            }
+
+            response.classrooms = this.responseClassrooms(classroom, allClasses)
+            data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentQuestions: studentClassroom.student.studentQuestions, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+            break;
+          }
         }
         return { status: 200, data };
       })
@@ -780,10 +785,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("student.person", "studentPerson")
+      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-      .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
       .andWhere("periodYear.id = :yearId", { yearId })

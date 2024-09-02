@@ -409,7 +409,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!test) return { status: 404, message: "Teste não encontrado" }
         let data;
         switch (test.category.id) {
-          case TEST_CATEGORIES_IDS.LITE_1: {
+          case TEST_CATEGORIES_IDS.LITE_1:
+          case TEST_CATEGORIES_IDS.LITE_2:
+          case TEST_CATEGORIES_IDS.LITE_3: {
             data = await this.notIncludedAlphabetic(test, Number(classroomId), Number(yearName), CONN)
             break;
           }

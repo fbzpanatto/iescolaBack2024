@@ -142,6 +142,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               return {
                 id: classroom.id,
                 name: classroom.name,
+                shortName: classroom.shortName,
                 school: classroom.school.name,
                 totals: testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
                   let counterPercentage = 0

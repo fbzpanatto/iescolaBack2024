@@ -127,17 +127,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.TEST_4_9: {
 
             const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
+
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
-            let response = { ...test, testQuestions, questionGroups }
+            const allClassroomsS = test.classrooms
+
+            for(let classroom of allClassroomsS) {
+              console.log(classroom)
+            }
 
             const testQuestionMap = new Map<number, TestQuestion>();
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
-            const allClasses: Classroom[] = response.classrooms;
-
-            const allClassrooms = response.classrooms = this.responseClassrooms(classroom, allClasses)
+            const allClassrooms = this.responseClassrooms(classroom, test.classrooms)
 
             const finalMappedResult = allClassrooms.map(classroom => {
               return {
@@ -162,7 +165,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             })
 
-            data = { ...response, classrooms: finalMappedResult }
+            data = { ...test, testQuestions, questionGroups, classrooms: finalMappedResult }
             break;
           }
         }
@@ -797,8 +800,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.classrooms", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
@@ -809,13 +810,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("test.id = :testId", { testId })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
-      .andWhere("testQuestion.test = :testId", { testId })
-      .andWhere("studentStatusTest.id = :testId", { testId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
-      .getOne()
+      .getOne() as Test
     return { test, testQuestions }
   }
 

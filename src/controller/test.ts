@@ -135,19 +135,34 @@ class TestController extends GenericController<EntityTarget<Test>> {
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
             const allClasses: Classroom[] = response.classrooms;
-            const studentQuestions = allClasses.flatMap(classroom => classroom.studentClassrooms.flatMap(el => el.student.studentQuestions))
 
-            for (const studentQuestion of studentQuestions) {
-              if (studentQuestion.answer.length === 0) { studentQuestion.score = 0 }
-              else {
-                const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-                if (testQuestion) { studentQuestion.score = testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0 }
-                else { studentQuestion.score = 0 }
+            const allClassrooms = response.classrooms = this.responseClassrooms(classroom, allClasses)
+
+            const finalMappedResult = allClassrooms.map(classroom => {
+              return {
+                id: classroom.id,
+                name: classroom.name,
+                school: classroom.school.name,
+                totals: testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
+                  let counterPercentage = 0
+                  const counter = classroom.studentClassrooms
+                    .flatMap(el => el.student.studentQuestions)
+                    .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
+                    .reduce((questionTotal, studentQuestion) => {
+                      if(studentQuestion.rClassroom?.id != parseInt(classroomId)){ return questionTotal }
+                      const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
+                      if (studentQuestion.rClassroom?.id === parseInt(classroomId) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
+                        return questionTotal + 1
+                      }
+                      return questionTotal
+                  }, 0)
+                  total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
+                  return total
+                }, [])
               }
-            }
+            })
 
-            response.classrooms = this.responseClassrooms(classroom, allClasses)
-            data = { ...response, classrooms: response.classrooms.map((classroom: Classroom) => { return { ...classroom, studentClassrooms: classroom.studentClassrooms.map((studentClassroom: StudentClassroom) => { return { ...studentClassroom, studentQuestions: studentClassroom.student.studentQuestions, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id)}})}})}
+            data = { ...response, classrooms: finalMappedResult }
             break;
           }
         }
@@ -787,6 +802,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
       .leftJoin("studentClassroom.year", "studentClassroomYear")

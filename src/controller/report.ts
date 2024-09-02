@@ -282,6 +282,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       }
       case (TEST_CATEGORIES_IDS.TEST_4_9): {
 
+        console.log('chegando aqui.............................................................')
+
         const testQuestions = await this.getTestQuestions(Number(testId), CONN);
         if (!testQuestions) return { status: 404, message: "Questões não encontradas" };
 
@@ -294,7 +296,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
           .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
           .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-          .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions",)
+          .leftJoinAndSelect("studentClassroom.student", "student")
+          .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
           .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds },)
           .leftJoin("testQuestion.test", "test")
           .leftJoin("studentClassroom.year", "year")
@@ -304,48 +307,48 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .andWhere( new Brackets((qb) => { qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt,});qb.orWhere("studentQuestions.id IS NOT NULL")}))
           .getMany();
 
-        // const simplifiedSchools = schools.map((school) => ({
-        //   ...school,
-        //   studentClassrooms: school.classrooms.flatMap((classroom) =>
-        //     classroom.studentClassrooms.map((studentClassroom) => ({
-        //       ...studentClassroom,
-        //       studentQuestions: studentClassroom.studentQuestions.map((studentQuestion) => {
-        //         const testQuestion = testQuestions.find((tq) => tq.id === studentQuestion.testQuestion.id );
-        //         const score = studentQuestion.answer.length === 0 ? 0 : testQuestion?.answer.includes(studentQuestion.answer.toUpperCase() ) ? 1 : 0;
-        //         return { ...studentQuestion, score };
-        //       }),
-        //     })) as StudentClassroom[],
-        //   )
-        // }))
+        const simplifiedSchools = schools.map((school) => ({
+          ...school,
+          studentClassrooms: school.classrooms.flatMap((classroom) =>
+            classroom.studentClassrooms.map((studentClassroom) => ({
+              ...studentClassroom,
+              studentQuestions: studentClassroom.student.studentQuestions.map((studentQuestion) => {
+                const testQuestion = testQuestions.find((tq) => tq.id === studentQuestion.testQuestion.id );
+                const score = studentQuestion.answer.length === 0 ? 0 : testQuestion?.answer.includes(studentQuestion.answer.toUpperCase() ) ? 1 : 0;
+                return { ...studentQuestion, score };
+              }),
+            })) as StudentClassroom[],
+          )
+        }))
 
-        // const simplifiedArray = simplifiedSchools.map((school) => {
-        //   const { id, name, shortName } = school;
-        //   const qRate = testQuestions.map((testQuestion) => {
-        //     if (!testQuestion.active) { return { id: testQuestion.id, rate: "N/A" } }
-        //     let sum = 0;
-        //     let count = 0;
-        //     school.studentClassrooms
-        //       .filter((studentClassroom) => studentClassroom.studentStatus.find((register) => register.test.id === test.id )?.active,)
-        //       .filter((studentClassroom) => !studentClassroom.studentQuestions.every(el => el.answer === ''))
-        //       .flatMap((studentClassroom) => studentClassroom.studentQuestions)
-        //       .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id )
-        //       .forEach((studentQuestion) => {
-        //         const studentQuestionAny = studentQuestion as any;
-        //         sum += studentQuestionAny.score;
-        //         count += 1;
-        //       })
-        //     return { id: testQuestion.id, rate: count === 0 ? 0 : (sum / count) * 100 };
-        //   })
-        //   return { id, name, shortName, qRate };
-        // })
+        const simplifiedArray = simplifiedSchools.map((school) => {
+          const { id, name, shortName } = school;
+          const qRate = testQuestions.map((testQuestion) => {
+            if (!testQuestion.active) { return { id: testQuestion.id, rate: "N/A" } }
+            let sum = 0;
+            let count = 0;
+            school.studentClassrooms
+              .filter((studentClassroom) => studentClassroom.studentStatus.find((register) => register.test.id === test.id )?.active,)
+              .filter((studentClassroom) => !studentClassroom.student.studentQuestions.every(el => el.answer === ''))
+              .flatMap((studentClassroom) => studentClassroom.student.studentQuestions)
+              .filter((studentQuestion) => studentQuestion.testQuestion.id === testQuestion.id )
+              .forEach((studentQuestion) => {
+                const studentQuestionAny = studentQuestion as any;
+                sum += studentQuestionAny.score;
+                count += 1;
+              })
+            return { id: testQuestion.id, rate: count === 0 ? 0 : (sum / count) * 100 };
+          })
+          return { id, name, shortName, qRate };
+        })
 
-        // simplifiedArray.sort((a, b) => {
-        //   const totalA = a.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0,)
-        //   const totalB = b.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0 )
-        //   return totalB - totalA;
-        // })
+        simplifiedArray.sort((a, b) => {
+          const totalA = a.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0,)
+          const totalB = b.qRate.reduce((acc, curr) => (curr.rate === "N/A" ? acc : acc + Number(curr.rate)), 0 )
+          return totalB - totalA;
+        })
 
-        data = {...test, testQuestions, questionGroups, schools: {} }
+        data = {...test, testQuestions, questionGroups, schools: simplifiedArray }
 
         break;
       }

@@ -226,36 +226,42 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
 
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
-            const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
-            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+
+            let testQuestionsIds: number[] = []
+
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+
+            const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
+
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const studentClassroomsWithQuestions = await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN)
-            data = { test, classroom, testQuestions, studentClassrooms: studentClassroomsWithQuestions, questionGroups }
+            const mappedStudentClassrooms = await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN)
+            data = { test, classroom, testQuestions, studentClassrooms: mappedStudentClassrooms, questionGroups }
             break;
           }
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentQuestions", "studentQuestions")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
+      .leftJoin("studentClassroom.year", "studentClassroomYear")
       .leftJoin("studentClassroom.student", "student")
-      .leftJoin("student.person", "person")
+      .addSelect(['student.id'])
+      .leftJoin("student.studentQuestions", "studentQuestions")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
         qb.orWhere("studentQuestions.id IS NOT NULL")
       }))
-      .andWhere("year.name = :yearName", { yearName })
+      .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .getMany();
   }
 
@@ -328,9 +334,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getStudentsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
+
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
     const testQuestionMap = new Map<number, TestQuestion>();
+
     for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
+
     const preResult = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
@@ -339,7 +348,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
       .leftJoin("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("studentClassroom.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoin("testQuestion.questionGroup", "questionGroup")
       .leftJoin("testQuestion.test", "test")
@@ -357,17 +366,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
-    // TODO: PROVUSÓRIO
-    return preResult
-
-    // return preResult.map(studentClassroom => {
-    //   const studentQuestions = studentClassroom.studentQuestions.map(studentQuestion => {
-    //     const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-    //     const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : (testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
-    //     return { ...studentQuestion, score };
-    //   });
-    //   return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id), studentQuestions };
-    // })
+    return preResult.map(studentClassroom => {
+      const studentQuestions = studentClassroom.student.studentQuestions.map(studentQuestion => {
+        const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
+        const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : (testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
+        return { ...studentQuestion, score };
+      });
+      return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id), studentQuestions };
+    })
   }
 
   async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

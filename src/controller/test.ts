@@ -248,27 +248,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
             const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
 
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
+            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tRate: 0 }))
+
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const preResult = (await this
-              .getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
+            const preResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(el => {
+
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
+
+                const condition = el.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
+                if(condition) { return { ...el, student: { ...el.student, studentTotals: { rowTotal: 'T', rowPercent: 'T' } } } }
 
                 let counterPercentage = 0
 
                 studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
 
-                  testQuestion.active ? counterPercentage +=1 : counterPercentage
+                  if(testQuestion.active) { counterPercentage += 1 }
 
                   const register = el.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
-                  if((register?.rClassroom?.id != classroom.id && classroom.id != 999 )){ return acc }
+                  if((register?.rClassroom?.id != classroom.id )){ return acc }
 
-                  if ((register?.rClassroom?.id === classroom.id || classroom.id === 999 ) && register?.answer && testQuestion.answer?.includes(register?.answer.toUpperCase())) { acc += 1 }
+                  if ((register?.rClassroom?.id === classroom.id ) && register?.answer && testQuestion.answer?.includes(register?.answer.toUpperCase())) {
+                    let element = totals.find(el => el.id === testQuestion.id)
+                    element!.tNumber += 1
+                    acc += 1
+                  }
+
                   return acc
                 }, 0)
 
@@ -277,30 +288,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 return { ...el, student: { ...el.student, studentTotals } }
               })
 
-            const totals = testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
-              let counterPercentage = 0
-              const counter = preResult
-                .flatMap(el => el.student.studentQuestions)
-                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-                .reduce((questionTotal, studentQuestion) => {
-                  if((studentQuestion.rClassroom?.id != classroom.id && classroom.id != 999 )){ return questionTotal }
-                  const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999 ) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
-                    return questionTotal + 1
-                  }
-                  return questionTotal
-                }, 0)
-              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
-              return total
-            }, [])
-
             data = { test, classroom, testQuestions, questionGroups, studentClassrooms: preResult, totals }
             break;
           }
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

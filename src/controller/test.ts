@@ -262,8 +262,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                const condition = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
-                if(condition) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: 'T', rowPercent: 'T' } } } }
+                const allEmpty = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
+                const registeredInAnotherClassOrNotYet = studentClassroom.student.studentQuestions.every(question => question.answer.length < 1)
+                if(allEmpty && registeredInAnotherClassOrNotYet) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+                if(allEmpty) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
 
                 let counterPercentage = 0
 

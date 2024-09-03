@@ -254,43 +254,45 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const preResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
+            const preResult = (await this
+              .getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(el => {
-                let counterPercentage = 0;
-                const rowTotal = testQuestions.reduce((acc, testQuestion) => {
-                  if (!testQuestion.active) return acc;
+                const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                  counterPercentage += 1;
-                  const register = el.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id);
+                let counterPercentage = 0
 
-                  if (register && (register.rClassroom?.id === classroom.id || classroom.id === 999) && testQuestion.answer?.includes(register.answer.toUpperCase())) {
-                    return acc + 1;
-                  }
-                  return acc;
-                }, 0);
+                studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
 
-                const rowPercent = counterPercentage > 0 ? Math.round((rowTotal / counterPercentage) * 100) : 0;
+                  testQuestion.active ? counterPercentage +=1 : counterPercentage
 
-                return { ...el, student: { ...el.student, studentTotals: { rowTotal, rowPercent } } };
-              });
+                  const register = el.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
+                  if((register?.rClassroom?.id != classroom.id && classroom.id != 999 )){ return acc }
 
-            const totals = testQuestions.map(testQuestion => {
-              let counterPercentage = 0;
+                  if ((register?.rClassroom?.id === classroom.id || classroom.id === 999 ) && register?.answer && testQuestion.answer?.includes(register?.answer.toUpperCase())) { acc += 1 }
+                  return acc
+                }, 0)
+
+                studentTotals.rowPercent = Math.round((studentTotals.rowTotal / counterPercentage) * 100)
+
+                return { ...el, student: { ...el.student, studentTotals } }
+              })
+
+            const totals = testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
+              let counterPercentage = 0
               const counter = preResult
                 .flatMap(el => el.student.studentQuestions)
+                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
                 .reduce((questionTotal, studentQuestion) => {
-                  if (studentQuestion.testQuestion.id !== testQuestion.id) return questionTotal;
-
-                  counterPercentage += 1;
-                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999) && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
-                    return questionTotal + 1;
+                  if((studentQuestion.rClassroom?.id != classroom.id && classroom.id != 999 )){ return questionTotal }
+                  const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
+                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999 ) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
+                    return questionTotal + 1
                   }
-                  return questionTotal;
-                }, 0);
-
-              return { tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 };
-            });
-
+                  return questionTotal
+                }, 0)
+              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
+              return total
+            }, [])
 
             data = { test, classroom, testQuestions, questionGroups, studentClassrooms: preResult, totals }
             break;

@@ -254,24 +254,45 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const mappedStudentClassrooms = await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN)
+            const preResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
+              .map(el => {
+                let counterPercentage = 0;
+                const rowTotal = testQuestions.reduce((acc, testQuestion) => {
+                  if (!testQuestion.active) return acc;
 
-            const totals = testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
-              let counterPercentage = 0
-              const counter = mappedStudentClassrooms
+                  counterPercentage += 1;
+                  const register = el.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id);
+
+                  if (register && (register.rClassroom?.id === classroom.id || classroom.id === 999) && testQuestion.answer?.includes(register.answer.toUpperCase())) {
+                    return acc + 1;
+                  }
+                  return acc;
+                }, 0);
+
+                const rowPercent = counterPercentage > 0 ? Math.round((rowTotal / counterPercentage) * 100) : 0;
+
+                return { ...el, student: { ...el.student, studentTotals: { rowTotal, rowPercent } } };
+              });
+
+            const totals = testQuestions.map(testQuestion => {
+              let counterPercentage = 0;
+              const counter = preResult
                 .flatMap(el => el.student.studentQuestions)
-                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
                 .reduce((questionTotal, studentQuestion) => {
-                  if((studentQuestion.rClassroom?.id != classroom.id && classroom.id != 999 )){ return questionTotal }
-                  const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return questionTotal + 1 }
-                  return questionTotal
-                }, 0)
-              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
-              return total
-            }, [])
+                  if (studentQuestion.testQuestion.id !== testQuestion.id) return questionTotal;
 
-            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedStudentClassrooms, totals }
+                  counterPercentage += 1;
+                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999) && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) {
+                    return questionTotal + 1;
+                  }
+                  return questionTotal;
+                }, 0);
+
+              return { tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 };
+            });
+
+
+            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: preResult, totals }
             break;
           }
         }

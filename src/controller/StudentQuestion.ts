@@ -172,14 +172,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
           return { status: 403, message: 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.' }
         }
 
-        const entity = {
-          id: body.id,
-          answer: body.answer,
-          testQuestion: { id: body.testQuestion.id },
-          rClassroom: { id: body.classroom.id },
-        }
+        studentQuestion.rClassroom = body.classroom
+        studentQuestion.answer = body.answer
 
-        const result = await CONN.save(StudentQuestion, entity)
+        const result = await CONN.save(StudentQuestion, studentQuestion)
         const mappedResult = { ...result, score: studentQuestion.testQuestion.answer.includes(result.answer.trim().toUpperCase()) ? 1 : 0 }
         return { status: 200, data: mappedResult };
       })

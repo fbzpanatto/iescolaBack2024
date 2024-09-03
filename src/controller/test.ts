@@ -131,12 +131,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
-            const allClassroomsS = test.classrooms
-
-            for(let classroom of allClassroomsS) {
-              console.log(classroom)
-            }
-
             const testQuestionMap = new Map<number, TestQuestion>();
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
@@ -154,9 +148,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
                     .flatMap(el => el.student.studentQuestions)
                     .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
                     .reduce((qTotal, sQ) => {
-                      if(sQ.rClassroom?.id != parseInt(classroomId)){ return qTotal }
+                      if((sQ.rClassroom?.id != classroom.id && classroom.id != 999)){ return qTotal }
                       const score = (sQ.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                      if (sQ.rClassroom?.id === parseInt(classroomId) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
+                      if ((sQ.rClassroom?.id === classroom.id || classroom.id === 999) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
                       return qTotal
                   }, 0)
                   total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
@@ -261,7 +255,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const mappedStudentClassrooms = await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN)
-            data = { test, classroom, testQuestions, studentClassrooms: mappedStudentClassrooms, questionGroups }
+
+            const totals = testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
+              let counterPercentage = 0
+              const counter = mappedStudentClassrooms
+                .flatMap(el => el.student.studentQuestions)
+                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
+                .reduce((questionTotal, studentQuestion) => {
+                  if((studentQuestion.rClassroom?.id != classroom.id && classroom.id != 999 )){ return questionTotal }
+                  const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
+                  if ((studentQuestion.rClassroom?.id === classroom.id || classroom.id === 999) && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return questionTotal + 1 }
+                  return questionTotal
+                }, 0)
+              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
+              return total
+            }, [])
+
+            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedStudentClassrooms, totals }
             break;
           }
         }
@@ -357,9 +367,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getStudentsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-    const testQuestionMap = new Map<number, TestQuestion>();
-
-    for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
     const preResult = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -368,8 +375,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentStatus.test", "stStatusTest")
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
-      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
+      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoin("testQuestion.questionGroup", "questionGroup")
       .leftJoin("testQuestion.test", "test")
@@ -387,13 +395,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
-    return preResult.map(studentClassroom => {
-      const studentQuestions = studentClassroom.student.studentQuestions.map(studentQuestion => {
-        const testQuestion = testQuestionMap.get(studentQuestion.testQuestion.id);
-        const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : (testQuestion.answer.includes(studentQuestion.answer.toUpperCase()) ? 1 : 0);
-        return { ...studentQuestion, score };
-      });
-      return { ...studentClassroom, studentStatus: studentClassroom.studentStatus.find(studentStatus => studentStatus.test.id === test.id), studentQuestions };
+    return preResult.map(sc => {
+      return {
+        ...sc,
+        studentStatus: sc.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }
     })
   }
 
@@ -800,21 +805,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.classrooms", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
       .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+      .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
+      .andWhere("testQuestion.test = :testId", { testId })
+      .andWhere("studentStatusTest.id = :testId", { testId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
-      .getOne() as Test
+      .getOne()
     return { test, testQuestions }
   }
 

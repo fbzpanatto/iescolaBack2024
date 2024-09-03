@@ -254,16 +254,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
-            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tRate: 0 }))
+            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const preResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
-              .map(el => {
+              .map(studentClassroom => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                const condition = el.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
-                if(condition) { return { ...el, student: { ...el.student, studentTotals: { rowTotal: 'T', rowPercent: 'T' } } } }
+                const condition = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
+                if(condition) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: 'T', rowPercent: 'T' } } } }
 
                 let counterPercentage = 0
 
@@ -271,21 +271,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                   if(testQuestion.active) { counterPercentage += 1 }
 
-                  const register = el.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
-                  if((register?.rClassroom?.id != classroom.id )){ return acc }
+                  const studentQuestion = studentClassroom.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
+                  if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
 
-                  if ((register?.rClassroom?.id === classroom.id ) && register?.answer && testQuestion.answer?.includes(register?.answer.toUpperCase())) {
-                    let element = totals.find(el => el.id === testQuestion.id)
+                  let element = totals.find(el => el.id === testQuestion.id)
+
+                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer && testQuestion.answer?.includes(studentQuestion?.answer.toUpperCase())) {
                     element!.tNumber += 1
                     acc += 1
                   }
+
+                  element!.tTotal += 1
+                  element!.tRate = Math.round((element!.tNumber / element!.tTotal) * 100)
 
                   return acc
                 }, 0)
 
                 studentTotals.rowPercent = Math.round((studentTotals.rowTotal / counterPercentage) * 100)
 
-                return { ...el, student: { ...el.student, studentTotals } }
+                return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals } }
               })
 
             data = { test, classroom, testQuestions, questionGroups, studentClassrooms: preResult, totals }
@@ -294,9 +298,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

@@ -275,8 +275,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .map(sc => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
-                const condition =  sc.student.studentQuestions.every(sq => sq.answer.length < 1)
-                if(condition) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+                if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
                 if(sc.student.studentQuestions.every(sq => sq.rClassroom.id != classroom.id)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
 
                 validStudentsTotalizator += 1

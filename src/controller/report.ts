@@ -29,9 +29,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case(TEST_CATEGORIES_IDS.TEST_4_9): {
-            const schools = response.schools as { id: number; name: string; shortName: string; qRate: ({ id: number; rate: string } | { id: number; rate: number })[]}[]
-            const schoolAvg = schools.map((school) => ({ ...school, qRate: school.qRate.reduce((acc, curr) => curr.rate === "N/A" ? acc : acc + Number(curr.rate), 0) / school.qRate.filter((q) => q.rate !== "N/A").length}));
-            data = { ...response, schoolAvg }
+            data = { ...response }
             break;
           }
         }

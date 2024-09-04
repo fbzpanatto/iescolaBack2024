@@ -134,32 +134,55 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const testQuestionMap = new Map<number, TestQuestion>();
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
-            const allClassrooms = this.responseClassrooms(classroom, test.classrooms)
-
-            const finalMappedResult = allClassrooms.map(classroom => {
+            const classroomResults = test.classrooms.map(c => {
               return {
-                id: classroom.id,
-                name: classroom.name,
-                shortName: classroom.shortName,
-                school: classroom.school.name,
-                totals: testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
+                id: c.id,
+                name: c.name,
+                shortName: c.shortName,
+                school: c.school.name,
+                totals: testQuestions.map(tQ => {
+                  const studentQuestions = c.studentClassrooms.flatMap(sC =>
+                    sC.student.studentQuestions.find(studentQuestion => studentQuestion.testQuestion.id === tQ.id)
+                  )
+
                   let counterPercentage = 0
-                  const counter = classroom.studentClassrooms
-                    .flatMap(el => el.student.studentQuestions)
-                    .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-                    .reduce((qTotal, sQ) => {
-                      if((sQ.rClassroom?.id != classroom.id && classroom.id != 999)){ return qTotal }
-                      const score = (sQ.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                      if ((sQ.rClassroom?.id === classroom.id || classroom.id === 999) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
-                      return qTotal
+                  const counter = studentQuestions.reduce((qTotal: number, sQ) => {
+                    if (sQ?.rClassroom?.id !== c.id) { return qTotal }
+                    const score = (sQ?.answer.length === 0 || !tQ) ? 0 : 1; counterPercentage += score
+                    if (sQ?.rClassroom?.id === c.id && sQ?.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return qTotal += 1 }
+                    return qTotal
                   }, 0)
-                  total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
-                  return total
-                }, [])
+
+                  return { id: tQ.id, order: tQ.order, tNumber: counter, tPercent: counterPercentage, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 }
+                })
               }
             })
 
-            data = { ...test, testQuestions, questionGroups, classrooms: finalMappedResult }
+            let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
+
+            const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
+
+            for(let item of totalClassroomsResults) {
+              const index = allResults.findIndex(x => x.id === item.id)
+              const element = allResults[index]
+              if(!element) {
+                allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
+              } else {
+                element.tNumber += item.tNumber
+                element.tPercent += item.tPercent
+                element.tRate = Math.round((element.tNumber / element.tPercent) * 100)
+              }
+            }
+
+            const cityHall = {
+              id: 999,
+              name: 'PREFEITURA',
+              shortName: 'PREFEITURA',
+              school: 'PREFEITURA',
+              totals: allResults
+            }
+
+            data = { ...test, testQuestions, questionGroups, classrooms: [...classroomResults, cityHall] }
             break;
           }
         }
@@ -257,7 +280,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
-            const preResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
+            const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(studentClassroom => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
@@ -294,7 +317,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals } }
               })
 
-            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: preResult, totals }
+            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals }
             break;
           }
         }
@@ -399,6 +422,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
       .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
@@ -697,7 +721,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 201, data: test };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   async updateTest(id: number | string, req: Request) {
@@ -814,9 +840,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+
     const testQuestions = await this.getTestQuestionsSimple(testId, CONN)
     if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+
     const test = await CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.period", "period")

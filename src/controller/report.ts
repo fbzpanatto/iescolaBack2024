@@ -280,30 +280,51 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       }
       case(TEST_CATEGORIES_IDS.TEST_4_9): {
 
+        const year = await CONN.findOne(Year, { where: { name: yearName } })
+        if (!year) return { status: 404, message: "Ano não encontrado." }
+
+        const testQuestions = await testController.getTestQuestionsSimple(testId, CONN)
+        if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
+        const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
-        const { schools, testQuestions } = await this.getTestForGraphic(testId, yearName, CONN)
+        const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
 
-        console.log(schools)
+        const schools = preResult.map(school => {
+          return {
+            id: school.id,
+            name: school.name,
+            shortName: school.shortName,
+            totals: testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
+              let counterPercentage = 0
+              const counter = school.classrooms
+                .flatMap(el => {
+                  return el.studentClassrooms.map(sClass => ({...sClass, student: { ...sClass.student, studentQuestions: sClass.student.studentQuestions.map(sq => ({ ...sq, currClassroomId: el.id })) }}))
+                })
+                .flatMap(el => el.student.studentQuestions)
+                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
+                .reduce((qTotal, sQ) => {
+                  if((sQ.rClassroom?.id != sQ.currClassroomId && sQ.currClassroomId != 999 )){ return qTotal }
+                  const score = (sQ.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
+                  if ((sQ.rClassroom?.id === sQ.currClassroomId || sQ.currClassroomId === 999 ) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
+                  return qTotal
+                }, 0)
+              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
+              return total
+            }, [])
+          }
+        })
 
-        data = { test, testQuestions, questionGroups }
+        data = { ...test, schools, testQuestions, questionGroups }
 
         break;
       }
     }
-
     return { status: 200, data }
   }
 
-  async getTestForGraphic(testId: string, yearName: string, CONN: EntityManager) {
-
-    const year = await CONN.findOne(Year, { where: { name: yearName } })
-    if (!year) return { status: 404, message: "Ano não encontrado." }
-
-    const testQuestions = await testController.getTestQuestionsSimple(testId, CONN)
-    if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
-    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-
-    const schools = await CONN.getRepository(School)
+  async getTestForGraphic(testId: string, testQuestionsIds: number[], year: Year,  CONN: EntityManager) {
+    return await CONN.getRepository(School)
       .createQueryBuilder("school")
       .leftJoinAndSelect("school.classrooms", "classroom")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
@@ -312,13 +333,16 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoinAndSelect("testQuestion.test", "test")
       .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
+      .leftJoinAndSelect("testQuestion.test", "test")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.year", "periodYear")
       .where("test.id = :testId", { testId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId: year.id })
+      .andWhere("periodYear.id = :yearId", { yearId: year.id })
+      .orderBy("questionGroup.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
       .getMany()
-
-    return { schools, testQuestions }
   }
 }
 

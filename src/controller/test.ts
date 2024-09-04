@@ -1,33 +1,33 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
-import { pc } from "../utils/personCategories";
-import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Teacher } from "../model/Teacher";
-import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { TestBodySave } from "../interfaces/interfaces";
-import { TestClassroom } from "../model/TestClassroom";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import { Alphabetic } from "../model/Alphabetic";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
+import {pc} from "../utils/personCategories";
+import {Year} from "../model/Year";
+import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import {Teacher} from "../model/Teacher";
+import {Question} from "../model/Question";
+import {Descriptor} from "../model/Descriptor";
+import {Topic} from "../model/Topic";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {TestBodySave} from "../interfaces/interfaces";
+import {TestClassroom} from "../model/TestClassroom";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
+import {Alphabetic} from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -134,30 +134,47 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const testQuestionMap = new Map<number, TestQuestion>();
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
-            const classroomResults = test.classrooms.map(c => {
-              return {
-                id: c.id,
-                name: c.name,
-                shortName: c.shortName,
-                school: c.school.name,
-                schoolId: c.school.id,
-                totals: testQuestions.map(tQ => {
-                  const studentQuestions = c.studentClassrooms.flatMap(sC =>
-                    sC.student.studentQuestions.find(studentQuestion => studentQuestion.testQuestion.id === tQ.id)
-                  )
+            const classroomResults = test.classrooms
+              .filter(classroom =>
+                classroom.studentClassrooms.some(sc =>
+                  sc.student.studentQuestions.some(studentQuestion => studentQuestion.answer.length > 0)
+                )
+              )
+              .map(classroom => {
+                const classroomId = classroom.id;
+                const filteredStudentClassrooms = classroom.studentClassrooms.filter(sc =>
+                  sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === classroomId)
+                );
 
-                  let counterPercentage = 0
-                  const counter = studentQuestions.reduce((qTotal: number, sQ) => {
-                    if (sQ?.rClassroom?.id !== c.id) { return qTotal }
-                    const score = (sQ?.answer.length === 0 || !tQ) ? 0 : 1; counterPercentage += score
-                    if (sQ?.rClassroom?.id === c.id && sQ?.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return qTotal += 1 }
-                    return qTotal
-                  }, 0)
+                return {
+                  id: classroomId,
+                  name: classroom.name,
+                  shortName: classroom.shortName,
+                  school: classroom.school.name,
+                  schoolId: classroom.school.id,
+                  totals: testQuestions.map(tQ => {
+                    const studentsQuestions = filteredStudentClassrooms.flatMap(sc =>
+                      sc.student.studentQuestions.filter(studentQuestion =>
+                        studentQuestion.id &&
+                        studentQuestion.testQuestion.id === tQ.id &&
+                        studentQuestion.answer.length > 0 &&
+                        studentQuestion.rClassroom?.id === classroomId
+                      )
+                    );
 
-                  return { id: tQ.id, order: tQ.order, tNumber: counter, tPercent: counterPercentage, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 }
-                })
-              }
-            })
+                    const studentsQuestionsTotal = studentsQuestions.filter(studentQuestion =>
+                      tQ.answer?.includes(studentQuestion.answer.toUpperCase())
+                    )
+
+                    const totalStudents = filteredStudentClassrooms.length;
+                    const matchedQuestions = studentsQuestionsTotal.length;
+                    const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / totalStudents) * 100) : 0;
+
+                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: totalStudents, tRate }
+                  })
+                }
+              })
+
 
             const classroomNumber = classroom.shortName.replace(/\D/g, "");
             const filteredClassroomsResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
@@ -289,7 +306,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .map(studentClassroom => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
-                const condition =  studentClassroom.student.studentQuestions.every(sq => sq.answer === '' || sq.answer.length < 0 || false)
+                const condition =  studentClassroom.student.studentQuestions.every(sq => sq.answer === '' || sq.answer.length < 1 || false)
                 if(condition) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
                 const allEmpty = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
                 const registeredInAnotherClassOrNotYet = studentClassroom.student.studentQuestions.every(question => question.answer.length < 1)

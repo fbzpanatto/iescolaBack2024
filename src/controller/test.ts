@@ -140,6 +140,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 name: c.name,
                 shortName: c.shortName,
                 school: c.school.name,
+                schoolId: c.school.id,
                 totals: testQuestions.map(tQ => {
                   const studentQuestions = c.studentClassrooms.flatMap(sC =>
                     sC.student.studentQuestions.find(studentQuestion => studentQuestion.testQuestion.id === tQ.id)
@@ -158,10 +159,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             })
 
+            const classroomNumber = classroom.shortName.replace(/\D/g, "");
+            const filteredClassroomsResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
+
             let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
-
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
-
             for(let item of totalClassroomsResults) {
               const index = allResults.findIndex(x => x.id === item.id)
               const element = allResults[index]
@@ -176,13 +178,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const cityHall = {
               id: 999,
-              name: 'PREFEITURA',
-              shortName: 'PREFEITURA',
-              school: 'PREFEITURA',
+              name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+              shortName: 'ITATIBA',
+              school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
               totals: allResults
             }
 
-            data = { ...test, testQuestions, questionGroups, classrooms: [...classroomResults, cityHall] }
+            data = { ...test, testQuestions, questionGroups, classrooms: [...filteredClassroomsResults, cityHall] }
             break;
           }
         }

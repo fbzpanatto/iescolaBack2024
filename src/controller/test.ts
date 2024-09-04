@@ -279,27 +279,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
 
-            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
-
             let classroomPoints = 0
             let classroomPercent = 0
             let validStudentsTotalizator = 0
+            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(studentClassroom => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
-
                 const condition =  studentClassroom.student.studentQuestions.every(sq => sq.answer === '' || sq.answer.length < 0 || false)
                 if(condition) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
-
-                validStudentsTotalizator += 1
-
                 const allEmpty = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
                 const registeredInAnotherClassOrNotYet = studentClassroom.student.studentQuestions.every(question => question.answer.length < 1)
                 if(allEmpty && registeredInAnotherClassOrNotYet) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
                 if(allEmpty) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
+
+                validStudentsTotalizator += 1
 
                 let counterPercentage = 0
 

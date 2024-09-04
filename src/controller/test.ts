@@ -131,9 +131,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
-            const testQuestionMap = new Map<number, TestQuestion>();
-            for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
-
             const classroomResults = test.classrooms
               .filter(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
               .map(c => {

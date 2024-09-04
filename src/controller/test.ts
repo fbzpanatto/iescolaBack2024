@@ -135,33 +135,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
             for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
             const classroomResults = test.classrooms
-              .filter(classroom =>
-                classroom.studentClassrooms.some(sc =>
-                  sc.student.studentQuestions.some(studentQuestion => studentQuestion.answer.length > 0)
-                )
-              )
+              .filter(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
+              .map(c => {
 
-              .map(classroom => {
-                const classroomId = classroom.id;
-                const filteredStudentClassrooms = classroom.studentClassrooms.filter(sc =>
-                  sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === classroomId)
-                )
+                const filtered = c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id))
 
-                return {
-                  id: classroomId,
-                  name: classroom.name,
-                  shortName: classroom.shortName,
-                  school: classroom.school.name,
-                  schoolId: classroom.school.id,
+                return { id: c.id, name: c.name, shortName: c.shortName, school: c.school.name, schoolId: c.school.id,
                   totals: testQuestions.map(tQ => {
 
-                    const studentsQuestions = filteredStudentClassrooms.flatMap(sc =>
-                      sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === classroomId )
+                    const studentsQuestions = filtered.flatMap(sc =>
+                      sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === c.id )
                     )
 
                     const totalSq = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
 
-                    const total = filteredStudentClassrooms.length;
+                    const total = filtered.length;
                     const matchedQuestions = totalSq.length;
                     const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / total) * 100) : 0;
 

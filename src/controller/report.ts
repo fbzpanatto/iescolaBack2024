@@ -68,7 +68,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager) {
@@ -290,32 +292,53 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
 
-        const schools = preResult.map(school => {
-          return {
-            id: school.id,
-            name: school.name,
-            shortName: school.shortName,
-            totals: testQuestions.reduce((total: { tNumber: number, tRate: number }[], testQuestion) => {
-              let counterPercentage = 0
-              const counter = school.classrooms
-                .flatMap(el => {
-                  return el.studentClassrooms.map(sClass => ({...sClass, student: { ...sClass.student, studentQuestions: sClass.student.studentQuestions.map(sq => ({ ...sq, currClassroomId: el.id })) }}))
-                })
-                .flatMap(el => el.student.studentQuestions)
-                .filter(studentQuestion => studentQuestion.testQuestion.id === testQuestion.id)
-                .reduce((qTotal, sQ) => {
-                  if((sQ.rClassroom?.id != sQ.currClassroomId && sQ.currClassroomId != 999 )){ return qTotal }
-                  const score = (sQ.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score
-                  if ((sQ.rClassroom?.id === sQ.currClassroomId || sQ.currClassroomId === 999 ) && sQ.answer && testQuestion.answer?.includes(sQ.answer.toUpperCase())) { return qTotal + 1 }
-                  return qTotal
-                }, 0)
-              total.push({ tNumber: counter, tRate: counter > 0 ? Math.round((counter / counterPercentage) * 100) : 0 })
-              return total
-            }, [])
-          }
-        })
 
-        data = { ...test, schools, testQuestions, questionGroups }
+        const schools = preResult
+          .filter(s => s.classrooms.some(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0))))
+          .map(s => {
+
+            const filtered = s.classrooms.flatMap(c => c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id)))
+
+            return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id,
+              totals: testQuestions.map(tQ => {
+
+                const sQuestions = filtered.flatMap(sc =>
+                  sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === sc.classroom.id )
+                )
+
+                const totalSq = sQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
+
+                const total = filtered.length;
+                const matchedQuestions = totalSq.length;
+                const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / total) * 100) : 0;
+
+                return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
+              })
+            }
+          })
+
+        let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
+        const totalSchoolsResults = schools.flatMap(el => el.totals)
+        for(let item of totalSchoolsResults) {
+          const index = allResults.findIndex(x => x.id === item.id)
+          const element = allResults[index]
+          if(!element) {
+            allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
+          } else {
+            element.tNumber += item.tNumber
+            element.tPercent += item.tPercent
+            element.tRate = Math.round((element.tNumber / element.tPercent) * 100)
+          }
+        }
+
+        const cityHall = {
+          id: 999,
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          shortName: 'ITATIBA',
+          totals: allResults
+        }
+
+        data = { ...test, schools: [...schools, cityHall] , testQuestions, questionGroups }
 
         break;
       }
@@ -328,6 +351,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("school")
       .leftJoinAndSelect("school.classrooms", "classroom")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "studentClassroomClassroom")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")

@@ -159,7 +159,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               })
 
             const classroomNumber = classroom.shortName.replace(/\D/g, "");
-            const filteredClassroomsResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
+            const schoolResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
 
             let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
@@ -183,7 +183,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totals: allResults
             }
 
-            data = { ...test, testQuestions, questionGroups, classrooms: [...filteredClassroomsResults, cityHall] }
+            data = { ...test, testQuestions, questionGroups, classrooms: [...schoolResults, cityHall] }
             break;
           }
         }

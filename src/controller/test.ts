@@ -279,6 +279,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
+            let classroomPoints = 0
+            let classroomPercent = 0
+
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(studentClassroom => {
@@ -303,10 +306,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                   if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer && testQuestion.answer?.includes(studentQuestion?.answer.toUpperCase())) {
                     element!.tNumber += 1
+                    classroomPoints += 1
                     acc += 1
                   }
 
                   element!.tTotal += 1
+                  classroomPercent += 1
                   element!.tRate = Math.round((element!.tNumber / element!.tTotal) * 100)
 
                   return acc
@@ -317,7 +322,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals } }
               })
 
-            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals }
+            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals, classroomPoints, classroomPercent: Math.round((classroomPoints / classroomPercent) * 100) }
             break;
           }
         }

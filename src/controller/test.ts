@@ -140,11 +140,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   sc.student.studentQuestions.some(studentQuestion => studentQuestion.answer.length > 0)
                 )
               )
+
               .map(classroom => {
                 const classroomId = classroom.id;
                 const filteredStudentClassrooms = classroom.studentClassrooms.filter(sc =>
                   sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === classroomId)
-                );
+                )
 
                 return {
                   id: classroomId,
@@ -153,28 +154,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   school: classroom.school.name,
                   schoolId: classroom.school.id,
                   totals: testQuestions.map(tQ => {
-                    const studentsQuestions = filteredStudentClassrooms.flatMap(sc =>
-                      sc.student.studentQuestions.filter(studentQuestion =>
-                        studentQuestion.id &&
-                        studentQuestion.testQuestion.id === tQ.id &&
-                        studentQuestion.answer.length > 0 &&
-                        studentQuestion.rClassroom?.id === classroomId
-                      )
-                    );
 
-                    const studentsQuestionsTotal = studentsQuestions.filter(studentQuestion =>
-                      tQ.answer?.includes(studentQuestion.answer.toUpperCase())
+                    const studentsQuestions = filteredStudentClassrooms.flatMap(sc =>
+                      sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === classroomId )
                     )
 
-                    const totalStudents = filteredStudentClassrooms.length;
-                    const matchedQuestions = studentsQuestionsTotal.length;
-                    const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / totalStudents) * 100) : 0;
+                    const totalSq = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
 
-                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: totalStudents, tRate }
+                    const total = filteredStudentClassrooms.length;
+                    const matchedQuestions = totalSq.length;
+                    const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / total) * 100) : 0;
+
+                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
                   })
                 }
               })
-
 
             const classroomNumber = classroom.shortName.replace(/\D/g, "");
             const filteredClassroomsResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)

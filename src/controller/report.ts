@@ -68,9 +68,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager) {

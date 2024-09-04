@@ -276,7 +276,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
                 if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom.id != classroom.id)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
+                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
 
                 validStudentsTotalizator += 1
 
@@ -315,7 +315,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

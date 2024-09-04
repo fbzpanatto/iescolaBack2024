@@ -1,33 +1,33 @@
-import {GenericController} from "./genericController";
-import {Test} from "../model/Test";
-import {classroomController} from "./classroom";
-import {AppDataSource} from "../data-source";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {StudentQuestion} from "../model/StudentQuestion";
-import {StudentTestStatus} from "../model/StudentTestStatus";
-import {pc} from "../utils/personCategories";
-import {Year} from "../model/Year";
-import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
-import {Teacher} from "../model/Teacher";
-import {Question} from "../model/Question";
-import {Descriptor} from "../model/Descriptor";
-import {Topic} from "../model/Topic";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Discipline} from "../model/Discipline";
-import {Bimester} from "../model/Bimester";
-import {TestCategory} from "../model/TestCategory";
-import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
-import {ReadingFluency} from "../model/ReadingFluency";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {TestBodySave} from "../interfaces/interfaces";
-import {TestClassroom} from "../model/TestClassroom";
-import {AlphabeticLevel} from "../model/AlphabeticLevel";
-import {Alphabetic} from "../model/Alphabetic";
+import { GenericController } from "./genericController";
+import { Test } from "../model/Test";
+import { classroomController } from "./classroom";
+import { AppDataSource } from "../data-source";
+import { Period } from "../model/Period";
+import { Classroom } from "../model/Classroom";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { StudentQuestion } from "../model/StudentQuestion";
+import { StudentTestStatus } from "../model/StudentTestStatus";
+import { pc } from "../utils/personCategories";
+import { Year } from "../model/Year";
+import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { Teacher } from "../model/Teacher";
+import { Question } from "../model/Question";
+import { Descriptor } from "../model/Descriptor";
+import { Topic } from "../model/Topic";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Discipline } from "../model/Discipline";
+import { Bimester } from "../model/Bimester";
+import { TestCategory } from "../model/TestCategory";
+import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
+import { ReadingFluency } from "../model/ReadingFluency";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TestBodySave } from "../interfaces/interfaces";
+import { TestClassroom } from "../model/TestClassroom";
+import { AlphabeticLevel } from "../model/AlphabeticLevel";
+import { Alphabetic } from "../model/Alphabetic";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -160,25 +160,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
+
             for(let item of totalClassroomsResults) {
-              const index = allResults.findIndex(x => x.id === item.id)
-              const element = allResults[index]
-              if(!element) {
-                allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
-              } else {
-                element.tNumber += item.tNumber
-                element.tPercent += item.tPercent
-                element.tRate = Math.round((element.tNumber / element.tPercent) * 100)
-              }
+              const idx = allResults.findIndex(x => x.id === item.id)
+              const el = allResults[idx]
+              if(!el) { allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate }) }
+              else { el.tNumber += item.tNumber; el.tPercent += item.tPercent; el.tRate = Math.round((el.tNumber / el.tPercent) * 100) }
             }
 
-            const cityHall = {
-              id: 999,
-              name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-              shortName: 'ITATIBA',
-              school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-              totals: allResults
-            }
+            const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', totals: allResults }
 
             data = { ...test, testQuestions, questionGroups, classrooms: [...schoolResults, cityHall] }
             break;

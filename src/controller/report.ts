@@ -174,7 +174,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           for (let bimester of headers) {
             for (let level of bimester.levels) {
-              const count = mappedArr.reduce((acc, el) => {
+              const aux = mappedArr.reduce((acc, el) => {
                 return acc + el.alphabetic.reduce((sum, prev) => {
                   const sameClassroom = el.currentClassroom === prev.rClassroom.id;
                   const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
@@ -184,18 +184,18 @@ class ReportController extends GenericController<EntityTarget<Test>> {
                 }, 0);
               }, 0);
 
-              totalNuColumn.push({ total: count, bimesterId: bimester.id });
+              totalNuColumn.push({ total: aux, bimesterId: bimester.id });
 
               const cityHallColumn = totalCityHallColumn.find(el => el.bimesterId === bimester.id && el.levelId === level.id)
-              if(!cityHallColumn) { totalCityHallColumn.push({ total: count, bimesterId: bimester.id, levelId: level.id })}
-              else { cityHallColumn.total += count }
+              if(!cityHallColumn) { totalCityHallColumn.push({ total: aux, bimesterId: bimester.id, levelId: level.id })}
+              else { cityHallColumn.total += aux }
 
-              percentColumn[bimester.id] += count;
-              examTotalCityHall[bimester.id] += count
+              percentColumn[bimester.id] += aux;
+              examTotalCityHall[bimester.id] += aux
             }
           }
 
-          const percentTotalByColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100));
+          const percentTotalByColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100);
 
           acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
 
@@ -206,7 +206,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           id: 99,
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           shortName: 'ITATIBA',
-          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.round((item.total / examTotalCityHall[item.bimesterId]) * 100))
+          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.bimesterId]) * 10000) / 100)
         }
 
         data = {...entryPoint, alphabeticHeaders: headers, schools: [ ...allSchools, cityHall ] }
@@ -259,7 +259,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             percentColumn[header.readingFluencyExam.id] += value
             examTotalCityHall[header.readingFluencyExam.id] += value
           }
-          const percentTotalByColumn = totalNuColumn.map((el: any) => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
+          const percentTotalByColumn = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
 
           acc.push({ id: school.id, name: school.name, percentTotalByColumn })
 
@@ -269,7 +269,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const cityHall = {
           id: 99,
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.round((item.total / examTotalCityHall[item.readingFluencyExamId]) * 100))
+          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
         data = {...test, fluencyHeaders, schools: [...allSchools, cityHall] }
@@ -306,7 +306,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
                 const total = filtered.length;
                 const matchedQuestions = totalSq.length;
-                const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / total) * 100) : 0;
+                const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
 
                 return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
               })
@@ -323,7 +323,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           } else {
             element.tNumber += item.tNumber
             element.tPercent += item.tPercent
-            element.tRate = Math.round((element.tNumber / element.tPercent) * 100)
+            element.tRate = Math.floor((element.tNumber / element.tPercent) * 10000) / 100;
           }
         }
 

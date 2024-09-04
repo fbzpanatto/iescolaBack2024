@@ -148,7 +148,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                     const total = filtered.length;
                     const matchedQuestions = totalSq.length;
-                    const tRate = matchedQuestions > 0 ? Math.round((matchedQuestions / total) * 100) : 0;
+                    const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
 
                     return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
                   })
@@ -165,7 +165,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               const idx = allResults.findIndex(x => x.id === item.id)
               const el = allResults[idx]
               if(!el) { allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate }) }
-              else { el.tNumber += item.tNumber; el.tPercent += item.tPercent; el.tRate = Math.round((el.tNumber / el.tPercent) * 100) }
+              else { el.tNumber += item.tNumber; el.tPercent += item.tPercent; el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100 }
             }
 
             const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', totals: allResults }
@@ -248,7 +248,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totalNuColumn.push({ total: value, divideByExamId: item.readingFluencyExam.id })
               percentColumn[item.readingFluencyExam.id] += value
             }
-            const totalPeColumn = totalNuColumn.map(el => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
+            const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
             data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
@@ -299,25 +299,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                   element!.tTotal += 1
                   classroomPercent += 1
-                  element!.tRate = Math.round((element!.tNumber / element!.tTotal) * 100)
+                  element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
 
                   return acc
                 }, 0)
 
-                studentTotals.rowPercent = Math.round((studentTotals.rowTotal / counterPercentage) * 100)
+                studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
 
                 return { ...sc, student: { ...sc.student, studentTotals } }
               })
 
-            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals, classroomPoints, classroomPercent: Math.round((classroomPoints / classroomPercent) * 100) }
+            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals, classroomPoints, classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100 }
             break;
           }
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -1065,7 +1063,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           if (studentQuestion.rClassroom?.id === classroomId && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
-        return { ...testQuestion, counter, counterPercentage: counterPercentage > 0 ? Math.round((counter / counterPercentage) * 100) : 0 }
+        return { ...testQuestion, counter, counterPercentage: counterPercentage > 0 ? Math.floor((counter / counterPercentage) * 10000) / 100 : 0 }
       })
 
       const levels = bimester.levels.map(level => {
@@ -1078,7 +1076,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
 
       return { ...bimester, bimesterCounter, testQuestions,
-        levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.round((level.levelCounter / bimesterCounter) * 100) : 0}))
+        levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100 : 0}))
       }
     })
 
@@ -1143,8 +1141,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     }
 
-    return totalNuColumn.map(el => Math.round((el.total / percentColumn[el.bimesterId]) * 100)
-    )
+    return totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100 )
   }
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
@@ -1158,7 +1155,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value
     }
-    return totalNuColumn.map((el: any) => Math.round((el.total / percentColumn[el.divideByExamId]) * 100))
+    return totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100 )
   }
 
   diffs = (original: any, current: any): boolean => {

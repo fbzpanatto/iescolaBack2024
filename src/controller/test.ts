@@ -283,6 +283,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let classroomPoints = 0
             let classroomPercent = 0
+            let validStudentsTotalizator = 0
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
@@ -292,6 +293,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 const condition =  studentClassroom.student.studentQuestions.every(sq => sq.answer === '' || sq.answer.length < 0 || false)
                 if(condition) { return { ...studentClassroom, student: { ...studentClassroom.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+
+                validStudentsTotalizator += 1
 
                 const allEmpty = studentClassroom.student.studentQuestions.some(question => question.rClassroom?.id != classroom.id )
                 const registeredInAnotherClassOrNotYet = studentClassroom.student.studentQuestions.every(question => question.answer.length < 1)

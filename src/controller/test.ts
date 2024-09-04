@@ -713,7 +713,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }))
           await CONN.save(TestQuestion, tQts)
         }
-        return { status: 201, data: test };
+        return { status: 201, data: test }
       })
     } catch (error: any) {
       console.log('error', error)

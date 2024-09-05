@@ -23,14 +23,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
   {
     category: pc.SUPE,
     permissions: [
-      { entity: "personcategory", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "test", methods: getPostPut },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
-      { entity: "classroom", methods: onlyGET },
-      { entity: "transfer", methods: getPostPut },
-      { entity: "student", methods: getPostPut },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "test", methods: getPostPut },
+      { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut }
     ]
   },

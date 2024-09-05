@@ -294,7 +294,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
 
-                  if(!testQuestion.active) { return acc }
+                  if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
 
                   counterPercentage += 1
 
@@ -1059,9 +1059,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const allStudentQuestions = studentClassrooms.flatMap(el => el.student.studentQuestions)
 
     headers = headers.map(bimester => {
+
       let bimesterCounter = 0;
 
       const testQuestions = bimester.testQuestions?.map(testQuestion => {
+
+        if(!testQuestion.active) { return { ...testQuestion, counter: 0, counterPercentage: 0 } }
+
         const studentQuestions = allStudentQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
 
         let counterPercentage = 0

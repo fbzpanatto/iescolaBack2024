@@ -995,63 +995,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
-      preResult = await CONN.getRepository(StudentClassroom)
-        .createQueryBuilder("studentClassroom")
-        .leftJoin("studentClassroom.student", "student")
-        .addSelect(['student.id'])
-
-        .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
-        .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
-
-        .leftJoinAndSelect("student.alphabetic", "alphabetic")
-        .leftJoin("alphabetic.rClassroom", "alphabeticRClassroom")
-        .addSelect(['alphabeticRClassroom.id'])
-        .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-        .leftJoin("alphabetic.test", "alphaTest")
-        .addSelect(['alphaTest.id', 'alphaTest.name'])
-        .leftJoin("alphaTest.category", "alphaTestCategory")
-        .leftJoinAndSelect("alphaTest.period", "alphaTestPeriod")
-        .leftJoinAndSelect("alphaTestPeriod.bimester", "alphaTestBimester")
-        .leftJoin("alphaTestPeriod.year", "alphaTestYear")
-        .addSelect(['alphaTestYear.id', 'alphaTestYear.name'])
-
-        .leftJoinAndSelect("student.studentQuestions", "studentQuestion")
-        .leftJoin("studentQuestion.rClassroom", "studentQuestionRClassroom")
-        .addSelect(['studentQuestionRClassroom.id'])
-        .leftJoin("studentQuestion.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-        .addSelect(['testQuestion.id', 'testQuestion.order', 'testQuestion.answer', 'testQuestion.active'])
-        .leftJoin("testQuestion.questionGroup", "questionGroup")
-
-        .leftJoin("testQuestion.test", "test")
-        .addSelect(['test.id', 'test.name'])
-        .addSelect("test.category", "testCategory")
-        .leftJoinAndSelect("test.period", "period")
-        .leftJoinAndSelect("period.bimester", "bimester")
-        .addOrderBy("bimester.id", "ASC")
-        .addOrderBy("testQuestion.order", "ASC")
-        .leftJoin("period.year", "pYear")
-        .addSelect(['pYear.id', 'pYear.name'])
-
-        .leftJoin("studentClassroom.year", "studentClassroomYear")
-        .leftJoin("student.person", "person")
-        .addSelect(['person.id', 'person.name'])
-        .leftJoin("studentClassroom.classroom", "classroom")
-        .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-
-        .where("studentClassroom.classroom = :classroomId", { classroomId })
-        .andWhere(new Brackets(qb => {
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-            .orWhere("alphabetic.id IS NOT NULL")
-            .orWhere("studentQuestion.id IS NOT NULL")
-        }))
-
-        .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category.id })
-        .andWhere("test.category = :testCategory", { testCategory: test.category.id })
-        .andWhere("alphaTestYear.name = :yearName", { yearName })
-        .andWhere("pYear.name = :yearName", { yearName })
-        .andWhere("studentClassroomYear.name = :yearName", { yearName })
-        .addOrderBy("studentClassroom.rosterNumber", "ASC")
-        .getMany();
+      preResult = await this.alphabeticsWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)
     }
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1097,6 +1041,66 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
 
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
+  }
+
+  async alphabeticsWithQuestions(yearName: string, test: Test, classroomId: number, testQuestionsIds: number[], CONN: EntityManager) {
+    return CONN.getRepository(StudentClassroom)
+      .createQueryBuilder("studentClassroom")
+      .leftJoin("studentClassroom.student", "student")
+      .addSelect(['student.id'])
+
+      .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
+      .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
+
+      .leftJoinAndSelect("student.alphabetic", "alphabetic")
+      .leftJoin("alphabetic.rClassroom", "alphabeticRClassroom")
+      .addSelect(['alphabeticRClassroom.id'])
+      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
+      .leftJoin("alphabetic.test", "alphaTest")
+      .addSelect(['alphaTest.id', 'alphaTest.name'])
+      .leftJoin("alphaTest.category", "alphaTestCategory")
+      .leftJoinAndSelect("alphaTest.period", "alphaTestPeriod")
+      .leftJoinAndSelect("alphaTestPeriod.bimester", "alphaTestBimester")
+      .leftJoin("alphaTestPeriod.year", "alphaTestYear")
+      .addSelect(['alphaTestYear.id', 'alphaTestYear.name'])
+
+      .leftJoinAndSelect("student.studentQuestions", "studentQuestion")
+      .leftJoin("studentQuestion.rClassroom", "studentQuestionRClassroom")
+      .addSelect(['studentQuestionRClassroom.id'])
+      .leftJoin("studentQuestion.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
+      .addSelect(['testQuestion.id', 'testQuestion.order', 'testQuestion.answer', 'testQuestion.active'])
+      .leftJoin("testQuestion.questionGroup", "questionGroup")
+
+      .leftJoin("testQuestion.test", "test")
+      .addSelect(['test.id', 'test.name'])
+      .addSelect("test.category", "testCategory")
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoinAndSelect("period.bimester", "bimester")
+      .addOrderBy("bimester.id", "ASC")
+      .addOrderBy("testQuestion.order", "ASC")
+      .leftJoin("period.year", "pYear")
+      .addSelect(['pYear.id', 'pYear.name'])
+
+      .leftJoin("studentClassroom.year", "studentClassroomYear")
+      .leftJoin("student.person", "person")
+      .addSelect(['person.id', 'person.name'])
+      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
+
+      .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
+          .orWhere("alphabetic.id IS NOT NULL")
+          .orWhere("studentQuestion.id IS NOT NULL")
+      }))
+
+      .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category.id })
+      .andWhere("test.category = :testCategory", { testCategory: test.category.id })
+      .andWhere("alphaTestYear.name = :yearName", { yearName })
+      .andWhere("pYear.name = :yearName", { yearName })
+      .andWhere("studentClassroomYear.name = :yearName", { yearName })
+      .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .getMany();
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

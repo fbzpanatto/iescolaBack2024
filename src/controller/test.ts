@@ -82,12 +82,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
             if(!year) return { status: 404, message: "Ano não encontrado." }
 
-            const headers = await this.alphabeticHeaders(year.name, CONN)
+            let headers = await this.alphabeticHeaders(year.name, CONN)
 
             const tests = await this.alphabeticTests(year.name, entryPointTest, CONN)
-            let newHeaders = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
+
+            let testQuestionsIds: number[] = []
+
+            for(let test of tests) {
+
+              const testQuestions = await this.getTestQuestions(
+                test.id, CONN, ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
+              )
+
+              test.testQuestions = testQuestions
+              testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+            }
+
+            headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
             const allClassrooms = this.responseClassrooms(classroom, await this.getAlphabeticForGraphic(entryPointTest, yearId as string, CONN))
+
             const test = {
               id: 99,
               name: entryPointTest.name,
@@ -96,6 +110,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               discipline: { name: entryPointTest.discipline.name },
               period: { bimester: { name: 'TODOS' }, year }
             }
+
             const mappedAllClassrooms = allClassrooms.map((classroom) => {
               return {
                 id: classroom.id,
@@ -105,9 +120,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 percent: this.alphabeticTotalizator(headers, classroom)
               }
             })
+
             data = { ...test, alphabeticHeaders: headers, classrooms: mappedAllClassrooms }
             break;
           }
+
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
             const headers = await this.getReadingFluencyHeaders(CONN)

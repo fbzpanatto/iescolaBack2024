@@ -298,6 +298,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id,
               totals: testQuestions.map(tQ => {
 
+                if(!tQ.active) {
+                  return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
+                }
+
                 const sQuestions = filtered.flatMap(sc =>
                   sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === sc.classroom.id )
                 )

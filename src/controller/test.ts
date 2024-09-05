@@ -140,6 +140,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 return { id: c.id, name: c.name, shortName: c.shortName, school: c.school.name, schoolId: c.school.id,
                   totals: testQuestions.map(tQ => {
 
+                    if(!tQ.active) {
+                      return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
+                    }
+
                     const studentsQuestions = filtered.flatMap(sc =>
                       sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === c.id )
                     )
@@ -158,14 +162,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const classroomNumber = classroom.shortName.replace(/\D/g, "");
             const schoolResults = classroomResults.filter(cl => cl.schoolId === classroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
 
-            let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
+            let allResults: { id: number, order: number, tNumber: number | string, tPercent: number | string, tRate: number | string }[] = []
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
 
             for(let item of totalClassroomsResults) {
               const idx = allResults.findIndex(x => x.id === item.id)
               const el = allResults[idx]
-              if(!el) { allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate }) }
-              else { el.tNumber += item.tNumber; el.tPercent += item.tPercent; el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100 }
+              if(!el) {
+                allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
+              }
+              else {
+                if(typeof el.tNumber === "number" && typeof el.tPercent === 'number' && typeof el.tRate === 'number') {
+                  el.tNumber += Number(item.tNumber); el.tPercent += Number(item.tPercent); el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100
+                }
+              }
             }
 
             const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', totals: allResults }
@@ -284,7 +294,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
 
-                  if(testQuestion.active) { counterPercentage += 1 }
+                  if(!testQuestion.active) { return acc }
+
+                  counterPercentage += 1
 
                   const studentQuestion = sc.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
                   if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }

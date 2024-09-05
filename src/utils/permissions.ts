@@ -27,7 +27,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: getPostPut },
-      { entity: "test", methods: getPostPut },
+      { entity: "test", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
@@ -37,14 +37,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
   {
     category: pc.FORM,
     permissions: [
-      { entity: "personcategory", methods: onlyGET },
+      { entity: "classroom", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
+      { entity: "student", methods: getPostPut },
+      { entity: "transfer", methods: getPostPut },
+      { entity: "test", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
-      { entity: "classroom", methods: onlyGET },
-      { entity: "transfer", methods: onlyGET },
-      { entity: "student", methods: getPostPut },
-      { entity: "teacher", methods: getPostPut },
-      { entity: "test", methods: getPostPut },
+      { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut }
     ]
   },

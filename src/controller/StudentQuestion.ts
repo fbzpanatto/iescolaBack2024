@@ -6,8 +6,8 @@ import { StudentTestStatus } from "../model/StudentTestStatus";
 import { Request } from "express";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { Test } from "../model/Test";
-import {Alphabetic} from "../model/Alphabetic";
-import {AlphabeticFirst} from "../model/AlphabeticFirst";
+import { Alphabetic } from "../model/Alphabetic";
+import { AlphabeticFirst } from "../model/AlphabeticFirst";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 

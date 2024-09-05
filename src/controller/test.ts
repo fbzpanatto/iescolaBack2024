@@ -28,6 +28,7 @@ import { TestBodySave } from "../interfaces/interfaces";
 import { TestClassroom } from "../model/TestClassroom";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
+import { School } from "../model/School";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -995,7 +996,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
-      preResult = await this.alphabeticWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)
+      preResult = (await this.alphabeticWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)).flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
     }
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1044,10 +1045,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async alphabeticWithQuestions(yearName: string, test: Test, classroomId: number, testQuestionsIds: number[], CONN: EntityManager) {
-    return CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.student", "student")
-      .addSelect(['student.id'])
+    return CONN.getRepository(School)
+      .createQueryBuilder("school")
+      .leftJoinAndSelect('school.classrooms', 'classrooms')
+      .leftJoinAndSelect('classrooms.studentClassrooms', 'studentClassroom')
+      .leftJoinAndSelect("studentClassroom.student", "student")
 
       .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
       .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")

@@ -282,7 +282,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 let counterPercentage = 0
 
-                studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
+                studentTotals.rowTotal = testQuestions.filter(tq => tq.active).reduce((acc, testQuestion) => {
 
                   if(testQuestion.active) { counterPercentage += 1 }
 

@@ -165,8 +165,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-        const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion', 'rClassroom'], where: { id: Number(body.id) } })
+        const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })
         if(!studentQuestion) { return { status: 400, message: 'Registro não encontrado' } }
+
+        if(studentQuestion.testQuestion.test && !studentQuestion.testQuestion.test.active){ return { status: 403, message: `Este bimestre ou avaliação não permite novos lançamentos.` } }
 
         if(studentQuestion.rClassroom && studentQuestion.rClassroom.id != body.classroom.id) {
           return { status: 403, message: 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.' }

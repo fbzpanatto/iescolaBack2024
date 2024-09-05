@@ -100,6 +100,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
+            const teste = (await this.alphabeticWithQuestions(year.name, entryPointTest, testQuestionsIds, CONN)).flatMap(school => school.classrooms)
+
             const allClassrooms = this.responseClassrooms(classroom, await this.getAlphabeticForGraphic(entryPointTest, yearId as string, CONN))
 
             const test = {
@@ -1022,7 +1024,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
-      preResult = (await this.alphabeticWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)).flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+      preResult = (await this.alphabeticWithQuestions(yearName, test, testQuestionsIds, CONN, classroomId)).flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
     }
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1070,8 +1072,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }
 
-  async alphabeticWithQuestions(yearName: string, test: Test, classroomId: number, testQuestionsIds: number[], CONN: EntityManager) {
-    return CONN.getRepository(School)
+  async alphabeticWithQuestions(yearName: string, test: Test, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number) {
+
+    const query = CONN.getRepository(School)
       .createQueryBuilder("school")
       .leftJoinAndSelect('school.classrooms', 'classrooms')
       .leftJoinAndSelect('classrooms.studentClassrooms', 'studentClassroom')
@@ -1115,8 +1118,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
 
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
+      .where(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
           .orWhere("alphabetic.id IS NOT NULL")
           .orWhere("studentQuestion.id IS NOT NULL")
@@ -1128,7 +1130,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("pYear.name = :yearName", { yearName })
       .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .getMany();
+
+    if (classroomId) { query.andWhere("studentClassroom.classroom = :classroomId", { classroomId }) }
+
+    return await query.getMany();
   }
 
   readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {

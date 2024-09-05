@@ -81,7 +81,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_3: {
             const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
             if(!year) return { status: 404, message: "Ano não encontrado." }
+
             const headers = await this.alphabeticHeaders(year.name, CONN)
+
+            const tests = await this.alphabeticTests(year.name, entryPointTest, CONN)
+            let newHeaders = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
+
             const allClassrooms = this.responseClassrooms(classroom, await this.getAlphabeticForGraphic(entryPointTest, yearId as string, CONN))
             const test = {
               id: 99,
@@ -954,6 +959,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
   }
 
+  async alphabeticTests(yearName: string, test: Test, CONN: EntityManager){
+    return await CONN.getRepository(Test)
+      .createQueryBuilder('test')
+      .select('test.id')
+      .leftJoinAndSelect("test.period", "period")
+      .leftJoin("period.bimester", "bimester")
+      .addSelect(['bimester.id'])
+      .leftJoin("period.year", "year")
+      .addSelect(['year.id'])
+      .leftJoin("test.category", "category")
+      .addSelect(['category.id'])
+      .where("category.id = :testCategory", { testCategory: test.category.id })
+      .andWhere("year.name = :yearName", { yearName })
+      .getMany()
+  }
+
   async alphabeticTest(withTestQuestions: boolean, alphabeticHeaders: AlphabeticHeaders[], test: Test, studentsBeforeSet: StudentClassroom[], classroom: Classroom, classroomId: number, uTeacher: Teacher, yearName: string, CONN: EntityManager){
 
     let headers = alphabeticHeaders
@@ -963,19 +984,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     if(withTestQuestions) {
 
-      const tests = await CONN.getRepository(Test)
-        .createQueryBuilder('test')
-        .select('test.id')
-        .leftJoinAndSelect("test.period", "period")
-        .leftJoin("period.bimester", "bimester")
-        .addSelect(['bimester.id'])
-        .leftJoin("period.year", "year")
-        .addSelect(['year.id'])
-        .leftJoin("test.category", "category")
-        .addSelect(['category.id'])
-        .where("category.id = :testCategory", { testCategory: test.category.id })
-        .andWhere("year.name = :yearName", { yearName })
-        .getMany()
+      const tests = await this.alphabeticTests(yearName, test, CONN)
 
       let testQuestionsIds: number[] = []
 

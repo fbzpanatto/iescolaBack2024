@@ -995,7 +995,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
 
-      preResult = await this.alphabeticsWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)
+      preResult = await this.alphabeticWithQuestions(yearName, test, classroomId, testQuestionsIds, CONN)
     }
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1043,7 +1043,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
   }
 
-  async alphabeticsWithQuestions(yearName: string, test: Test, classroomId: number, testQuestionsIds: number[], CONN: EntityManager) {
+  async alphabeticWithQuestions(yearName: string, test: Test, classroomId: number, testQuestionsIds: number[], CONN: EntityManager) {
     return CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.student", "student")

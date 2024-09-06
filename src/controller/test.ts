@@ -437,7 +437,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -835,9 +837,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 201, data: test }
       })
-    } catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message } }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateTest(id: number | string, req: Request) {

@@ -149,7 +149,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const year = await CONN.findOneBy(Year, { name: yearName })
         if(!year) return { status: 404, message: "Ano não encontrado." }
         const yearId = year.id.toString()
-        const headers = await testController.alphabeticHeaders(year.name, CONN)
+        const headers = await testController.alphaHeaders(year.name, CONN)
 
         const schools = await this.getAllAlphabeticSchool(test, yearId, CONN)
 

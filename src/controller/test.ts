@@ -789,13 +789,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
     try {
       return await AppDataSource.transaction(async (CONN) => {
+
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
+
         if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
+
         const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })
+
         if(!checkYear) return { status: 404, message: "Ano não encontrado" }
+
         if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
+
         const period = await CONN.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } })
+
         if(!period) return { status: 404, message: "Período não encontrado" }
+
+        if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(body.category.id)) {
+          const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } })
+          if(test) { return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` } }
+        }
+
         const classes = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
@@ -811,6 +824,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .groupBy("classroom.id, studentClassroom.id")
           .having("COUNT(studentClassroom.id) > 0")
           .getMany();
+
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
         const test = new Test()
         test.name = body.name
@@ -833,8 +847,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
             question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
             test: test
           }))
+
           await CONN.save(TestQuestion, tQts)
         }
+
         return { status: 201, data: test }
       })
     } catch (error: any) { return { status: 500, message: error.message } }

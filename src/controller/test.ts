@@ -33,7 +33,7 @@ import { School } from "../model/School";
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
-interface AlphabeticHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
+interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
 
 
 class TestController extends GenericController<EntityTarget<Test>> {
@@ -83,7 +83,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
             if(!year) return { status: 404, message: "Ano não encontrado." }
 
-            let headers = await this.alphaHeaders(year.name, CONN) as AlphabeticHeaders[]
+            let headers = await this.alphaHeaders(year.name, CONN) as AlphaHeaders[]
 
             const tests = await this.alphabeticTests(year.name, baseTest, CONN)
 
@@ -300,9 +300,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getStudents(request?: Request) {
+
     const testId = parseInt(request?.params.id as string)
+
     const classroomId = parseInt(request?.params.classroom as string)
+
     const yearName = request?.params.year as string
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
@@ -323,6 +327,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("classroom.school", "school")
           .where("classroom.id = :classroomId", { classroomId })
           .getOne();
+
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
 
         let data;
@@ -492,6 +497,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
       .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
+      .leftJoinAndSelect("stAlphabeticTest.discipline", "testDiscipline")
       .leftJoinAndSelect("stAlphabeticTest.category", "testCategory")
       .leftJoinAndSelect("stAlphabeticTest.period", "period")
       .leftJoinAndSelect("period.bimester", "bimester")
@@ -505,6 +511,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         qb.orWhere("alphabetic.id IS NOT NULL")
       }))
+      .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline.id })
       .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
       .andWhere("year.name = :yearName", { yearName })
       .andWhere("pYear.name = :yearName", { yearName })
@@ -1080,16 +1087,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async alphabeticTest(withTestQuestions: boolean, alphabeticHeaders: AlphabeticHeaders[], test: Test, studentsBeforeSet: StudentClassroom[], classroom: Classroom, classroomId: number, uTeacher: Teacher, yearName: string, CONN: EntityManager){
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: StudentClassroom[], room: Classroom, classId: number, uTeacher: Teacher, yearN: string, CONN: EntityManager){
 
-    let headers = alphabeticHeaders
+    let headers = aHeaders
 
-    await this.createLinkAlphabetic(studentsBeforeSet, test, uTeacher.person.user.id, CONN)
-    let preResult = await this.getAlphabeticStudents(test, classroomId, yearName, CONN )
+    await this.createLinkAlphabetic(sC, test, uTeacher.person.user.id, CONN)
 
-    if(withTestQuestions) {
+    let preResult = await this.getAlphabeticStudents(test, classId, yearN, CONN )
 
-      const tests = await this.alphabeticTests(yearName, test, CONN)
+    if(questions) {
+
+      const tests = await this.alphabeticTests(yearN, test, CONN)
 
       let testQuestionsIds: number[] = []
 
@@ -1100,17 +1108,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
         test.testQuestions = testQuestions
 
-        const testQuestionMap = new Map<number, TestQuestion>();
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
-
-        for (const testQuestion of testQuestions) { testQuestionMap.set(testQuestion.id, testQuestion) }
 
         await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } }) as any
+      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-      preResult = (await this.alphaQuestions(yearName, test, testQuestionsIds, CONN, classroomId)).flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+      preResult = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
+        .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+
     }
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1131,11 +1138,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const counter = studentQuestions.reduce((acc, studentQuestion) => {
 
-          if(studentQuestion.rClassroom?.id != classroomId){ return acc }
+          if(studentQuestion.rClassroom?.id != classId){ return acc }
 
           const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score;
 
-          if (studentQuestion.rClassroom?.id === classroomId && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return acc + 1 } return acc
+          if (studentQuestion.rClassroom?.id === classId && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
         return { ...testQuestion, counter, counterPercentage: counterPercentage > 0 ? Math.floor((counter / counterPercentage) * 10000) / 100 : 0 }
@@ -1143,7 +1150,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const levels = bimester.levels.map(level => {
         const levelCounter = allAlphabetic.reduce((acc, prev) => {
-          return acc + (prev.rClassroom?.id === classroomId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
+          return acc + (prev.rClassroom?.id === classId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
         }, 0)
 
         bimesterCounter += levelCounter
@@ -1155,12 +1162,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     })
 
-    return { test, studentClassrooms, classroom, alphabeticHeaders: headers }
+    return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 
   async alphaQuestions(yearName: string, test: Test, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number) {
 
-    const testQuestionsIdsConditions = !!testQuestionsIds.length
+    const hasQuestions = !!testQuestionsIds.length
 
     const query = CONN.getRepository(School)
       .createQueryBuilder("school")
@@ -1178,6 +1185,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("alphabetic.test", "alphaTest")
       .addSelect(['alphaTest.id', 'alphaTest.name'])
       .leftJoin("alphaTest.category", "alphaTestCategory")
+      .leftJoin("alphaTest.discipline", "alphaTestDiscipline")
       .leftJoinAndSelect("alphaTest.period", "alphaTestPeriod")
       .leftJoinAndSelect("alphaTestPeriod.bimester", "alphaTestBimester")
       .leftJoin("alphaTestPeriod.year", "alphaTestYear")
@@ -1190,7 +1198,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
 
       .where(new Brackets(qb => {
-        if(testQuestionsIdsConditions){
+        if(hasQuestions){
           qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
             .orWhere("alphabetic.id IS NOT NULL")
             .orWhere("studentQuestion.id IS NOT NULL")
@@ -1200,13 +1208,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }))
 
+      .andWhere("alphaTestDiscipline.id = :alphaTestDiscipline", { alphaTestDiscipline: test.discipline.id })
       .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category.id })
       .andWhere("alphaTestYear.name = :yearName", { yearName })
       .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy('classroom.shortName', 'ASC')
 
-    if(testQuestionsIdsConditions) {
+    if(hasQuestions) {
       query
         .leftJoinAndSelect("student.studentQuestions", "studentQuestion")
         .leftJoin("studentQuestion.rClassroom", "studentQuestionRClassroom")
@@ -1217,7 +1226,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         .leftJoin("testQuestion.test", "test")
         .addSelect(['test.id', 'test.name'])
-        .addSelect("test.category", "testCategory")
+        .leftJoin("test.category", "testCategory")
+        .leftJoin("test.discipline", "testDiscipline")
         .leftJoinAndSelect("test.period", "period")
         .leftJoinAndSelect("period.bimester", "bimester")
         .addOrderBy("bimester.id", "ASC")
@@ -1225,7 +1235,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoin("period.year", "pYear")
         .addSelect(['pYear.id', 'pYear.name'])
 
-        .andWhere("test.category = :testCategory", { testCategory: test.category.id })
+        .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
+        .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline.id })
         .andWhere("pYear.name = :yearName", { yearName })
     }
 
@@ -1262,7 +1273,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return [ ...filteredClasses, cityHall ]
   }
 
-  alphaTotalizator(headers: AlphabeticHeaders[], classroom: Classroom) {
+  alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
     const mappedArr = classroom.studentClassrooms.map(el => ({
       currentClassroom: el.classroom.id,
       alphabetic: el.student.alphabetic

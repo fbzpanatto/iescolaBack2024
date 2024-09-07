@@ -267,7 +267,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             return { status: 409, message: `RA existente. ${el.person.name} se formou em: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano de ${preR?.year.name}.` }
           }
 
-          return { status: 409, message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano ${preR?.year.name}. ${preR.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS > OUTROS ALUNOS no ano de ${preR.year.name} e solicite sua transferência.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}`};
+          return { status: 409, message: `Já existe um aluno com o RA informado. ${el.person.name} tem como último registro: ${preR?.classroom.shortName} ${preR?.classroom.school.shortName} no ano ${preR?.year.name}. ${preR?.endedAt === null ? `Acesse o menu MATRÍCULAS ATIVAS > OUTROS ALUNOS no ano de ${preR.year.name} e solicite sua transferência.` : `Acesse o menu PASSAR DE ANO no ano de ${preR.year.name}.`}`};
         }
 
         const message = "Você não tem permissão para criar um aluno nesta sala."
@@ -294,7 +294,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 201, data: student as unknown as Student }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async bulkInsert(body: any) {

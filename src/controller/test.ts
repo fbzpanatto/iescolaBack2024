@@ -786,8 +786,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async saveTest(body: TestBodySave) {
+
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
+
     try {
+
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
@@ -805,8 +808,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!period) return { status: 404, message: "Período não encontrado" }
 
         if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(body.category.id)) {
+
           const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } })
+
           if(test) { return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` } }
+
         }
 
         const classes = await CONN.getRepository(Classroom)
@@ -826,6 +832,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .getMany();
 
         if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
+
         const test = new Test()
         test.name = body.name
         test.category = body.category as TestCategory
@@ -835,11 +842,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
         test.createdAt = new Date()
         test.createdByUser = uTeacher.person.user.id
+
         await CONN.save(Test, test);
 
         const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.TEST_4_9]
 
         if(haveQuestions.includes(body.category.id)) {
+
           const tQts = body.testQuestions!.map((el: any) => ({
             ...el,
             createdAt: new Date(),

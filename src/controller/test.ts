@@ -167,8 +167,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
                     return { ...lv, levelCounter }
                   })
 
-                  return { ...bi, bimesterCounter, testQuestions: tQts,
-                    levels: levels.map((level: any) => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100 : 0}))
+                  return {
+                    ...bi,
+                    bimesterCounter,
+                    testQuestions: tQts,
+                    levels: levels.map((el: any) => ({ ...el, levelPercentage: bimesterCounter > 0 ? Math.floor((el.levelCounter / bimesterCounter) * 10000) / 100 : 0 }))
                   }
                 })
 

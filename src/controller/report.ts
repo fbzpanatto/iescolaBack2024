@@ -203,7 +203,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         }, []);
 
         const cityHall = {
-          id: 99,
+          id: '99',
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           shortName: 'ITATIBA',
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.bimesterId]) * 10000) / 100)

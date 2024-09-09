@@ -754,13 +754,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return AppDataSource.transaction(async(CONN) => {
         const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
-
-        const subQuery = CONN.getRepository(Test)
-          .createQueryBuilder("t")
-          .select("MIN(t.id)") // Pega o ID mínimo por categoria 1, 2 ou 3
-          .where("t.category.id IN (1, 2, 3)")
-          .groupBy("t.category.id");
-
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
@@ -778,22 +771,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }))
           .andWhere("year.name = :yearName", { yearName })
           .andWhere("test.name LIKE :search", { search: `%${search}%` })
-          .andWhere(new Brackets(qb => {
-            qb.where("test.category.id NOT IN (1, 2, 3)") // Inclui todas as categorias que não são 1, 2 ou 3
-              .orWhere(`test.id IN (${subQuery.getQuery()})`); // Aplica subconsulta para pegar o primeiro de cada categoria 1, 2 ou 3
-          }))
-          .setParameters(subQuery.getParameters()) // Importante para passar parâmetros da subquery
           .take(limit)
           .skip(offset)
           .getMany();
-
-        const mappedResult = testClasses.map(test => {
-          const ids = [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3]
-          if(ids.includes(test.category.id)) { return { ...test, period: { ...test.period, bimester: { ...test.period.bimester, name: 'TODOS' } } } }
-          return { ...test }
-        })
-
-        return { status: 200, data: mappedResult };
+        return { status: 200, data: testClasses };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

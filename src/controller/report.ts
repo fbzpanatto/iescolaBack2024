@@ -179,7 +179,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           schools: [ ...mappedSchools, cityHall ]
         }
 
-        data = { ...test }
+        data = { alphabeticHeaders: headers, ...test }
 
         break;
       }

@@ -170,7 +170,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
         }
 
-        cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers))
+        cityHall.totals = testController.aggregateResult(
+          cityHall,
+          testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers)
+        )
 
         schools = [ ...mappedSchools, cityHall ]
 

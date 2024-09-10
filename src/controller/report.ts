@@ -8,7 +8,7 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { testController } from "./test";
+import { AlphaHeaders, testController } from "./test";
 import { Year } from "../model/Year";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
@@ -38,35 +38,13 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getAllAlphabeticSchool(test: Test, yearId: number | string, CONN: EntityManager) {
-    return await CONN.getRepository(School)
-      .createQueryBuilder("school")
-      .leftJoinAndSelect("school.classrooms", "classroom")
-      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-      .leftJoinAndSelect("studentClassroom.classroom", "currClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoinAndSelect("student.alphabetic", "alphabetic")
-      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
-      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-      .leftJoinAndSelect("alphabetic.test", "test")
-      .leftJoinAndSelect("test.category", "testCategory")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.year", "year")
-      .leftJoinAndSelect("period.bimester", "bimester")
-      .where("testCategory.id = :testCategory", { testCategory: test.category.id })
-      .andWhere("year.id = :yearId", { yearId })
-      .andWhere("alphabetic.test = test.id")
-      .andWhere("alphabeticLevel.id IS NOT NULL")
-      .orderBy("school.name", "ASC")
-      .getMany();
-  }
-
   async getReport(request: Request, CONN?: EntityManager) {
     try {
       if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
       return await this.wrapper(CONN, request?.params.id, request?.params.year)
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message } }
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager) {
@@ -127,7 +105,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     let data;
 
-    const test = await CONN.getRepository(Test)
+    const baseTest = await CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.period", "period")
       .leftJoinAndSelect("period.bimester", "periodBimester")
@@ -139,77 +117,73 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .andWhere("periodYear.name = :yearName", { yearName })
       .getOne();
 
-    if (!test) return { status: 404, message: "Teste não encontrado" };
+    if (!baseTest) return { status: 404, message: "Teste não encontrado" };
 
-    switch (test.category.id) {
+    switch (baseTest.category.id) {
       case(TEST_CATEGORIES_IDS.LITE_1):
       case(TEST_CATEGORIES_IDS.LITE_2):
       case(TEST_CATEGORIES_IDS.LITE_3): {
 
         const year = await CONN.findOneBy(Year, { name: yearName })
         if(!year) return { status: 404, message: "Ano não encontrado." }
-        const yearId = year.id.toString()
-        const headers = await testController.alphaHeaders(year.name, CONN)
 
-        const schools = await this.getAllAlphabeticSchool(test, yearId, CONN)
+        let headers = await testController.alphaHeaders(year.name, CONN) as AlphaHeaders[]
 
-        const entryPoint = {
-          id: 99,
-          name: test.name,
-          person: { name: test.person.name },
-          category: { id: test.category.id, name: test.category.name },
-          discipline: { name: test.discipline.name },
-          period: { bimester: { name: 'TODOS' }, year }
+        const tests = await testController.alphabeticTests(year.name, baseTest, CONN)
+
+        let testQuestionsIds: number[] = []
+
+        if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
+          for(let test of tests) {
+
+            const testQuestions = await testController.getTestQuestions(
+              test.id, CONN, ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
+            )
+
+            test.testQuestions = testQuestions
+            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+          }
         }
 
-        const totalCityHallColumn: { total: number, bimesterId: number, levelId: number }[] = []
-        const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
+        headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-        const allSchools = schools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
+        let schools = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
 
-          const mappedArr = school.classrooms.flatMap(classroom => classroom.studentClassrooms.map(el => ({ currentClassroom: el.classroom.id, alphabetic: el.student.alphabetic })))
-
-          let totalNuColumn: {  total: number, bimesterId: number }[] = [];
-          const percentColumn = headers.reduce((acc, prev) => { const key = prev.id; if (!acc[key]) { acc[key] = 0; } return acc }, {} as Record<number, number>);
-
-          for (let bimester of headers) {
-            for (let level of bimester.levels) {
-              const aux = mappedArr.reduce((acc, el) => {
-                return acc + el.alphabetic.reduce((sum, prev) => {
-                  const sameClassroom = el.currentClassroom === prev.rClassroom.id;
-                  const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
-                  const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
-
-                  return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
-                }, 0);
-              }, 0);
-
-              totalNuColumn.push({ total: aux, bimesterId: bimester.id });
-
-              const cityHallColumn = totalCityHallColumn.find(el => el.bimesterId === bimester.id && el.levelId === level.id)
-              if(!cityHallColumn) { totalCityHallColumn.push({ total: aux, bimesterId: bimester.id, levelId: level.id })}
-              else { cityHallColumn.total += aux }
-
-              percentColumn[bimester.id] += aux;
-              examTotalCityHall[bimester.id] += aux
-            }
+        let mappedSchools = schools.map(school => {
+          return {
+            id: school.id,
+            name: school.name,
+            shortName: school.shortName,
+            school: school.name,
+            classrooms: school.classrooms,
+            totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
           }
+        })
 
-          const percentTotalByColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100);
-
-          acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
-
-          return acc;
-        }, []);
+        for(let item of mappedSchools) {
+          item.totals = testController.aggregateResult(item, testController.alphaAllClasses23(item.classrooms, headers))
+        }
 
         const cityHall = {
-          id: '99',
-          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-          shortName: 'ITATIBA',
-          percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.bimesterId]) * 10000) / 100)
+          id: 999,
+          name: 'ITATIBA',
+          shortName: 'ITA',
+          school: 'ITATIBA',
+          totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
         }
 
-        data = {...entryPoint, alphabeticHeaders: headers, schools: [ ...allSchools, cityHall ] }
+        cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(schools.flatMap(school => school.classrooms), headers))
+
+        const test = {
+          id: 99,
+          name: baseTest.name,
+          category: { id: baseTest.category.id, name: baseTest.category.name },
+          discipline: { name: baseTest.discipline.name },
+          period: { bimester: { name: 'TODOS' }, year },
+          schools: [ ...mappedSchools, cityHall ]
+        }
+
+        data = { ...test }
 
         break;
       }
@@ -272,7 +246,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
-        data = {...test, fluencyHeaders, schools: [...allSchools, cityHall] }
+        data = {...baseTest, fluencyHeaders, schools: [...allSchools, cityHall] }
 
         break;
       }
@@ -338,7 +312,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           totals: allResults
         }
 
-        data = { ...test, schools: [...schools, cityHall] , testQuestions, questionGroups }
+        data = { ...baseTest, schools: [...schools, cityHall] , testQuestions, questionGroups }
 
         break;
       }

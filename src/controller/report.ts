@@ -131,6 +131,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const tests = await testController.alphabeticTests(year.name, baseTest, CONN)
 
+        let schools;
         let testQuestionsIds: number[] = []
 
         if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
@@ -147,9 +148,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-        let schools = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
+        let preResult = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
 
-        let mappedSchools = schools.map(school => {
+        let mappedSchools = preResult.map(school => {
           const element = {
             id: school.id,
             name: school.name,
@@ -168,7 +169,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
         }
 
-        cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(schools.flatMap(school => school.classrooms), headers))
+        cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers))
+
+        schools = [ ...mappedSchools, cityHall ]
 
         const test = {
           id: 99,
@@ -176,10 +179,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           category: { id: baseTest.category.id, name: baseTest.category.name },
           discipline: { name: baseTest.discipline.name },
           period: { bimester: { name: 'TODOS' }, year },
-          schools: [ ...mappedSchools, cityHall ]
         }
 
-        data = { alphabeticHeaders: headers, ...test }
+        data = { alphabeticHeaders: headers, ...test, schools }
 
         break;
       }

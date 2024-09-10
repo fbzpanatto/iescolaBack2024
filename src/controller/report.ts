@@ -150,19 +150,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let schools = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
 
         let mappedSchools = schools.map(school => {
-          return {
+          const element = {
             id: school.id,
             name: school.name,
             shortName: school.shortName,
             school: school.name,
-            classrooms: school.classrooms,
             totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
           }
+          return { ...element, totals: testController.aggregateResult(element, testController.alphaAllClasses23(school.classrooms, headers)) }
         })
-
-        for(let item of mappedSchools) {
-          item.totals = testController.aggregateResult(item, testController.alphaAllClasses23(item.classrooms, headers))
-        }
 
         const cityHall = {
           id: 999,

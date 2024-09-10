@@ -44,7 +44,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       return await this.wrapper(CONN, request?.params.id, request?.params.year)
     } catch (error: any) {
       console.log('error', error)
-      return { status: 500, message: error.message } }
+      return { status: 500, message: error.message }
+    }
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager) {

@@ -13,6 +13,9 @@ export class Disability {
   @OneToMany(() => StudentDisability, sd => sd.disability)
   studentDisabilities: StudentDisability[]
 
+  @Column({ nullable: true, default: false })
+  official: boolean
+
   @Column({ nullable: true, select: false })
   createdAt: Date
 

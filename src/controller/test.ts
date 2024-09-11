@@ -1,34 +1,35 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
-import { pc } from "../utils/personCategories";
-import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Teacher } from "../model/Teacher";
-import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { TestBodySave } from "../interfaces/interfaces";
-import { TestClassroom } from "../model/TestClassroom";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import { Alphabetic } from "../model/Alphabetic";
-import { School } from "../model/School";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
+import {pc} from "../utils/personCategories";
+import {Year} from "../model/Year";
+import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import {Teacher} from "../model/Teacher";
+import {Question} from "../model/Question";
+import {Descriptor} from "../model/Descriptor";
+import {Topic} from "../model/Topic";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {TestBodySave} from "../interfaces/interfaces";
+import {TestClassroom} from "../model/TestClassroom";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
+import {Alphabetic} from "../model/Alphabetic";
+import {School} from "../model/School";
+import {Disability} from "../model/Disability";
 
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
@@ -424,8 +425,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
-      .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
+      // .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
+      // .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
       .leftJoinAndSelect("student.alphabetic", "alphabetic")
       .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
       .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
@@ -1062,6 +1063,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
     const allStudentQuestions = studentClassrooms.flatMap(el => el.student.studentQuestions)
+
+    for(let item of studentClassrooms) {
+      for(let el of item.student.studentDisabilities) {
+        el.disability = await CONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+      }
+    }
 
     headers = headers.map(bimester => {
 

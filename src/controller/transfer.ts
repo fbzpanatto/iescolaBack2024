@@ -84,8 +84,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
           .leftJoin("teacherClassDiscipline.classroom", "classroom")
           .where("classroom.id = :classroomId AND teacherClassDiscipline.endedAt IS NULL", { classroomId: currClass.id })
-          .andWhere("category.id IN (:categoryId1)", { categoryId1: 6 })
-          // .andWhere("category.id IN (:categoryId1, :categoryId2)", { categoryId1: 6, categoryId2: 8 })
+          // .andWhere("category.id IN (:categoryId1)", { categoryId1: 6 })
+          .andWhere("category.id IN (:categoryId3, :categoryId4, :categoryId5, :categoryId6)", { categoryId3: 3, categoryId4: 4, categoryId5: 5, categoryId6: 6 })
           .groupBy("teacher.id")
           .orderBy("teacher_id")
           .getRawMany() as { teacher_id: number, user_id: number, user_email: string }[];

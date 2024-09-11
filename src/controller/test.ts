@@ -331,13 +331,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
 
+            let diffOe = 0
+            let validSc = 0
+
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(sc => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
                 if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
+                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) { diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } } }
 
+                validSc += 1
                 validStudentsTotalizator += 1
 
                 let counterPercentage = 0
@@ -377,7 +381,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             }
 
-            data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals, classroomPoints, classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100 }
+            data = {
+              test,
+              totals,
+              validSc,
+              totalOfSc: mappedResult.length - diffOe,
+              totalOfScPercentage: Math.floor((validSc / mappedResult.length - diffOe) * 10000) / 100,
+              classroom,
+              testQuestions,
+              questionGroups,
+              classroomPoints,
+              studentClassrooms: mappedResult,
+              classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
+            }
             break;
           }
         }

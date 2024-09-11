@@ -1,37 +1,37 @@
-import {GenericController} from "./genericController";
-import {Test} from "../model/Test";
-import {classroomController} from "./classroom";
-import {AppDataSource} from "../data-source";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {StudentQuestion} from "../model/StudentQuestion";
-import {StudentTestStatus} from "../model/StudentTestStatus";
-import {pc} from "../utils/personCategories";
-import {Year} from "../model/Year";
-import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
-import {Teacher} from "../model/Teacher";
-import {Question} from "../model/Question";
-import {Descriptor} from "../model/Descriptor";
-import {Topic} from "../model/Topic";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Discipline} from "../model/Discipline";
-import {Bimester} from "../model/Bimester";
-import {TestCategory} from "../model/TestCategory";
-import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
-import {ReadingFluency} from "../model/ReadingFluency";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {TestBodySave} from "../interfaces/interfaces";
-import {TestClassroom} from "../model/TestClassroom";
-import {AlphabeticLevel} from "../model/AlphabeticLevel";
-import {Alphabetic} from "../model/Alphabetic";
-import {School} from "../model/School";
-import {Disability} from "../model/Disability";
+import { GenericController } from "./genericController";
+import { Test } from "../model/Test";
+import { classroomController } from "./classroom";
+import { AppDataSource } from "../data-source";
+import { Period } from "../model/Period";
+import { Classroom } from "../model/Classroom";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { StudentQuestion } from "../model/StudentQuestion";
+import { StudentTestStatus } from "../model/StudentTestStatus";
+import { pc } from "../utils/personCategories";
+import { Year } from "../model/Year";
+import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { Teacher } from "../model/Teacher";
+import { Question } from "../model/Question";
+import { Descriptor } from "../model/Descriptor";
+import { Topic } from "../model/Topic";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Discipline } from "../model/Discipline";
+import { Bimester } from "../model/Bimester";
+import { TestCategory } from "../model/TestCategory";
+import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
+import { ReadingFluency } from "../model/ReadingFluency";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TestBodySave } from "../interfaces/interfaces";
+import { TestClassroom } from "../model/TestClassroom";
+import { AlphabeticLevel } from "../model/AlphabeticLevel";
+import { Alphabetic } from "../model/Alphabetic";
+import { School } from "../model/School";
+import { Disability } from "../model/Disability";
 
-interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number }, year: number, classroom: { id: number }}
+interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
 export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
@@ -330,6 +330,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
             await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map(sc => {
 
@@ -369,6 +370,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 return { ...sc, student: { ...sc.student, studentTotals } }
               })
+
+            for(let item of mappedResult) {
+              for(let el of item.student.studentDisabilities) {
+                el.disability = await CONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+              }
+            }
 
             data = { test, classroom, testQuestions, questionGroups, studentClassrooms: mappedResult, totals, classroomPoints, classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100 }
             break;

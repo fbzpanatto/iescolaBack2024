@@ -1052,15 +1052,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: StudentClassroom[], room: Classroom, classId: number, uTeacher: Teacher, yearN: string, CONN: EntityManager){
 
-    let headers = aHeaders
-
     await this.createLinkAlphabetic(sC, test, uTeacher.person.user.id, CONN)
+
+    const tests = await this.alphabeticTests(yearN, test, CONN)
+
+    let headers = aHeaders.map(bi => ({...bi, currTest: { id: tests.find(test => test.period.bimester.id === bi.id)?.id } }))
 
     let preResult = await this.getAlphabeticStudents(test, classId, yearN, CONN )
 
     if(questions) {
-
-      const tests = await this.alphabeticTests(yearN, test, CONN)
 
       let testQuestionsIds: number[] = []
 
@@ -1076,7 +1076,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
-      headers = headers.map(bi => { return { ...bi, currTest: { id: tests.find(test => test.period.bimester.id === bi.id)?.id }, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
       preResult = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
         .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))

@@ -161,6 +161,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
+        if(!body.test.id) { return { status: 404, message: 'Avalição não disponível' } }
+
         const uTeacher = await this.teacherByUser(body.user!.user, CONN);
 
         delete body.user

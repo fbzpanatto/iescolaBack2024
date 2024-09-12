@@ -21,6 +21,9 @@ export class Alphabetic {
   @JoinColumn({ name: "testId" })
   test: Test;
 
+  @Column({ nullable: true })
+  observation: string
+
   @ManyToOne(() => Classroom, classroom => classroom.alphabetic, { nullable: true })
   rClassroom: Classroom
 

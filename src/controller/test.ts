@@ -1076,7 +1076,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      headers = headers.map(bi => { return { ...bi, currTest: { id: tests.find(test => test.period.bimester.id === bi.id)?.id }, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
       preResult = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
         .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))

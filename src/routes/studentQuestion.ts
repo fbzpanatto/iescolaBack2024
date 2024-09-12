@@ -27,3 +27,7 @@ StudentQuestionRouter.put('/:id/alphabetic-first-level', YEAR_NAME_PARAM, havePe
 StudentQuestionRouter.put('/:id/test-status', ...UPDATE_VALIDATORS_STATUS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.updateTestStatus(req.params.id, req.body); return res.status(response.status).json(response)
 });
+
+StudentQuestionRouter.put('/:id/alpha-status', havePermission, async (req: Request, res: Response) => {
+  const response = await controller.alphaStatus(req.params.id, req.body); return res.status(response.status).json(response)
+});

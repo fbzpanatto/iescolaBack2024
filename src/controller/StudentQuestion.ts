@@ -154,6 +154,15 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
+  async alphaStatus(id: number | string, body: ObjectLiteral) {
+    try {
+      return await AppDataSource.transaction(async(CONN) => {
+        await CONN.save(Alphabetic, body)
+        const data = {}; return { status: 200, data }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
   async updateQuestion(req: Request, body: ObjectLiteral) {
 
     const { year } = req.query

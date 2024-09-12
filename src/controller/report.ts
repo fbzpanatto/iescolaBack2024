@@ -81,23 +81,44 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN);
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+
+        const subQuery = CONN.getRepository(Test)
+          .createQueryBuilder("t")
+          .select("MIN(t.id)")
+          .where("t.category.id IN (1, 2, 3)")
+          .groupBy("t.category.id");
+
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
           .leftJoinAndSelect("test.period", "period")
-          .leftJoinAndSelect("period.bimester", "bimester")
-          .leftJoinAndSelect("period.year", "year")
           .leftJoinAndSelect("test.category", "category")
+          .leftJoinAndSelect("period.year", "year")
+          .leftJoinAndSelect("period.bimester", "bimester")
           .leftJoinAndSelect("test.discipline", "discipline")
           .leftJoinAndSelect("test.classrooms", "classroom")
-          .leftJoin("classroom.school", "school")
+          .leftJoinAndSelect("classroom.school", "school")
           .where( new Brackets((qb) => { if (!masterUser) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
+          .andWhere(new Brackets(qb => {
+            qb.where("test.category.id NOT IN (1, 2, 3)")
+              .orWhere(`test.id IN (${subQuery.getQuery()})`);
+          }))
+          .setParameters(subQuery.getParameters())
           .andWhere("year.name = :yearName", { yearName: request.params.year as string })
           .andWhere("test.name LIKE :search", { search: `%${ request.query.search as string }%` })
           .take(limit)
           .skip(offset)
           .getMany();
-        return { status: 200, data: testClasses };
+
+        const mappedResult = testClasses.map(el => {
+          if([1, 2, 3].includes(el.category.id)) {
+            el.period.bimester.name = 'TODOS'
+            return el
+          }
+          return el
+        })
+
+        return { status: 200, data: mappedResult };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

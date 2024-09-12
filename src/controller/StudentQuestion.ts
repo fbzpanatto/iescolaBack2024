@@ -157,7 +157,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom: Classroom, testClassroom: Classroom, user?: UserInterface }) {
+  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
@@ -167,7 +167,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let newBody;
 
-        if(body.id) { newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
+        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
         else { newBody = { ...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id } }
 
         let data = await CONN.save(Alphabetic, newBody)

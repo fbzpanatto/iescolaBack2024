@@ -1034,7 +1034,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async alphabeticTests(yearName: string, test: Test, CONN: EntityManager){
     return await CONN.getRepository(Test)
       .createQueryBuilder('test')
-      .select('test.id')
+      .select(['test.id', 'test.active'])
       .leftJoinAndSelect("test.discipline", "discipline")
       .addSelect(['discipline.id'])
       .leftJoinAndSelect("test.period", "period")
@@ -1056,7 +1056,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const tests = await this.alphabeticTests(yearN, test, CONN)
 
-    let headers = aHeaders.map(bi => ({...bi, currTest: { id: tests.find(test => test.period.bimester.id === bi.id)?.id } }))
+    let headers = aHeaders.map(bi => {
+
+      const test = tests.find(test => test.period.bimester.id === bi.id)
+
+      return {...bi, currTest: { id: test?.id, active: test?.active }}
+    })
 
     let preResult = await this.getAlphabeticStudents(test, classId, yearN, CONN )
 

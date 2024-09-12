@@ -8,6 +8,9 @@ import { ReadingFluency } from "../model/ReadingFluency";
 import { Test } from "../model/Test";
 import { Alphabetic } from "../model/Alphabetic";
 import { AlphabeticFirst } from "../model/AlphabeticFirst";
+import {Student} from "../model/Student";
+import {Classroom} from "../model/Classroom";
+import {UserInterface} from "../interfaces/interfaces";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -154,11 +157,21 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async alphaStatus(id: number | string, body: ObjectLiteral) {
+  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom: Classroom, testClassroom: Classroom, user?: UserInterface }) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        await CONN.save(Alphabetic, body)
-        const data = {}; return { status: 200, data }
+
+        const uTeacher = await this.teacherByUser(body.user!.user, CONN);
+
+        delete body.user
+
+        let newBody;
+
+        if(body.id) { newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
+        else { newBody = { ...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id } }
+
+        let data = await CONN.save(Alphabetic, newBody)
+        return { status: 200, data }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

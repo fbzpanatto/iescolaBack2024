@@ -3,7 +3,7 @@ import { Classroom } from "../model/Classroom";
 import { Student } from "../model/Student";
 
 export interface Data { status: number; data?: any; message?: any }
-export interface UserInterface { user: number, username: string, category: number, iat: number, exp: number }
+export interface UserInterface { user: number, email: string, username: string, category: number, iat: number, exp: number }
 export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory }
 export interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 export interface SavePerson {name: string,birth: Date,category: PersonCategory,}

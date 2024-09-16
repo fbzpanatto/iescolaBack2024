@@ -111,7 +111,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .getMany();
 
         const mappedResult = testClasses.map(el => {
-          if([1, 2, 3].includes(el.category.id)) {
+          if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) {
             el.period.bimester.name = 'TODOS'
             return el
           }

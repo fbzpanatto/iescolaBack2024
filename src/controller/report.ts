@@ -110,11 +110,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .skip(offset)
           .getMany();
 
+        const arrOfTestCategories = [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3]
+
         const mappedResult = testClasses.map(el => {
-          if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) {
-            el.period.bimester.name = 'TODOS'
-            return el
-          }
+          if(arrOfTestCategories.includes(el.category.id)) { el.period.bimester.name = 'TODOS'; return el }
           return el
         })
 

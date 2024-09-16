@@ -1094,7 +1094,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     for(let item of studentClassrooms) {
       for(let el of item.student.studentDisabilities) {
-        el.disability = await CONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+        el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
       }
     }
 
@@ -1147,8 +1147,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("school")
       .leftJoinAndSelect('school.classrooms', 'classrooms')
       .leftJoinAndSelect('classrooms.school', 'schoolClassrooms')
-      .leftJoinAndSelect('classrooms.studentClassrooms', 'studentClassroom')
-      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoin('classrooms.studentClassrooms', 'studentClassroom')
+      .addSelect(['studentClassroom.id', 'studentClassroom.rosterNumber'])
+      .leftJoin("studentClassroom.student", "student")
+      .addSelect(['student.id'])
 
       .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
       .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")

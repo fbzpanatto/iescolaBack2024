@@ -12,6 +12,9 @@ export class Bimester {
   @Column({ unique: true})
   name: string
 
+  @Column()
+  testName: string
+
   @OneToMany(() => Period, p => p.bimester)
   periods: Period[]
 }

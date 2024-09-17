@@ -28,6 +28,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             data = { ...response }
             break;
           }
+          case(TEST_CATEGORIES_IDS.AVL_ITA):
           case(TEST_CATEGORIES_IDS.TEST_4_9): {
             data = { ...response }
             break;
@@ -272,6 +273,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         break;
       }
+
+      case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.TEST_4_9): {
 
         const year = await CONN.findOne(Year, { where: { name: yearName } })

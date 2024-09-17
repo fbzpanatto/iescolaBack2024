@@ -168,6 +168,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
+          case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
 
             const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
@@ -312,6 +313,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
 
+          case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
 
             let testQuestionsIds: number[] = []
@@ -579,6 +581,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = await this.notIncludedReadingFluency(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
+          case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
             data = await this.notTestIncluded(test, Number(classroomId), Number(yearName), CONN)
             break;
@@ -634,6 +637,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             await this.createLinkReadingFluency(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }
+          case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
             const stClassrooms = await this.notTestIncluded(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
@@ -812,7 +816,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.TEST_4_9]
+        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.TEST_4_9, TEST_CATEGORIES_IDS.AVL_ITA]
 
         if(haveQuestions.includes(body.category.id)) {
 

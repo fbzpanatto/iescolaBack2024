@@ -1017,7 +1017,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const year = await CONN.getRepository(Year)
       .createQueryBuilder("year")
-      .select(['year.id', 'year.name', 'periods.id', 'bimester.id', 'bimester.name'])
+      .select(['year.id', 'year.name', 'periods.id', 'bimester.id', 'bimester.name', 'bimester.testName'])
       .leftJoinAndSelect("year.periods", "periods")
       .leftJoinAndSelect("periods.bimester", "bimester")
       .where("year.name = :yearName", { yearName })

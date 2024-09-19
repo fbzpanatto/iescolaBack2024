@@ -26,17 +26,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async teacherForm(req: Request) {
 
-    let disciplines; let classrooms; let personCategories;
-
     try {
 
-      await AppDataSource.transaction(async (CONN) => {
-        disciplines = (await discController.getAllDisciplines(req, CONN)).data;
-        classrooms = (await classroomController.getAllClassrooms(req, true, CONN)).data;
-        personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
-      })
+      return await AppDataSource.transaction(async (CONN) => {
 
-      return { status: 200, data: { disciplines, classrooms, personCategories } }
+        let disciplines = (await discController.getAllDisciplines(req, CONN)).data;
+        let classrooms = (await classroomController.getAllClassrooms(req, true, CONN)).data;
+        let personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
+
+        return { status: 200, data: { disciplines, classrooms, personCategories } }
+      })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

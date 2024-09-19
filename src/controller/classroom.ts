@@ -44,13 +44,10 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
       }
 
       const uTeacher = await this.teacherByUser(body.user.user, CONN);
-      const { person: { category: { id: category_id } } } = uTeacher;
 
       const tClasses = await this.teacherClassrooms(request?.body.user, CONN);
 
-      teacherForm ?
-        masterUser = category_id === pc.ADMN || category_id === pc.SUPE || category_id === pc.SECR :
-        masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+      masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
       const data = await CONN.getRepository(Classroom)
         .createQueryBuilder("classroom")

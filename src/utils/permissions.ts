@@ -81,7 +81,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "test", methods: onlyGET },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
-      { entity: "studentquestion", methods: onlyGET },
+      { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: getPostPut }

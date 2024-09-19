@@ -708,8 +708,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async findAllByYear(request: Request) {
 
-    console.log('findAllByYear')
-
     try {
       return AppDataSource.transaction(async(CONN) => {
 

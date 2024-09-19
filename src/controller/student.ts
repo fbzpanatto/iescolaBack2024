@@ -173,8 +173,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async allStudents(req: Request) {
 
-    console.log('allStudents')
-
     try {
 
       return await AppDataSource.transaction(async(CONN) => {

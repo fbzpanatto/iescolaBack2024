@@ -707,14 +707,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async findAllByYear(request: Request) {
-    const yearName = request.params.year
-    const search = request.query.search as string
-    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
-    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
-    const userBody = request.body.user
+
+    console.log('findAllByYear')
+
     try {
       return AppDataSource.transaction(async(CONN) => {
-        const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
+
+        const yearName = request.params.year
+        const search = request.query.search as string
+        const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
+        const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+
+        const teacher = await this.teacherByUser(request.body.user.user, CONN);
+
+        const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+
+        const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN)
+        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, CONN);
+
+        console.log('teacherDisciplines', teacherDisciplines)
+
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
@@ -726,8 +738,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("test.classrooms", "classroom")
           .leftJoinAndSelect("classroom.school", "school")
           .where(new Brackets(qb => {
-            if (userBody.category != pc.ADMN && userBody.category != pc.SUPE && userBody.category != pc.FORM) {
-              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
+            if (!masterTeacher) {
+              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
+              qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: teacherDisciplines.disciplines });
             }
           }))
           .andWhere("year.name = :yearName", { yearName })

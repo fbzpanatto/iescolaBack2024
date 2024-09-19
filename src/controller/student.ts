@@ -173,9 +173,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async allStudents(req: Request) {
 
+    console.log('allStudents')
+
     try {
 
       return await AppDataSource.transaction(async(CONN) => {
+
         const teacher = await this.teacherByUser(req.body.user.user, CONN);
         const teacherClasses = await this.teacherClassrooms(req?.body.user, CONN);
 

@@ -725,8 +725,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN)
         const teacherDisciplines = await this.teacherDisciplines(request?.body.user, CONN);
 
-        console.log('teacherDisciplines', teacherDisciplines)
-
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")

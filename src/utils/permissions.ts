@@ -104,7 +104,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.PROF,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: onlyGET },
+      { entity: "test", methods: getPostPut },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },

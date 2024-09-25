@@ -223,7 +223,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             }
 
-            const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', totals: allResults }
+            const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults }
 
             data = { ...test, testQuestions, questionGroups, classrooms: [...schoolResults.sort((a, b) => a.shortName.localeCompare(b.shortName)), cityHall] }
             break;

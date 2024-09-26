@@ -991,7 +991,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentStatusTest.id = :testId", { testId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      // .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
       .getOne()
     return { test, testQuestions }

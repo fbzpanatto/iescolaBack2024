@@ -388,7 +388,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totals,
               validSc,
               totalOfSc: mappedResult.length - diffOe,
-              totalOfScPercentage: Math.floor((validSc / mappedResult.length - diffOe) * 10000) / 100,
+              totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
               classroom,
               testQuestions,
               questionGroups,

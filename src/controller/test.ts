@@ -740,7 +740,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
           }))
           .andWhere("year.name = :yearName", { yearName })
-          .andWhere("test.name LIKE :search", { search: `%${search}%` })
+          .andWhere( new Brackets((qb) => {
+            qb.where("test.name LIKE :search", { search: `%${ search }%` })
+              .orWhere("classroom.shortName LIKE :search", { search: `%${ search }%` })
+              .orWhere("school.name LIKE :search", { search: `%${ search }%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${ search }%` })
+          }))
           .take(limit)
           .skip(offset)
           .getMany();

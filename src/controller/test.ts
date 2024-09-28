@@ -177,32 +177,62 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
             const classroomResults = test.classrooms
-              .filter(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
+              .filter(c =>
+                // Filtra as salas de aula com pelo menos um aluno com respostas
+                c.studentClassrooms.some(sc =>
+                  sc.student.studentQuestions.some(sq => sq.answer.length > 0)
+                )
+              )
               .map(c => {
 
-                const filtered = c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id))
+                // Filtra apenas os alunos que responderam perguntas dessa sala
+                const filtered = c.studentClassrooms.filter(sc =>
+                  sc.student.studentQuestions.some(sq =>
+                    sq.answer.length > 0 && sq.rClassroom.id === c.id
+                  )
+                );
 
-                return { id: c.id, name: c.name, shortName: c.shortName, school: c.school.name, schoolId: c.school.id,
+                // Pré-calcula uma lista de perguntas dos alunos
+                const filteredStudentQuestions = filtered.map(sc =>
+                  sc.student.studentQuestions.filter(sq =>
+                    sq.answer.length > 0 && sq.rClassroom?.id === c.id
+                  )
+                ).flat(); // Usamos flat diretamente após map para reduzir o uso de flatMap
+
+                return {
+                  id: c.id,
+                  name: c.name,
+                  shortName: c.shortName,
+                  school: c.school.name,
+                  schoolId: c.school.id,
                   totals: testQuestions.map(tQ => {
 
-                    if(!tQ.active) {
-                      return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
+                    // Ignora perguntas inativas
+                    if (!tQ.active) {
+                      return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
                     }
 
-                    const studentsQuestions = filtered.flatMap(sc =>
-                      sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === c.id )
-                    )
+                    // Seleciona todas as questões dos alunos que correspondem à pergunta do teste
+                    const studentsQuestions = filteredStudentQuestions.filter(sq =>
+                      sq.testQuestion.id === tQ.id
+                    );
 
-                    const totalSq = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
+                    // Filtra as questões que têm a resposta correta
+                    const totalSq = studentsQuestions.filter(sq =>
+                      tQ.answer?.includes(sq.answer.toUpperCase())
+                    );
 
+                    // Total de estudantes e perguntas respondidas corretamente
                     const total = filtered.length;
                     const matchedQuestions = totalSq.length;
+
+                    // Calcula a taxa de correspondência
                     const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
 
-                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
+                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
                   })
-                }
-              })
+                };
+              });
 
             const classroomNumber = baseClassroom.shortName.replace(/\D/g, "");
             const schoolResults = classroomResults.filter(cl => cl.schoolId === baseClassroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)

@@ -1403,7 +1403,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   cityHallResponse(baseClassroom: Classroom, allClasses: Classroom[]){
     const classroomNumber = baseClassroom.shortName.replace(/\D/g, "");
     const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === baseClassroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
-    const cityHall: Classroom = { id: 999, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITA', school: { id: 99, name: 'PREFEITURA DO MUNICIPIO DE ITATIBA', shortName: 'ITATIBA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
+    const cityHall: Classroom = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: { id: 99, name: 'ITATIBA', shortName: 'ITA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
     return [ ...filteredClasses, cityHall ]
   }
 

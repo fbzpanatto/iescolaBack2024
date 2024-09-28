@@ -186,7 +186,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const cityHall = {
           id: 999,
           name: 'ITATIBA',
-          shortName: 'ITA',
+          shortName: 'ITATIBA',
           school: 'ITATIBA',
           totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
         }

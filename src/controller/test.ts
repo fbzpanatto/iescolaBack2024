@@ -210,16 +210,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let allResults: { id: number, order: number, tNumber: number | string, tPercent: number | string, tRate: number | string }[] = []
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
 
-            for(let item of totalClassroomsResults) {
-              const idx = allResults.findIndex(x => x.id === item.id)
-              const el = allResults[idx]
-              if(!el) {
-                allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
-              }
-              else {
-                if(typeof el.tNumber === "number" && typeof el.tPercent === 'number' && typeof el.tRate === 'number') {
-                  el.tNumber += Number(item.tNumber); el.tPercent += Number(item.tPercent); el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100
-                }
+            // Inicializar o Map para acessar elementos por ID de maneira rápida
+            const resultsMap = new Map();
+
+            // Preencher o Map com os resultados já existentes
+            for (let el of allResults) {
+              resultsMap.set(el.id, el);
+            }
+
+            for (let item of totalClassroomsResults) {
+              const el = resultsMap.get(item.id);
+
+              if (!el) {
+                // Se não existir no Map, adicionar um novo elemento
+                const newElement = {
+                  id: item.id,
+                  order: item.order,
+                  tNumber: Number(item.tNumber),
+                  tPercent: Number(item.tPercent),
+                  tRate: Number(item.tRate)
+                };
+                allResults.push(newElement);
+                resultsMap.set(item.id, newElement); // Adicionar ao Map para futuras referências
+              } else {
+                // Se já existir, atualizar os valores
+                el.tNumber += Number(item.tNumber);
+                el.tPercent += Number(item.tPercent);
+                el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100;
               }
             }
 

@@ -751,6 +751,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .orWhere("school.name LIKE :search", { search: `%${ search }%` })
               .orWhere("school.shortName LIKE :search", { search: `%${ search }%` })
           }))
+          .addOrderBy('discipline.name')
+          .addOrderBy('school.shortName')
+          .addOrderBy('classroom.shortName')
           .take(limit)
           .skip(offset)
           .getMany();

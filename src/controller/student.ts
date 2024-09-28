@@ -34,7 +34,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         const states = (await stateController.findAllWhere({}, req, CONN)).data;
-        const disabilities = (await disabilityController.findAllWhere({}, req, CONN)).data;
+        const disabilities = await CONN.find(Disability, { order: { official: 'DESC', name: "ASC" }})
         const teacherClassrooms = (await teacherClassroomsController.getAllTClass(req, CONN)).data;
 
         return { status: 200, data: { disabilities, states, teacherClassrooms } };

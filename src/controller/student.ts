@@ -452,6 +452,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
+          const newStClass = await CONN.save(StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
+
           const notDigit = /\D/g; const classNumber = Number( bodyClass.shortName.replace(notDigit, "") );
 
           const transfer = new Transfer();

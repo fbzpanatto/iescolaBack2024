@@ -390,6 +390,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
                 if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
 
+                  console.log(sc.student.person.name)
+                  console.log(sc.startedAt, sc.endedAt)
+                  console.log('frontRequested', classroom.id)
+
                   sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
 
                   diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }

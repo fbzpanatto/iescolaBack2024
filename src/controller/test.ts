@@ -105,7 +105,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-            let onlyClasses = (await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)).flatMap(school => school.classrooms)
+            let onlyClasses = (await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)).flatMap(school => school.classrooms).sort((a, b) => a.shortName.localeCompare(b.shortName))
 
             let classrooms;
 
@@ -1276,6 +1276,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy('classroom.shortName', 'ASC')
+      .addOrderBy('school.shortName', 'ASC')
 
     if(hasQuestions) {
       query

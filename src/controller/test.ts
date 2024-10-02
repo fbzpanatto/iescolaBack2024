@@ -1195,7 +1195,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       let bimesterCounter = 0;
 
       const allStudentQuestions = studentClassrooms
-        .filter(sc => sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0))
+        .filter(sc => sc.student.studentQuestions?.length ? sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0) : sc)
         .flatMap(sc => sc.student.studentQuestions )
 
       const testQuestions = bim.testQuestions?.map(tQ => {
@@ -1332,7 +1332,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         let bimesterCounter = 0;
 
         const allStudentQuestions = studentClassrooms
-          .filter(sc => sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0))
+          .filter(sc => sc.student.studentQuestions?.length ? sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0) : sc)
           .flatMap(sc => sc.student.studentQuestions )
 
         const testQuestions = bim.testQuestions?.map(tQ => {

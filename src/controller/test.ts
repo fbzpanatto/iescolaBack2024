@@ -389,20 +389,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .map(sc => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
-                if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+
+                if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) {
+                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } }
+                }
 
                 if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
                   sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
 
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+                  diffOe += 1;
+                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
                 }
 
                 if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
 
                   sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
 
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
+                  diffOe += 1;
+                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
                 }
 
                 validSc += 1

@@ -35,6 +35,8 @@ interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[],
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
 export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
+interface AllClassrooms { id: number, name: string, shortName: string, school: School, totals: { bimesterCounter: number, testQuestions: { counter: number, counterPercentage: number, id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup } | {}[] | undefined, levels: any[], id: number, name: string, periods: Period[] }[] }
+interface CityHall { id: number, name: string, shortName: string, school: string, totals: { bimesterCounter: number, id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }[] }
 
 
 class TestController extends GenericController<EntityTarget<Test>> {
@@ -1176,7 +1178,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-    const allStudentQuestions = studentClassrooms.flatMap(el => el.student.studentQuestions)
 
     for(let item of studentClassrooms) {
       for(let el of item.student.studentDisabilities) {
@@ -1184,40 +1185,44 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     }
 
-    headers = headers.map(bimester => {
+    headers = headers.map(bim => {
 
       let bimesterCounter = 0;
 
-      const testQuestions = bimester.testQuestions?.map(testQuestion => {
+      const allStudentQuestions = studentClassrooms
+        .filter(sc => sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0))
+        .flatMap(sc => sc.student.studentQuestions )
 
-        if(!testQuestion.active) { return { ...testQuestion, counter: 0, counterPercentage: 0 } }
+      const testQuestions = bim.testQuestions?.map(tQ => {
 
-        const studentQuestions = allStudentQuestions.filter(qt => qt.testQuestion?.id === testQuestion?.id);
+        if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-        let counterPercentage = 0
+        const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
 
-        const counter = studentQuestions.reduce((acc, studentQuestion) => {
+        let cPercentage = 0
 
-          if(studentQuestion.rClassroom?.id != classId){ return acc }
+        const counter = studentQuestions.reduce((acc, sQ) => {
 
-          const score = (studentQuestion.answer.length === 0 || !testQuestion) ? 0 : 1; counterPercentage += score;
+          if(sQ.rClassroom?.id != classId){ return acc }
 
-          if (studentQuestion.rClassroom?.id === classId && studentQuestion.answer && testQuestion.answer?.includes(studentQuestion.answer.toUpperCase())) { return acc + 1 } return acc
+          const score = !tQ ? 0 : 1; cPercentage += score;
+
+          if (sQ.rClassroom?.id === classId && sQ.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
-        return { ...testQuestion, counter, counterPercentage: counterPercentage > 0 ? Math.floor((counter / counterPercentage) * 10000) / 100 : 0 }
+        return { ...tQ, counter, counterPercentage: cPercentage > 0 ? Math.floor((counter / cPercentage) * 10000) / 100 : 0 }
       })
 
-      const levels = bimester.levels.map(level => {
+      const levels = bim.levels.map(level => {
         const levelCounter = allAlphabetic.reduce((acc, prev) => {
-          return acc + (prev.rClassroom?.id === classId && prev.test.period.bimester.id === bimester.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
+          return acc + (prev.rClassroom?.id === classId && prev.test.period.bimester.id === bim.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
         }, 0)
 
         bimesterCounter += levelCounter
         return { ...level, levelCounter }
       })
 
-      return { ...bimester, bimesterCounter, testQuestions,
+      return { ...bim, bimesterCounter, testQuestions,
         levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100 : 0}))
       }
     })
@@ -1311,41 +1316,44 @@ class TestController extends GenericController<EntityTarget<Test>> {
   alphaAllClasses23(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
     return onlyClasses.map(c => {
 
-      const sC = c.studentClassrooms.map(el =>
+      const studentClassrooms = c.studentClassrooms.map(el =>
         ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) })
       )
 
-      const allAlpha = sC.flatMap(el => el.student.alphabetic)
-      const allSq = sC.flatMap(el => el.student.studentQuestions)
+      const allAlpha = studentClassrooms.flatMap(el => el.student.alphabetic)
 
-      const totals = headers.map(bi => {
+      const totals = headers.map(bim => {
 
         let bimesterCounter = 0;
 
-        const tQts = bi.testQuestions?.map(tQ => {
+        const allStudentQuestions = studentClassrooms
+          .filter(sc => sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0))
+          .flatMap(sc => sc.student.studentQuestions )
+
+        const testQuestions = bim.testQuestions?.map(tQ => {
 
           if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-          let counterPercentage = 0
+          const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
 
-          const sQts = allSq.filter(sQ => sQ.testQuestion?.id === tQ?.id);
+          let cPercentage = 0
 
-          const counter = sQts.reduce((acc, sQ) => {
+          const counter = studentQuestions.reduce((acc, sQ) => {
 
             if(sQ.rClassroom?.id != c.id){ return acc }
 
-            counterPercentage += (sQ.answer.length === 0 || !tQ) ? 0 : 1
+            cPercentage += (!tQ) ? 0 : 1
 
             if (sQ.rClassroom?.id === c.id && sQ.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
           }, 0)
 
-          return { ...tQ, counter, counterPercentage: counterPercentage, percentage: counter > 0 ? Math.floor((counter / counterPercentage) * 10000) / 100: 0 }
+          return { ...tQ, counter, counterPercentage: cPercentage, percentage: counter > 0 ? Math.floor((counter / cPercentage) * 10000) / 100: 0 }
         })
 
-        const levels = bi.levels.map(lv => {
+        const levels = bim.levels.map(lv => {
 
           const levelCounter = allAlpha.reduce((acc, prev) => {
-            return acc + (prev.rClassroom?.id === c.id && prev.test.period.bimester.id === bi.id && prev.alphabeticLevel?.id === lv.id ? 1 : 0);
+            return acc + (prev.rClassroom?.id === c.id && prev.test.period.bimester.id === bim.id && prev.alphabeticLevel?.id === lv.id ? 1 : 0);
           }, 0)
 
           bimesterCounter += levelCounter
@@ -1353,9 +1361,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
 
         return {
-          ...bi,
+          ...bim,
           bimesterCounter,
-          testQuestions: tQts,
+          testQuestions: testQuestions,
           levels: levels.map((el: any) => ({ ...el, levelPercentage: bimesterCounter > 0 ? Math.floor((el.levelCounter / bimesterCounter) * 10000) / 100 : 0 }))
         }
       })
@@ -1364,13 +1372,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  aggregateResult(aggregatedObjet: any, allClassrooms: any) {
-    return aggregatedObjet.totals.map((bi: any) => {
+  aggregateResult(aggregatedObjet: CityHall, allClassrooms: AllClassrooms[]) {
+    return aggregatedObjet.totals.map(bi => {
 
-      const biTotals = allClassrooms.flatMap((el: any) => el.totals.filter((total: any) => total.id === bi.id))
-      const allBi = biTotals.flatMap((el: any) => el.bimesterCounter).reduce((acc: any, prev: any) => { acc += (prev ?? 0); return acc }, 0)
-      const allTq = biTotals.flatMap((el: any) => el.testQuestions)
-      const allLv = biTotals.flatMap((el: any) => el.levels)
+      const biTotals = allClassrooms.flatMap(el => el.totals.filter(total => total.id === bi.id))
+      const allBi = biTotals.flatMap(el => el.bimesterCounter).reduce((acc , prev) => { acc += (prev ?? 0); return acc }, 0)
+      const allTq = biTotals.flatMap(el => el.testQuestions)
+      const allLv = biTotals.flatMap(el => el.levels)
 
       return {
         ...bi,

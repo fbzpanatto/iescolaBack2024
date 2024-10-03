@@ -1156,7 +1156,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
 
-    let preResult = await this.getAlphabeticStudents(test, classId, yearN, CONN )
+    let preResultSc = await this.getAlphabeticStudents(test, classId, yearN, CONN )
 
     if(questions) {
 
@@ -1171,17 +1171,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
 
-        await this.createLinkTestQuestions(false, preResult, test, testQuestions, uTeacher.person.user.id, CONN)
+        await this.createLinkTestQuestions(false, preResultSc, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-      preResult = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
+      preResultSc = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
         .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
 
     }
 
-    const studentClassrooms = preResult.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+    const studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
 
     for(let item of studentClassrooms) {

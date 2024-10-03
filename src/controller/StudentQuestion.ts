@@ -11,6 +11,7 @@ import { AlphabeticFirst } from "../model/AlphabeticFirst";
 import {Student} from "../model/Student";
 import {Classroom} from "../model/Classroom";
 import {UserInterface} from "../interfaces/interfaces";
+import {StudentClassroom} from "../model/StudentClassroom";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -196,6 +197,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         if(studentQuestion.rClassroom && studentQuestion.rClassroom.id != body.classroom.id) {
           return { status: 403, message: 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.' }
+        }
+
+        const studentClassroom = await CONN.findOne(StudentClassroom, { where: { id: Number(body.studentClassroom.id) } })
+
+        if(studentClassroom?.endedAt) {
+          return { status: 403, message: 'Este aluno já foi transferido para outra sala/escola.' }
         }
 
         studentQuestion.rClassroom = body.classroom

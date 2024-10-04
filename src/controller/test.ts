@@ -170,6 +170,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
+
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
 
@@ -179,34 +180,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
             const classroomResults = test.classrooms
-              .filter(c =>
+              .filter(classroom =>
                 // Filtra as salas de aula com pelo menos um aluno com respostas
-                c.studentClassrooms.some(sc =>
+                classroom.studentClassrooms.some(sc =>
                   sc.student.studentQuestions.some(sq => sq.answer.length > 0)
                 )
               )
-              .map(c => {
+              .map(classroom => {
 
-                // Filtra apenas os alunos que responderam perguntas dessa sala
-                const filtered = c.studentClassrooms.filter(sc =>
-                  sc.student.studentQuestions.some(sq =>
-                    sq.answer.length > 0 && sq.rClassroom.id === c.id
-                  )
-                );
+                const studentCount = classroom.studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+
+                const duplicatedStudents = classroom.studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
+
+                const studentClassrooms = classroom.studentClassrooms
+                  .map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
+
+                const filtered = studentClassrooms.filter((sc: any) => {
+                  return !sc.ignore && sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id )
+                });
 
                 // Pré-calcula uma lista de perguntas dos alunos
                 const filteredStudentQuestions = filtered.map(sc =>
                   sc.student.studentQuestions.filter(sq =>
-                    sq.answer.length > 0 && sq.rClassroom?.id === c.id
+                    sq.answer.length > 0 && sq.rClassroom?.id === classroom.id
                   )
                 ).flat(); // Usamos flat diretamente após map para reduzir o uso de flatMap
 
                 return {
-                  id: c.id,
-                  name: c.name,
-                  shortName: c.shortName,
-                  school: c.school.name,
-                  schoolId: c.school.id,
+                  id: classroom.id,
+                  name: classroom.name,
+                  shortName: classroom.shortName,
+                  school: classroom.school.name,
+                  schoolId: classroom.school.id,
                   totals: testQuestions.map(tQ => {
 
                     // Ignora perguntas inativas
@@ -386,25 +391,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let validSc = 0
 
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
-              .map(sc => {
+              .map((sc: any) => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                if(sc.student.studentQuestions.every(sq => sq.answer.length < 1)) {
+                if(sc.student.studentQuestions.every((sq: any) => sq.answer?.length < 1)) {
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } }
                 }
 
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
+                if(sc.ignore || sc.student.studentQuestions.every((sq: any) => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
+                  sc.student.studentQuestions = sc.student.studentQuestions.map((sq: any) => ({...sq, answer: 'OE'}))
 
                   diffOe += 1;
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
                 }
 
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
+                if(sc.student.studentQuestions.every((sq: any) => sq.rClassroom?.id != classroom.id)) {
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
+                  sc.student.studentQuestions = sc.student.studentQuestions.map((sq: any) => ({...sq, answer: 'TR'}))
 
                   diffOe += 1;
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
@@ -421,7 +426,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                   counterPercentage += 1
 
-                  const studentQuestion = sc.student.studentQuestions.find(sq => sq.testQuestion.id === testQuestion.id)
+                  const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
                   if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
 
                   let element = totals.find(el => el.id === testQuestion.id)
@@ -563,7 +568,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
-    const preResult = await CONN.getRepository(StudentClassroom)
+    let studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
@@ -591,11 +596,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
-    return preResult.map(sc => {
-      return {
-        ...sc,
-        studentStatus: sc.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }
-    })
+    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+
+    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
+
+    return studentClassrooms
+      .map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
+      .map(sc => ({ ...sc, studentStatus: sc.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }))
   }
 
   async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -1053,7 +1060,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.classrooms", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoin("classroom.studentClassrooms", "studentClassroom")
-      .addSelect(['studentClassroom.id', 'studentClassroom.student', 'studentClassroom.classroom'])
+      .addSelect(['studentClassroom.id', 'studentClassroom.student', 'studentClassroom.classroom', 'studentClassroom.endedAt'])
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoin("studentClassroom.student", "student")
@@ -1181,21 +1188,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     }
 
-    const studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
-    const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
+    let studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
 
-    for(let item of studentClassrooms) {
-      for(let el of item.student.studentDisabilities) {
-        el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
-      }
-    }
+    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+
+    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
+
+    studentClassrooms = studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+
+    const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
+
+    for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
 
     headers = headers.map(bim => {
 
       let bimesterCounter = 0;
 
       const allStudentQuestions = studentClassrooms
-        .filter(sc => sc.student.studentQuestions?.length ? sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0) : sc)
+        .filter((el: any) => !el.ignore)
+        .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
         .flatMap(sc => sc.student.studentQuestions )
 
       const testQuestions = bim.testQuestions?.map(tQ => {
@@ -1204,18 +1215,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
 
-        let cPercentage = 0
+        // let cPercentage = 0
 
         const counter = studentQuestions.reduce((acc, sQ) => {
 
           if(sQ.rClassroom?.id != classId){ return acc }
 
-          const score = !tQ ? 0 : 1; cPercentage += score;
+          // const score = !tQ ? 0 : 1; cPercentage += score;
 
-          if (sQ.rClassroom?.id === classId && sQ.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
+          if (sQ.rClassroom?.id === classId && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
-        return { ...tQ, counter, counterPercentage: cPercentage > 0 ? Math.floor((counter / cPercentage) * 10000) / 100 : 0 }
+        return { ...tQ, counter, counterPercentage: studentQuestions.length > 0 ? Math.floor((counter / studentQuestions.length) * 10000) / 100 : 0 }
       })
 
       const levels = bim.levels.map(level => {
@@ -1244,7 +1255,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect('school.classrooms', 'classrooms')
       .leftJoinAndSelect('classrooms.school', 'schoolClassrooms')
       .leftJoin('classrooms.studentClassrooms', 'studentClassroom')
-      .addSelect(['studentClassroom.id', 'studentClassroom.rosterNumber'])
+      .addSelect(['studentClassroom.id', 'studentClassroom.rosterNumber', 'studentClassroom.endedAt'])
       .leftJoin("studentClassroom.student", "student")
       .addSelect(['student.id'])
 
@@ -1321,18 +1332,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
   alphaAllClasses23(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
     return onlyClasses.map(c => {
 
-      const studentClassrooms = c.studentClassrooms.map(el =>
+      let studentClassrooms = c.studentClassrooms.map(el =>
         ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) })
       )
 
-      const allAlpha = studentClassrooms.flatMap(el => el.student.alphabetic)
+      const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+
+      const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
+
+      studentClassrooms = studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+
+      const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
 
       const totals = headers.map(bim => {
 
         let bimesterCounter = 0;
 
         const allStudentQuestions = studentClassrooms
-          .filter(sc => sc.student.studentQuestions?.length ? sc.student.studentQuestions.some(sq => sq.testQuestion.test.period.bimester.id === bim.id && sq.answer.length > 0) : sc)
+          .filter((el: any) => !el.ignore)
+          .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
           .flatMap(sc => sc.student.studentQuestions )
 
         const testQuestions = bim.testQuestions?.map(tQ => {
@@ -1341,23 +1359,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
 
-          let cPercentage = 0
+          // let cPercentage = 0
 
           const counter = studentQuestions.reduce((acc, sQ) => {
 
             if(sQ.rClassroom?.id != c.id){ return acc }
 
-            cPercentage += (!tQ) ? 0 : 1
+            // cPercentage += (!tQ) ? 0 : 1
 
-            if (sQ.rClassroom?.id === c.id && sQ.answer && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
+            if (sQ.rClassroom?.id === c.id && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
           }, 0)
 
-          return { ...tQ, counter, counterPercentage: cPercentage, percentage: counter > 0 ? Math.floor((counter / cPercentage) * 10000) / 100: 0 }
+          return { ...tQ, counter, counterPercentage: studentQuestions.length, percentage: counter > 0 ? Math.floor((counter / studentQuestions.length) * 10000) / 100: 0 }
         })
 
         const levels = bim.levels.map(lv => {
 
-          const levelCounter = allAlpha.reduce((acc, prev) => {
+          const levelCounter = allAlphabetic.reduce((acc, prev) => {
             return acc + (prev.rClassroom?.id === c.id && prev.test.period.bimester.id === bim.id && prev.alphabeticLevel?.id === lv.id ? 1 : 0);
           }, 0)
 
@@ -1430,37 +1448,86 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
-    const mappedArr = classroom.studentClassrooms.map(el => ({
-      currentClassroom: el.classroom.id,
-      alphabetic: el.student.alphabetic
-    }));
 
-    let totalNuColumn: any[] = [];
-    const percentColumn = headers.reduce((acc, prev) => {
-      const key = prev.id;
-      if (!acc[key]) { acc[key] = 0; }
+    let studentClassrooms = classroom.studentClassrooms
+
+    const studentCount = studentClassrooms.reduce((acc, item) => {
+      acc[item.student.id] = (acc[item.student.id] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
 
-    for (let bimester of headers) {
-      for (let level of bimester.levels) {
-        const count = mappedArr.reduce((acc, el) => {
-          return acc + el.alphabetic.reduce((sum, prev) => {
-            const sameClassroom = el.currentClassroom === prev.rClassroom?.id
-            const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
-            const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
+    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
 
-            return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
-          }, 0);
-        }, 0);
+    studentClassrooms = studentClassrooms.map(item => {
+      const duplicated = duplicatedStudents.find(d => d.id === item.id);
+      return duplicated ? duplicated : item;
+    });
 
+    const mappedArr = studentClassrooms
+      .filter((el: any) => !el.ignore)
+      .map(el => ({
+      currentClassroom: el.classroom.id,
+      alphabetic: el.student.alphabetic.map(alphabeticItem => ({
+        rClassroomId: alphabeticItem.rClassroom?.id,
+        bimesterId: alphabeticItem.test.period.bimester.id,
+        alphabeticLevelId: alphabeticItem.alphabeticLevel?.id
+      }))
+    }))
+
+    const totalNuColumn: any[] = []
+    const perColumn = headers.reduce((acc, bimester) => { acc[bimester.id] = 0; return acc }, {} as Record<number, number>);
+
+    for(let bimester of headers) {
+      for(let level of bimester.levels) {
+        let count = 0;
+        for(let el of mappedArr) {
+          count += el.alphabetic.reduce((sum, prev) => {
+            return sum + (prev.rClassroomId === el.currentClassroom && prev.bimesterId === bimester.id && prev.alphabeticLevelId === level.id ? 1 : 0);
+          }, 0)
+        }
         totalNuColumn.push({ total: count, bimesterId: bimester.id });
-        percentColumn[bimester.id] += count;
+        perColumn[bimester.id] += count;
       }
     }
 
-    return totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100 )
+    return totalNuColumn.map(el => {
+      const totalPercent = perColumn[el.bimesterId];
+      return totalPercent ? Math.floor((el.total / totalPercent) * 10000) / 100 : 0;
+    })
   }
+
+  // alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
+  //   const mappedArr = classroom.studentClassrooms.map(el => ({
+  //     currentClassroom: el.classroom.id,
+  //     alphabetic: el.student.alphabetic
+  //   }));
+  //
+  //   let totalNuColumn: any[] = [];
+  //   const percentColumn = headers.reduce((acc, prev) => {
+  //     const key = prev.id;
+  //     if (!acc[key]) { acc[key] = 0; }
+  //     return acc;
+  //   }, {} as Record<number, number>);
+  //
+  //   for (let bimester of headers) {
+  //     for (let level of bimester.levels) {
+  //       const count = mappedArr.reduce((acc, el) => {
+  //         return acc + el.alphabetic.reduce((sum, prev) => {
+  //           const sameClassroom = el.currentClassroom === prev.rClassroom?.id
+  //           const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
+  //           const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
+  //
+  //           return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
+  //         }, 0);
+  //       }, 0);
+  //
+  //       totalNuColumn.push({ total: count, bimesterId: bimester.id });
+  //       percentColumn[bimester.id] += count;
+  //     }
+  //   }
+  //
+  //   return totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100 )
+  // }
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 

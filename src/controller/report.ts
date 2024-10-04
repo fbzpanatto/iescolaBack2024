@@ -287,12 +287,29 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
 
-
         const schools = preResult
           .filter(s => s.classrooms.some(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0))))
           .map(s => {
 
-            const filtered = s.classrooms.flatMap(c => c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id)))
+            let filtered = s.classrooms.flatMap(c => c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id)))
+
+            const studentCount = filtered.reduce((acc, item) => {
+              acc[item.student.id] = (acc[item.student.id] || 0) + 1;
+              return acc;
+            }, {} as Record<number, number>);
+
+            const duplicatedStudentIds = new Set<number>();
+
+            for(let item of filtered) {
+              if (studentCount[item.student.id] > 1 && item.endedAt) {
+                duplicatedStudentIds.add(item.id);
+              }
+            }
+
+            filtered = filtered
+              .map(item => duplicatedStudentIds.has(item.id) ? { ...item, ignore: true } : item)
+              .filter((item: any) => !item.ignore);
+
 
             return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id,
               totals: testQuestions.map(tQ => {

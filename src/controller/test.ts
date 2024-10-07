@@ -1204,9 +1204,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let bimesterCounter = 0;
 
-      const allStudentQuestions = studentClassrooms
+      const studentClassroomsBi = studentClassrooms
         .filter((el: any) => !el.ignore)
         .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+
+      const allStudentQuestions = studentClassroomsBi
         .flatMap(sc => sc.student.studentQuestions )
 
       const testQuestions = bim.testQuestions?.map(tQ => {
@@ -1217,18 +1219,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           return sQ.testQuestion?.id === tQ?.id && (sQ.rClassroom?.id === room.id)
         });
 
-        // let cPercentage = 0
-
         const counter = studentQuestions.reduce((acc, sQ) => {
 
           if(sQ.rClassroom?.id != classId){ return acc }
 
-          // const score = !tQ ? 0 : 1; cPercentage += score;
-
           if (sQ.rClassroom?.id === classId && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
-        return { ...tQ, counter, counterPercentage: studentQuestions.length > 0 ? Math.floor((counter / studentQuestions.length) * 10000) / 100 : 0 }
+        return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100 : 0 }
       })
 
       const levels = bim.levels.map(level => {
@@ -1350,9 +1348,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let bimesterCounter = 0;
 
-        const allStudentQuestions = studentClassrooms
+        const studentClassroomsBi = studentClassrooms
           .filter((el: any) => !el.ignore)
           .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+
+        const allStudentQuestions = studentClassroomsBi
           .flatMap(sc => sc.student.studentQuestions )
 
         const testQuestions = bim.testQuestions?.map(tQ => {
@@ -1363,18 +1363,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
             return sQ.testQuestion?.id === tQ?.id && (sQ.rClassroom?.id === c.id)
           });
 
-          // let cPercentage = 0
-
           const counter = studentQuestions.reduce((acc, sQ) => {
 
             if(sQ.rClassroom?.id != c.id){ return acc }
 
-            // cPercentage += (!tQ) ? 0 : 1
-
             if (sQ.rClassroom?.id === c.id && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
           }, 0)
 
-          return { ...tQ, counter, counterPercentage: studentQuestions.length, percentage: counter > 0 ? Math.floor((counter / studentQuestions.length) * 10000) / 100: 0 }
+          return { ...tQ, counter, counterPercentage: studentClassroomsBi.length, percentage: counter > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100: 0 }
         })
 
         const levels = bim.levels.map(lv => {

@@ -210,6 +210,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         break;
       }
+
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 

@@ -1213,7 +1213,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-        const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
+        const studentQuestions = allStudentQuestions.filter(sQ => {
+          return sQ.testQuestion?.id === tQ?.id && sQ.rClassroom.id === room.id
+        });
 
         // let cPercentage = 0
 
@@ -1357,7 +1359,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-          const studentQuestions = allStudentQuestions.filter(sQ => sQ.testQuestion?.id === tQ?.id);
+          const studentQuestions = allStudentQuestions.filter(sQ => {
+            return sQ.testQuestion?.id === tQ?.id && sQ.rClassroom.id === c.id
+          });
 
           // let cPercentage = 0
 

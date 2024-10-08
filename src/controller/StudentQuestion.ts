@@ -190,7 +190,11 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const condition2 = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length > 0 && el.answer != ' ')
         if(condition2 && sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
 
+        console.log('BEFORE: ', sQ.rClassroom)
+
         sQ.rClassroom = body.classroom; sQ.answer = body.answer
+
+        console.log('AFTER: ', sQ.rClassroom)
 
         const res = await CONN.save(StudentQuestion, sQ)
 

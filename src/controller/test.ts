@@ -1192,7 +1192,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
 
-    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
+    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
     studentClassrooms = studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
 
@@ -1206,7 +1206,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const studentClassroomsBi = studentClassrooms
         .filter((el: any) => !el.ignore)
-        .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+        .filter(sc => sc.student.studentQuestions?.some(sq => (sq.rClassroom?.id === room.id) && (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
 
       const allStudentQuestions = studentClassroomsBi
         .flatMap(sc => sc.student.studentQuestions )
@@ -1215,9 +1215,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-        const studentQuestions = allStudentQuestions.filter(sQ => {
-          return sQ.testQuestion?.id === tQ?.id && (sQ.rClassroom?.id === room.id)
-        });
+        const studentQuestions = allStudentQuestions.filter(sQ => { return sQ.testQuestion?.id === tQ?.id })
 
         const counter = studentQuestions.reduce((acc, sQ) => {
 
@@ -1350,7 +1348,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const studentClassroomsBi = studentClassrooms
           .filter((el: any) => !el.ignore)
-          .filter(sc => sc.student.studentQuestions?.some(sq => (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+          .filter(sc => sc.student.studentQuestions?.some(sq => (sq.rClassroom?.id === c.id) && (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
 
         const allStudentQuestions = studentClassroomsBi
           .flatMap(sc => sc.student.studentQuestions )
@@ -1359,9 +1357,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-          const studentQuestions = allStudentQuestions.filter(sQ => {
-            return sQ.testQuestion?.id === tQ?.id && (sQ.rClassroom?.id === c.id)
-          });
+          const studentQuestions = allStudentQuestions.filter(sQ => { return sQ.testQuestion?.id === tQ?.id })
 
           const counter = studentQuestions.reduce((acc, sQ) => {
 

@@ -183,12 +183,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const id = body.studentClassroom.id
         const relations = ['classroom.school', 'student.studentQuestions.rClassroom', 'student.studentQuestions.testQuestion.test', 'student.person']
         const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
-
         const condition = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length < 1 || el.answer === '' || el.answer === ' ')
-
-        if(sC?.endedAt && condition) {
-          return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
-        }
+        if(sC?.endedAt && condition) { return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` } }
 
         const msgErr1: string = 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.'
         const condition2 = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length > 0 && el.answer != ' ')

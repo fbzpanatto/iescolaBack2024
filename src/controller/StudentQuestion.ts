@@ -199,7 +199,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       })
     } catch (error: any) {
       console.log(error)
-      return { status: 500, message: error.message } }
+      return { status: 500, message: error.message }
+    }
   }
 }
 

@@ -198,9 +198,6 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { relations: ['student.studentQuestions.rClassroom', 'classroom'], where: { id: Number(body.studentClassroom.id) } })
 
-        const msgErr2: string = 'Este aluno já foi transferido para outra sala/escola.'
-        if(sC?.endedAt && !sC.student.studentQuestions.some(sQ => sQ.rClassroom?.id != sC.classroom.id)) { return { status: 403, msgErr2 } }
-
         sQ.rClassroom = body.classroom; sQ.answer = body.answer
 
         const res = await CONN.save(StudentQuestion, sQ)

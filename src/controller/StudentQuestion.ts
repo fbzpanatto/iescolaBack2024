@@ -194,7 +194,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(sQ.testQuestion.test && !sQ.testQuestion.test.active){ return { status: 403, message: `Este bimestre ou avaliação não permite novos lançamentos.` } }
 
         const id = body.studentClassroom.id
-        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations: ['classroom.school', 'student.studentQuestions.rClassroom', 'student.studentQuestions.testQuestion.test', 'student.person'] })
+        const relations = ['classroom.school', 'student.studentQuestions.rClassroom', 'student.studentQuestions.testQuestion.test', 'student.person']
+        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
         if(sC?.endedAt && sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length < 1 || el.answer === '' || el.answer === ' ')) {
           return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
         }

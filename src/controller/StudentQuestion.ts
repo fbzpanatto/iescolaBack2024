@@ -113,12 +113,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const relations = ['classroom.school', 'student.person']
         const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
 
-        if(sC?.endedAt && !alpha?.alphabeticLevel){
+        if(sC?.endedAt && !alpha?.alphabeticLevel) {
           return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
         }
 
-        const messageErr1 = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
-        if(alpha.rClassroom && alpha.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
+        const messageErr1: string = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
+        if(alpha?.alphabeticLevel && alpha?.rClassroom && alpha?.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
         alpha.rClassroom = body.classroom; alpha.alphabeticLevel = body.examLevel
 
@@ -183,12 +183,16 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const id = body.studentClassroom.id
         const relations = ['classroom.school', 'student.studentQuestions.rClassroom', 'student.studentQuestions.testQuestion.test', 'student.person']
         const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
-        if(sC?.endedAt && sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length < 1 || el.answer === '' || el.answer === ' ')) {
+
+        const condition = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length < 1 || el.answer === '' || el.answer === ' ')
+
+        if(sC?.endedAt && condition) {
           return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
         }
 
         const msgErr1: string = 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.'
-        if(sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
+        const condition2 = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length > 0 && el.answer != ' ')
+        if(condition2 && sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
 
         sQ.rClassroom = body.classroom; sQ.answer = body.answer
 

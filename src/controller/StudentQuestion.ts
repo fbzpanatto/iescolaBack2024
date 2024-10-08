@@ -196,8 +196,6 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const msgErr1: string = 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.'
         if(sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
 
-        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { relations: ['student.studentQuestions.rClassroom', 'classroom'], where: { id: Number(body.studentClassroom.id) } })
-
         sQ.rClassroom = body.classroom; sQ.answer = body.answer
 
         const res = await CONN.save(StudentQuestion, sQ)

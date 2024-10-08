@@ -96,16 +96,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-        const test = await CONN.findOne(Test, {
-          where: {
-            category: { id: body.testCategory.id },
-            period: {
-              year: { name: body.year },
-              bimester: { id: body.examBimester.id },
-            }
-          },
-          relations: ["period.bimester"]
-        })
+        const test = await CONN.findOne(Test, { where: { category: { id: body.testCategory.id }, period: { year: { name: body.year }, bimester: { id: body.examBimester.id } } }, relations: ["period.bimester"] })
 
         if(!test) { return { status: 404, message: 'Avaliação ainda não disponível.' } }
 
@@ -116,21 +107,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom'] }
         const alpha = await CONN.findOne(Alphabetic, options)
 
-        if(!alpha) {
-          data = await CONN.save(Alphabetic, {
-            createdAt: new Date(),
-            createdByUser: uTeacher.person.user.id,
-            alphabeticLevel: body.examLevel,
-            student: body.student,
-            rClassroom: body.classroom,
-            test
-          })
-          return { status: 201, data }
-        }
+        if(!alpha) { data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data } }
 
-        if(alpha.rClassroom && alpha.rClassroom.id != body.classroom.id) {
-          return { status: 403, message: 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.' }
-        }
+        const messageErr1 = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
+        if(alpha.rClassroom && alpha.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
         alpha.rClassroom = body.classroom
         alpha.alphabeticLevel = body.examLevel

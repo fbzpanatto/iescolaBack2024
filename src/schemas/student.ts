@@ -60,7 +60,7 @@ export const STUDENT_SCHEMA: Schema = {
   },
   observationTwo: {
     optional: true,
-    isString: true,
+    isString: true
   },
   ra: {
     optional: true,

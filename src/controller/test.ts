@@ -1194,7 +1194,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
-    studentClassrooms = studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+    studentClassrooms = studentClassrooms.map(item => {
+      const duplicated = duplicatedStudents.find(d => d.id === item.id);
+      const newItem = duplicated ? { ...duplicated } : { ...item };
+
+      newItem.student.studentQuestions = newItem.student.studentQuestions.map(sQ => { return (sQ.rClassroom?.id && sQ.rClassroom.id != room.id) ? { ...sQ, answer: '-' } : sQ })
+
+      return newItem;
+    });
 
     const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
 

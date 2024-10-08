@@ -30,9 +30,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
 
-        const currentYear = await this.currentYear(CONN)
-        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
-        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+        const cY = await this.currentYear(CONN)
+        if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
         const test = await CONN.findOne(Test, { where: { id: body.test.id } })
         if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
@@ -92,9 +92,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let data;
 
-        const currentYear = await this.currentYear(CONN)
-        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
-        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+        const cY = await this.currentYear(CONN)
+        if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
         const test = await CONN.findOne(Test, { where: { category: { id: body.testCategory.id }, period: { year: { name: body.year }, bimester: { id: body.examBimester.id } } }, relations: ["period.bimester"] })
 
@@ -102,18 +102,25 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const bimester = test?.period.bimester.name
 
-        if(test && !test.active){ return { status: 403, message: `A avaliação do ${bimester} não permite novos lançamentos.` } }
+        if(test && !test.active){ return { status: 403, message: `A avaliação do ${ bimester } não permite novos lançamentos.` } }
 
-        const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom'] }
+        const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom', 'alphabeticLevel'] }
         const alpha = await CONN.findOne(Alphabetic, options)
 
         if(!alpha) { data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data } }
 
+        const id = body.studentClassroom.id
+        const relations = ['classroom.school', 'student.person']
+        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
+
+        if(sC?.endedAt && !alpha?.alphabeticLevel){
+          return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
+        }
+
         const messageErr1 = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
         if(alpha.rClassroom && alpha.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
-        alpha.rClassroom = body.classroom
-        alpha.alphabeticLevel = body.examLevel
+        alpha.rClassroom = body.classroom; alpha.alphabeticLevel = body.examLevel
 
         data = await CONN.save(Alphabetic, {...alpha, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 

@@ -56,12 +56,10 @@ export const STUDENT_SCHEMA: Schema = {
   },
   observationOne: {
     optional: true,
-    escape: true,
     isString: true,
   },
   observationTwo: {
     optional: true,
-    escape: true,
     isString: true,
   },
   ra: {

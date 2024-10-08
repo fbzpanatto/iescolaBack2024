@@ -114,9 +114,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(test && !test.active){ return { status: 403, message: `A avaliação do ${bimester} não permite novos lançamentos.` } }
 
         const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom'] }
-        const register = await CONN.findOne(Alphabetic, options)
+        const alpha = await CONN.findOne(Alphabetic, options)
 
-        if(!register) {
+        if(!alpha) {
           data = await CONN.save(Alphabetic, {
             createdAt: new Date(),
             createdByUser: uTeacher.person.user.id,
@@ -128,14 +128,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
           return { status: 201, data }
         }
 
-        if(register.rClassroom && register.rClassroom.id != body.classroom.id) {
+        if(alpha.rClassroom && alpha.rClassroom.id != body.classroom.id) {
           return { status: 403, message: 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.' }
         }
 
-        register.rClassroom = body.classroom
-        register.alphabeticLevel = body.examLevel
+        alpha.rClassroom = body.classroom
+        alpha.alphabeticLevel = body.examLevel
 
-        data = await CONN.save(Alphabetic, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+        data = await CONN.save(Alphabetic, {...alpha, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }
       })

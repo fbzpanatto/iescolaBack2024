@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget, ObjectLiteral } from "typeorm";
+import {EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
 import { AppDataSource } from "../data-source";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
@@ -8,10 +8,11 @@ import { ReadingFluency } from "../model/ReadingFluency";
 import { Test } from "../model/Test";
 import { Alphabetic } from "../model/Alphabetic";
 import { AlphabeticFirst } from "../model/AlphabeticFirst";
-import {Student} from "../model/Student";
-import {Classroom} from "../model/Classroom";
-import {UserInterface} from "../interfaces/interfaces";
-import {StudentClassroom} from "../model/StudentClassroom";
+import { Student} from "../model/Student";
+import { Classroom } from "../model/Classroom";
+import { UserInterface } from "../interfaces/interfaces";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { Year } from "../model/Year";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -37,12 +38,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
 
         const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, studentClassroom: { id: body.studentClassroom.id } } }
-        const register = await CONN.findOne(ReadingFluency, options)
+        const register: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
 
-        if(!register) {
-          data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
-          return { status: 201, data }
-        }
+        if(!register) { data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id }); return { status: 201, data } }
 
         register.readingFluencyLevel = body.readingFluencyLevel
         await CONN.save(ReadingFluency, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
@@ -184,35 +182,34 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { year } = req.query
 
     try {
-      return await AppDataSource.transaction(async(CONN)=> {
+      return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
-        const currentYear = await this.currentYear(CONN)
-        if(!currentYear) { return { status: 400, message: 'Ano não encontrado' }}
-        if(parseInt(currentYear.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+        const cY: Year = await this.currentYear(CONN)
+        if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
+        if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-        const studentQuestion = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })
-        if(!studentQuestion) { return { status: 400, message: 'Registro não encontrado' } }
+        const sQ: StudentQuestion | null = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })
+        if(!sQ) { return { status: 400, message: 'Registro não encontrado' } }
 
-        if(studentQuestion.testQuestion.test && !studentQuestion.testQuestion.test.active){ return { status: 403, message: `Este bimestre ou avaliação não permite novos lançamentos.` } }
+        if(sQ.testQuestion.test && !sQ.testQuestion.test.active){ return { status: 403, message: `Este bimestre ou avaliação não permite novos lançamentos.` } }
 
-        if(studentQuestion.rClassroom && studentQuestion.rClassroom.id != body.classroom.id) {
-          return { status: 403, message: 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.' }
-        }
+        const msgErr1: string = 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.'
+        if(sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
 
-        const studentClassroom = await CONN.findOne(StudentClassroom, { where: { id: Number(body.studentClassroom.id) } })
+        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { relations: ['student.studentQuestions.rClassroom', 'classroom'], where: { id: Number(body.studentClassroom.id) } })
 
-        if(studentClassroom?.endedAt) {
-          return { status: 403, message: 'Este aluno já foi transferido para outra sala/escola.' }
-        }
+        const msgErr2: string = 'Este aluno já foi transferido para outra sala/escola.'
+        if(sC?.endedAt && !sC.student.studentQuestions.some(sQ => sQ.rClassroom?.id != sC.classroom.id)) { return { status: 403, msgErr2 } }
 
-        studentQuestion.rClassroom = body.classroom
-        studentQuestion.answer = body.answer
+        sQ.rClassroom = body.classroom; sQ.answer = body.answer
 
-        const result = await CONN.save(StudentQuestion, studentQuestion)
-        const mappedResult = { ...result, score: studentQuestion.testQuestion.answer.includes(result.answer.trim().toUpperCase()) ? 1 : 0 }
-        return { status: 200, data: mappedResult };
+        const res = await CONN.save(StudentQuestion, sQ)
+        const mappedRes = { ...res, score: sQ.testQuestion.answer.includes(res.answer.trim().toUpperCase()) ? 1 : 0 }
+        return { status: 200, data: mappedRes };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message } }
   }
 }
 

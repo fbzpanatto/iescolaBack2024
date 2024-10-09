@@ -378,38 +378,36 @@ class TestController extends GenericController<EntityTarget<Test>> {
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
             const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
 
-            const studentClassrooms = await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN)
-
             let classroomPoints = 0
             let classroomPercent = 0
             let validStudentsTotalizator = 0
             let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
 
-            await this.createLinkTestQuestions(true, studentClassrooms, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN), test, testQuestions, uTeacher.person.user.id, CONN)
 
             let diffOe = 0
             let validSc = 0
 
             const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
-              .map((sc: any) => {
+              .map((sc: StudentClassroom) => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                if(sc.student.studentQuestions.every((sq: any) => sq.answer?.length < 1)) {
+                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) {
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } }
                 }
 
-                if(sc.ignore || sc.student.studentQuestions.every((sq: any) => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
+                if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map((sq: any) => ({...sq, answer: 'OE'}))
+                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
 
                   diffOe += 1;
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
                 }
 
-                if(sc.student.studentQuestions.every((sq: any) => sq.rClassroom?.id != classroom.id)) {
+                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map((sq: any) => ({...sq, answer: 'TR'}))
+                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
 
                   diffOe += 1;
                   return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
@@ -660,7 +658,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async createLinkTestQuestions(withTestStatus: boolean, studentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+  async testQuestLink(withTestStatus: boolean, studentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       if(withTestStatus){
         const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
@@ -711,7 +709,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            await this.createLinkTestQuestions(true, filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.testQuestLink(true, filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
             break;
           }
         }
@@ -1172,7 +1170,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
 
-        await this.createLinkTestQuestions(false, preResultSc, test, testQuestions, uTeacher.person.user.id, CONN)
+        await this.testQuestLink(false, preResultSc, test, testQuestions, uTeacher.person.user.id, CONN)
       }
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })

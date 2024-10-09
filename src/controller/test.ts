@@ -596,13 +596,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
-    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-
-    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
-
-    return studentClassrooms
-      .map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
-      .map(sc => ({ ...sc, studentStatus: sc.studentStatus.find(studentStatus => studentStatus.test.id === test.id) }))
+    return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
   }
 
   async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -1198,6 +1192,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const duplicated = duplicatedStudents.find(d => d.id === item.id);
       const newItem = duplicated ? { ...duplicated } : { ...item };
 
+      newItem.student.alphabetic = newItem.student.alphabetic.map(alpha => {
+        if(item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+
+        if(!item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+
+        if(alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+        return alpha
+      })
+
       newItem.student.studentQuestions = newItem.student.studentQuestions.map(sQ => {
 
         if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
@@ -1342,6 +1345,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await query.getMany();
   }
 
+  duplicatedStudents(studentClassrooms: StudentClassroom[]): any {
+    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
+    return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+  }
+
   alphaAllClasses23(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
     return onlyClasses.map(c => {
 
@@ -1349,11 +1358,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) })
       )
 
-      const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-
-      const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
-
-      studentClassrooms = studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+      studentClassrooms = this.duplicatedStudents(studentClassrooms)
 
       const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
 
@@ -1460,25 +1465,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
 
-    let studentClassrooms = classroom.studentClassrooms
-
-    const studentCount = studentClassrooms.reduce((acc, item) => {
-      acc[item.student.id] = (acc[item.student.id] || 0) + 1;
-      return acc;
-    }, {} as Record<number, number>);
-
-    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
-
-    studentClassrooms = studentClassrooms.map(item => {
-      const duplicated = duplicatedStudents.find(d => d.id === item.id);
-      return duplicated ? duplicated : item;
-    });
-
-    const mappedArr = studentClassrooms
+    const mappedArr = this.duplicatedStudents(classroom.studentClassrooms)
       .filter((el: any) => !el.ignore)
-      .map(el => ({
+      .map((el: any) => ({
       currentClassroom: el.classroom.id,
-      alphabetic: el.student.alphabetic.map(alphabeticItem => ({
+      alphabetic: el.student.alphabetic.map((alphabeticItem: any) => ({
         rClassroomId: alphabeticItem.rClassroom?.id,
         bimesterId: alphabeticItem.test.period.bimester.id,
         alphabeticLevelId: alphabeticItem.alphabeticLevel?.id
@@ -1492,7 +1483,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       for(let level of bimester.levels) {
         let count = 0;
         for(let el of mappedArr) {
-          count += el.alphabetic.reduce((sum, prev) => {
+          count += el.alphabetic.reduce((sum: any, prev: any) => {
             return sum + (prev.rClassroomId === el.currentClassroom && prev.bimesterId === bimester.id && prev.alphabeticLevelId === level.id ? 1 : 0);
           }, 0)
         }
@@ -1506,39 +1497,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return totalPercent ? Math.floor((el.total / totalPercent) * 10000) / 100 : 0;
     })
   }
-
-  // alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
-  //   const mappedArr = classroom.studentClassrooms.map(el => ({
-  //     currentClassroom: el.classroom.id,
-  //     alphabetic: el.student.alphabetic
-  //   }));
-  //
-  //   let totalNuColumn: any[] = [];
-  //   const percentColumn = headers.reduce((acc, prev) => {
-  //     const key = prev.id;
-  //     if (!acc[key]) { acc[key] = 0; }
-  //     return acc;
-  //   }, {} as Record<number, number>);
-  //
-  //   for (let bimester of headers) {
-  //     for (let level of bimester.levels) {
-  //       const count = mappedArr.reduce((acc, el) => {
-  //         return acc + el.alphabetic.reduce((sum, prev) => {
-  //           const sameClassroom = el.currentClassroom === prev.rClassroom?.id
-  //           const isMatchingBimester = prev.test.period.bimester.id === bimester.id;
-  //           const isMatchingLevel = prev.alphabeticLevel?.id === level.id;
-  //
-  //           return sum + (sameClassroom && isMatchingBimester && isMatchingLevel ? 1 : 0);
-  //         }, 0);
-  //       }, 0);
-  //
-  //       totalNuColumn.push({ total: count, bimesterId: bimester.id });
-  //       percentColumn[bimester.id] += count;
-  //     }
-  //   }
-  //
-  //   return totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.bimesterId]) * 10000) / 100 )
-  // }
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 

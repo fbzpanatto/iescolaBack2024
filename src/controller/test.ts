@@ -1198,7 +1198,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const duplicated = duplicatedStudents.find(d => d.id === item.id);
       const newItem = duplicated ? { ...duplicated } : { ...item };
 
-      newItem.student.studentQuestions = newItem.student.studentQuestions.map(sQ => { return (sQ.rClassroom?.id && sQ.rClassroom.id != room.id) ? { ...sQ, answer: '-' } : sQ })
+      newItem.student.studentQuestions = newItem.student.studentQuestions.map(sQ => {
+
+        if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
+
+        if(!item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'OE' } }
+
+        if(sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: '-' } }
+
+        return { ...sQ }
+      })
 
       return newItem;
     });

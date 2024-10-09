@@ -393,24 +393,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) {
-                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } }
-                }
+                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
 
                 if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
                   sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
 
-                  diffOe += 1;
-                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
                 }
 
                 if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
 
                   sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
 
-                  diffOe += 1;
-                  return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
+                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
                 }
 
                 validSc += 1
@@ -425,11 +421,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   counterPercentage += 1
 
                   const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
+
                   if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
 
                   let element = totals.find(el => el.id === testQuestion.id)
 
-                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer && testQuestion.answer?.includes(studentQuestion?.answer.toUpperCase())) {
+                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
                     element!.tNumber += 1
                     classroomPoints += 1
                     acc += 1

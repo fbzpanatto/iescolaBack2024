@@ -388,7 +388,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            const mappedResult = (await this.getStudentsWithQuestions(test, testQuestions, Number(classroomId), yearName as string, CONN))
+            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, CONN))
               .map((sc: StudentClassroom) => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
@@ -562,7 +562,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async getStudentsWithQuestions(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
+  async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 

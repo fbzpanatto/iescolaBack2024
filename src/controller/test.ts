@@ -1196,7 +1196,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return alpha
       })
 
-      newItem.student.studentQuestions = newItem.student.studentQuestions.map(sQ => {
+      newItem.student.studentQuestions = newItem.student.studentQuestions?.map(sQ => {
 
         if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
 

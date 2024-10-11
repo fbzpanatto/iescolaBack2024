@@ -185,16 +185,13 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const cityHall = {
           id: 999,
-          name: 'ITATIBA',
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           shortName: 'ITATIBA',
-          school: 'ITATIBA',
+          school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
         }
 
-        cityHall.totals = testController.aggregateResult(
-          cityHall,
-          testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers)
-        )
+        cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers))
 
         schools = [ ...mappedSchools, cityHall ]
 

@@ -31,6 +31,7 @@ import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
 
+interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
@@ -381,7 +382,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let classroomPoints = 0
             let classroomPercent = 0
             let validStudentsTotalizator = 0
-            let totals = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
+            let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
+            let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
             await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN), test, testQuestions, uTeacher.person.user.id, CONN)
 
@@ -436,6 +438,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   classroomPercent += 1
                   element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
 
+                  const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
+
+                  let ltItem = answersLetters.find(el => el.letter === letter)
+                  if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
+
+                  let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
+                  if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
+
+                  ltQ.occurrences += 1
+
+                  answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
+
                   return acc
                 }, 0)
 
@@ -453,6 +467,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = {
               test,
               totals,
+              answersLetters,
               validSc,
               totalOfSc: mappedResult.length - diffOe,
               totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,

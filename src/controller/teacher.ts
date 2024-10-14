@@ -43,38 +43,38 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async myNewTestDbConnection(conn: PoolConnection){
-
-    console.log('------------------------------------------------- myNewTestDbConnection: findAllWhereTeacher')
-
-    try {
-      const baseTable = 'teacher'
-      const baseAlias = 't'
-      const selectFields = ['t.id, t.email, t.register']
-      const whereConditions = {}
-      const joins = [
-        {
-          table: 'person', alias: 'p',
-          conditions: [{ column1: 't.personId', column2: 'p.id' }]
-        }
-      ]
-      const queryResult = await selectJoinsWhere(conn, baseTable, baseAlias, selectFields, whereConditions, joins)
-      console.log(queryResult)
-    } catch (err) {
-      console.log('err', err)
-    }
-  }
+  // async myNewTestDbConnection(conn: PoolConnection){
+  //
+  //   console.log('------------------------------------------------- myNewTestDbConnection: findAllWhereTeacher')
+  //
+  //   try {
+  //     const baseTable = 'teacher'
+  //     const baseAlias = 't'
+  //     const selectFields = ['t.id, t.email, t.register']
+  //     const whereConditions = {}
+  //     const joins = [
+  //       {
+  //         table: 'person', alias: 'p',
+  //         conditions: [{ column1: 't.personId', column2: 'p.id' }]
+  //       }
+  //     ]
+  //     const queryResult = await selectJoinsWhere(conn, baseTable, baseAlias, selectFields, whereConditions, joins)
+  //     console.log(queryResult)
+  //   } catch (err) {
+  //     console.log('err', err)
+  //   }
+  // }
 
   async findAllWhereTeacher(request: Request ) {
 
-    let conn = null;
+    // let conn = null;
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
 
     try {
 
-      conn = await dbConn()
-      await this.myNewTestDbConnection(conn)
+      // conn = await dbConn()
+      // await this.myNewTestDbConnection(conn)
 
       return await AppDataSource.transaction(async(CONN)=> {
 
@@ -109,7 +109,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release() } }
+    // finally { if (conn) { conn.release() } }
   }
 
   async findOneTeacher(id: string | number, request?: Request) {

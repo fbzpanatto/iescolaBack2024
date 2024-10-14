@@ -16,6 +16,7 @@ TeacherRouter.get('/form', havePermission, async (req: Request, res: Response) =
   const response = await controller.teacherForm(req); return res.status(response.status).json(response)
 })
 
+// ENTRYPOINT FOR MYSQL QUERY.
 TeacherRouter.get('/', havePermission, async (req: Request, res: Response) => {
   const response = await controller.findAllWhereTeacher(req); return res.status(response.status).json(response)
 })

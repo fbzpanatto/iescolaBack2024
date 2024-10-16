@@ -421,7 +421,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const canChange: number[] = [ pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
-        const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Solicite a algúem com nível de acesso superior ao seu."
+        const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Solicite a alguém com nível de acesso superior ao seu."
         if (!canChange.includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
 
         const currentYear: Year = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year

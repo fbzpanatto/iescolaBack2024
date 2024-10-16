@@ -421,8 +421,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const canChange: number[] = [ pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
-        const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ALUNOS."
-        if (![pc.ADMN].includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
+        // REGRA FEITA PARA: FACILITAR A TRANSFERÊNCIA DE DENTRO DA ESCOLA PARA OUTRA SALA. SE TAL REGRA ESTIVER ATIVA, ISSO NÃO FUNCIONA.
+        // const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Crie uma solicitação de transferência no menu ALUNOS na opção OUTROS ALUNOS."
+        // if (![pc.ADMN].includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
 
         const currentYear: Year = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
 

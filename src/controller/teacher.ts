@@ -21,8 +21,8 @@ import { credentialsEmail } from "../utils/email.service";
 import { generatePassword } from "../utils/generatePassword";
 
 import { selectJoinsWhere } from '../utils/queries'
-import {dbConn} from "../services/db";
-import {PoolConnection} from "mysql2/promise";
+import { dbConn } from "../services/db";
+import { PoolConnection } from "mysql2/promise";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 

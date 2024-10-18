@@ -43,54 +43,54 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async myNewTestDbConnection(conn: PoolConnection){
-
-    try {
-      const baseTable = 'teacher'
-      const baseAlias = 't'
-      const selectFields = ['DISTINCT t.id, p.name, p.birth, t.email, t.register, pc.name AS category, tcd.classroomId, cl.shortName AS classroom, sch.shortName AS school,' +
-      ' tcd.startedAt,' +
-      ' tcd.endedAt']
-      const whereConditions = {}
-      const joins = [
-        { table: 'person', alias: 'p', conditions: [{ column1: 't.personId', column2: 'p.id' }] },
-        { table: 'person_category', alias: 'pc', conditions: [{ column1: 'p.categoryId', column2: 'pc.id' }] },
-        { table: 'teacher_class_discipline', alias: 'tcd', conditions: [{ column1: 't.id', column2: 'tcd.teacherId' }] },
-        { table: 'classroom', alias: 'cl', conditions: [{ column1: 'tcd.classroomId', column2: 'cl.id' }] },
-        { table: 'school', alias: 'sch', conditions: [{ column1: 'cl.schoolId', column2: 'sch.id' }] }
-      ]
-
-      const queryResult = (await selectJoinsWhere(conn, baseTable, baseAlias, selectFields, whereConditions, joins)) as Array<any>;
-
-      const result = queryResult.reduce((acc, row) => {
-        let teacher = acc.find((t: any) => t.id === row.id);
-
-        if (!teacher) {
-          teacher = { id: row.id, name: row.name, birth: row.birth, email: row.email, register: row.register, category: row.category, teacher_class_discipline: [] };
-          acc.push(teacher);
-        }
-
-        if (row.classroomId) { teacher.teacher_class_discipline.push({ classroomId: row.classroomId, classroom: row.classroom, school: row.school, startedAt: row.startedAt, endedAt: row.endedAt }) }
-
-        return acc;
-      }, []);
-
-      for(let item of result) {
-        console.log(item)
-      }
-    } catch (err) { console.log('err', err) }
-  }
+  // async myNewTestDbConnection(conn: PoolConnection){
+  //
+  //   try {
+  //     const baseTable = 'teacher'
+  //     const baseAlias = 't'
+  //     const selectFields = ['DISTINCT t.id, p.name, p.birth, t.email, t.register, pc.name AS category, tcd.classroomId, cl.shortName AS classroom, sch.shortName AS school,' +
+  //     ' tcd.startedAt,' +
+  //     ' tcd.endedAt']
+  //     const whereConditions = {}
+  //     const joins = [
+  //       { table: 'person', alias: 'p', conditions: [{ column1: 't.personId', column2: 'p.id' }] },
+  //       { table: 'person_category', alias: 'pc', conditions: [{ column1: 'p.categoryId', column2: 'pc.id' }] },
+  //       { table: 'teacher_class_discipline', alias: 'tcd', conditions: [{ column1: 't.id', column2: 'tcd.teacherId' }] },
+  //       { table: 'classroom', alias: 'cl', conditions: [{ column1: 'tcd.classroomId', column2: 'cl.id' }] },
+  //       { table: 'school', alias: 'sch', conditions: [{ column1: 'cl.schoolId', column2: 'sch.id' }] }
+  //     ]
+  //
+  //     const queryResult = (await selectJoinsWhere(conn, baseTable, baseAlias, selectFields, whereConditions, joins)) as Array<any>;
+  //
+  //     const result = queryResult.reduce((acc, row) => {
+  //       let teacher = acc.find((t: any) => t.id === row.id);
+  //
+  //       if (!teacher) {
+  //         teacher = { id: row.id, name: row.name, birth: row.birth, email: row.email, register: row.register, category: row.category, teacher_class_discipline: [] };
+  //         acc.push(teacher);
+  //       }
+  //
+  //       if (row.classroomId) { teacher.teacher_class_discipline.push({ classroomId: row.classroomId, classroom: row.classroom, school: row.school, startedAt: row.startedAt, endedAt: row.endedAt }) }
+  //
+  //       return acc;
+  //     }, []);
+  //
+  //     for(let item of result) {
+  //       console.log(item)
+  //     }
+  //   } catch (err) { console.log('err', err) }
+  // }
 
   async findAllWhereTeacher(request: Request ) {
 
-    let conn = null;
+    // let conn = null;
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
 
     try {
 
-      conn = await dbConn()
-      await this.myNewTestDbConnection(conn)
+      // conn = await dbConn()
+      // await this.myNewTestDbConnection(conn)
 
       return await AppDataSource.transaction(async(CONN)=> {
 
@@ -125,7 +125,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release() } }
+    // finally { if (conn) { conn.release() } }
   }
 
   async findOneTeacher(id: string | number, request?: Request) {

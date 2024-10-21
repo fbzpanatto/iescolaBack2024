@@ -50,36 +50,6 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateAlphabeticFirstLevel(req: Request){
-
-    const { body } = req
-
-    try {
-      return await AppDataSource.transaction(async(CONN) => {
-
-        let data;
-
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
-
-        const student = body.student
-        const alphabeticFirst = body.alphabeticFirst
-
-        const first = await CONN.findOne(AlphabeticFirst, { where: { student } })
-
-        if(!first){
-          data = await CONN.save(AlphabeticFirst, { student, alphabeticFirst, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
-          return { status: 201, data }
-        }
-
-        first.alphabeticFirst = alphabeticFirst
-
-        data = await CONN.save(AlphabeticFirst, { ...first, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
-
-        return { status: 201, data }
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
   async updateAlphabetic(req: Request){
 
     const { body, query } = req
@@ -129,37 +99,32 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTestStatus(id: number | string, body: ObjectLiteral) {
-    try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const options = { relations: ['test', 'studentClassroom'], where: { id: Number(body.id), studentClassroom: { id: Number(id) }, test: { id: Number(body.test.id) }}}
-        const register = await CONN.findOne(StudentTestStatus, { ...options })
-        if(!register) { return { status: 404, message: 'Registro não encontrado' } }
-        register.observation = body.observation ?? register.observation
-        register.active = body.active ?? register.active
-        await CONN.save(StudentTestStatus, register)
-        const data = {}; return { status: 200, data }
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
+  async updateAlphabeticFirstLevel(req: Request){
 
-  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
+    const { body } = req
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
+        let data;
 
-        const uTeacher = await this.teacherByUser(body.user!.user, CONN);
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
 
-        delete body.user
+        const student = body.student
+        const alphabeticFirst = body.alphabeticFirst
 
-        let newBody;
+        const first = await CONN.findOne(AlphabeticFirst, { where: { student } })
 
-        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
-        else { newBody = { ...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id } }
+        if(!first){
+          data = await CONN.save(AlphabeticFirst, { student, alphabeticFirst, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
+          return { status: 201, data }
+        }
 
-        let data = await CONN.save(Alphabetic, newBody)
-        return { status: 200, data }
+        first.alphabeticFirst = alphabeticFirst
+
+        data = await CONN.save(AlphabeticFirst, { ...first, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+
+        return { status: 201, data }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -201,6 +166,41 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       console.log(error)
       return { status: 500, message: error.message }
     }
+  }
+
+  async updateTestStatus(id: number | string, body: ObjectLiteral) {
+    try {
+      return await AppDataSource.transaction(async(CONN) => {
+        const options = { relations: ['test', 'studentClassroom'], where: { id: Number(body.id), studentClassroom: { id: Number(id) }, test: { id: Number(body.test.id) }}}
+        const register = await CONN.findOne(StudentTestStatus, { ...options })
+        if(!register) { return { status: 404, message: 'Registro não encontrado' } }
+        register.observation = body.observation ?? register.observation
+        register.active = body.active ?? register.active
+        await CONN.save(StudentTestStatus, register)
+        const data = {}; return { status: 200, data }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
+    try {
+      return await AppDataSource.transaction(async(CONN) => {
+
+        if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
+
+        const uTeacher = await this.teacherByUser(body.user!.user, CONN);
+
+        delete body.user
+
+        let newBody;
+
+        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
+        else { newBody = { ...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id } }
+
+        let data = await CONN.save(Alphabetic, newBody)
+        return { status: 200, data }
+      })
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

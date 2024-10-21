@@ -346,14 +346,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
-            const studentsBeforeSet = await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN)
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
-            await this.createLinkReadingFluency(headers, studentsBeforeSet, test, uTeacher.person.user.id, CONN)
+            await this.createLinkReadingFluency(headers, await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN), test, uTeacher.person.user.id, CONN)
+
             const preResult = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
             const studentClassrooms = preResult.map(el => ({
               ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
             }))
+
+            for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
+
             const totalNuColumn = []
             const allFluencies = studentClassrooms.flatMap(el => el.readingFluency)
             const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)

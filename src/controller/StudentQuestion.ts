@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import {EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import { EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";

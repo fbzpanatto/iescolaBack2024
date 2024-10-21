@@ -18,27 +18,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        let data;
-        const response = (await this.getReport(request, CONN) as any).data;
-        if (!response) return { status: 404, message: "Teste não encontrado" };
-        switch (response.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE_1):
-          case(TEST_CATEGORIES_IDS.LITE_2):
-          case(TEST_CATEGORIES_IDS.LITE_3): {
-            data = { ...response }
-            break;
-          }
-          case(TEST_CATEGORIES_IDS.READ_2):
-          case(TEST_CATEGORIES_IDS.READ_3): {
-            data = { ...response }
-            break;
-          }
-          case(TEST_CATEGORIES_IDS.AVL_ITA):
-          case(TEST_CATEGORIES_IDS.TEST_4_9): {
-            data = { ...response }
-            break;
-          }
-        }
+        const data = (await this.getReport(request, CONN) as any).data;
+        if (!data) return { status: 404, message: "Teste não encontrado" };
         return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
@@ -242,7 +223,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const totalCityHallColumn: any[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-        const allSchools = schools.reduce((acc: { id: number, name: string, percentTotalByColumn: number[] }[], school) => {
+        const allSchools = schools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
 
           let totalNuColumn: any[] = []
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
@@ -261,14 +242,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }
           const percentTotalByColumn = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
 
-          acc.push({ id: school.id, name: school.name, percentTotalByColumn })
+          acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
 
           return acc
         }, [])
 
         const cityHall = {
-          id: 99,
+          id: 999,
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          shortName: 'ITATIBA',
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 

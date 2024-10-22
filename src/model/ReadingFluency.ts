@@ -1,9 +1,9 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { StudentClassroom } from "./StudentClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { Test } from "./Test";
 import { Student } from "./Student";
+import {Classroom} from "./Classroom";
 
 @Entity()
 export class ReadingFluency {
@@ -13,9 +13,6 @@ export class ReadingFluency {
 
   @ManyToOne(() => Student, student => student.readingFluency)
   student: Student
-
-  // @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.readingFluency)
-  // studentClassroom: StudentClassroom
 
   @ManyToOne(() => ReadingFluencyExam, readingFluencyExam => readingFluencyExam.readingFluencies)
   readingFluencyExam: ReadingFluencyExam
@@ -27,8 +24,8 @@ export class ReadingFluency {
   @JoinColumn({ name: "testId" })
   test: Test;
 
-  @Column({ nullable: true })
-  observation: string
+  @ManyToOne(() => Classroom, classroom => classroom.alphabetic, { nullable: true })
+  rClassroom: Classroom
 
   @Column({ nullable: true, select: false })
   createdAt: Date

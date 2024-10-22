@@ -1531,11 +1531,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 
+    const studentsClassroom = (this.duplicatedStudents(classroom.studentClassrooms) as StudentClassroom[]).filter((el: any) => !el.ignore)
+
     let totalNuColumn: any[] = []
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
-      const el = classroom.studentClassrooms.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
       const value = el.length ?? 0
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value

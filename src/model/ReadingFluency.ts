@@ -24,7 +24,7 @@ export class ReadingFluency {
   @JoinColumn({ name: "testId" })
   test: Test;
 
-  @ManyToOne(() => Classroom, classroom => classroom.alphabetic, { nullable: true })
+  @ManyToOne(() => Classroom, classroom => classroom.readingFluency, { nullable: true })
   rClassroom: Classroom
 
   @Column({ nullable: true, select: false })

@@ -37,7 +37,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const test = await CONN.findOne(Test, { where: { id: body.test.id } })
         if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
 
-        const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, student: { id: body.student.id } } }
+        const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, student: { id: body.student.id } }, relations: ['rClassroom', 'readingFluencyLevel'] }
         const readingFluency: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
 
         if(!readingFluency) {
@@ -55,7 +55,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const messageErr1: string = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
         if(readingFluency?.readingFluencyLevel && readingFluency?.rClassroom && readingFluency?.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
-        readingFluency.readingFluencyLevel = body.readingFluencyLevel
+        readingFluency.rClassroom = body.classroom; readingFluency.readingFluencyLevel = body.readingFluencyLevel
+
         data = await CONN.save(ReadingFluency, {...readingFluency, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }

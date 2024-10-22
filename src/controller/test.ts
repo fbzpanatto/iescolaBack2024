@@ -375,11 +375,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-            for(let item of headers) {
-              const el = allFluencies.filter((el: any) => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
+            for(let header of headers) {
+              const el = allFluencies.filter((el: any) => el.rClassroom?.id === classroomId && el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
               const value = el.length ?? 0
-              totalNuColumn.push({ total: value, divideByExamId: item.readingFluencyExam.id })
-              percentColumn[item.readingFluencyExam.id] += value
+              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+              percentColumn[header.readingFluencyExam.id] += value
             }
 
             const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
@@ -1042,6 +1042,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.readingFluency", "readingFluency")
+      .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
@@ -1125,6 +1126,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.readingFluency", "readingFluency")
+      .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
       .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
       .leftJoinAndSelect("student.person", "studentPerson")
@@ -1219,6 +1221,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
+    // Visual return for frontEnd
     studentClassrooms = studentClassrooms.map(item => {
       const duplicated = duplicatedStudents.find(d => d.id === item.id);
       const newItem = duplicated ? { ...duplicated } : { ...item };
@@ -1259,7 +1262,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .filter(sc => sc.student.studentQuestions?.some(sq => (sq.rClassroom?.id === room.id) && (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
 
       const allStudentQuestions = studentClassroomsBi.flatMap(sc => sc.student.studentQuestions )
-
       const testQuestions = bim.testQuestions?.map(tQ => {
 
         if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
@@ -1537,7 +1539,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
-      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.rClassroom?.id === classroom.id && el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
       const value = el.length ?? 0
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value

@@ -3,7 +3,6 @@ import { Student } from "./Student";
 import { Classroom } from "./Classroom";
 import { Year} from "./Year";
 import { StudentTestStatus } from "./StudentTestStatus";
-import { ReadingFluency } from "./ReadingFluency";
 
 @Entity()
 export class StudentClassroom {
@@ -22,9 +21,6 @@ export class StudentClassroom {
 
   @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.studentClassroom)
   studentStatus: StudentTestStatus[]
-
-  // @OneToMany(() => ReadingFluency, readingFluency => readingFluency.studentClassroom)
-  // readingFluency: ReadingFluency[]
 
   @Column({ nullable: false })
   rosterNumber: number

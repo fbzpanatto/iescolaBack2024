@@ -352,14 +352,26 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             await this.createLinkReadingFluency(headers, await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN), test, uTeacher.person.user.id, CONN)
 
-            const preResult = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
 
-            const studentClassrooms = this.duplicatedStudents(preResult).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
+            studentClassrooms = studentClassrooms.map((item: any) => {
+
+              item.student.readingFluency = item.student.readingFluency.map((readingFluency: ReadingFluency) => {
+                if(item.endedAt && readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
+
+                if(!item.endedAt && readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
+
+                if(readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
+                return readingFluency
+              })
+
+              return item
+            })
 
             for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
 
             const totalNuColumn = []
-            const allFluencies = studentClassrooms.flatMap((el: any) => el.student.readingFluency)
+            const allFluencies = studentClassrooms.filter((el: any) => !el.ignore).flatMap((el: any) => el.student.readingFluency)
 
             const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
@@ -620,7 +632,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
-      // .leftJoin("studentClassroom.readingFluency", "readingFluency")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
       .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
       .leftJoinAndSelect("studentClassroom.student", "student")
@@ -1027,19 +1038,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
+    let studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      // .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
       .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
       .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoin("readingFluency.test", "stReadFluenTest")
-      .leftJoin("studentClassroom.year", "year")
+      .leftJoinAndSelect("readingFluency.test", "stReadFluenTest")
+      .leftJoinAndSelect("studentClassroom.year", "year")
       .leftJoinAndSelect("student.person", "person")
-      .leftJoin("studentClassroom.classroom", "classroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
@@ -1051,6 +1061,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("year.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany()
+
+    return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
   }
 
   async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
@@ -1366,7 +1378,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   duplicatedStudents(studentClassrooms: StudentClassroom[]): any {
     const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-    const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? {...d, ignore: true} : d)
+    const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
   }
 

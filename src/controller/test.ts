@@ -358,7 +358,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
 
             const totalNuColumn = []
-            const allFluencies = studentClassrooms.flatMap(el => el.readingFluency)
+            const allFluencies = studentClassrooms.flatMap(el => el.student.readingFluency)
             const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
             for(let item of headers) {
               const el = allFluencies.filter(el => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
@@ -570,9 +570,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
       if(!stStatus) { await CONN.save(StudentTestStatus, el) }
       for(let exam of headers.flatMap(el => el.readingFluencyExam)) {
-        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, studentClassroom: { id: studentClassroom.id } } }
+        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, student: { id: studentClassroom.student.id } } }
         const sReadingFluency = await CONN.findOne(ReadingFluency, options)
-        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, studentClassroom, test, readingFluencyExam: exam }) }
+        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test, readingFluencyExam: exam }) }
       }
     }
   }
@@ -616,10 +616,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.readingFluency", "readingFluency")
+      // .leftJoin("studentClassroom.readingFluency", "readingFluency")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
       .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoin("studentClassroom.student", "student")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoin("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
@@ -1025,8 +1026,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+      // .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
       .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
       .leftJoinAndSelect("studentStatus.test", "stStatusTest")
@@ -1106,7 +1108,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.readingFluency", "readingFluency")
+      .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
       .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
       .leftJoinAndSelect("student.person", "studentPerson")
@@ -1517,7 +1519,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
-      const el = classroom.studentClassrooms.flatMap(item => item.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+      const el = classroom.studentClassrooms.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
       const value = el.length ?? 0
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value

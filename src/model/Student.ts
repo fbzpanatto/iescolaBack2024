@@ -6,7 +6,8 @@ import { State } from "./State";
 import { Transfer} from "./Transfer";
 import { AlphabeticFirst } from "./AlphabeticFirst";
 import { Alphabetic } from "./Alphabetic";
-import {StudentQuestion} from "./StudentQuestion";
+import { StudentQuestion } from "./StudentQuestion";
+import { ReadingFluency } from "./ReadingFluency";
 
 @Index(["ra", "dv"], { unique: true })
 @Entity()
@@ -24,6 +25,9 @@ export class Student {
 
   @OneToMany(() => Alphabetic, alphabetic => alphabetic.student)
   alphabetic: Alphabetic[];
+
+  @OneToMany(() => ReadingFluency, readingFluency => readingFluency.student)
+  readingFluency: ReadingFluency[];
 
   @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.student)
   studentQuestions: StudentQuestion[];

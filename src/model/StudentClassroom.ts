@@ -23,8 +23,8 @@ export class StudentClassroom {
   @OneToMany(() => StudentTestStatus, studentTestStatus => studentTestStatus.studentClassroom)
   studentStatus: StudentTestStatus[]
 
-  @OneToMany(() => ReadingFluency, readingFluency => readingFluency.studentClassroom)
-  readingFluency: ReadingFluency[]
+  // @OneToMany(() => ReadingFluency, readingFluency => readingFluency.studentClassroom)
+  // readingFluency: ReadingFluency[]
 
   @Column({ nullable: false })
   rosterNumber: number

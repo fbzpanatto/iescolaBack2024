@@ -229,7 +229,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
           for(let header of headers) {
-            const el = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.readingFluency)).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+            const el = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.student.readingFluency)).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
             const value = el.length ?? 0
             totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
 

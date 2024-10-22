@@ -3,6 +3,7 @@ import { StudentClassroom } from "./StudentClassroom";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { Test } from "./Test";
+import { Student } from "./Student";
 
 @Entity()
 export class ReadingFluency {
@@ -10,8 +11,11 @@ export class ReadingFluency {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.readingFluency)
-  studentClassroom: StudentClassroom
+  @ManyToOne(() => Student, student => student.readingFluency)
+  student: Student
+
+  // @ManyToOne(() => StudentClassroom, studentClassroom => studentClassroom.readingFluency)
+  // studentClassroom: StudentClassroom
 
   @ManyToOne(() => ReadingFluencyExam, readingFluencyExam => readingFluencyExam.readingFluencies)
   readingFluencyExam: ReadingFluencyExam
@@ -22,6 +26,9 @@ export class ReadingFluency {
   @ManyToOne(() => Test, test => test.readingFluencies)
   @JoinColumn({ name: "testId" })
   test: Test;
+
+  @Column({ nullable: true })
+  observation: string
 
   @Column({ nullable: true, select: false })
   createdAt: Date

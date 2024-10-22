@@ -37,7 +37,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const test = await CONN.findOne(Test, { where: { id: body.test.id } })
         if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
 
-        const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, studentClassroom: { id: body.studentClassroom.id } } }
+        const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, student: { id: body.student.id } } }
         const register: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
 
         if(!register) { data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id }); return { status: 201, data } }
@@ -47,7 +47,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         return { status: 201, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async updateAlphabetic(req: Request){

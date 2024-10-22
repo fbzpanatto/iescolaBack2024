@@ -38,12 +38,25 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         if(test && !test.active){ return { status: 403, message: 'Essa avaliação não permite novos lançamentos.' } }
 
         const options = { where: { test: { id: body.test.id }, readingFluencyExam: { id: body.readingFluencyExam.id }, student: { id: body.student.id } } }
-        const register: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
+        const readingFluency: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
 
-        if(!register) { data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id }); return { status: 201, data } }
+        if(!readingFluency) {
+          data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id, rClassroom: body.classroom }); return { status: 201, data }
+        }
 
-        register.readingFluencyLevel = body.readingFluencyLevel
-        await CONN.save(ReadingFluency, {...register, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+        const id = body.studentClassroom.id
+        const relations = ['classroom.school', 'student.person']
+        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
+
+        if(sC?.endedAt && !readingFluency?.readingFluencyLevel) {
+          return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` }
+        }
+
+        const messageErr1: string = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
+        if(readingFluency?.readingFluencyLevel && readingFluency?.rClassroom && readingFluency?.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
+
+        readingFluency.readingFluencyLevel = body.readingFluencyLevel
+        data = await CONN.save(ReadingFluency, {...readingFluency, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
 
         return { status: 201, data }
       })
@@ -61,16 +74,15 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
-
         let data;
+
+        const uTeacher = await this.teacherByUser(body.user.user, CONN);
 
         const cY = await this.currentYear(CONN)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
         const test = await CONN.findOne(Test, { where: { category: { id: body.testCategory.id }, period: { year: { name: body.year }, bimester: { id: body.examBimester.id } } }, relations: ["period.bimester"] })
-
         if(!test) { return { status: 404, message: 'Avaliação ainda não disponível.' } }
 
         const bimester = test?.period.bimester.name
@@ -80,7 +92,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const options = { where: { test: { id: test?.id }, student: { id: body.student.id } }, relations: ['rClassroom', 'alphabeticLevel'] }
         const alpha = await CONN.findOne(Alphabetic, options)
 
-        if(!alpha) { data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data } }
+        if(!alpha) {
+          data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data }
+        }
 
         const id = body.studentClassroom.id
         const relations = ['classroom.school', 'student.person']

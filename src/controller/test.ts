@@ -346,26 +346,30 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
+
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
+
             await this.createLinkReadingFluency(headers, await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN), test, uTeacher.person.user.id, CONN)
 
             const preResult = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
-            const studentClassrooms = preResult.map(el => ({
-              ...el, studentStatus: el.studentStatus.find(studentStatus => studentStatus.test.id === test.id)
-            }))
+
+            const studentClassrooms = this.duplicatedStudents(preResult).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
 
             for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
 
             const totalNuColumn = []
-            const allFluencies = studentClassrooms.flatMap(el => el.student.readingFluency)
+            const allFluencies = studentClassrooms.flatMap((el: any) => el.student.readingFluency)
+
             const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+
             for(let item of headers) {
-              const el = allFluencies.filter(el => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
+              const el = allFluencies.filter((el: any) => el.readingFluencyExam.id === item.readingFluencyExam.id && el.readingFluencyLevel?.id === item.readingFluencyLevel.id)
               const value = el.length ?? 0
               totalNuColumn.push({ total: value, divideByExamId: item.readingFluencyExam.id })
               percentColumn[item.readingFluencyExam.id] += value
             }
+
             const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
             data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;

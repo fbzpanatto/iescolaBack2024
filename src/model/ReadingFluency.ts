@@ -3,7 +3,7 @@ import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { Test } from "./Test";
 import { Student } from "./Student";
-import {Classroom} from "./Classroom";
+import { Classroom } from "./Classroom";
 
 @Entity()
 export class ReadingFluency {

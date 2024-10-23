@@ -350,7 +350,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            await this.createLinkReadingFluency(headers, await this.studentClassroomsReadingFluency(test, Number(classroomId), (yearName as string), CONN), test, uTeacher.person.user.id, CONN)
+            const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), CONN)
+
+            await this.linkReading(headers, preStudents, test, uTeacher.person.user.id, CONN)
 
             let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
 
@@ -368,15 +370,34 @@ class TestController extends GenericController<EntityTarget<Test>> {
               return item
             })
 
-            for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
+            for(let item of studentClassrooms) {
+              for(let el of item.student.studentDisabilities) {
+                const options = { where: { studentDisabilities: el } }
+                el.disability = await CONN.findOne(Disability, options) as Disability
+              }
+            }
 
             const totalNuColumn = []
-            const allFluencies = studentClassrooms.filter((el: any) => !el.ignore).flatMap((el: any) => el.student.readingFluency)
 
-            const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+            const allFluencies = studentClassrooms
+              .filter((el: any) => !el.ignore)
+              .flatMap((el: any) => el.student.readingFluency)
+
+            const percentColumn = headers.reduce((acc, prev) => {
+              const key = prev.readingFluencyExam.id;
+              if(!acc[key]) { acc[key] = 0 }
+              return acc
+            }, {} as any)
 
             for(let header of headers) {
-              const el = allFluencies.filter((el: any) => el.rClassroom?.id === classroomId && el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+
+              const el = allFluencies.filter((el: any) => {
+                const sameClassroom = el.rClassroom?.id === classroomId
+                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExam.id
+                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevel.id
+                return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
+              })
+
               const value = el.length ?? 0
               totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
               percentColumn[header.readingFluencyExam.id] += value
@@ -579,7 +600,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async createLinkReadingFluency(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+  async linkReading(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
       const stStatus = await CONN.findOne(StudentTestStatus, options)
@@ -628,7 +649,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
   }
 
-  async studentClassroomsReadingFluency(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+  async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
@@ -731,7 +752,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.getReadingFluencyHeaders(CONN)
-            await this.createLinkReadingFluency(headers, filteredSC, test, uTeacher.person.user.id, CONN)
+            await this.linkReading(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }
           case (TEST_CATEGORIES_IDS.AVL_ITA):

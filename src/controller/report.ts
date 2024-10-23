@@ -246,11 +246,16 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           for(let header of headers) {
 
-            const studentClassrooms = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(item => {
-              return item.student.readingFluency.filter(rD => {
-                return item.classroom.id === rD.rClassroom?.id && rD.readingFluencyExam.id === header.readingFluencyExam.id && rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
-              })
-            }))
+            const studentClassrooms = school.classrooms.flatMap(el =>
+              el.studentClassrooms.flatMap(item =>
+                item.student.readingFluency.filter(rD =>
+                  item.classroom.id === rD.rClassroom?.id &&
+                  rD.readingFluencyExam.id === header.readingFluencyExam.id &&
+                  rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
+                )
+              )
+            );
+
 
             const value = studentClassrooms.length ?? 0
             totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })

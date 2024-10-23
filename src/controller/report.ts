@@ -10,6 +10,7 @@ import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { AlphaHeaders, testController } from "./test";
 import { Year } from "../model/Year";
+import {StudentClassroom} from "../model/StudentClassroom";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -205,21 +206,35 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const headers = await testController.getReadingFluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
-        const schools = await CONN.getRepository(School)
+        let schools = await CONN.getRepository(School)
           .createQueryBuilder("school")
           .leftJoinAndSelect("school.classrooms", "classroom")
           .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.classroom", "currentClassroom")
           .leftJoinAndSelect("studentClassroom.student", "student")
           .leftJoin("studentClassroom.year", "studentClassroomYear")
           .leftJoin("studentClassroom.studentStatus", "studentStatus")
           .leftJoin("studentStatus.test", "studentStatusTest")
           .leftJoinAndSelect("student.readingFluency", "readingFluency")
+          .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
           .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
           .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
           .where("studentClassroomYear.id = :yearId", { yearId })
           .andWhere("readingFluency.test = :testId", { testId })
           .andWhere("studentStatusTest.id = :testId", { testId })
           .getMany()
+
+        schools = schools.map(school => {
+          return {
+            ...school,
+            classrooms: school.classrooms.map(classroom => {
+              return {
+                ...classroom,
+                studentClassrooms: testController.duplicatedStudents(classroom.studentClassrooms).filter((el:any) => !el.ignore) as StudentClassroom[]
+              }
+            })
+          }
+        })
 
         const totalCityHallColumn: any[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
@@ -230,8 +245,16 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
           for(let header of headers) {
-            const el = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(obj => obj.student.readingFluency)).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
-            const value = el.length ?? 0
+
+            const studentClassrooms = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(item => {
+              console.log(item)
+              return item.student.readingFluency.filter(rD => {
+                console.log(rD)
+                return item.classroom.id === rD.rClassroom?.id && rD.readingFluencyExam.id === header.readingFluencyExam.id && rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
+              })
+            }))
+
+            const value = studentClassrooms.length ?? 0
             totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
 
             const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === header.readingFluencyExam.id && el.readingFluencyLevelId === header.readingFluencyLevel.id)

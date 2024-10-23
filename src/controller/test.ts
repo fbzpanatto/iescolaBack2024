@@ -151,10 +151,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
+
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
+
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
-            let response = { ...test, fluencyHeaders }
+
+            let response= { ...test, fluencyHeaders }
             const allClasses: Classroom[] = response.classrooms
             response.classrooms = this.cityHallResponse(baseClassroom, allClasses)
             data = {
@@ -1560,12 +1563,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
-      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.rClassroom?.id === classroom.id && el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+      // el.rClassroom?.id === classroom.id &&
+      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
       const value = el.length ?? 0
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value
     }
-    return totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100 )
+
+    const result = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100 )
+
+    console.log(result)
+
+    return result
   }
 
   diffs = (original: any, current: any): boolean => {

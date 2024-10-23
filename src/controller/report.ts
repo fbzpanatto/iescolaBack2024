@@ -255,7 +255,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
-        data = {...baseTest, fluencyHeaders, schools: [...allSchools, cityHall] }
+        data = { ...baseTest, fluencyHeaders, schools: [...allSchools, cityHall] }
 
         break;
       }

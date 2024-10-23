@@ -158,8 +158,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
 
             let response= { ...test, fluencyHeaders }
-            const allClasses: Classroom[] = response.classrooms
-            response.classrooms = this.cityHallResponse(baseClassroom, allClasses)
+
+            response.classrooms = this.cityHallResponse(baseClassroom, response.classrooms)
+
             data = {
               ...response,
               classrooms: response.classrooms.map((classroom: Classroom) => {
@@ -172,6 +173,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 }
               })
             }
+
             break;
           }
 
@@ -1135,7 +1137,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {
-    return await CONN.getRepository(Test)
+    let data = await CONN.getRepository(Test)
       .createQueryBuilder("test")
       .leftJoinAndSelect("test.period", "period")
       .leftJoinAndSelect("period.bimester", "periodBimester")
@@ -1146,6 +1148,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.classrooms", "classroom")
       .leftJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
+      .leftJoinAndSelect("studentClassroom.classroom", "currentClassroom")
       .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
       .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
       .leftJoinAndSelect("studentClassroom.student", "student")
@@ -1162,6 +1165,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentStatusTest.id = :testId", { testId })
       .addOrderBy("classroom.shortName", "ASC")
       .getOne()
+
+    if(data) {
+      data = {
+        ...data,
+        classrooms: data.classrooms.map(classroom => {
+          const studentClassrooms = this.duplicatedStudents(classroom.studentClassrooms).filter((el: any) => !el.ignore) as StudentClassroom[]
+          return { ...classroom, studentClassrooms }
+        })
+      }
+
+      for(let item of data?.classrooms) {
+        console.log(item.studentClassrooms)
+      }
+    }
+
+    return data
   }
 
   async alphaHeaders(yearName: string, CONN: EntityManager){
@@ -1557,24 +1576,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
 
-    const studentsClassroom = (this.duplicatedStudents(classroom.studentClassrooms) as StudentClassroom[]).filter((el: any) => !el.ignore)
-
     let totalNuColumn: any[] = []
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
-      // el.rClassroom?.id === classroom.id &&
-      const el = studentsClassroom.flatMap(item => item.student.readingFluency).filter(el => el.readingFluencyExam.id === header.readingFluencyExam.id && el.readingFluencyLevel?.id === header.readingFluencyLevel.id)
+
+      const el = classroom.studentClassrooms.flatMap(studentClassroom => studentClassroom.student.readingFluency.filter(readingFluency => readingFluency.rClassroom?.id === studentClassroom.classroom.id && readingFluency.readingFluencyExam.id === header.readingFluencyExam.id && readingFluency.readingFluencyLevel?.id === header.readingFluencyLevel.id))
+
       const value = el.length ?? 0
       totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
       percentColumn[header.readingFluencyExam.id] += value
     }
 
-    const result = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100 )
-
-    console.log(result)
-
-    return result
+    return totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
   }
 
   diffs = (original: any, current: any): boolean => {

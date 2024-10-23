@@ -1174,10 +1174,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
           return { ...classroom, studentClassrooms }
         })
       }
-
-      for(let item of data?.classrooms) {
-        console.log(item.studentClassrooms)
-      }
     }
 
     return data

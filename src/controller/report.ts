@@ -247,9 +247,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           for(let header of headers) {
 
             const studentClassrooms = school.classrooms.flatMap(el => el.studentClassrooms.flatMap(item => {
-              console.log(item)
               return item.student.readingFluency.filter(rD => {
-                console.log(rD)
                 return item.classroom.id === rD.rClassroom?.id && rD.readingFluencyExam.id === header.readingFluencyExam.id && rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
               })
             }))

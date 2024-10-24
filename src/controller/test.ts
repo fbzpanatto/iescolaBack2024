@@ -352,8 +352,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            console.log('getStudents')
-
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
@@ -735,8 +733,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async insertStudents(req: Request) {
 
-    console.log('insertStudents')
-
     const body = req.body as insertStudentsBody
     try {
       return await AppDataSource.transaction(async (CONN) => {
@@ -763,7 +759,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.getReadingFluencyHeaders(CONN)
-            console.log('filteredSC', filteredSC)
             await this.linkReading(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }

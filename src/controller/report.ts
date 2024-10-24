@@ -1,15 +1,15 @@
-import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget } from "typeorm";
-import { Test } from "../model/Test";
-import { AppDataSource } from "../data-source";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { School } from "../model/School";
-import { pc } from "../utils/personCategories";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { AlphaHeaders, testController } from "./test";
-import { Year } from "../model/Year";
+import {GenericController} from "./genericController";
+import {Brackets, EntityManager, EntityTarget} from "typeorm";
+import {Test} from "../model/Test";
+import {AppDataSource} from "../data-source";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {School} from "../model/School";
+import {pc} from "../utils/personCategories";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {AlphaHeaders, testController} from "./test";
+import {Year} from "../model/Year";
 import {StudentClassroom} from "../model/StudentClassroom";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
@@ -299,6 +299,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
 
+        let answersLetters: { letter: string, questions: { id: number, order: number, occurrences: number, percentage: number }[] }[] = []
+
         const schools = preResult
           .filter(s => s.classrooms.some(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0))))
           .map(s => {
@@ -331,7 +333,29 @@ class ReportController extends GenericController<EntityTarget<Test>> {
                 }
 
                 const sQuestions = filtered.flatMap(sc =>
-                  sc.student.studentQuestions.filter(sq => sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === sc.classroom.id )
+                  sc.student.studentQuestions.filter(sq => {
+
+                    const isValid = sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === sc.classroom.id;
+                    if (!isValid) return false;
+
+                    const letter = sq.answer.trim().length ? sq.answer.toUpperCase().trim() : 'VAZIO';
+
+                    let ltItem = answersLetters.find(el => el.letter === letter);
+                    if (!ltItem) {
+                      ltItem = { letter, questions: [] };
+                      answersLetters.push(ltItem);
+                    }
+
+                    let letterOccurrences = ltItem.questions.find(obj => obj.id === tQ.id && obj.order === tQ.order);
+                    if (!letterOccurrences) {
+                      letterOccurrences = { id: tQ.id, order: tQ.order, occurrences: 0, percentage: 0 };
+                      ltItem.questions.push(letterOccurrences);
+                    }
+
+                    letterOccurrences.occurrences += 1;
+
+                    return true
+                  })
                 )
 
                 const totalSq = sQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
@@ -366,7 +390,19 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           totals: allResults
         }
 
-        data = { ...baseTest, schools: [...schools, cityHall] , testQuestions, questionGroups }
+        const firstElement = cityHall.totals[0].tPercent;
+
+        answersLetters = answersLetters.map(el => ({
+          ...el,
+          questions: el.questions.map(question => ({
+            ...question,
+            percentage: firstElement > 0
+              ? Math.floor((question.occurrences / firstElement) * 10000) / 100
+              : 0
+          }))
+        }));
+
+        data = { ...baseTest, schools: [...schools, cityHall], testQuestions, questionGroups, answersLetters };
 
         break;
       }

@@ -352,6 +352,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
+            console.log('getStudents')
+
             const headers = await this.getReadingFluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
@@ -612,9 +614,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
       if(!stStatus) { await CONN.save(StudentTestStatus, el) }
       for(let exam of headers.flatMap(el => el.readingFluencyExam)) {
-        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, student: { id: studentClassroom.student.id } } }
+        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id } } }
         const sReadingFluency = await CONN.findOne(ReadingFluency, options)
-        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test, readingFluencyExam: exam }) }
+        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id }, test, readingFluencyExam: exam }) }
       }
     }
   }
@@ -696,12 +698,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_1:
           case TEST_CATEGORIES_IDS.LITE_2:
           case TEST_CATEGORIES_IDS.LITE_3: {
-            data = await this.notIncludedAlphabetic(test, Number(classroomId), Number(yearName), CONN)
+            data = await this.notIncludedAL(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
-            data = await this.notIncludedReadingFluency(test, Number(classroomId), Number(yearName), CONN)
+            data = await this.notIncludedRF(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
           case TEST_CATEGORIES_IDS.AVL_ITA:
@@ -732,6 +734,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async insertStudents(req: Request) {
+
+    console.log('insertStudents')
+
     const body = req.body as insertStudentsBody
     try {
       return await AppDataSource.transaction(async (CONN) => {
@@ -742,7 +747,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case (TEST_CATEGORIES_IDS.LITE_1):
           case (TEST_CATEGORIES_IDS.LITE_2):
           case (TEST_CATEGORIES_IDS.LITE_3): {
-            const stClassrooms = await this.notIncludedAlphabetic(test, body.classroom.id, body.year, CONN)
+            const stClassrooms = await this.notIncludedAL(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             for(let register of filteredSC){
@@ -751,15 +756,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
             break;
           }
+
           case (TEST_CATEGORIES_IDS.READ_2):
           case (TEST_CATEGORIES_IDS.READ_3): {
-            const stClassrooms = await this.notIncludedReadingFluency(test, body.classroom.id, body.year, CONN)
+            const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.getReadingFluencyHeaders(CONN)
+            console.log('filteredSC', filteredSC)
             await this.linkReading(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }
+
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
             const stClassrooms = await this.notTestIncluded(test, body.classroom.id, body.year, CONN)
@@ -772,7 +780,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data: {} };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    } catch (error: any) {
+      console.log('insertStudents', error)
+      return { status: 500, message: error.message }
+    }
   }
 
   async notTestIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
@@ -795,15 +806,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getRawMany() as unknown as notIncludedInterface[]
   }
 
-  async notIncludedReadingFluency(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
+  async notIncludedRF(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
       .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.readingFluency", "readingFluency")
+      .leftJoinAndSelect("studentClassroom.student", "student")
+      .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoin("studentClassroom.studentStatus", "studentStatus")
       .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
-      .leftJoinAndSelect("studentClassroom.student", "student")
       .leftJoin("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", {classroomId})
       .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
@@ -813,7 +824,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getRawMany() as unknown as notIncludedInterface[]
   }
 
-  async notIncludedAlphabetic(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
+  async notIncludedAL(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])

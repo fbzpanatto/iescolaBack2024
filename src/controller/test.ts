@@ -186,31 +186,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
             const classroomResults = test.classrooms
-              .filter(classroom =>
-                // Filtra as salas de aula com pelo menos um aluno com respostas
-                classroom.studentClassrooms.some(sc =>
-                  sc.student.studentQuestions.some(sq => sq.answer.length > 0)
-                )
-              )
+              .filter(classroom => classroom.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
               .map(classroom => {
 
                 const studentCount = classroom.studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
 
                 const duplicatedStudents = classroom.studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
-                const studentClassrooms = classroom.studentClassrooms
-                  .map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
+                const studentClassrooms = classroom.studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
 
-                const filtered = studentClassrooms.filter((sc: any) => {
-                  return !sc.ignore && sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id )
-                });
+                const filtered = studentClassrooms.filter((sc: any) => { return !sc.ignore && sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id )})
 
-                // Pré-calcula uma lista de perguntas dos alunos
-                const filteredStudentQuestions = filtered.map(sc =>
-                  sc.student.studentQuestions.filter(sq =>
-                    sq.answer.length > 0 && sq.rClassroom?.id === classroom.id
-                  )
-                ).flat(); // Usamos flat diretamente após map para reduzir o uso de flatMap
+                const filteredStudentQuestions = filtered.map(sc => sc.student.studentQuestions.filter(sq => sq.answer.length > 0 && sq.rClassroom?.id === classroom.id)).flat()
 
                 return {
                   id: classroom.id,
@@ -220,63 +207,45 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   schoolId: classroom.school.id,
                   totals: testQuestions.map(tQ => {
 
-                    // Ignora perguntas inativas
-                    if (!tQ.active) {
-                      return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
-                    }
+                    if (!tQ.active) { return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 } }
 
-                    // Seleciona todas as questões dos alunos que correspondem à pergunta do teste
-                    const studentsQuestions = filteredStudentQuestions.filter(sq =>
-                      sq.testQuestion.id === tQ.id
-                    );
+                    const studentsQuestions = filteredStudentQuestions.filter(sq => sq.testQuestion.id === tQ.id );
 
-                    // Filtra as questões que têm a resposta correta
-                    const totalSq = studentsQuestions.filter(sq =>
-                      tQ.answer?.includes(sq.answer.toUpperCase())
-                    );
+                    const totalSq = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()));
 
-                    // Total de estudantes e perguntas respondidas corretamente
                     const total = filtered.length;
                     const matchedQuestions = totalSq.length;
 
-                    // Calcula a taxa de correspondência
                     const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
 
                     return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
                   })
-                };
-              });
+                }
+              })
 
             const classroomNumber = baseClassroom.shortName.replace(/\D/g, "");
-            const schoolResults = classroomResults.filter(cl => cl.schoolId === baseClassroom.school.id && cl.shortName.replace(/\D/g, "") === classroomNumber)
+            const baseSchoolId = baseClassroom.school.id;
+
+            const schoolResults = classroomResults.filter(cl => {
+              const clNumber = cl.shortName.replace(/\D/g, "");
+              return cl.schoolId === baseSchoolId && clNumber === classroomNumber;
+            })
 
             let allResults: { id: number, order: number, tNumber: number | string, tPercent: number | string, tRate: number | string }[] = []
             const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
 
-            // Inicializar o Map para acessar elementos por ID de maneira rápida
             const resultsMap = new Map();
 
-            // Preencher o Map com os resultados já existentes
-            for (let el of allResults) {
-              resultsMap.set(el.id, el);
-            }
+            for (let el of allResults) { resultsMap.set(el.id, el) }
 
             for (let item of totalClassroomsResults) {
               const el = resultsMap.get(item.id);
 
               if (!el) {
-                // Se não existir no Map, adicionar um novo elemento
-                const newElement = {
-                  id: item.id,
-                  order: item.order,
-                  tNumber: Number(item.tNumber),
-                  tPercent: Number(item.tPercent),
-                  tRate: Number(item.tRate)
-                };
-                allResults.push(newElement);
-                resultsMap.set(item.id, newElement); // Adicionar ao Map para futuras referências
+                const newElement = { id: item.id, order: item.order, tNumber: Number(item.tNumber), tPercent: Number(item.tPercent), tRate: Number(item.tRate)}
+                allResults.push(newElement)
+                resultsMap.set(item.id, newElement)
               } else {
-                // Se já existir, atualizar os valores
                 el.tNumber += Number(item.tNumber);
                 el.tPercent += Number(item.tPercent);
                 el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100;

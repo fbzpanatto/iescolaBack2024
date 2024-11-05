@@ -133,7 +133,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.LITE_2):
       case(TEST_CATEGORIES_IDS.LITE_3): {
 
-        const year = await CONN.findOneBy(Year, { name: yearName })
+        const year = baseTest.period.year
         if(!year) return { status: 404, message: "Ano não encontrado." }
 
         let headers = await testController.alphaHeaders(year.name, CONN) as AlphaHeaders[]

@@ -51,8 +51,7 @@ export const STUDENT_SCHEMA: Schema = {
   },
   name: {
     optional: true,
-    escape: true,
-    isString: true,
+    isString: true
   },
   observationOne: {
     optional: true,

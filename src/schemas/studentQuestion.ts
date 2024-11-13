@@ -52,8 +52,7 @@ export const STUDENT_QUESTIONSTATUS_SCHEMA: Schema = {
     toBoolean: true,
   },
   observation: {
-    optional: true,
-    escape: true
+    optional: true
   },
   test: { optional: true },
   'test.id': {

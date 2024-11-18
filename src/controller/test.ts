@@ -1212,7 +1212,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for(let test of tests) {
 
-        const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
+        const fields = [
+          "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"
+        ]
 
         const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
         test.testQuestions = testQuestions

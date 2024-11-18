@@ -23,7 +23,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         result = await AppDataSource.transaction(async (alternative) => {
 
           const uTeacher = await this.teacherByUser(body.user.user, alternative);
-          const tClasses = await this.teacherClassrooms(request?.body.user, alternative);
+          const tClasses = await this.tClassrooms(request?.body.user, alternative);
           const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
           return await alternative.getRepository(Classroom)
@@ -45,7 +45,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const uTeacher = await this.teacherByUser(body.user.user, CONN);
 
-      const tClasses = await this.teacherClassrooms(request?.body.user, CONN);
+      const tClasses = await this.tClassrooms(request?.body.user, CONN);
 
       masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 

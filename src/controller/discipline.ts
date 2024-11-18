@@ -18,7 +18,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
       if(!CONN){
         const teacher = await this.teacherByUser(body.user.user);
-        const teacherDisciplines = await this.teacherDisciplines(request?.body.user);
+        const teacherDisciplines = await this.tDisciplines(request?.body.user);
   
         let result = await this.repository
           .createQueryBuilder("discipline")
@@ -42,7 +42,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
       await AppDataSource.transaction(async (CONN) => {
 
         const teacher = await this.teacherByUser(body.user.user, CONN);
-        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, CONN);
+        const teacherDisciplines = await this.tDisciplines(request?.body.user, CONN);
 
         result = await CONN.getRepository(Discipline)
           .createQueryBuilder("discipline") 

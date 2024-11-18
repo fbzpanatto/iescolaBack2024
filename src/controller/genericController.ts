@@ -96,7 +96,7 @@ export class GenericController<T> {
     return await CONN.findOne(Teacher, options) as Teacher
   }
 
-  async teacherClassrooms(body: { user: number }, CONN?: EntityManager) {
+  async tClassrooms(body: { user: number }, CONN?: EntityManager) {
 
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
@@ -129,7 +129,7 @@ export class GenericController<T> {
     return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
   }
 
-  async teacherDisciplines(body: { user: number }, CONN?: EntityManager) {
+  async tDisciplines(body: { user: number }, CONN?: EntityManager) {
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
       .select("teacher.id", "teacher")

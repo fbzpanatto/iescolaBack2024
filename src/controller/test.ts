@@ -74,7 +74,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const baseTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category', 'discipline'] }) as Test
 
-        const { classrooms} = await this.teacherClassrooms(req.body.user, CONN)
+        const { classrooms} = await this.tClassrooms(req.body.user, CONN)
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
         const baseClassroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
@@ -280,7 +280,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const uTeacher = await this.teacherByUser(request?.body.user.user, CONN)
         const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
-        const { classrooms } = await this.teacherClassrooms(request?.body.user, CONN)
+        const { classrooms } = await this.tClassrooms(request?.body.user, CONN)
         if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
         const test = await this.getTest(testId, yearName, CONN)
@@ -804,22 +804,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getRawMany()
   }
 
-  async findAllByYear(request: Request) {
+  async findAllByYear(req: Request) {
 
     try {
       return AppDataSource.transaction(async(CONN) => {
 
-        const yearName = request.params.year
-        const search = request.query.search as string
-        const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
-        const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+        const yearName = req.params.year
+        const search = req.query.search as string
+        const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+        const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-        const teacher = await this.teacherByUser(request.body.user.user, CONN);
+        const teacher = await this.teacherByUser(req.body.user.user, CONN);
 
-        const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+        const masterTeacher =
+          teacher.person.category.id === pc.ADMN ||
+          teacher.person.category.id === pc.SUPE ||
+          teacher.person.category.id === pc.FORM
 
-        const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN)
-        const teacherDisciplines = await this.teacherDisciplines(request?.body.user, CONN);
+        const { classrooms } = await this.tClassrooms(req?.body.user, CONN)
+        const { disciplines } = await this.tDisciplines(req?.body.user, CONN);
+
+        const subQuery = CONN.getRepository(Test)
+          .createQueryBuilder("t")
+          .select("MIN(t.id)")
+          .where("t.category.id IN (1, 2, 3)")
+          .groupBy("t.category.id");
 
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
@@ -833,10 +842,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("classroom.school", "school")
           .where(new Brackets(qb => {
             if (!masterTeacher) {
-              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms });
-              qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: teacherDisciplines.disciplines });
+              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
+              qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: disciplines });
             }
           }))
+          .andWhere(new Brackets(qb => {
+            qb.where("test.category.id NOT IN (1, 2, 3)")
+              .orWhere(`test.id IN (${subQuery.getQuery()})`);
+          }))
+          .setParameters(subQuery.getParameters())
           .andWhere("year.name = :yearName", { yearName })
           .andWhere( new Brackets((qb) => {
             qb.where("test.name LIKE :search", { search: `%${ search }%` })
@@ -850,7 +864,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .take(limit)
           .skip(offset)
           .getMany();
-        return { status: 200, data: testClasses };
+
+        const alphaCategories = [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3]
+
+        const mappedResult = testClasses.map(el => {
+          if(alphaCategories.includes(el.category.id)) {
+            el.period.bimester.name = 'TODOS'
+            el.period.bimester.testName = 'TODOS'
+            ; return el
+          }
+          return el
+        })
+
+        return { status: 200, data: mappedResult };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }

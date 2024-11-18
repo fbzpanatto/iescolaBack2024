@@ -178,7 +178,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         const teacher = await this.teacherByUser(req.body.user.user, CONN);
-        const teacherClasses = await this.teacherClassrooms(req?.body.user, CONN);
+        const teacherClasses = await this.tClassrooms(req?.body.user, CONN);
 
         const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
 
@@ -210,7 +210,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const uTeacher = await CONN.findOne(Teacher, {...options})
 
         const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE || uTeacher?.person.category.id === pc.FORM
-        const teacherClasses = await this.teacherClassrooms(body?.user, CONN)
+        const teacherClasses = await this.tClassrooms(body?.user, CONN)
         const preStudent = await this.student(Number(params.id), CONN)
 
         if (!preStudent) { return { status: 404, message: "Registro não encontrado" } }
@@ -232,7 +232,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
-        const tClasses = await this.teacherClassrooms(body.user, CONN);
+        const tClasses = await this.tClassrooms(body.user, CONN);
         const year = await this.currentYear(CONN);
         const state = await this.state(body.state, CONN);
         const classroom = await this.classroom(body.classroom, CONN);
@@ -308,7 +308,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
-        const tClasses = await this.teacherClassrooms(body.user, CONN);
+        const tClasses = await this.tClassrooms(body.user, CONN);
         const year = await this.currentYear(CONN);
 
         for(let element of body.arrayOfData) {
@@ -704,7 +704,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const masterUser: boolean = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
-        const { classrooms } = await this.teacherClassrooms(body.user, CONN)
+        const { classrooms } = await this.tClassrooms(body.user, CONN)
         const message = "Você não tem permissão para realizar modificações nesta sala de aula."
         if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) { return { status: 403, message } }
 

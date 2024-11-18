@@ -95,7 +95,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       return await AppDataSource.transaction(async(CONN)=> {
 
         const teacher = await this.teacherByUser(body.user.user, CONN);
-        const teacherClasses = await this.teacherClassrooms(body?.user, CONN);
+        const teacherClasses = await this.tClassrooms(body?.user, CONN);
         const notInCategories = [pc.ADMN, pc.SUPE, pc.FORM];
 
         const newResult = await CONN.getRepository(Teacher)
@@ -178,7 +178,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async getRequestedStudentTransfers(request?: Request) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const teacherClasses = await this.teacherClassrooms(request?.body.user, CONN);
+        const teacherClasses = await this.tClassrooms(request?.body.user, CONN);
         const studentClassrooms = await CONN.getRepository(StudentClassroom)
           .createQueryBuilder("studentClassroom")
           .leftJoin("studentClassroom.classroom", "classroom")

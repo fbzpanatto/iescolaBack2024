@@ -159,35 +159,17 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let preResult = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
 
         let mappedSchools = preResult.map(school => {
-          const element = {
-            id: school.id,
-            name: school.name,
-            shortName: school.shortName,
-            school: school.name,
-            totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
-          }
+          const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
           return { ...element, totals: testController.aggregateResult(element, testController.alphaAllClasses23(school.classrooms, headers)) }
         })
 
-        const cityHall = {
-          id: 999,
-          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-          shortName: 'ITATIBA',
-          school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-          totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
-        }
+        const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', school: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', totals: headers.map(h => ({ ...h, bimesterCounter: 0 })) }
 
         cityHall.totals = testController.aggregateResult(cityHall, testController.alphaAllClasses23(preResult.flatMap(school => school.classrooms), headers))
 
         schools = [ ...mappedSchools, cityHall ]
 
-        const test = {
-          id: 99,
-          name: baseTest.name,
-          category: { id: baseTest.category.id, name: baseTest.category.name },
-          discipline: { name: baseTest.discipline.name },
-          period: { bimester: { name: 'TODOS' }, year },
-        }
+        const test = { id: 99, name: baseTest.name, category: { id: baseTest.category.id, name: baseTest.category.name }, discipline: { name: baseTest.discipline.name }, period: { bimester: { name: 'TODOS' }, year } }
 
         data = { alphabeticHeaders: headers, ...test, schools }
 

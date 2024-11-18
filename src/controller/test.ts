@@ -332,13 +332,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
-              item.student.readingFluency = item.student.readingFluency.map((readingFluency: ReadingFluency) => {
-                if(item.endedAt && readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
+              item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
+                if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
 
-                if(!item.endedAt && readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
+                if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
 
-                if(readingFluency.rClassroom?.id && readingFluency.rClassroom.id != classroomId) { return { ...readingFluency, gray: true } }
-                return readingFluency
+                if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+                return rF
               })
 
               return item

@@ -823,7 +823,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
-          .leftJoinAndSelect("test.person", "person")
+          .select([ 'test.id', 'test.name' ])
           .leftJoinAndSelect("test.period", "period")
           .leftJoinAndSelect("test.category", "category")
           .leftJoinAndSelect("period.year", "year")

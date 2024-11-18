@@ -236,8 +236,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
                   rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
                 )
               )
-            );
-
+            )
 
             const value = studentClassrooms.length ?? 0
             totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })

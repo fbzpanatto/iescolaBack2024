@@ -322,10 +322,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
                     const letter = sq.answer.trim().length ? sq.answer.toUpperCase().trim() : 'VAZIO';
 
                     let ltItem = answersLetters.find(el => el.letter === letter);
-                    if (!ltItem) {
-                      ltItem = { letter, questions: [] };
-                      answersLetters.push(ltItem);
-                    }
+                    if (!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
 
                     let letterOccurrences = ltItem.questions.find(obj => obj.id === tQ.id && obj.order === tQ.order);
                     if (!letterOccurrences) {

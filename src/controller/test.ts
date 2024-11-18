@@ -25,24 +25,43 @@ import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { TestBodySave } from "../interfaces/interfaces";
-import { TestClassroom } from "../model/TestClassroom";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
+import { PoolConnection } from "mysql2/promise";
+import { format } from "mysql2";
+import { dbConn } from "../services/db";
+import { JoinClause } from "../utils/queries";
 
 interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
 interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
-export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
 interface AllClassrooms { id: number, name: string, shortName: string, school: School, totals: { bimesterCounter: number, testQuestions: { counter: number, counterPercentage: number, id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup } | {}[] | undefined, levels: any[], id: number, name: string, periods: Period[] }[] }
 interface CityHall { id: number, name: string, shortName: string, school: string, totals: { bimesterCounter: number, id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }[] }
-
+export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
+
+  async query<T>(conn: PoolConnection, table: string, alias: string, fields: string[], where: {[key: string]: any}, first: boolean = true, leftJoins: JoinClause[] = []): Promise<T | null> {
+
+    const selectClause = fields.length > 0 ? fields.join(', ') : '*'
+
+    const values = Object.values(where)
+
+    const columns = Object.keys(where).length > 0 ? 'WHERE ' + Object.keys(where).map(key => `${ alias }.${ key }=?`).join(' AND ') : '';
+
+    const joins: string = leftJoins.map(el => `LEFT JOIN ${el.table} AS ${el.alias} ON ${ el.conditions.map(cond => `${ cond.column1 } = ${ cond.column2 }`).join(' AND ') }`).join(' ')
+
+    const qString = `SELECT ${ selectClause } FROM ${ table } AS ${ alias } ${ joins } ${ columns }`
+
+    const [ qResult ] = await conn.query(format(qString, values)) as Array<{[key: string]: any}>
+
+    return first ? qResult[0] ?? null : qResult
+  }
 
   async getFormData(req: Request) {
 
@@ -271,22 +290,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const yearName = req?.params.year as string
 
+    let conn = await dbConn()
+
     try {
-      return await AppDataSource.transaction(async (CONN) => {
 
-        const testClassroom = await CONN.findOne(TestClassroom, { where: { testId, classroomId } })
-        if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
+      const testClassroom = await this.query(conn, 'test_classroom', 'tc', [], { testId, classroomId })
+      if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-        const tUser = await this.teacherByUser(req?.body.user.user, CONN)
+      return await AppDataSource.transaction(async (appCONN) => {
+
+        const tUser = await this.teacherByUser(req?.body.user.user, appCONN)
         const masterUser = tUser.person.category.id === pc.ADMN || tUser.person.category.id === pc.SUPE || tUser.person.category.id === pc.FORM;
 
-        const { classrooms } = await this.tClassrooms(req?.body.user, CONN)
+        const { classrooms } = await this.tClassrooms(req?.body.user, appCONN)
         if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
-        const test = await this.getTest(testId, yearName, CONN)
+        const test = await this.getTest(testId, yearName, appCONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
-        const classroom = await CONN.getRepository(Classroom)
+        const classroom = await appCONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .leftJoinAndSelect("classroom.school", "school")
           .where("classroom.id = :classroomId", { classroomId })
@@ -301,17 +323,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const students = await this.alphabeticStudents(test, Number(classroomId), (yearName as string), CONN)
-            const headers = await this.alphaHeaders(yearName, CONN)
+            const students = await this.alphabeticStudents(test, Number(classroomId), (yearName as string), appCONN)
+            const headers = await this.alphaHeaders(yearName, appCONN)
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser, yearName, CONN)
+                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser, yearName, appCONN)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser, yearName, CONN)
+                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser, yearName, appCONN)
                 break;
               }
             }
@@ -321,14 +343,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            const headers = await this.getRfluencyHeaders(CONN)
+            const headers = await this.getRfluencyHeaders(appCONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), CONN)
+            const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), appCONN)
 
-            await this.linkReading(headers, preStudents, test, tUser.person.user.id, CONN)
+            await this.linkReading(headers, preStudents, test, tUser.person.user.id, appCONN)
 
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, CONN )
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, appCONN )
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -347,7 +369,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             for(let item of studentClassrooms) {
               for(let el of item.student.studentDisabilities) {
                 const options = { where: { studentDisabilities: el } }
-                el.disability = await CONN.findOne(Disability, options) as Disability
+                el.disability = await appCONN.findOne(Disability, options) as Disability
               }
             }
 
@@ -388,10 +410,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let testQuestionsIds: number[] = []
 
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
+            const testQuestions = await this.getTestQuestions(test.id, appCONN, fields)
 
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
-            const questionGroups = await this.getTestQuestionsGroups(testId, CONN)
+            const questionGroups = await this.getTestQuestionsGroups(testId, appCONN)
 
             let classroomPoints = 0
             let classroomPercent = 0
@@ -399,12 +421,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), CONN), test, testQuestions, tUser.person.user.id, CONN)
+            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser.person.user.id, appCONN)
 
             let diffOe = 0
             let validSc = 0
 
-            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, CONN))
+            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, appCONN))
               .map((sc: StudentClassroom) => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
@@ -474,7 +496,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             for(let item of mappedResult) {
               for(let el of item.student.studentDisabilities) {
-                el.disability = await CONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+                el.disability = await appCONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
               }
             }
 

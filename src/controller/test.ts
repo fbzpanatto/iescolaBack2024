@@ -46,17 +46,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
-  async query<T>(conn: PoolConnection, table: string, alias: string, fields: string[], where: {[key: string]: any}, first: boolean = true, leftJoins: JoinClause[] = []): Promise<T | null> {
+  async query<T>(conn: PoolConnection, mainTable: string, fields: string[], where: {[key: string]: any}, first: boolean = true, leftJoins: JoinClause[] = []): Promise<T | null> {
 
     const selectClause = fields.length > 0 ? fields.join(', ') : '*'
 
     const values = Object.values(where)
 
-    const columns = Object.keys(where).length > 0 ? 'WHERE ' + Object.keys(where).map(key => `${ alias }.${ key }=?`).join(' AND ') : '';
+    const columns = Object.keys(where).length > 0 ? 'WHERE ' + Object.keys(where).map(key => `${ key }=?`).join(' AND ') : '';
 
-    const joins: string = leftJoins.map(el => `LEFT JOIN ${el.table} AS ${el.alias} ON ${ el.conditions.map(cond => `${ cond.column1 } = ${ cond.column2 }`).join(' AND ') }`).join(' ')
+    const joins: string = leftJoins.map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.column1 } = ${ cond.column2 }`).join(' AND ') }`).join(' ')
 
-    const qString = `SELECT ${ selectClause } FROM ${ table } AS ${ alias } ${ joins } ${ columns }`
+    const qString = `SELECT ${ selectClause } FROM ${ mainTable } ${ joins } ${ columns }`
 
     const [ qResult ] = await conn.query(format(qString, values)) as Array<{[key: string]: any}>
 
@@ -290,17 +290,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const yearName = req?.params.year as string
 
-    let conn = await dbConn()
+    let myConnBd = await dbConn()
 
     try {
 
-      const testClassroom = await this.query(conn, 'test_classroom', 'tc', [], { testId, classroomId })
+      const testClassroom = await this.query(myConnBd, 'test_classroom', [], { 'test_classroom.testId': testId, 'test_classroom.classroomId': classroomId })
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      return await AppDataSource.transaction(async (appCONN) => {
+      const tUser = await this.query<{ userId: number, categoryId: number }>(
+        myConnBd, 'teacher', ['person_category.id AS categoryId', 'user.id AS userId'], { 'user.id': req?.body.user.user }, true,
+        [
+          { table: 'person', conditions: [{ column1: 'teacher.personId', column2: 'person.id' }] },
+          { table: 'person_category', conditions: [{ column1: 'person.categoryId', column2: 'person_category.id' }] },
+          { table: 'user', conditions: [{ column1: 'person.id', column2: 'user.personId' }] }
+        ]
+      )
 
-        const tUser = await this.teacherByUser(req?.body.user.user, appCONN)
-        const masterUser = tUser.person.category.id === pc.ADMN || tUser.person.category.id === pc.SUPE || tUser.person.category.id === pc.FORM;
+      const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
+
+      return await AppDataSource.transaction(async (appCONN) => {
 
         const { classrooms } = await this.tClassrooms(req?.body.user, appCONN)
         if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
@@ -328,12 +336,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser, yearName, appCONN)
+                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser, yearName, appCONN)
+                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
                 break;
               }
             }
@@ -348,7 +356,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), appCONN)
 
-            await this.linkReading(headers, preStudents, test, tUser.person.user.id, appCONN)
+            await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
 
             let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, appCONN )
 
@@ -421,7 +429,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser.person.user.id, appCONN)
+            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser?.userId as number, appCONN)
 
             let diffOe = 0
             let validSc = 0
@@ -519,9 +527,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if (myConnBd) { myConnBd.release() } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -1239,9 +1247,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: StudentClassroom[], room: Classroom, classId: number, uTeacher: Teacher, yearN: string, CONN: EntityManager){
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: StudentClassroom[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager){
 
-    await this.createLinkAlphabetic(sC, test, uTeacher.person.user.id, CONN)
+    await this.createLinkAlphabetic(sC, test, userId, CONN)
 
     const tests = await this.alphabeticTests(yearN, test, CONN)
 
@@ -1269,7 +1277,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
 
-        await this.testQuestLink(false, preResultSc, test, testQuestions, uTeacher.person.user.id, CONN)
+        await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
       }
 
       headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })

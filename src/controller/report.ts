@@ -185,7 +185,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         if(!year) return { status: 404, message: "Ano não encontrado." }
 
         const yearId = year.id.toString()
-        const headers = await testController.getReadingFluencyHeaders(CONN)
+        const headers = await testController.getRfluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
         let schools = await CONN.getRepository(School)

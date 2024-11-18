@@ -152,7 +152,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
-            const headers = await this.getReadingFluencyHeaders(CONN)
+            const headers = await this.getRfluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
@@ -321,7 +321,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            const headers = await this.getReadingFluencyHeaders(CONN)
+            const headers = await this.getRfluencyHeaders(CONN)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), CONN)
@@ -727,7 +727,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            const headers = await this.getReadingFluencyHeaders(CONN)
+            const headers = await this.getRfluencyHeaders(CONN)
             await this.linkReading(headers, filteredSC, test, uTeacher.person.user.id, CONN)
             break;
           }
@@ -1028,7 +1028,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getReadingFluencyHeaders(CONN: EntityManager) {
+  async getRfluencyHeaders(CONN: EntityManager) {
     return await CONN.getRepository(ReadingFluencyGroup)
       .createQueryBuilder("rfg")
       .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")

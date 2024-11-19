@@ -52,17 +52,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classroomId = Number(req?.params.classroom)
     const yearName =  String(req?.params.year)
 
-    let myConnBd = await dbConn()
+    let mysqlConnection = await dbConn()
 
     try {
 
-      const testClassroom = await this.testClassroom(myConnBd, testId, classroomId)
+      const testClassroom = await this.testClassroom(mysqlConnection, testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.tUser(myConnBd, req?.body.user.user)
+      const tUser = await this.tUser(mysqlConnection, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
-      const classroomsQuery = await this.classroomQuery(myConnBd, req?.body.user.user)
+      const classroomsQuery = await this.classroomQuery(mysqlConnection, req?.body.user.user)
       const classrooms = classroomsQuery?.classrooms?.split(',').map(el => Number(el))
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
@@ -301,7 +301,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('error', error)
       return { status: 500, message: error.message }
     }
-    finally { if (myConnBd) { myConnBd.release() } }
+    finally { if (mysqlConnection) { mysqlConnection.release() } }
   }
 
   async getFormData(req: Request) {

@@ -46,31 +46,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
-  async query<T>(
-    conn: PoolConnection,
-    mainTable: string,
-    fields: string[],
-    whereArr: { tableCl: string, operator: string, value: any }[],
-    first: boolean,
-    leftJoins: JoinClause[],
-    groupBy: { column: string }[]
-  ): Promise<T | null> {
-
-    const columns: string = whereArr.length > 0 ? 'WHERE ' + whereArr.map(el => `${ el.tableCl } ${ el.operator } ?`).join(' AND ') : '';
-
-    const joins: string = leftJoins
-      .map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.foreignTable } = ${ cond.currTable }`).join(' AND ') }`)
-      .join(' ')
-
-    const groups: string = groupBy.length > 0 ? 'GROUP BY ' + groupBy.map(el => `${ el.column }`).join(', ') : ''
-
-    const qString = `SELECT ${ fields.length > 0 ? fields.join(', ') : '*' } FROM ${ mainTable } ${ joins } ${ columns } ${ groups }`
-
-    const [ qResult ] = await conn.query(format(qString, whereArr.map(el => el.value))) as Array<{[key: string]: any}>
-
-    return first ? qResult[0] ?? null : qResult
-  }
-
   async getStudents(req?: Request) {
 
     const testId = Number(req?.params.id)
@@ -81,59 +56,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
-      const testClassroom = await this.query<{ testId: number, classroomId: number }>(
-        myConnBd,
-        'test_classroom',
-        [],
-        [
-          { tableCl: 'test_classroom.testId', operator: '=', value: testId },
-          { tableCl: 'test_classroom.classroomId', operator: '=', value: classroomId }
-        ],
-        true,
-        [],
-        []
-      )
-
+      const testClassroom = await this.testClassroom(myConnBd, testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.query<{ userId: number, categoryId: number }>(
-        myConnBd,
-        'teacher',
-        ['person_category.id AS categoryId', 'user.id AS userId'],
-        [
-          { tableCl: 'user.id', operator: '=', value: req?.body.user.user }
-        ],
-        true,
-        [
-          { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
-          { table: 'person_category', conditions: [{ foreignTable: 'person.categoryId', currTable: 'person_category.id' }] },
-          { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }
-        ],
-        []
-      )
-
+      const tUser = await this.tUser(myConnBd, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
-      const classroomsQuery = await this.query<{teacher: number, classrooms: string}>(
-        myConnBd,
-        'teacher',
-        ['teacher.id AS teacher', 'GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classrooms'],
-        [
-          { tableCl: 'user.id', operator: '=', value: req?.body.user.user },
-          { tableCl: 'teacher_class_discipline.endedAt', operator: 'IS', value: null }
-        ],
-        true,
-        [
-          { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
-          { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] },
-          { table: 'teacher_class_discipline', conditions: [{ foreignTable: 'teacher.id', currTable: 'teacher_class_discipline.teacherId' }] },
-          { table: 'classroom', conditions: [{ foreignTable: 'teacher_class_discipline.classroomId', currTable: 'classroom.id' }] }
-        ],
-        [
-          { column: 'teacher.id' }
-        ]
-      )
-
+      const classroomsQuery = await this.classroomQuery(myConnBd, req?.body.user.user)
       const classrooms = classroomsQuery?.classrooms?.split(',').map(el => Number(el))
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 

@@ -8,6 +8,9 @@ import { State } from "../model/State";
 import { Request } from "express";
 import { TransferStatus } from "../model/TransferStatus";
 import { Teacher } from "../model/Teacher";
+import {PoolConnection} from "mysql2/promise";
+import {JoinClause} from "../utils/queries";
+import {format} from "mysql2";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -159,5 +162,32 @@ export class GenericController<T> {
     .getRawOne()) as { teacher: number; disciplines: string };
 
     return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
+  }
+
+  async query<T>(conn: PoolConnection, mainTable: string, fields: string[], whereArr: { tableCl: string, operator: string, value: any }[], first: boolean, leftJoins: JoinClause[], groupBy: { column: string }[]): Promise<T | null> {
+
+    const columns: string = whereArr.length > 0 ? 'WHERE ' + whereArr.map(el => `${ el.tableCl } ${ el.operator } ?`).join(' AND ') : '';
+
+    const joins: string = leftJoins.map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.foreignTable } = ${ cond.currTable }`).join(' AND ') }`).join(' ')
+
+    const groups: string = groupBy.length > 0 ? 'GROUP BY ' + groupBy.map(el => `${ el.column }`).join(', ') : ''
+
+    const qString = `SELECT ${ fields.length > 0 ? fields.join(', ') : '*' } FROM ${ mainTable } ${ joins } ${ columns } ${ groups }`
+
+    const [ qResult ] = await conn.query(format(qString, whereArr.map(el => el.value))) as Array<{[key: string]: any}>
+
+    return first ? qResult[0] ?? null : qResult
+  }
+
+  async testClassroom(myConnBd: PoolConnection, testId: number, classroomId: number ) {
+    return await this.query<{ testId: number, classroomId: number }>(myConnBd, 'test_classroom', [], [{ tableCl: 'test_classroom.testId', operator: '=', value: testId }, { tableCl: 'test_classroom.classroomId', operator: '=', value: classroomId }], true, [], [])
+  }
+
+  async tUser(myConnBd: PoolConnection, userId: number){
+    return await this.query<{ userId: number, categoryId: number }>(myConnBd, 'teacher', ['person_category.id AS categoryId', 'user.id AS userId'], [{ tableCl: 'user.id', operator: '=', value: userId }], true, [{ table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] }, { table: 'person_category', conditions: [{ foreignTable: 'person.categoryId', currTable: 'person_category.id' }] }, { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }], [])
+  }
+
+  async classroomQuery(myConnBd: PoolConnection, userId: number) {
+    return await this.query<{teacher: number, classrooms: string}>(myConnBd, 'teacher', ['teacher.id AS teacher', 'GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classrooms'], [{ tableCl: 'user.id', operator: '=', value: userId }, { tableCl: 'teacher_class_discipline.endedAt', operator: 'IS', value: null }], true, [{ table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] }, { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }, { table: 'teacher_class_discipline', conditions: [{ foreignTable: 'teacher.id', currTable: 'teacher_class_discipline.teacherId' }] }, { table: 'classroom', conditions: [{ foreignTable: 'teacher_class_discipline.classroomId', currTable: 'classroom.id' }] }], [{ column: 'teacher.id' }])
   }
 }

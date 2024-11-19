@@ -56,10 +56,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
-      const testClassroom = await this.testClassroom(mysqlConnection, testId, classroomId)
+      const testClassroom = await this.testClassroomQuery(mysqlConnection, testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.tUser(mysqlConnection, req?.body.user.user)
+      const tUser = await this.userQuery(mysqlConnection, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
       const classroomsQuery = await this.classroomQuery(mysqlConnection, req?.body.user.user)
@@ -67,20 +67,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       return await AppDataSource.transaction(async (appCONN) => {
-
-        // async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
-        //   return CONN.getRepository(Test)
-        //     .createQueryBuilder("test")
-        //     .leftJoinAndSelect("test.person", "person")
-        //     .leftJoinAndSelect("test.period", "period")
-        //     .leftJoinAndSelect("period.bimester", "bimester")
-        //     .leftJoinAndSelect("period.year", "year")
-        //     .leftJoinAndSelect("test.discipline", "discipline")
-        //     .leftJoinAndSelect("test.category", "category")
-        //     .where("test.id = :testId", { testId })
-        //     .andWhere("year.name = :yearName", { yearName })
-        //     .getOne()
-        // }
 
         const test = await this.getTest(testId, yearName, appCONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }

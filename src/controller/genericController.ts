@@ -179,15 +179,35 @@ export class GenericController<T> {
     return first ? qResult[0] ?? null : qResult
   }
 
-  async testClassroom(myConnBd: PoolConnection, testId: number, classroomId: number ) {
+  async testClassroomQuery(myConnBd: PoolConnection, testId: number, classroomId: number ) {
     return await this.query<{ testId: number, classroomId: number }>(myConnBd, 'test_classroom', [], [{ tableCl: 'test_classroom.testId', operator: '=', value: testId }, { tableCl: 'test_classroom.classroomId', operator: '=', value: classroomId }], true, [], [])
   }
 
-  async tUser(myConnBd: PoolConnection, userId: number){
+  async userQuery(myConnBd: PoolConnection, userId: number){
     return await this.query<{ userId: number, categoryId: number }>(myConnBd, 'teacher', ['person_category.id AS categoryId', 'user.id AS userId'], [{ tableCl: 'user.id', operator: '=', value: userId }], true, [{ table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] }, { table: 'person_category', conditions: [{ foreignTable: 'person.categoryId', currTable: 'person_category.id' }] }, { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }], [])
   }
 
   async classroomQuery(myConnBd: PoolConnection, userId: number) {
     return await this.query<{teacher: number, classrooms: string}>(myConnBd, 'teacher', ['teacher.id AS teacher', 'GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classrooms'], [{ tableCl: 'user.id', operator: '=', value: userId }, { tableCl: 'teacher_class_discipline.endedAt', operator: 'IS', value: null }], true, [{ table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] }, { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }, { table: 'teacher_class_discipline', conditions: [{ foreignTable: 'teacher.id', currTable: 'teacher_class_discipline.teacherId' }] }, { table: 'classroom', conditions: [{ foreignTable: 'teacher_class_discipline.classroomId', currTable: 'classroom.id' }] }], [{ column: 'teacher.id' }])
+  }
+
+  async testQuery(myConnBd: PoolConnection, testId: any, yearName: any) {
+    return await this.query<{ id: number, categoryId: number, createdAt: string, disciplineId: number, bimesterId: number, testName: string, testCategoryName: string, disciplineName: string  }>(
+      myConnBd,
+      'test',
+      ['test.id AS id', 'test.name AS testName', 'test_category.name AS testCategoryName', 'discipline.name AS disciplineName', 'test_category.id AS categoryId', 'test.createdAt', 'discipline.id AS' +
+      ' disciplineId', 'bimester.id AS bimesterId'],
+      [{ tableCl: 'test.id', operator: '=', value: testId }, { tableCl: 'year.name', operator: '=', value: yearName }],
+      true,
+      [
+        { table: 'person', conditions: [{ foreignTable: 'test.personId', currTable: 'person.Id' }] },
+        { table: 'period', conditions: [{ foreignTable: 'test.periodId', currTable: 'period.Id' }] },
+        { table: 'bimester', conditions: [{ foreignTable: 'period.bimesterId', currTable: 'bimester.Id' }] },
+        { table: 'year', conditions: [{ foreignTable: 'period.yearId', currTable: 'year.Id' }] },
+        { table: 'discipline', conditions: [{ foreignTable: 'test.disciplineId', currTable: 'discipline.Id' }] },
+        { table: 'test_category', conditions: [{ foreignTable: 'test.categoryId', currTable: 'test_category.Id' }] }
+      ],
+      []
+    )
   }
 }

@@ -134,7 +134,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         ]
       )
 
-      const classrooms = classroomsQuery?.classrooms.split(',').map(el => Number(el))
+      const classrooms = classroomsQuery?.classrooms?.split(',').map(el => Number(el))
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       return await AppDataSource.transaction(async (appCONN) => {

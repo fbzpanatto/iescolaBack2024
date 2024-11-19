@@ -296,9 +296,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             const duplicatedStudentIds = new Set<number>();
 
             for(let item of filtered) {
-              if (studentCount[item.student.id] > 1 && item.endedAt) {
-                duplicatedStudentIds.add(item.id);
-              }
+              if (studentCount[item.student.id] > 1 && item.endedAt) { duplicatedStudentIds.add(item.id) }
             }
 
             filtered = filtered
@@ -361,12 +359,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }
         }
 
-        const cityHall = {
-          id: 999,
-          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-          shortName: 'ITATIBA',
-          totals: allResults
-        }
+        const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults }
 
         const firstElement = cityHall.totals[0].tPercent;
 
@@ -374,11 +367,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           ...el,
           questions: el.questions.map(question => ({
             ...question,
-            percentage: firstElement > 0
-              ? Math.floor((question.occurrences / firstElement) * 10000) / 100
-              : 0
+            percentage: firstElement > 0 ? Math.floor((question.occurrences / firstElement) * 10000) / 100 : 0
           }))
-        }));
+        }))
 
         data = { ...baseTest, schools: [...schools, cityHall], testQuestions, questionGroups, answersLetters };
 

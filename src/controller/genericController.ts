@@ -192,11 +192,19 @@ export class GenericController<T> {
   }
 
   async testQuery(myConnBd: PoolConnection, testId: any, yearName: any) {
-    return await this.query<{ id: number, categoryId: number, createdAt: string, disciplineId: number, bimesterId: number, testName: string, testCategoryName: string, disciplineName: string  }>(
+    return await this.query<{ id: number, name: string, category_id: string, category_name: string, discipline_id: number, discipline_name: string, createdAt: string, bimester_id: number }>(
       myConnBd,
       'test',
-      ['test.id AS id', 'test.name AS testName', 'test_category.name AS testCategoryName', 'discipline.name AS disciplineName', 'test_category.id AS categoryId', 'test.createdAt', 'discipline.id AS' +
-      ' disciplineId', 'bimester.id AS bimesterId'],
+      [
+        'test.id AS id',
+        'test.name AS name',
+        'test_category.id AS category_id',
+        'test_category.name AS category_name',
+        'discipline.id AS discipline_id',
+        'discipline.name AS discipline_name',
+        'test.createdAt',
+        'bimester.id AS bimester_id'
+      ],
       [{ tableCl: 'test.id', operator: '=', value: testId }, { tableCl: 'year.name', operator: '=', value: yearName }],
       true,
       [

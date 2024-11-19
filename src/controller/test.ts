@@ -29,10 +29,7 @@ import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
-import { PoolConnection } from "mysql2/promise";
-import { format } from "mysql2";
 import { dbConn } from "../services/db";
-import { JoinClause } from "../utils/queries";
 
 interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}

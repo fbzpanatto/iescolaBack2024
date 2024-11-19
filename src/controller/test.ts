@@ -46,21 +46,333 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
-  async query<T>(conn: PoolConnection, mainTable: string, fields: string[], where: {[key: string]: any}, first: boolean = true, leftJoins: JoinClause[] = []): Promise<T | null> {
+  async query<T>(
+    conn: PoolConnection,
+    mainTable: string,
+    fields: string[],
+    whereArr: { tableCl: string, operator: string, value: any }[],
+    first: boolean,
+    leftJoins: JoinClause[],
+    groupBy: { column: string }[]
+  ): Promise<T | null> {
 
-    const selectClause = fields.length > 0 ? fields.join(', ') : '*'
+    const columns: string = whereArr.length > 0 ? 'WHERE ' + whereArr.map(el => `${ el.tableCl } ${ el.operator } ?`).join(' AND ') : '';
 
-    const values = Object.values(where)
+    const joins: string = leftJoins
+      .map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.foreignTable } = ${ cond.currTable }`).join(' AND ') }`)
+      .join(' ')
 
-    const columns = Object.keys(where).length > 0 ? 'WHERE ' + Object.keys(where).map(key => `${ key }=?`).join(' AND ') : '';
+    const groups: string = groupBy.length > 0 ? 'GROUP BY ' + groupBy.map(el => `${ el.column }`).join(', ') : ''
 
-    const joins: string = leftJoins.map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.column1 } = ${ cond.column2 }`).join(' AND ') }`).join(' ')
+    const qString = `SELECT ${ fields.length > 0 ? fields.join(', ') : '*' } FROM ${ mainTable } ${ joins } ${ columns } ${ groups }`
 
-    const qString = `SELECT ${ selectClause } FROM ${ mainTable } ${ joins } ${ columns }`
-
-    const [ qResult ] = await conn.query(format(qString, values)) as Array<{[key: string]: any}>
+    const [ qResult ] = await conn.query(format(qString, whereArr.map(el => el.value))) as Array<{[key: string]: any}>
 
     return first ? qResult[0] ?? null : qResult
+  }
+
+  async getStudents(req?: Request) {
+
+    const testId = Number(req?.params.id)
+    const classroomId = Number(req?.params.classroom)
+    const yearName =  String(req?.params.year)
+
+    let myConnBd = await dbConn()
+
+    try {
+
+      const testClassroom = await this.query<{ testId: number, classroomId: number }>(
+        myConnBd,
+        'test_classroom',
+        [],
+        [
+          { tableCl: 'test_classroom.testId', operator: '=', value: testId },
+          { tableCl: 'test_classroom.classroomId', operator: '=', value: classroomId }
+        ],
+        true,
+        [],
+        []
+      )
+
+      if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
+
+      const tUser = await this.query<{ userId: number, categoryId: number }>(
+        myConnBd,
+        'teacher',
+        ['person_category.id AS categoryId', 'user.id AS userId'],
+        [
+          { tableCl: 'user.id', operator: '=', value: req?.body.user.user }
+        ],
+        true,
+        [
+          { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
+          { table: 'person_category', conditions: [{ foreignTable: 'person.categoryId', currTable: 'person_category.id' }] },
+          { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }
+        ],
+        []
+      )
+
+      const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
+
+      const classroomsQuery = await this.query<{teacher: number, classrooms: string}>(
+        myConnBd,
+        'teacher',
+        ['teacher.id AS teacher', 'GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classrooms'],
+        [
+          { tableCl: 'user.id', operator: '=', value: req?.body.user.user },
+          { tableCl: 'teacher_class_discipline.endedAt', operator: 'IS', value: null }
+        ],
+        true,
+        [
+          { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
+          { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] },
+          { table: 'teacher_class_discipline', conditions: [{ foreignTable: 'teacher.id', currTable: 'teacher_class_discipline.teacherId' }] },
+          { table: 'classroom', conditions: [{ foreignTable: 'teacher_class_discipline.classroomId', currTable: 'classroom.id' }] }
+        ],
+        [
+          { column: 'teacher.id' }
+        ]
+      )
+
+      const classrooms = classroomsQuery?.classrooms.split(',').map(el => Number(el))
+      if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+
+      return await AppDataSource.transaction(async (appCONN) => {
+
+        // async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
+        //   return CONN.getRepository(Test)
+        //     .createQueryBuilder("test")
+        //     .leftJoinAndSelect("test.person", "person")
+        //     .leftJoinAndSelect("test.period", "period")
+        //     .leftJoinAndSelect("period.bimester", "bimester")
+        //     .leftJoinAndSelect("period.year", "year")
+        //     .leftJoinAndSelect("test.discipline", "discipline")
+        //     .leftJoinAndSelect("test.category", "category")
+        //     .where("test.id = :testId", { testId })
+        //     .andWhere("year.name = :yearName", { yearName })
+        //     .getOne()
+        // }
+
+        const test = await this.getTest(testId, yearName, appCONN)
+        if(!test) return { status: 404, message: "Teste não encontrado" }
+
+        const classroom = await appCONN.getRepository(Classroom)
+          .createQueryBuilder("classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .where("classroom.id = :classroomId", { classroomId })
+          .getOne();
+
+        if(!classroom) return { status: 404, message: "Sala não encontrada" }
+
+        let data;
+
+        switch (test.category.id) {
+          case(TEST_CATEGORIES_IDS.LITE_1):
+          case(TEST_CATEGORIES_IDS.LITE_2):
+          case(TEST_CATEGORIES_IDS.LITE_3): {
+
+            const students = await this.alphabeticStudents(test, Number(classroomId), (yearName as string), appCONN)
+            const headers = await this.alphaHeaders(yearName, appCONN)
+
+            switch (test.category.id) {
+              case(TEST_CATEGORIES_IDS.LITE_1): {
+                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                break;
+              }
+              case(TEST_CATEGORIES_IDS.LITE_2):
+              case(TEST_CATEGORIES_IDS.LITE_3): {
+                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                break;
+              }
+            }
+            break;
+          }
+
+          case(TEST_CATEGORIES_IDS.READ_2):
+          case(TEST_CATEGORIES_IDS.READ_3): {
+
+            const headers = await this.getRfluencyHeaders(appCONN)
+            const fluencyHeaders = this.readingFluencyHeaders(headers)
+
+            const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), appCONN)
+
+            await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
+
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, appCONN )
+
+            studentClassrooms = studentClassrooms.map((item: any) => {
+
+              item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
+                if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+
+                if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+
+                if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+                return rF
+              })
+
+              return item
+            })
+
+            for(let item of studentClassrooms) {
+              for(let el of item.student.studentDisabilities) {
+                const options = { where: { studentDisabilities: el } }
+                el.disability = await appCONN.findOne(Disability, options) as Disability
+              }
+            }
+
+            const totalNuColumn = []
+
+            const allFluencies = studentClassrooms
+              .filter((el: any) => !el.ignore)
+              .flatMap((el: any) => el.student.readingFluency)
+
+            const percentColumn = headers.reduce((acc, prev) => {
+              const key = prev.readingFluencyExam.id;
+              if(!acc[key]) { acc[key] = 0 }
+              return acc
+            }, {} as any)
+
+            for(let header of headers) {
+
+              const el = allFluencies.filter((el: any) => {
+                const sameClassroom = el.rClassroom?.id === classroomId
+                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExam.id
+                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevel.id
+                return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
+              })
+
+              const value = el.length ?? 0
+              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+              percentColumn[header.readingFluencyExam.id] += value
+            }
+
+            const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
+            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+            break;
+          }
+
+          case (TEST_CATEGORIES_IDS.AVL_ITA):
+          case (TEST_CATEGORIES_IDS.TEST_4_9): {
+
+            let testQuestionsIds: number[] = []
+
+            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+            const testQuestions = await this.getTestQuestions(test.id, appCONN, fields)
+
+            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+            const questionGroups = await this.getTestQuestionsGroups(testId, appCONN)
+
+            let classroomPoints = 0
+            let classroomPercent = 0
+            let validStudentsTotalizator = 0
+            let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
+            let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
+
+            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser?.userId as number, appCONN)
+
+            let diffOe = 0
+            let validSc = 0
+
+            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, appCONN))
+              .map((sc: StudentClassroom) => {
+
+                const studentTotals = { rowTotal: 0, rowPercent: 0 }
+
+                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+
+                if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
+
+                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
+
+                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+                }
+
+                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
+
+                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
+
+                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
+                }
+
+                validSc += 1
+                validStudentsTotalizator += 1
+
+                let counterPercentage = 0
+
+                studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
+
+                  if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
+
+                  counterPercentage += 1
+
+                  const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
+
+                  if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
+
+                  let element = totals.find(el => el.id === testQuestion.id)
+
+                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
+                    element!.tNumber += 1
+                    classroomPoints += 1
+                    acc += 1
+                  }
+
+                  element!.tTotal += 1
+                  classroomPercent += 1
+                  element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
+
+                  const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
+
+                  let ltItem = answersLetters.find(el => el.letter === letter)
+                  if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
+
+                  let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
+                  if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
+
+                  ltQ.occurrences += 1
+
+                  answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
+
+                  return acc
+                }, 0)
+
+                studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
+
+                return { ...sc, student: { ...sc.student, studentTotals } }
+              })
+
+            for(let item of mappedResult) {
+              for(let el of item.student.studentDisabilities) {
+                el.disability = await appCONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+              }
+            }
+
+            data = {
+              test,
+              totals,
+              answersLetters,
+              validSc,
+              totalOfSc: mappedResult.length - diffOe,
+              totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
+              classroom,
+              testQuestions,
+              questionGroups,
+              classroomPoints,
+              studentClassrooms: mappedResult,
+              classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
+            }
+            break;
+          }
+        }
+        return { status: 200, data };
+      })
+    }
+    catch (error: any) {
+      console.log('error', error)
+      return { status: 500, message: error.message }
+    }
+    finally { if (myConnBd) { myConnBd.release() } }
   }
 
   async getFormData(req: Request) {
@@ -280,256 +592,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async getStudents(req?: Request) {
-
-    const testId = parseInt(req?.params.id as string)
-
-    const classroomId = parseInt(req?.params.classroom as string)
-
-    const yearName = req?.params.year as string
-
-    let myConnBd = await dbConn()
-
-    try {
-
-      const testClassroom = await this.query(myConnBd, 'test_classroom', [], { 'test_classroom.testId': testId, 'test_classroom.classroomId': classroomId })
-      if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
-
-      const tUser = await this.query<{ userId: number, categoryId: number }>(
-        myConnBd, 'teacher', ['person_category.id AS categoryId', 'user.id AS userId'], { 'user.id': req?.body.user.user }, true,
-        [
-          { table: 'person', conditions: [{ column1: 'teacher.personId', column2: 'person.id' }] },
-          { table: 'person_category', conditions: [{ column1: 'person.categoryId', column2: 'person_category.id' }] },
-          { table: 'user', conditions: [{ column1: 'person.id', column2: 'user.personId' }] }
-        ]
-      )
-
-      const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
-
-      return await AppDataSource.transaction(async (appCONN) => {
-
-        const { classrooms } = await this.tClassrooms(req?.body.user, appCONN)
-        if(!classrooms.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
-
-        const test = await this.getTest(testId, yearName, appCONN)
-        if(!test) return { status: 404, message: "Teste não encontrado" }
-
-        const classroom = await appCONN.getRepository(Classroom)
-          .createQueryBuilder("classroom")
-          .leftJoinAndSelect("classroom.school", "school")
-          .where("classroom.id = :classroomId", { classroomId })
-          .getOne();
-
-        if(!classroom) return { status: 404, message: "Sala não encontrada" }
-
-        let data;
-
-        switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE_1):
-          case(TEST_CATEGORIES_IDS.LITE_2):
-          case(TEST_CATEGORIES_IDS.LITE_3): {
-
-            const students = await this.alphabeticStudents(test, Number(classroomId), (yearName as string), appCONN)
-            const headers = await this.alphaHeaders(yearName, appCONN)
-
-            switch (test.category.id) {
-              case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
-                break;
-              }
-              case(TEST_CATEGORIES_IDS.LITE_2):
-              case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
-                break;
-              }
-            }
-            break;
-          }
-
-          case(TEST_CATEGORIES_IDS.READ_2):
-          case(TEST_CATEGORIES_IDS.READ_3): {
-
-            const headers = await this.getRfluencyHeaders(appCONN)
-            const fluencyHeaders = this.readingFluencyHeaders(headers)
-
-            const preStudents = await this.stuClassReadF(test, Number(classroomId), (yearName as string), appCONN)
-
-            await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
-
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, yearName, appCONN )
-
-            studentClassrooms = studentClassrooms.map((item: any) => {
-
-              item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
-                if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-
-                if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-
-                if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-                return rF
-              })
-
-              return item
-            })
-
-            for(let item of studentClassrooms) {
-              for(let el of item.student.studentDisabilities) {
-                const options = { where: { studentDisabilities: el } }
-                el.disability = await appCONN.findOne(Disability, options) as Disability
-              }
-            }
-
-            const totalNuColumn = []
-
-            const allFluencies = studentClassrooms
-              .filter((el: any) => !el.ignore)
-              .flatMap((el: any) => el.student.readingFluency)
-
-            const percentColumn = headers.reduce((acc, prev) => {
-              const key = prev.readingFluencyExam.id;
-              if(!acc[key]) { acc[key] = 0 }
-              return acc
-            }, {} as any)
-
-            for(let header of headers) {
-
-              const el = allFluencies.filter((el: any) => {
-                const sameClassroom = el.rClassroom?.id === classroomId
-                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExam.id
-                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevel.id
-                return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
-              })
-
-              const value = el.length ?? 0
-              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
-              percentColumn[header.readingFluencyExam.id] += value
-            }
-
-            const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
-            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
-            break;
-          }
-
-          case (TEST_CATEGORIES_IDS.AVL_ITA):
-          case (TEST_CATEGORIES_IDS.TEST_4_9): {
-
-            let testQuestionsIds: number[] = []
-
-            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await this.getTestQuestions(test.id, appCONN, fields)
-
-            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
-            const questionGroups = await this.getTestQuestionsGroups(testId, appCONN)
-
-            let classroomPoints = 0
-            let classroomPercent = 0
-            let validStudentsTotalizator = 0
-            let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
-            let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
-
-            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser?.userId as number, appCONN)
-
-            let diffOe = 0
-            let validSc = 0
-
-            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, appCONN))
-              .map((sc: StudentClassroom) => {
-
-                const studentTotals = { rowTotal: 0, rowPercent: 0 }
-
-                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
-
-                if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
-
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
-
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
-                }
-
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
-
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
-
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
-                }
-
-                validSc += 1
-                validStudentsTotalizator += 1
-
-                let counterPercentage = 0
-
-                studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
-
-                  if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
-
-                  counterPercentage += 1
-
-                  const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
-
-                  if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
-
-                  let element = totals.find(el => el.id === testQuestion.id)
-
-                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
-                    element!.tNumber += 1
-                    classroomPoints += 1
-                    acc += 1
-                  }
-
-                  element!.tTotal += 1
-                  classroomPercent += 1
-                  element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
-
-                  const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
-
-                  let ltItem = answersLetters.find(el => el.letter === letter)
-                  if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
-
-                  let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
-                  if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
-
-                  ltQ.occurrences += 1
-
-                  answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
-
-                  return acc
-                }, 0)
-
-                studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
-
-                return { ...sc, student: { ...sc.student, studentTotals } }
-              })
-
-            for(let item of mappedResult) {
-              for(let el of item.student.studentDisabilities) {
-                el.disability = await appCONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
-              }
-            }
-
-            data = {
-              test,
-              totals,
-              answersLetters,
-              validSc,
-              totalOfSc: mappedResult.length - diffOe,
-              totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
-              classroom,
-              testQuestions,
-              questionGroups,
-              classroomPoints,
-              studentClassrooms: mappedResult,
-              classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
-            }
-            break;
-          }
-        }
-        return { status: 200, data };
-      })
-    }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if (myConnBd) { myConnBd.release() } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

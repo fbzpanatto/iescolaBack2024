@@ -192,20 +192,31 @@ export class GenericController<T> {
   }
 
   async testQuery(myConnBd: PoolConnection, testId: any, yearName: any) {
-    return await this.query<{ id: number, name: string, category_id: string, category_name: string, discipline_id: number, discipline_name: string, createdAt: string, bimester_id: number }>(
+    return await this.query<{id: number, name: string, active: number | boolean, createdAt: string, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string}>(
       myConnBd,
       'test',
       [
-        'test.id AS id',
-        'test.name AS name',
-        'test_category.id AS category_id',
-        'test_category.name AS category_name',
+        'test.id',
+        'test.name',
+        'test.active',
+        'test.createdAt',
+        'period.id AS period_id',
+        'bimester.id AS bimester_id',
+        'bimester.name AS bimester_name',
+        'bimester.testName AS bimester_testName',
+        'year.id AS year_id',
+        'year.name AS year_name',
+        'year.active AS year_active',
         'discipline.id AS discipline_id',
         'discipline.name AS discipline_name',
-        'test.createdAt',
-        'bimester.id AS bimester_id'
+        'test_category.id AS test_category_id',
+        'test_category.name AS test_category_name',
+        'person.id AS person_id',
+        'person.name AS person_name'
       ],
-      [{ tableCl: 'test.id', operator: '=', value: testId }, { tableCl: 'year.name', operator: '=', value: yearName }],
+      [
+        { tableCl: 'test.id', operator: '=', value: testId }, { tableCl: 'year.name', operator: '=', value: yearName }
+      ],
       true,
       [
         { table: 'person', conditions: [{ foreignTable: 'test.personId', currTable: 'person.Id' }] },

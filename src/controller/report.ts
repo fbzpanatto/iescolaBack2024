@@ -11,6 +11,8 @@ import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
 import {AlphaHeaders, testController} from "./test";
 import {Year} from "../model/Year";
 import {StudentClassroom} from "../model/StudentClassroom";
+import {dbConn} from "../services/db";
+import {PoolConnection} from "mysql2/promise";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -27,13 +29,16 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   }
 
   async getReport(request: Request, CONN?: EntityManager) {
+
+    let sqlConnection = await dbConn()
+
     try {
-      if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, request?.params.id, request?.params.year)})}
-      return await this.wrapper(CONN, request?.params.id, request?.params.year)
+      if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)})}
+      return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)
     } catch (error: any) {
       console.log('error', error)
       return { status: 500, message: error.message }
-    }
+    } finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager) {
@@ -110,9 +115,11 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async wrapper(CONN: EntityManager, testId: string, yearName: string) {
+  async wrapper(CONN: EntityManager, sqlConnection: PoolConnection, testId: string, yearName: string) {
 
     let data;
+
+    // const myTest = await this.testQuery(sqlConnection, testId, yearName)
 
     const baseTest = await CONN.getRepository(Test)
       .createQueryBuilder("test")

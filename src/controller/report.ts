@@ -12,7 +12,7 @@ import {AlphaHeaders, testController} from "./test";
 import {Year} from "../model/Year";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {dbConn} from "../services/db";
-import {PoolConnection} from "mysql2/promise";
+import mysql, {PoolConnection} from "mysql2/promise";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -119,42 +119,28 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     let data;
 
-    // const myTest = await this.testQuery(sqlConnection, testId, yearName)
+    const testQueryResult = await this.testQuery(sqlConnection, testId, yearName)
+    if (!testQueryResult) return { status: 404, message: "Teste não encontrado" };
 
-    const baseTest = await CONN.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "periodBimester")
-      .leftJoinAndSelect("period.year", "periodYear")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .leftJoinAndSelect("test.person", "testPerson")
-      .where("test.id = :testId", { testId })
-      .andWhere("periodYear.name = :yearName", { yearName })
-      .getOne();
-
-    if (!baseTest) return { status: 404, message: "Teste não encontrado" };
-
-    switch (baseTest.category.id) {
+    switch (testQueryResult?.test_category_id) {
       case(TEST_CATEGORIES_IDS.LITE_1):
       case(TEST_CATEGORIES_IDS.LITE_2):
       case(TEST_CATEGORIES_IDS.LITE_3): {
 
-        const year = baseTest.period.year
-        if(!year) return { status: 404, message: "Ano não encontrado." }
+        if(!testQueryResult?.year_id) return { status: 404, message: "Ano não encontrado." }
 
-        let headers = await testController.alphaHeaders(year.name, CONN) as AlphaHeaders[]
+        let headers = await testController.alphaHeaders(testQueryResult?.year_name, CONN) as AlphaHeaders[]
 
-        const tests = await testController.alphabeticTests(year.name, baseTest, CONN)
+        const tests = await testController.alphabeticTests(testQueryResult?.year_name, testQueryResult, CONN)
 
         let schools;
         let testQuestionsIds: number[] = []
 
-        if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
+        if(testQueryResult.test_category_id != TEST_CATEGORIES_IDS.LITE_1) {
           for(let test of tests) {
 
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await testController.getTestQuestions(test.id, CONN, fields)
+            const testQuestions = await testController.getTestQuestions(testQueryResult?.id, CONN, fields)
 
             test.testQuestions = testQuestions
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
@@ -163,7 +149,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-        let preResult = await testController.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
+        let preResult = await testController.alphaQuestions(testQueryResult.year_name, testQueryResult, testQuestionsIds, CONN)
 
         let mappedSchools = preResult.map(school => {
           const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
@@ -177,7 +163,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         schools = [ ...mappedSchools, cityHall ]
 
-        const test = { id: 99, name: baseTest.name, category: { id: baseTest.category.id, name: baseTest.category.name }, discipline: { name: baseTest.discipline.name }, period: { bimester: { name: 'TODOS' }, year } }
+        const test = { id: 99, name: testQueryResult.name, category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name }, discipline: { name: testQueryResult.discipline_name }, period: { bimester: { name: 'TODOS' }, year: { id: testQueryResult.year_id, name: testQueryResult.year_name, active: testQueryResult.year_active } } }
 
         data = { alphabeticHeaders: headers, ...test, schools }
 
@@ -187,6 +173,18 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
+        let formatedTest = {
+          id: testQueryResult.id,
+          name: testQueryResult.name,
+          category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name },
+          period: {
+            id: testQueryResult.period_id,
+            bimester: { id: testQueryResult.bimester_id, name: testQueryResult.bimester_name, testName: testQueryResult.bimester_testName },
+            year: { id: testQueryResult.year_id, name: testQueryResult.year_name }
+          },
+          discipline: { id: testQueryResult.discipline_id, name: testQueryResult.discipline_name },
+        }
+
         const year = await CONN.findOneBy(Year, { name: yearName })
 
         if(!year) return { status: 404, message: "Ano não encontrado." }
@@ -194,6 +192,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const yearId = year.id.toString()
         const headers = await testController.getRfluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
+
+        // let readingFluSchools = await this.readingFluSchools(sqlConnection, yearId, testId)
+        // console.log('readingFluSchools', readingFluSchools)
 
         let schools = await CONN.getRepository(School)
           .createQueryBuilder("school")
@@ -269,13 +270,25 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
-        data = { ...baseTest, fluencyHeaders, schools: [...allSchools, cityHall] }
+        data = { ...formatedTest, fluencyHeaders, schools: [...allSchools, cityHall] }
 
         break;
       }
 
       case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.TEST_4_9): {
+
+        let formatedTest = {
+          id: testQueryResult.id,
+          name: testQueryResult.name,
+          category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name },
+          period: {
+            id: testQueryResult.period_id,
+            bimester: { id: testQueryResult.bimester_id, name: testQueryResult.bimester_name, testName: testQueryResult.bimester_testName },
+            year: { id: testQueryResult.year_id, name: testQueryResult.year_name }
+          },
+          discipline: { id: testQueryResult.discipline_id, name: testQueryResult.discipline_name },
+        }
 
         const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }
@@ -378,7 +391,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }))
         }))
 
-        data = { ...baseTest, schools: [...schools, cityHall], testQuestions, questionGroups, answersLetters };
+        data = { ...formatedTest, schools: [...schools, cityHall], testQuestions, questionGroups, answersLetters };
 
         break;
       }

@@ -1,4 +1,4 @@
-import { GenericController } from "./genericController";
+import {GenericController, TestQuery} from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
 import { AppDataSource } from "../data-source";
@@ -1202,7 +1202,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
   }
 
-  async alphabeticTests(yearName: string, test: Test, CONN: EntityManager){
+  async alphabeticTests(yearName: string, test: any, CONN: EntityManager){
+
+    console.log(test)
+
     return await CONN.getRepository(Test)
       .createQueryBuilder('test')
       .select(['test.id', 'test.active'])
@@ -1215,8 +1218,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addSelect(['year.id'])
       .leftJoin("test.category", "category")
       .addSelect(['category.id'])
-      .where("category.id = :testCategory", { testCategory: test.category.id })
-      .andWhere("discipline.id = :disciplineId", { disciplineId: test.discipline.id })
+      .where("category.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
+      .andWhere("discipline.id = :disciplineId", { disciplineId: test.discipline?.id ?? test.discipline_id })
       .andWhere("year.name = :yearName", { yearName })
       .getMany()
   }
@@ -1341,7 +1344,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 
-  async alphaQuestions(yearName: string, test: Test, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number) {
+  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number) {
 
     const hasQuestions = !!testQuestionsIds.length
 
@@ -1386,8 +1389,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }))
 
-      .andWhere("alphaTestDiscipline.id = :alphaTestDiscipline", { alphaTestDiscipline: test.discipline.id })
-      .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category.id })
+      .andWhere("alphaTestDiscipline.id = :alphaTestDiscipline", { alphaTestDiscipline: test.discipline?.id ?? test.discipline_id })
+      .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
       .andWhere("alphaTestYear.name = :yearName", { yearName })
       .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
@@ -1414,8 +1417,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         .leftJoin("period.year", "pYear")
         .addSelect(['pYear.id', 'pYear.name'])
 
-        .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
-        .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline.id })
+        .andWhere("testCategory.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
+        .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline?.id ?? test.discipline_id })
         .andWhere("pYear.name = :yearName", { yearName })
     }
 

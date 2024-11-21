@@ -195,6 +195,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         // let readingFluSchools = await this.readingFluSchools(sqlConnection, yearId, testId)
         // console.log('readingFluSchools', readingFluSchools)
+        // console.log('readingFluSchools', readingFluSchools.length)
 
         let schools = await CONN.getRepository(School)
           .createQueryBuilder("school")

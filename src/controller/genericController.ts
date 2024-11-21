@@ -300,17 +300,23 @@ export class GenericController<T> {
         'test.id AS test_id'
       ],
       [
-        { tableCl: 'student_test_status.testId', operator: '=', value: testId },
-        { tableCl: 'reading_fluency.testId', operator: '=', value: testId },
-        { tableCl: 'year.id', operator: '=', value: yearId },
+        { tableCl: 'student_test_status.testId', operator: '=', value: Number(testId) },
+        { tableCl: 'reading_fluency.testId', operator: '=', value: Number(testId) },
+        { tableCl: 'year.id', operator: '=', value: Number(yearId) },
+        { tableCl: 'test.id', operator: '=', value: Number(testId) },
       ],
       false,
       [
         { table: 'classroom', conditions: [{ foreignTable: 'school.id', currTable: 'classroom.schoolId' }] },
         { table: 'student_classroom', conditions: [{ foreignTable: 'classroom.id', currTable: 'student_classroom.classroomId' }] },
+        {
+          table: 'student_test_status',
+          conditions: [
+            { foreignTable: 'student_classroom.id', currTable: 'student_test_status.studentClassroomId' }
+          ]
+        },
         { table: 'student', conditions: [{ foreignTable: 'student_classroom.studentId', currTable: 'student.id' }] },
-        { table: 'year', conditions: [{ foreignTable: 'student_classroom.yearId', currTable: 'year.Id' }] },
-        { table: 'student_test_status', conditions: [{ foreignTable: 'student_classroom.id', currTable: 'student_test_status.studentClassroomId' }] },
+        { table: 'year', conditions: [{ foreignTable: 'student_classroom.yearId', currTable: 'year.id' }] },
         {
           table: 'reading_fluency',
           conditions: [

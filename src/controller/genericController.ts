@@ -276,7 +276,6 @@ export class GenericController<T> {
   }
 
   async qSchools(conn: PoolConnection, testId: number) {
-
     const query =
 
       `

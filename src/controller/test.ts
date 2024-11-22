@@ -1,4 +1,4 @@
-import {GenericController, TestQuery} from "./genericController";
+import {GenericController, QueryStudentClassrooms, TestQuery} from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
 import { AppDataSource } from "../data-source";
@@ -1430,6 +1430,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
   duplicatedStudents(studentClassrooms: StudentClassroom[]): any {
     const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
     const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
+    return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
+  }
+
+  qDuplicatedStudents(studentClassrooms: QueryStudentClassrooms[]) {
+    const count = studentClassrooms.reduce((acc, item) => { acc[item.studentId] = (acc[item.studentId] || 0) + 1; return acc }, {} as Record<number, number>);
+    const duplicatedStudents = studentClassrooms.filter(item => count[item.studentId] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
   }
 

@@ -15,8 +15,10 @@ import { Test } from "../model/Test";
 
 export interface TestQuery extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
 
-interface QueryClassrooms { id: number, shortName: string }
-interface QuerySchools { id: number, shortName: string, classrooms: QueryClassrooms[] }
+export interface QuerySchools { id: number, name: string, shortName: string, classrooms: QueryClassrooms[] }
+export interface QueryClassrooms { id: number, shortName: string, studentsClassrooms: QueryStudentClassrooms[] }
+export interface QueryStudentClassrooms { id: number, studentId: number, classroomId: number, name: string, yearId: number, endedAt: string, readingFluency?: QueryReadingFluency[] }
+export interface QueryReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -286,7 +288,7 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT s.id, s.shortName 
+        SELECT s.id, s.shortName, s.name 
         FROM school AS s
         WHERE EXISTS
           (
@@ -294,7 +296,8 @@ export class GenericController<T> {
             FROM classroom AS c
               INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
             WHERE tc.testId = ? AND s.id = c.schoolId
-          )    
+          )
+        ORDER BY s.shortName
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId])
@@ -313,5 +316,33 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [schoolId, testId])
     return queryResult as QueryClassrooms[]
+  }
+
+  async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
+    const query =
+
+      `
+        SELECT sc.id, sc.studentId, sc.classroomId, p.name, sc.yearId, sc.endedAt
+        FROM student_classroom AS sc
+          INNER JOIN student AS s ON sc.studentId = s.id
+          INNER JOIN person AS p ON s.personId = p.id
+        WHERE sc.classroomId = ? AND sc.yearId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
+    return queryResult as QueryStudentClassrooms[]
+  }
+
+  async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {
+    const query =
+
+      `
+        SELECT rf.id, rf.readingFluencyExamId, rf.readingFluencyLevelId, rf.rClassroomId
+        FROM reading_fluency AS rf 
+        WHERE rf.testId = ? AND rf.studentId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId, studentId])
+    return queryResult as any[]
   }
 }

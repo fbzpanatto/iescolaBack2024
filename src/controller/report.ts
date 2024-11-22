@@ -12,7 +12,7 @@ import {AlphaHeaders, testController} from "./test";
 import {Year} from "../model/Year";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {dbConn} from "../services/db";
-import {PoolConnection} from "mysql2/promise";
+import mysql, {PoolConnection} from "mysql2/promise";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -196,71 +196,54 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let localSchools = await this.qSchools(sqlConnection, Number(testId))
 
         for(let school of localSchools) {
+
           school.classrooms = await this.qClassroomsByTestId(sqlConnection, school.id, Number(testId))
-        }
 
-        console.log(localSchools)
+          for(let classroom of school.classrooms) {
 
-        let schools = await CONN.getRepository(School)
-          .createQueryBuilder("school")
-          .leftJoinAndSelect("school.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-          .leftJoinAndSelect("studentClassroom.classroom", "currentClassroom")
-          .leftJoinAndSelect("studentClassroom.student", "student")
-          .leftJoin("studentClassroom.year", "studentClassroomYear")
-          .leftJoin("studentClassroom.studentStatus", "studentStatus")
-          .leftJoin("studentStatus.test", "studentStatusTest")
-          .leftJoinAndSelect("student.readingFluency", "readingFluency")
-          .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
-          .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
-          .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
-          .where("studentClassroomYear.id = :yearId", { yearId })
-          .andWhere("readingFluency.test = :testId", { testId })
-          .andWhere("studentStatusTest.id = :testId", { testId })
-          .getMany()
+            classroom.studentsClassrooms = testController
+              .qDuplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, Number(yearId)))
+              .filter((el:any) => !el.ignore)
 
-        schools = schools.map(school => {
-          return {
-            ...school,
-            classrooms: school.classrooms.map(classroom => {
-              return {
-                ...classroom,
-                studentClassrooms: testController.duplicatedStudents(classroom.studentClassrooms).filter((el:any) => !el.ignore) as StudentClassroom[]
-              }
-            })
+            for(let studentClassroom of classroom.studentsClassrooms) {
+
+              studentClassroom.readingFluency = await this.qReadingFluency(sqlConnection, Number(testId), studentClassroom.studentId)
+
+            }
           }
-        })
+        }
 
         const totalCityHallColumn: any[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-        const allSchools = schools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
+        const localSchoolsAllSchools = localSchools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
 
           let totalNuColumn: any[] = []
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-          for(let header of headers) {
+          for(let hD of headers) {
 
             const studentClassrooms = school.classrooms.flatMap(el =>
-              el.studentClassrooms.flatMap(item =>
-                item.student.readingFluency.filter(rD =>
-                  item.classroom.id === rD.rClassroom?.id &&
-                  rD.readingFluencyExam.id === header.readingFluencyExam.id &&
-                  rD.readingFluencyLevel?.id === header.readingFluencyLevel.id
+              el.studentsClassrooms.flatMap(item =>
+                item.readingFluency?.filter(rD =>
+                  item.classroomId === rD.rClassroomId &&
+                  rD.readingFluencyExamId === hD.readingFluencyExam.id &&
+                  rD.readingFluencyLevelId === hD.readingFluencyLevel.id
                 )
               )
             )
 
             const value = studentClassrooms.length ?? 0
-            totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
+            totalNuColumn.push({ total: value, divideByExamId: hD.readingFluencyExam.id })
 
-            const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === header.readingFluencyExam.id && el.readingFluencyLevelId === header.readingFluencyLevel.id)
-            if(!cityHallColumn) { totalCityHallColumn.push({ total: value, readingFluencyExamId: header.readingFluencyExam.id, readingFluencyLevelId: header.readingFluencyLevel.id })}
+            const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === hD.readingFluencyExam.id && el.readingFluencyLevelId === hD.readingFluencyLevel.id)
+            if(!cityHallColumn) { totalCityHallColumn.push({ total: value, readingFluencyExamId: hD.readingFluencyExam.id, readingFluencyLevelId: hD.readingFluencyLevel.id })}
             else { cityHallColumn.total += value }
 
-            percentColumn[header.readingFluencyExam.id] += value
-            examTotalCityHall[header.readingFluencyExam.id] += value
+            percentColumn[hD.readingFluencyExam.id] += value
+            examTotalCityHall[hD.readingFluencyExam.id] += value
           }
+
           const percentTotalByColumn = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
 
           acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
@@ -275,7 +258,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
-        data = { ...formatedTest, fluencyHeaders, schools: [...allSchools, cityHall] }
+        data = { ...formatedTest, fluencyHeaders, schools: [...localSchoolsAllSchools, cityHall], localSchools }
 
         break;
       }

@@ -12,7 +12,7 @@ import {AlphaHeaders, testController} from "./test";
 import {Year} from "../model/Year";
 import {StudentClassroom} from "../model/StudentClassroom";
 import {dbConn} from "../services/db";
-import mysql, {PoolConnection} from "mysql2/promise";
+import {PoolConnection} from "mysql2/promise";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -193,9 +193,13 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const headers = await testController.getRfluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
-        // let readingFluSchools = await this.readingFluSchools(sqlConnection, yearId, testId)
-        // console.log('readingFluSchools', readingFluSchools)
-        // console.log('readingFluSchools', readingFluSchools.length)
+        let localSchools = await this.qSchools(sqlConnection, Number(testId))
+
+        for(let school of localSchools) {
+          school.classrooms = await this.qClassroomsByTestId(sqlConnection, school.id, Number(testId))
+        }
+
+        console.log(localSchools)
 
         let schools = await CONN.getRepository(School)
           .createQueryBuilder("school")

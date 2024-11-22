@@ -15,6 +15,9 @@ import { Test } from "../model/Test";
 
 export interface TestQuery extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
 
+interface QueryClassrooms { id: number, shortName: string }
+interface QuerySchools { id: number, shortName: string, classrooms: QueryClassrooms[] }
+
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
@@ -278,63 +281,37 @@ export class GenericController<T> {
     )
   }
 
-  async readingFluSchools(myConnBd: PoolConnection, yearId: number | string, testId: number | string ) {
-    return await this.query<any>(
-      myConnBd,
-      'school',
-      [
-        'school.id AS school_id',
-        'school.name AS school_name',
-        'school.shortName AS school_shortName',
-        'classroom.id AS classroom_id',
-        'classroom.name AS classroom_name',
-        'classroom.shortName AS classroom_shortName',
-        'student_classroom.id AS student_classroom_id',
-        'student.id AS student_id',
-        'year.id AS year_id',
-        'student_test_status.studentClassroomId AS student_test_status_studentClassroomId',
-        'reading_fluency.studentId AS reading_fluency_studentId',
-        'reading_fluency.rClassroomId AS reading_fluency_rClassroomId',
-        'reading_fluency_exam.id AS reading_fluency_exam_id',
-        'reading_fluency_level.id AS reading_fluency_level_id',
-        'test.id AS test_id'
-      ],
-      [
-        { tableCl: 'student_test_status.testId', operator: '=', value: Number(testId) },
-        { tableCl: 'reading_fluency.testId', operator: '=', value: Number(testId) },
-        { tableCl: 'year.id', operator: '=', value: Number(yearId) },
-        { tableCl: 'test.id', operator: '=', value: Number(testId) },
-      ],
-      false,
-      [
-        { table: 'classroom', conditions: [{ foreignTable: 'school.id', currTable: 'classroom.schoolId' }] },
-        { table: 'student_classroom', conditions: [{ foreignTable: 'classroom.id', currTable: 'student_classroom.classroomId' }] },
-        {
-          table: 'student_test_status',
-          conditions: [
-            { foreignTable: 'student_classroom.id', currTable: 'student_test_status.studentClassroomId' }
-          ]
-        },
-        { table: 'student', conditions: [{ foreignTable: 'student_classroom.studentId', currTable: 'student.id' }] },
-        { table: 'year', conditions: [{ foreignTable: 'student_classroom.yearId', currTable: 'year.id' }] },
-        {
-          table: 'reading_fluency',
-          conditions: [
-            { foreignTable: 'student.id', currTable: 'reading_fluency.studentId' },
-            { foreignTable: 'classroom.id', currTable: 'reading_fluency.rClassroomId' },
-          ]
-        },
-        { table: 'reading_fluency_exam', conditions: [{ foreignTable: 'reading_fluency.readingFluencyExamId', currTable: 'reading_fluency_exam.id' }]},
-        { table: 'reading_fluency_level', conditions: [{ foreignTable: 'reading_fluency.readingFluencyLevelId', currTable: 'reading_fluency_level.id' }]},
-        {
-          table: 'test',
-          conditions: [
-            { foreignTable: 'student_test_status.testId', currTable: 'test.id' },
-            { foreignTable: 'reading_fluency.testId', currTable: 'test.id' },
-          ]
-        },
-      ],
-      []
-    )
+  async qSchools(conn: PoolConnection, testId: number) {
+
+    const query =
+
+      `
+        SELECT s.id, s.shortName 
+        FROM school AS s
+        WHERE EXISTS
+          (
+            SELECT 1 
+            FROM classroom AS c
+              INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
+            WHERE tc.testId = ? AND s.id = c.schoolId
+          )    
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId])
+    return queryResult as QuerySchools[]
+  }
+
+  async qClassroomsByTestId(conn: PoolConnection, schoolId: number, testId: number) {
+    const query =
+
+      `
+        SELECT c.id, c.shortName 
+        FROM classroom AS c
+          INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
+        WHERE schoolId = ? AND tc.testId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [schoolId, testId])
+    return queryResult as QueryClassrooms[]
   }
 }

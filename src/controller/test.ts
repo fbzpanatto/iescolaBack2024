@@ -1,4 +1,4 @@
-import {GenericController, QueryStudentClassrooms, TestQuery} from "./genericController";
+import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
 import { AppDataSource } from "../data-source";
@@ -24,7 +24,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { TestBodySave } from "../interfaces/interfaces";
+import {QueryStudentClassrooms, TestBodySave} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";

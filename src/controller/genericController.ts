@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { SavePerson } from "../interfaces/interfaces";
+import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -11,14 +11,6 @@ import { Teacher } from "../model/Teacher";
 import { PoolConnection } from "mysql2/promise";
 import { JoinClause } from "../utils/queries";
 import { format } from "mysql2";
-import { Test } from "../model/Test";
-
-export interface TestQuery extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
-
-export interface QuerySchools { id: number, name: string, shortName: string, classrooms: QueryClassrooms[] }
-export interface QueryClassrooms { id: number, shortName: string, studentsClassrooms: QueryStudentClassrooms[] }
-export interface QueryStudentClassrooms { id: number, studentId: number, classroomId: number, name: string, yearId: number, endedAt: string, readingFluency?: QueryReadingFluency[] }
-export interface QueryReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -245,7 +237,7 @@ export class GenericController<T> {
   }
 
   async testQuery(myConnBd: PoolConnection, testId: any, yearName: any) {
-    return await this.query<TestQuery>(
+    return await this.query<QueryTest>(
       myConnBd,
       'test',
       [

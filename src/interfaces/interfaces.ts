@@ -1,6 +1,7 @@
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Student } from "../model/Student";
+import {Test} from "../model/Test";
 
 export interface Data { status: number; data?: any; message?: any }
 export interface UserInterface { user: number, email: string, username: string, category: number, iat: number, exp: number }
@@ -13,3 +14,9 @@ export interface GraduateBody  { user: UserInterface; student: { id: number; act
 export interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; user: { user: number; username: string; category: number } }
 export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
 export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, testQuestions?: {}[], year: { id: number }, user: UserInterface }
+
+export interface QueryTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
+export interface QuerySchools { id: number, name: string, shortName: string, classrooms: QueryClassrooms[] }
+export interface QueryClassrooms { id: number, shortName: string, studentsClassrooms: QueryStudentClassrooms[] }
+export interface QueryStudentClassrooms { id: number, studentId: number, classroomId: number, name: string, yearId: number, endedAt: string, readingFluency?: QueryReadingFluency[] }
+export interface QueryReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }

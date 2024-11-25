@@ -22,6 +22,7 @@ import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
 import { transferStatus } from "../utils/transferStatus";
 import getTimeZone from "../utils/getTimeZone";
+import {dbConn} from "../services/db";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -227,6 +228,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const rosterNumber = parseInt(body.rosterNumber, 10)
 
+    let sqlConnection = await dbConn()
+
     try {
 
       return await AppDataSource.transaction(async (CONN) => {
@@ -234,7 +237,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
         const tClasses = await this.tClassrooms(body.user, CONN);
         const year = await this.currentYear(CONN);
-        const state = await this.state(body.state, CONN);
+        const state = await this.qState(sqlConnection, body.state) as State
         const classroom = await this.classroom(body.classroom, CONN);
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
@@ -295,16 +298,19 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 201, data: student as unknown as Student }
       })
-    } catch (error: any) {
+    }
+    catch (error: any) {
       console.log(error)
       return { status: 500, message: error.message }
     }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async bulkInsert(body: any) {
 
-    try {
+    let sqlConnection = await dbConn()
 
+    try {
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
@@ -315,7 +321,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           const rosterNumber = parseInt(element.rosterNumber, 10)
 
-          const state = await this.state(element.state, CONN);
+          const state = await this.qState(sqlConnection, element.state) as State
           const classroom = await this.classroom(element.classroom, CONN);
           const category = await this.studentCategory(CONN);
           const person = this.createPerson({ name: element.name.toUpperCase().trim(), birth: element.birth, category });
@@ -371,12 +377,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 201, data: {} as unknown as Student }
       })
-    } catch (error: any) {
-
+    }
+    catch (error: any) {
       console.log('error', error)
-
       return { status: 500, message: error.message }
     }
+    finally { if(sqlConnection) { sqlConnection.release()} }
   }
 
   override async updateId(studentId: number | string, body: any) {

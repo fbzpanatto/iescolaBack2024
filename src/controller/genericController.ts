@@ -1,10 +1,21 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom, QueryTeacherClassrooms, QueryUser, QueryClassroom } from "../interfaces/interfaces";
+import {
+  QueryClassrooms,
+  QuerySchools,
+  QueryStudentClassrooms,
+  SavePerson,
+  QueryTest,
+  QueryYear,
+  QueryTestClassroom,
+  QueryTeacherClassrooms,
+  QueryUser,
+  QueryClassroom,
+  QueryState
+} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
-import { State } from "../model/State";
 import { Request } from "express";
 import { TransferStatus } from "../model/TransferStatus";
 import { Teacher } from "../model/Teacher";
@@ -81,11 +92,6 @@ export class GenericController<T> {
   async classroom(id: number, CONN?: EntityManager) {
     if(!CONN) { return (await AppDataSource.getRepository(Classroom).findOne({ where: { id: id } })) as Classroom }
     return await CONN.findOne(Classroom, { where: { id: id } }) as Classroom
-  }
-
-  async state(id: number, CONN?: EntityManager) {
-    if(!CONN) { return (await AppDataSource.getRepository(State).findOne({ where: { id: id } })) as State }
-    return await CONN.findOne(State, { where: { id: id } }) as State
   }
 
   async transferStatus(id: number, CONN?: EntityManager) {
@@ -165,6 +171,19 @@ export class GenericController<T> {
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qState(conn: PoolConnection, stateId: number) {
+    const query =
+
+      `
+        SELECT *
+        FROM state
+        WHERE state.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [stateId])
+    return (queryResult as QueryState[])[0]
+  }
 
   async qUser(conn: PoolConnection, userId: number) {
     const query =

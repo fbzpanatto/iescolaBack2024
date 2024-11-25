@@ -244,7 +244,7 @@ export class GenericController<T> {
                pe.id AS person_id, pe.name AS person_name
         FROM test AS t
           INNER JOIN person AS pe ON t.personId = pe.id
-          INNER JOIN period AS pr ON t.personId = pr.id
+          INNER JOIN period AS pr ON t.periodId = pr.id
           INNER JOIN bimester AS bm ON pr.bimesterId = bm.id
           INNER JOIN year AS yr ON pr.yearId = yr.id
           INNER JOIN discipline AS dc ON t.disciplineId = dc.id

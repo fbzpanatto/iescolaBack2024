@@ -1,17 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {
-  QueryClassrooms,
-  QuerySchools,
-  QueryStudentClassrooms,
-  SavePerson,
-  QueryTest,
-  QueryYear,
-  QueryTestClassroom,
-  QueryTeacherClassrooms,
-  QueryUser
-} from "../interfaces/interfaces";
+import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom, QueryTeacherClassrooms, QueryUser } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -19,7 +9,6 @@ import { Request } from "express";
 import { TransferStatus } from "../model/TransferStatus";
 import { Teacher } from "../model/Teacher";
 import { PoolConnection } from "mysql2/promise";
-import { JoinClause } from "../utils/queries";
 import { format } from "mysql2";
 
 export class GenericController<T> {
@@ -174,22 +163,7 @@ export class GenericController<T> {
     return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
   }
 
-  // ---------------------------------------------------------
-
-  async query<T>(conn: PoolConnection, mainTable: string, fields: string[], whereArr: { tableCl: string, operator: string, value: any }[], onlyFirstResult: boolean, leftJoins: JoinClause[], groupBy: { column: string }[]): Promise<T | null> {
-
-    const columns: string = whereArr.length > 0 ? 'WHERE ' + whereArr.map(el => `${ el.tableCl } ${ el.operator } ?`).join(' AND ') : '';
-
-    const joins: string = leftJoins.map(el => `LEFT JOIN ${ el.table } ON ${ el.conditions.map(cond => `${ cond.foreignTable } = ${ cond.currTable }`).join(' AND ') }`).join(' ')
-
-    const groups: string = groupBy.length > 0 ? 'GROUP BY ' + groupBy.map(el => `${ el.column }`).join(', ') : ''
-
-    const qString = `SELECT ${ fields.length > 0 ? fields.join(', ') : '*' } FROM ${ mainTable } ${ joins } ${ columns } ${ groups }`
-
-    const [ qResult ] = await conn.query(format(qString, whereArr.map(el => el.value))) as Array<{[key: string]: any}>
-
-    return onlyFirstResult ? qResult[0] ?? null : qResult
-  }
+  // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
   async qUser(conn: PoolConnection, userId: number) {
     const query =

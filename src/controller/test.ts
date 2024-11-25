@@ -59,8 +59,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const tUser = await this.qUser(sqlConnection, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
-      const teacherClassrooms = await this.qTeacherClassrooms(sqlConnection, Number(req?.body.user.user))
-      const classrooms = teacherClassrooms?.classrooms?.split(',').map(el => Number(el))
+      const { classrooms } = await this.qTeacherClassrooms(sqlConnection, Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       return await AppDataSource.transaction(async (appCONN) => {

@@ -172,7 +172,7 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT t.id AS teacher, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
+        SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
         FROM teacher AS t
           INNER JOIN person AS p ON t.personId = p.id
           INNER JOIN user AS u ON p.id = u.personId
@@ -183,7 +183,10 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [userId])
-    return (queryResult as QueryTeacherClassrooms[])[0]
+
+    const qTeacherClassrooms = (queryResult as QueryTeacherClassrooms[])[0]
+
+    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) }
   }
 
   async qState(conn: PoolConnection, stateId: number) {

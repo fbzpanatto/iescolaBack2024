@@ -18,7 +18,7 @@ export interface TestBodySave { bimester: { id: number }, category: { id: number
 export interface QueryState { id: number, name: string, acronym: string }
 export interface QueryClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }
 export interface QueryUser { userId: number, categoryId: number }
-export interface QueryTeacherClassrooms { teacher: number, classrooms: string }
+export interface QueryTeacherClassrooms { id: number, classrooms: string }
 export interface QueryTestClassroom { testId: number, classroomId: number }
 export interface QueryYear { id: number, name: string }
 export interface QueryTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }

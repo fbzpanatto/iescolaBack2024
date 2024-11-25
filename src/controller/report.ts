@@ -118,24 +118,24 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     let data;
 
-    const testQueryResult = await this.qTestByIdAndYear(sqlConnection, Number(testId), yearName)
-    if (!testQueryResult) return { status: 404, message: "Teste não encontrado" };
+    const qTest = await this.qTestByIdAndYear(sqlConnection, Number(testId), yearName)
+    if (!qTest) return { status: 404, message: "Teste não encontrado" };
 
-    switch (testQueryResult?.test_category_id) {
+    switch (qTest?.test_category_id) {
       case(TEST_CATEGORIES_IDS.LITE_1):
       case(TEST_CATEGORIES_IDS.LITE_2):
       case(TEST_CATEGORIES_IDS.LITE_3): {
 
-        if(!testQueryResult?.year_id) return { status: 404, message: "Ano não encontrado." }
+        if(!qTest?.year_id) return { status: 404, message: "Ano não encontrado." }
 
-        let headers = await testController.alphaHeaders(testQueryResult?.year_name, CONN) as AlphaHeaders[]
+        let headers = await testController.alphaHeaders(qTest?.year_name, CONN) as AlphaHeaders[]
 
-        const tests = await testController.alphabeticTests(testQueryResult?.year_name, testQueryResult, CONN)
+        const tests = await testController.alphabeticTests(qTest?.year_name, qTest, CONN)
 
         let schools;
         let testQuestionsIds: number[] = []
 
-        if(testQueryResult.test_category_id != TEST_CATEGORIES_IDS.LITE_1) {
+        if(qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1) {
 
           for(let test of tests) {
 
@@ -150,7 +150,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-        let preResult = await testController.alphaQuestions(testQueryResult.year_name, testQueryResult, testQuestionsIds, CONN)
+        let preResult = await testController.alphaQuestions(qTest.year_name, qTest, testQuestionsIds, CONN)
 
         let mappedSchools = preResult.map(school => {
           const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
@@ -164,7 +164,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         schools = [ ...mappedSchools, cityHall ]
 
-        const test = { id: 99, name: testQueryResult.name, category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name }, discipline: { name: testQueryResult.discipline_name }, period: { bimester: { name: 'TODOS' }, year: { id: testQueryResult.year_id, name: testQueryResult.year_name, active: testQueryResult.year_active } } }
+        const test = { id: 99, name: qTest.name, category: { id: qTest.test_category_id, name: qTest.test_category_name }, discipline: { name: qTest.discipline_name }, period: { bimester: { name: 'TODOS' }, year: { id: qTest.year_id, name: qTest.year_name, active: qTest.year_active } } }
 
         data = { alphabeticHeaders: headers, ...test, schools }
 
@@ -175,15 +175,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_3): {
 
         let formatedTest = {
-          id: testQueryResult.id,
-          name: testQueryResult.name,
-          category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name },
+          id: qTest.id,
+          name: qTest.name,
+          category: { id: qTest.test_category_id, name: qTest.test_category_name },
           period: {
-            id: testQueryResult.period_id,
-            bimester: { id: testQueryResult.bimester_id, name: testQueryResult.bimester_name, testName: testQueryResult.bimester_testName },
-            year: { id: testQueryResult.year_id, name: testQueryResult.year_name }
+            id: qTest.period_id,
+            bimester: { id: qTest.bimester_id, name: qTest.bimester_name, testName: qTest.bimester_testName },
+            year: { id: qTest.year_id, name: qTest.year_name }
           },
-          discipline: { id: testQueryResult.discipline_id, name: testQueryResult.discipline_name },
+          discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
         }
 
         const qYear = await this.qYearByName(sqlConnection, yearName)
@@ -267,15 +267,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.TEST_4_9): {
 
         let formatedTest = {
-          id: testQueryResult.id,
-          name: testQueryResult.name,
-          category: { id: testQueryResult.test_category_id, name: testQueryResult.test_category_name },
+          id: qTest.id,
+          name: qTest.name,
+          category: { id: qTest.test_category_id, name: qTest.test_category_name },
           period: {
-            id: testQueryResult.period_id,
-            bimester: { id: testQueryResult.bimester_id, name: testQueryResult.bimester_name, testName: testQueryResult.bimester_testName },
-            year: { id: testQueryResult.year_id, name: testQueryResult.year_name }
+            id: qTest.period_id,
+            bimester: { id: qTest.bimester_id, name: qTest.bimester_name, testName: qTest.bimester_testName },
+            year: { id: qTest.year_id, name: qTest.year_name }
           },
-          discipline: { id: testQueryResult.discipline_id, name: testQueryResult.discipline_name },
+          discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
         }
 
         const year = await CONN.findOne(Year, { where: { name: yearName } })

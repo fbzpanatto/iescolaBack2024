@@ -225,10 +225,11 @@ export class GenericController<T> {
         SELECT *
         FROM test_classroom AS tc
         WHERE tc.testId = ? AND tc.classroomId = ?
+        LIMIT 1
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
-    return (queryResult as QueryTestClassroom[])[0]
+    return queryResult as unknown as QueryTestClassroom
   }
 
   async qTestByIdAndYear(conn: PoolConnection, testId: number, yearName: string) {
@@ -250,10 +251,11 @@ export class GenericController<T> {
           INNER JOIN discipline AS dc ON t.disciplineId = dc.id
           INNER JOIN test_category AS tc ON t.categoryId = tc.id
         WHERE t.id = ? AND yr.name = ?
+        LIMIT 1
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId, yearName])
-    return (queryResult as QueryTest[])[0]
+    return queryResult as unknown as QueryTest
   }
 
   async qYearByName(conn: PoolConnection, yearName: string) {
@@ -263,10 +265,11 @@ export class GenericController<T> {
         SELECT y.id, y.name
         FROM year AS y
         WHERE y.name = ?
+        LIMIT 1
       `
 
     const [ queryResult ] = await conn.query(format(query), [yearName])
-    return (queryResult as QueryYear[])[0]
+    return queryResult as unknown as QueryYear
   }
 
   async qSchools(conn: PoolConnection, testId: number) {

@@ -10,7 +10,7 @@ import { TransferStatus } from "../model/TransferStatus";
 import { Teacher } from "../model/Teacher";
 import { PoolConnection } from "mysql2/promise";
 import { format } from "mysql2";
-import {Test} from "../model/Test";
+import { Test } from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}

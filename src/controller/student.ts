@@ -238,7 +238,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const tClasses = await this.tClassrooms(body.user, CONN);
         const year = await this.currentYear(CONN);
         const state = await this.qState(sqlConnection, body.state) as State
-        const classroom = await this.classroom(body.classroom, CONN);
+        const classroom = await this.qClassroom(sqlConnection, body.classroom)
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
         const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
@@ -322,7 +322,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const rosterNumber = parseInt(element.rosterNumber, 10)
 
           const state = await this.qState(sqlConnection, element.state) as State
-          const classroom = await this.classroom(element.classroom, CONN);
+          const classroom = await this.qClassroom(sqlConnection, body.classroom)
           const category = await this.studentCategory(CONN);
           const person = this.createPerson({ name: element.name.toUpperCase().trim(), birth: element.birth, category });
 

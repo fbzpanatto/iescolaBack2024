@@ -89,11 +89,6 @@ export class GenericController<T> {
     return await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
   }
 
-  async classroom(id: number, CONN?: EntityManager) {
-    if(!CONN) { return (await AppDataSource.getRepository(Classroom).findOne({ where: { id: id } })) as Classroom }
-    return await CONN.findOne(Classroom, { where: { id: id } }) as Classroom
-  }
-
   async transferStatus(id: number, CONN?: EntityManager) {
     if(!CONN) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
     return await CONN.findOne(TransferStatus, { where: { id: id } })

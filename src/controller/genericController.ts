@@ -100,40 +100,6 @@ export class GenericController<T> {
     return await CONN.findOne(Teacher, options) as Teacher
   }
 
-  // TODO: TRANSFORM THIS INTO PURE SQL.
-  async tClassrooms(body: { user: number }, CONN?: EntityManager) {
-
-    if(!CONN) {
-      const result = (await AppDataSource.createQueryBuilder()
-        .select("teacher.id", "teacher")
-        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
-        .from(Teacher, "teacher")
-        .leftJoin("teacher.person", "person")
-        .leftJoin("person.user", "user")
-        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-        .leftJoin("teacherClassDiscipline.classroom", "classroom")
-        .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-        .groupBy("teacher.id")
-        .getRawOne()) as { teacher: number; classrooms: string };
-
-      return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
-    }
-
-    const result = (await CONN.createQueryBuilder()
-    .select("teacher.id", "teacher")
-    .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
-    .from(Teacher, "teacher")
-    .leftJoin("teacher.person", "person")
-    .leftJoin("person.user", "user")
-    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-    .leftJoin("teacherClassDiscipline.classroom", "classroom")
-    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-    .groupBy("teacher.id")
-    .getRawOne()) as { teacher: number; classrooms: string };
-
-    return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
-  }
-
   async tDisciplines(body: { user: number }, CONN?: EntityManager) {
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
@@ -164,6 +130,40 @@ export class GenericController<T> {
     .getRawOne()) as { teacher: number; disciplines: string };
 
     return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
+  }
+
+  // TODO: TRANSFORM THIS INTO PURE SQL.
+  async tClassrooms(body: { user: number }, CONN?: EntityManager) {
+
+    if(!CONN) {
+      const result = (await AppDataSource.createQueryBuilder()
+        .select("teacher.id", "teacher")
+        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
+        .from(Teacher, "teacher")
+        .leftJoin("teacher.person", "person")
+        .leftJoin("person.user", "user")
+        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+        .leftJoin("teacherClassDiscipline.classroom", "classroom")
+        .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+        .groupBy("teacher.id")
+        .getRawOne()) as { teacher: number; classrooms: string };
+
+      return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
+    }
+
+    const result = (await CONN.createQueryBuilder()
+      .select("teacher.id", "teacher")
+      .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
+      .from(Teacher, "teacher")
+      .leftJoin("teacher.person", "person")
+      .leftJoin("person.user", "user")
+      .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
+      .leftJoin("teacherClassDiscipline.classroom", "classroom")
+      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
+      .groupBy("teacher.id")
+      .getRawOne()) as { teacher: number; classrooms: string };
+
+    return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------

@@ -349,7 +349,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults }
 
-        const firstElement = cityHall.totals[0].tPercent;
+        const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
         answersLetters = answersLetters.map(el => ({
           ...el,

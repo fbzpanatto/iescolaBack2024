@@ -186,7 +186,7 @@ export class GenericController<T> {
 
     const qTeacherClassrooms = (queryResult as QueryTeacherClassrooms[])[0]
 
-    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) }
+    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
   }
 
   async qState(conn: PoolConnection, stateId: number) {

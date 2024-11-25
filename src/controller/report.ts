@@ -1,18 +1,17 @@
-import {GenericController} from "./genericController";
-import {Brackets, EntityManager, EntityTarget} from "typeorm";
-import {Test} from "../model/Test";
-import {AppDataSource} from "../data-source";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {School} from "../model/School";
-import {pc} from "../utils/personCategories";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {AlphaHeaders, testController} from "./test";
-import {Year} from "../model/Year";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {dbConn} from "../services/db";
-import mysql, {PoolConnection} from "mysql2/promise";
+import { GenericController } from "./genericController";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
+import { Test } from "../model/Test";
+import { AppDataSource } from "../data-source";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { School } from "../model/School";
+import { pc } from "../utils/personCategories";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { AlphaHeaders, testController } from "./test";
+import { Year } from "../model/Year";
+import { dbConn } from "../services/db";
+import { PoolConnection } from "mysql2/promise";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -185,11 +184,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           discipline: { id: testQueryResult.discipline_id, name: testQueryResult.discipline_name },
         }
 
-        const year = await CONN.findOneBy(Year, { name: yearName })
+        const qYear = await this.qYearByName(sqlConnection, yearName)
 
-        if(!year) return { status: 404, message: "Ano não encontrado." }
+        if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
-        const yearId = year.id.toString()
         const headers = await testController.getRfluencyHeaders(CONN)
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
@@ -202,7 +200,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           for(let classroom of school.classrooms) {
 
             classroom.studentsClassrooms = testController
-              .qDuplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, Number(yearId)))
+              .qDuplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, qYear.id))
               .filter((el:any) => !el.ignore)
 
             for(let studentClassroom of classroom.studentsClassrooms) {

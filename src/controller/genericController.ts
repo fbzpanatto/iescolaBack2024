@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest } from "../interfaces/interfaces";
+import {QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -273,6 +273,19 @@ export class GenericController<T> {
       ],
       []
     )
+  }
+
+  async qYearByName(conn: PoolConnection, yearName: string) {
+    const query =
+
+      `
+        SELECT y.id, y.name
+        FROM year AS y
+        WHERE y.name = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [yearName])
+    return (queryResult as QueryYear[])[0]
   }
 
   async qSchools(conn: PoolConnection, testId: number) {

@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom} from "../interfaces/interfaces";
+import {QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom, QueryTeacherClassrooms} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -199,30 +199,28 @@ export class GenericController<T> {
     )
   }
 
-  async classroomQuery(myConnBd: PoolConnection, userId: number) {
-    return await this.query<{teacher: number, classrooms: string}>(
-      myConnBd,
-      'teacher',
-      ['teacher.id AS teacher', 'GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC) AS classrooms'],
-      [
-        { tableCl: 'user.id', operator: '=', value: userId },
-        { tableCl: 'teacher_class_discipline.endedAt', operator: 'IS', value: null }
-      ],
-      true,
-      [
-        { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
-        { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] },
-        { table: 'teacher_class_discipline', conditions: [{ foreignTable: 'teacher.id', currTable: 'teacher_class_discipline.teacherId' }] },
-        { table: 'classroom', conditions: [{ foreignTable: 'teacher_class_discipline.classroomId', currTable: 'classroom.id' }] }
-      ],
-      [
-        { column: 'teacher.id' }
-      ]
-    )
+  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
+    const query =
+
+      `
+        SELECT t.id AS teacher, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
+        FROM teacher AS t
+          INNER JOIN person AS p ON t.personId = p.id
+          INNER JOIN user AS u ON p.id = u.personId
+          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
+          INNER JOIN classroom AS c ON tcd.classroomId = c.id
+        WHERE u.id = ? AND tcd.endedAt IS NULL
+        GROUP BY t.id
+        LIMIT 1
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [userId])
+    return queryResult as unknown as QueryTeacherClassrooms
   }
 
   async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {
     const query =
+
       `
         SELECT *
         FROM test_classroom AS tc

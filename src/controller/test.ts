@@ -68,11 +68,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await this.getTest(testId, yearName, appCONN)
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
-        const classroom = await appCONN.getRepository(Classroom)
-          .createQueryBuilder("classroom")
-          .leftJoinAndSelect("classroom.school", "school")
-          .where("classroom.id = :classroomId", { classroomId })
-          .getOne();
+        const classroom = await this.qClassroom(sqlConnection, classroomId)
 
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
 

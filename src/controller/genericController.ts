@@ -1,7 +1,18 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom, QueryTeacherClassrooms, QueryUser } from "../interfaces/interfaces";
+import {
+  QueryClassrooms,
+  QuerySchools,
+  QueryStudentClassrooms,
+  SavePerson,
+  QueryTest,
+  QueryYear,
+  QueryTestClassroom,
+  QueryTeacherClassrooms,
+  QueryUser,
+  QueryClassroom
+} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -248,6 +259,28 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [yearName])
     return (queryResult as QueryYear[])[0]
+  }
+
+  async qClassroom(conn: PoolConnection, classroomId: number) {
+    const query =
+
+      `
+        SELECT c.id, c.name, c.shortName, s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName
+        FROM classroom AS c
+          INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE c.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomId])
+
+    const res = (queryResult as QueryClassroom[])[0]
+
+    return {
+      id: res.id,
+      name: res.name,
+      shortName: res.shortName,
+      school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
+    } as Classroom
   }
 
   async qSchools(conn: PoolConnection, testId: number) {

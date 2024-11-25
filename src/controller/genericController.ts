@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear} from "../interfaces/interfaces";
+import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -236,43 +236,29 @@ export class GenericController<T> {
     )
   }
 
-  async testQuery(myConnBd: PoolConnection, testId: any, yearName: any) {
-    return await this.query<QueryTest>(
-      myConnBd,
-      'test',
-      [
-        'test.id',
-        'test.name',
-        'test.active',
-        'test.createdAt',
-        'period.id AS period_id',
-        'bimester.id AS bimester_id',
-        'bimester.name AS bimester_name',
-        'bimester.testName AS bimester_testName',
-        'year.id AS year_id',
-        'year.name AS year_name',
-        'year.active AS year_active',
-        'discipline.id AS discipline_id',
-        'discipline.name AS discipline_name',
-        'test_category.id AS test_category_id',
-        'test_category.name AS test_category_name',
-        'person.id AS person_id',
-        'person.name AS person_name'
-      ],
-      [
-        { tableCl: 'test.id', operator: '=', value: testId }, { tableCl: 'year.name', operator: '=', value: yearName }
-      ],
-      true,
-      [
-        { table: 'person', conditions: [{ foreignTable: 'test.personId', currTable: 'person.Id' }] },
-        { table: 'period', conditions: [{ foreignTable: 'test.periodId', currTable: 'period.Id' }] },
-        { table: 'bimester', conditions: [{ foreignTable: 'period.bimesterId', currTable: 'bimester.Id' }] },
-        { table: 'year', conditions: [{ foreignTable: 'period.yearId', currTable: 'year.Id' }] },
-        { table: 'discipline', conditions: [{ foreignTable: 'test.disciplineId', currTable: 'discipline.Id' }] },
-        { table: 'test_category', conditions: [{ foreignTable: 'test.categoryId', currTable: 'test_category.Id' }] }
-      ],
-      []
-    )
+  async qTestByIdAndYear(conn: PoolConnection, testId: number, yearName: string) {
+    const query =
+
+      `
+        SELECT t.id, t.name, t.active, t.createdAt,
+               pr.id AS period_id, 
+               bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName, 
+               yr.id AS year_id, yr.name AS year_name, yr.active AS year_active,
+               dc.id AS discipline_id, dc.name AS discipline_name,
+               tc.id AS test_category_id, tc.name AS test_category_name,
+               pe.id AS person_id, pe.name AS person_name
+        FROM test AS t
+          INNER JOIN person AS pe ON t.personId = pe.id
+          INNER JOIN period AS pr ON t.personId = pr.id
+          INNER JOIN bimester AS bm ON pr.bimesterId = bm.id
+          INNER JOIN year AS yr ON pr.yearId = yr.id
+          INNER JOIN discipline AS dc ON t.disciplineId = dc.id
+          INNER JOIN test_category AS tc ON t.categoryId = tc.id
+        WHERE t.id = ? AND yr.name = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId, yearName])
+    return (queryResult as QueryTest[])[0]
   }
 
   async qYearByName(conn: PoolConnection, yearName: string) {

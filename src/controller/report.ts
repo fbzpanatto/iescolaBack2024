@@ -118,7 +118,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     let data;
 
-    const testQueryResult = await this.testQuery(sqlConnection, testId, yearName)
+    const testQueryResult = await this.qTestByIdAndYear(sqlConnection, Number(testId), String(yearName))
     if (!testQueryResult) return { status: 404, message: "Teste não encontrado" };
 
     switch (testQueryResult?.test_category_id) {

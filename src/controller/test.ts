@@ -1204,8 +1204,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async alphabeticTests(yearName: string, test: any, CONN: EntityManager){
 
-    console.log(test)
-
     return await CONN.getRepository(Test)
       .createQueryBuilder('test')
       .select(['test.id', 'test.active'])

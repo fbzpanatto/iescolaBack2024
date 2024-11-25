@@ -24,7 +24,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {QueryStudentClassrooms, TestBodySave} from "../interfaces/interfaces";
+import { QueryStudentClassrooms, TestBodySave } from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -49,17 +49,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classroomId = Number(req?.params.classroom)
     const yearName =  String(req?.params.year)
 
-    let mysqlConnection = await dbConn()
+    let sqlConnection = await dbConn()
 
     try {
 
-      const testClassroom = await this.testClassroomQuery(mysqlConnection, testId, classroomId)
+      const testClassroom = await this.qTestClassroom(sqlConnection, testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.userQuery(mysqlConnection, req?.body.user.user)
+      const tUser = await this.userQuery(sqlConnection, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
-      const classroomsQuery = await this.classroomQuery(mysqlConnection, req?.body.user.user)
+      const classroomsQuery = await this.classroomQuery(sqlConnection, req?.body.user.user)
       const classrooms = classroomsQuery?.classrooms?.split(',').map(el => Number(el))
       if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
@@ -284,7 +284,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('error', error)
       return { status: 500, message: error.message }
     }
-    finally { if (mysqlConnection) { mysqlConnection.release() } }
+    finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
   async getFormData(req: Request) {

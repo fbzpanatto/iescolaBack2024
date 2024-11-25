@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear } from "../interfaces/interfaces";
+import {QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -181,21 +181,6 @@ export class GenericController<T> {
     return onlyFirstResult ? qResult[0] ?? null : qResult
   }
 
-  async testClassroomQuery(myConnBd: PoolConnection, testId: number, classroomId: number ) {
-    return await this.query<{ testId: number, classroomId: number }>(
-      myConnBd,
-      'test_classroom',
-      [],
-      [
-        { tableCl: 'test_classroom.testId', operator: '=', value: testId },
-        { tableCl: 'test_classroom.classroomId', operator: '=', value: classroomId }
-      ],
-      true,
-      [],
-      []
-    )
-  }
-
   async userQuery(myConnBd: PoolConnection, userId: number){
     return await this.query<{ userId: number, categoryId: number }>(
       myConnBd,
@@ -234,6 +219,18 @@ export class GenericController<T> {
         { column: 'teacher.id' }
       ]
     )
+  }
+
+  async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {
+    const query =
+      `
+        SELECT *
+        FROM test_classroom AS tc
+        WHERE tc.testId = ? AND tc.classroomId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
+    return (queryResult as QueryTestClassroom[])[0]
   }
 
   async qTestByIdAndYear(conn: PoolConnection, testId: number, yearName: string) {

@@ -15,6 +15,7 @@ export interface InactiveNewClassroom { student: Student; oldYear: number; newCl
 export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
 export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, testQuestions?: {}[], year: { id: number }, user: UserInterface }
 
+export interface QueryTestClassroom { testId: number, classroomId: number }
 export interface QueryYear { id: number, name: string }
 export interface QueryTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
 export interface QuerySchools { id: number, name: string, shortName: string, classrooms: QueryClassrooms[] }

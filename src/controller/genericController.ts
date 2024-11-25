@@ -211,11 +211,10 @@ export class GenericController<T> {
           INNER JOIN classroom AS c ON tcd.classroomId = c.id
         WHERE u.id = ? AND tcd.endedAt IS NULL
         GROUP BY t.id
-        LIMIT 1
       `
 
     const [ queryResult ] = await conn.query(format(query), [userId])
-    return queryResult as unknown as QueryTeacherClassrooms
+    return (queryResult as QueryTeacherClassrooms[])[0]
   }
 
   async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {

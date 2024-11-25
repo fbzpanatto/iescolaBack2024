@@ -24,7 +24,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { QueryStudentClassrooms, TestBodySave } from "../interfaces/interfaces";
+import {QueryStudentClassrooms, QueryTest, TestBodySave} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -65,7 +65,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return await AppDataSource.transaction(async (appCONN) => {
 
-        const test = await this.getTest(testId, yearName, appCONN)
+        const test = this.formatedTest(await this.qTestByIdAndYear(sqlConnection, testId, yearName))
+
         if(!test) return { status: 404, message: "Teste não encontrado" }
 
         const classroom = await this.qClassroom(sqlConnection, classroomId)

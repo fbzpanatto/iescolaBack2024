@@ -174,17 +174,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
-        let formatedTest = {
-          id: qTest.id,
-          name: qTest.name,
-          category: { id: qTest.test_category_id, name: qTest.test_category_name },
-          period: {
-            id: qTest.period_id,
-            bimester: { id: qTest.bimester_id, name: qTest.bimester_name, testName: qTest.bimester_testName },
-            year: { id: qTest.year_id, name: qTest.year_name }
-          },
-          discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
-        }
+        let formatedTest = this.formatedTest(qTest)
 
         const qYear = await this.qYearByName(sqlConnection, yearName)
 
@@ -266,17 +256,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.TEST_4_9): {
 
-        let formatedTest = {
-          id: qTest.id,
-          name: qTest.name,
-          category: { id: qTest.test_category_id, name: qTest.test_category_name },
-          period: {
-            id: qTest.period_id,
-            bimester: { id: qTest.bimester_id, name: qTest.bimester_name, testName: qTest.bimester_testName },
-            year: { id: qTest.year_id, name: qTest.year_name }
-          },
-          discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
-        }
+        let formatedTest = this.formatedTest(qTest)
 
         const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }

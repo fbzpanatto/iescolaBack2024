@@ -10,6 +10,7 @@ import { TransferStatus } from "../model/TransferStatus";
 import { Teacher } from "../model/Teacher";
 import { PoolConnection } from "mysql2/promise";
 import { format } from "mysql2";
+import {Test} from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -332,5 +333,21 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [testId, studentId])
     return queryResult as any[]
+  }
+
+  // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatedTest(qTest: QueryTest) {
+    return {
+      id: qTest.id,
+      name: qTest.name,
+      category: { id: qTest.test_category_id, name: qTest.test_category_name },
+      period: {
+        id: qTest.period_id,
+        bimester: { id: qTest.bimester_id, name: qTest.bimester_name, testName: qTest.bimester_testName },
+        year: { id: qTest.year_id, name: qTest.year_name }
+      },
+      discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
+    } as unknown as Test
   }
 }

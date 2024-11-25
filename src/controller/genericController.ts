@@ -1,7 +1,17 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassrooms, QuerySchools, QueryStudentClassrooms, SavePerson, QueryTest, QueryYear, QueryTestClassroom, QueryTeacherClassrooms } from "../interfaces/interfaces";
+import {
+  QueryClassrooms,
+  QuerySchools,
+  QueryStudentClassrooms,
+  SavePerson,
+  QueryTest,
+  QueryYear,
+  QueryTestClassroom,
+  QueryTeacherClassrooms,
+  QueryUser
+} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { State } from "../model/State";
@@ -181,22 +191,20 @@ export class GenericController<T> {
     return onlyFirstResult ? qResult[0] ?? null : qResult
   }
 
-  async userQuery(myConnBd: PoolConnection, userId: number){
-    return await this.query<{ userId: number, categoryId: number }>(
-      myConnBd,
-      'teacher',
-      ['person_category.id AS categoryId', 'user.id AS userId'],
-      [
-        { tableCl: 'user.id', operator: '=', value: userId }
-      ],
-      true,
-      [
-        { table: 'person', conditions: [{ foreignTable: 'teacher.personId', currTable: 'person.id' }] },
-        { table: 'person_category', conditions: [{ foreignTable: 'person.categoryId', currTable: 'person_category.id' }] },
-        { table: 'user', conditions: [{ foreignTable: 'person.id', currTable: 'user.personId' }] }
-      ],
-      []
-    )
+  async qUser(conn: PoolConnection, userId: number) {
+    const query =
+
+      `
+        SELECT pc.id as categoryId, u.id as userId
+        FROM teacher
+          INNER JOIN person AS p ON teacher.personId = p.id
+          INNER JOIN person_category AS pc ON p.categoryId = pc.id
+          INNER JOIN user AS u ON p.id = u.personId
+        WHERE u.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [userId])
+    return (queryResult as QueryUser[])[0]
   }
 
   async qTeacherClassrooms(conn: PoolConnection, userId: number) {

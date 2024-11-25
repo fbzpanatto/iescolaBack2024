@@ -56,7 +56,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const testClassroom = await this.qTestClassroom(sqlConnection, testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.userQuery(sqlConnection, req?.body.user.user)
+      const tUser = await this.qUser(sqlConnection, req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
       const teacherClassrooms = await this.qTeacherClassrooms(sqlConnection, Number(req?.body.user.user))

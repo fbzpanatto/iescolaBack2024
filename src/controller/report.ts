@@ -136,10 +136,12 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let testQuestionsIds: number[] = []
 
         if(testQueryResult.test_category_id != TEST_CATEGORIES_IDS.LITE_1) {
+
           for(let test of tests) {
 
             const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await testController.getTestQuestions(testQueryResult?.id, CONN, fields)
+
+            const testQuestions = await testController.getTestQuestions(test.id, CONN, fields)
 
             test.testQuestions = testQuestions
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]

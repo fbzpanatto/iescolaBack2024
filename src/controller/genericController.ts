@@ -100,6 +100,7 @@ export class GenericController<T> {
     return await CONN.findOne(Teacher, options) as Teacher
   }
 
+  // TODO: TRANSFORM THIS INTO PURE SQL.
   async tClassrooms(body: { user: number }, CONN?: EntityManager) {
 
     if(!CONN) {
@@ -167,6 +168,24 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
+  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
+    const query =
+
+      `
+        SELECT t.id AS teacher, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
+        FROM teacher AS t
+          INNER JOIN person AS p ON t.personId = p.id
+          INNER JOIN user AS u ON p.id = u.personId
+          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
+          INNER JOIN classroom AS c ON tcd.classroomId = c.id
+        WHERE u.id = ? AND tcd.endedAt IS NULL
+        GROUP BY t.id
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [userId])
+    return (queryResult as QueryTeacherClassrooms[])[0]
+  }
+
   async qState(conn: PoolConnection, stateId: number) {
     const query =
 
@@ -194,24 +213,6 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [userId])
     return (queryResult as QueryUser[])[0]
-  }
-
-  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
-    const query =
-
-      `
-        SELECT t.id AS teacher, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
-        FROM teacher AS t
-          INNER JOIN person AS p ON t.personId = p.id
-          INNER JOIN user AS u ON p.id = u.personId
-          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
-          INNER JOIN classroom AS c ON tcd.classroomId = c.id
-        WHERE u.id = ? AND tcd.endedAt IS NULL
-        GROUP BY t.id
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [userId])
-    return (queryResult as QueryTeacherClassrooms[])[0]
   }
 
   async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {

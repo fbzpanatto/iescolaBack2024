@@ -5,6 +5,7 @@ import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
 import { pc } from "../utils/personCategories";
 import { AppDataSource } from "../data-source";
+import {dbConn} from "../services/db";
 
 class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
@@ -14,10 +15,14 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
     const body = request?.body as TeacherBody;
 
+    let sqlConnection = await dbConn()
+
     try {
 
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
       if(!CONN){
-        const teacher = await this.teacherByUser(body.user.user);
+
         const teacherDisciplines = await this.tDisciplines(request?.body.user);
   
         let result = await this.repository
@@ -25,7 +30,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
           .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
           .where(
             new Brackets((qb) => {
-              if (!(teacher.person.category.id === pc.PROF)) {
+              if (!(qUserTeacher.person.category.id === pc.PROF)) {
                 qb.where("discipline.id > 0");
                 return;
               }
@@ -41,7 +46,6 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
       await AppDataSource.transaction(async (CONN) => {
 
-        const teacher = await this.teacherByUser(body.user.user, CONN);
         const teacherDisciplines = await this.tDisciplines(request?.body.user, CONN);
 
         result = await CONN.getRepository(Discipline)
@@ -49,7 +53,7 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
           .select([ "discipline.id as id", "discipline.name as name", "discipline.shortName as shortName" ])
           .where(
             new Brackets((qb) => {
-              if (!(teacher.person.category.id === pc.PROF)) {
+              if (!(qUserTeacher.person.category.id === pc.PROF)) {
                 qb.where("discipline.id > 0");
                 return;
               }
@@ -61,7 +65,9 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
       return { status: 200, data: result };
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

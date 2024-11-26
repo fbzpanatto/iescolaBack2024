@@ -6,20 +6,28 @@ import { Question } from "../model/Question";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { pc } from "../utils/personCategories";
+import {dbConn} from "../services/db";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
   constructor() { super(Question) }
 
   async isOwner(req: Request) {
     const { id: questionId } = req.params
+
+    let sqlConnection = await dbConn()
+
     try {
-      return await AppDataSource.transaction(async(CONN)=>{
-        const uTeacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+      return await AppDataSource.transaction(async(CONN)=> {
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
         const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
-        return { status: 200, data: { isOwner: uTeacher.person.id === question?.person.id || masterUser } };
+        return { status: 200, data: { isOwner: qUserTeacher.person.id === question?.person.id || masterUser } };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async questionForm(req: Request) {

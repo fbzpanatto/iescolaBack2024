@@ -63,16 +63,18 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .getRawMany();
   }
 
-  async reportFindAll(request: Request) {
+  async reportFindAll(req: Request) {
 
-    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
-    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+
+    let sqlConnection = await dbConn()
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const uTeacher = await this.teacherByUser(request?.body.user.user, CONN);
-        const teacherClasses = await this.tClassrooms(request?.body.user, CONN);
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
         const subQuery = CONN.getRepository(Test)
           .createQueryBuilder("t")
@@ -96,8 +98,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
               .orWhere(`test.id IN (${subQuery.getQuery()})`);
           }))
           .setParameters(subQuery.getParameters())
-          .andWhere("year.name = :yearName", { yearName: request.params.year as string })
-          .andWhere("test.name LIKE :search", { search: `%${ request.query.search as string }%` })
+          .andWhere("year.name = :yearName", { yearName: req.params.year as string })
+          .andWhere("test.name LIKE :search", { search: `%${ req.query.search as string }%` })
           .take(limit)
           .skip(offset)
           .getMany();
@@ -111,7 +113,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         return { status: 200, data: mappedResult };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async wrapper(CONN: EntityManager, sqlConnection: PoolConnection, testId: string, yearName: string) {

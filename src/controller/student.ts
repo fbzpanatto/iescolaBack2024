@@ -16,7 +16,6 @@ import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
 import { Year } from "../model/Year";
-import { disabilityController } from "./disability";
 import { stateController } from "./state";
 import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
@@ -174,14 +173,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async allStudents(req: Request) {
 
+    let sqlConnection = await dbConn()
+
     try {
 
       return await AppDataSource.transaction(async(CONN) => {
 
-        const teacher = await this.teacherByUser(req.body.user.user, CONN);
-        const teacherClasses = await this.tClassrooms(req?.body.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
 
-        const masterTeacher = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+        const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+
+        const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
         const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
         const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
@@ -197,12 +199,16 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         return { status: 200, data: studentsClassrooms }
       })
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async findOneStudentById(req: Request) {
 
     const { params, body } = req
+
+    let sqlConnection = await dbConn()
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
@@ -211,7 +217,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const uTeacher = await CONN.findOne(Teacher, {...options})
 
         const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE || uTeacher?.person.category.id === pc.FORM
-        const teacherClasses = await this.tClassrooms(body?.user, CONN)
+
+        const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+
         const preStudent = await this.student(Number(params.id), CONN)
 
         if (!preStudent) { return { status: 404, message: "Registro não encontrado" } }
@@ -221,7 +229,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         if (teacherClasses.classrooms.length > 0 && !teacherClasses.classrooms.includes(data.classroom.id) && !masterUser ) { return { status: 403, message: "Você não tem permissão para acessar esse registro." } }
         return { status: 200, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   override async save(body: SaveStudent) {
@@ -235,7 +245,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       return await AppDataSource.transaction(async (CONN) => {
 
         const uTeacher = await this.teacherByUser(body.user.user, CONN);
-        const tClasses = await this.tClassrooms(body.user, CONN);
+
+        const tClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+
         const year = await this.currentYear(CONN);
         const state = await this.qState(sqlConnection, body.state) as State
         const classroom = await this.qClassroom(sqlConnection, body.classroom)
@@ -313,8 +325,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
-        const tClasses = await this.tClassrooms(body.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+        const tClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+
         const year = await this.currentYear(CONN);
 
         for(let element of body.arrayOfData) {
@@ -362,15 +376,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           let student: Student | null = null;
 
-          student = await CONN.save(Student, this.createStudentBulk(element, person, state, uTeacher.person.user.id));
+          student = await CONN.save(Student, this.createStudentBulk(element, person, state, qUserTeacher.person.user.id));
 
-          const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
+          const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
 
           const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
           const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-          const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
+          const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
 
           await CONN.save(Transfer, transfer);
         }
@@ -387,11 +401,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   override async updateId(studentId: number | string, body: any) {
 
+    let sqlConnection = await dbConn()
+
     try {
       let result: any;
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const dbStudentOptions: FindOneOptions<Student> = {
           relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) }
@@ -416,7 +432,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const cBodySRA: string = `${body.ra}${body.dv}`;
         const databaseStudentRa = `${dbStudent.ra}${dbStudent.dv}`;
 
-        if(databaseStudentRa !== cBodySRA && uTeacher.person.category.id != pc.ADMN) {
+        if(databaseStudentRa !== cBodySRA && qUserTeacher.person.category.id != pc.ADMN) {
           return { status: 403, message: 'Você não tem permissão para modificar o RA de um aluno. Solicite ao Administrador do sistema.' }
         }
 
@@ -428,7 +444,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const canChange: number[] = [ pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
 
         const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Solicite a alguém com nível de acesso superior ao seu."
-        if (!canChange.includes(uTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
+        if (!canChange.includes(qUserTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
 
         const currentYear: Year = (await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } })) as Year
 
@@ -445,31 +461,31 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if(pendingTransfer) { return { status: 403, message: `Existe um pedido de transferência ativo feito por: ${ pendingTransfer.requester.person.name } para a sala: ${ pendingTransfer.requestedClassroom.shortName } - ${ pendingTransfer.requestedClassroom.school.shortName }` } }
 
-        if (stClass?.classroom.id != bodyClass.id && canChange.includes(uTeacher.person.category.id)) {
+        if (stClass?.classroom.id != bodyClass.id && canChange.includes(qUserTeacher.person.category.id)) {
 
           const newNumber: number = Number(bodyClass.shortName.replace(/\D/g, ""))
           const oldNumber: number  = Number(stClass.classroom.shortName.replace(/\D/g, ""))
 
           if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
 
-          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id });
+          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id });
 
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ["classroom", "year"], where: { year: { id: currentYear.id }, classroom: { id: bodyClass.id } }, order: { rosterNumber: "DESC" }, take: 1 });
 
           let last = 1; if (lastRosterNumber[0]?.rosterNumber) { last = lastRosterNumber[0].rosterNumber + 1 }
 
-          await CONN.save(StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: uTeacher.person.user.id });
+          await CONN.save(StudentClassroom, { student: dbStudent, classroom: bodyClass, year: currentYear, rosterNumber: last, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id });
 
           const notDigit = /\D/g; const classNumber = Number( bodyClass.shortName.replace(notDigit, "") );
 
           const transfer = new Transfer();
-          transfer.createdByUser = uTeacher.person.user.id;
+          transfer.createdByUser = qUserTeacher.person.user.id;
           transfer.startedAt = new Date();
           transfer.endedAt = new Date();
-          transfer.requester = uTeacher;
+          transfer.requester = qUserTeacher as Teacher;
           transfer.requestedClassroom = bodyClass;
           transfer.currentClassroom = stClass.classroom;
-          transfer.receiver = uTeacher;
+          transfer.receiver = qUserTeacher as Teacher;
           transfer.student = dbStudent;
           transfer.status = await CONN.findOne(TransferStatus, { where: { id: 1,name: "Aceitada" } }) as TransferStatus;
           transfer.year = await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year;
@@ -477,12 +493,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await CONN.save(Transfer, transfer);
         }
 
-        if (stClass.classroom.id === bodyClass.id) { await CONN.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: uTeacher.person.user.id } as StudentClassroom )}
+        if (stClass.classroom.id === bodyClass.id) { await CONN.save(StudentClassroom, {...stClass, rosterNumber: body.rosterNumber, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id } as StudentClassroom )}
 
         dbStudent.ra = body.ra;
         dbStudent.dv = body.dv;
         dbStudent.updatedAt = new Date();
-        dbStudent.updatedByUser = uTeacher.person.user.id;
+        dbStudent.updatedByUser = qUserTeacher.person.user.id;
         dbStudent.person.name = body.name.toUpperCase();
         dbStudent.person.birth = body.birth;
         dbStudent.observationOne = body.observationOne;
@@ -491,13 +507,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const stDisabilities = dbStudent.studentDisabilities.filter((studentDisability) => !studentDisability.endedAt);
 
-        await this.setDisabilities(uTeacher.person.user.id, await CONN.save(Student, dbStudent), stDisabilities, body.disabilities, CONN);
+        await this.setDisabilities(qUserTeacher.person.user.id, await CONN.save(Student, dbStudent), stDisabilities, body.disabilities, CONN);
 
         result = this.studentResponse(await this.student(Number(studentId), CONN));
 
         return { status: 200, data: result };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async setDisabilities(uTeacherId:number, student: Student, studentDisabilities: StudentDisability[], body: number[], CONN: EntityManager ) {
@@ -700,6 +718,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async graduate( studentId: number | string, body: GraduateBody ) {
+
+    let sqlConnection = await dbConn()
+
     try {
 
       let student: Student | null = null
@@ -710,7 +731,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const masterUser: boolean = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
 
-        const { classrooms } = await this.tClassrooms(body.user, CONN)
+        const { classrooms } = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+
         const message = "Você não tem permissão para realizar modificações nesta sala de aula."
         if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) { return { status: 403, message } }
 
@@ -729,7 +751,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 201, data: transferResponse };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

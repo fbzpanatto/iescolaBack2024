@@ -5,6 +5,7 @@ import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { pc } from "../utils/personCategories";
+import {dbConn} from "../services/db";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -14,10 +15,13 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
 
     const body = request?.body
 
+    let sqlConnection = await dbConn()
+
     try {
 
-      const teacher = await this.teacherByUser(body.user.user)
-      const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+      const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
       const fields = ['classroom.id as id', 'classroom.shortName as name', 'school.shortName as school']
 
@@ -39,7 +43,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
             .leftJoin('teacherClassDiscipline.classroom', 'classroom')
             .leftJoin('classroom.school', 'school')
             .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-            .where('teacher.id = :id', { id: teacher.id })
+            .where('teacher.id = :id', { id: qUserTeacher.id })
             .andWhere(new Brackets(qb => { if(!masterUser) { qb.andWhere('teacherClassDiscipline.endedAt IS NULL') } }))
             .groupBy( 'classroom.id')
             .getRawMany() as { id: number, name: string, school: string }[]
@@ -67,14 +71,16 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
           .leftJoin('teacherClassDiscipline.classroom', 'classroom')
           .leftJoin('classroom.school', 'school')
           .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-          .where('teacher.id = :id', { id: teacher.id })
+          .where('teacher.id = :id', { id: qUserTeacher.id })
           .andWhere(new Brackets(qb => { if(!masterUser) { qb.andWhere('teacherClassDiscipline.endedAt IS NULL') } }))
           .groupBy( 'classroom.id')
           .getRawMany() as { id: number, name: string, school: string }[]
 
         return { status: 200, data: classrooms };
       }
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   override async save(body: { id: number, classrooms: number[] }) {

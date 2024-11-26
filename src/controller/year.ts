@@ -7,6 +7,7 @@ import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { pc } from "../utils/personCategories";
 import { StudentClassroom } from "../model/StudentClassroom";
+import {dbConn} from "../services/db";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
@@ -22,11 +23,15 @@ class YearController extends GenericController<EntityTarget<Year>> {
   }
 
   override async save(body: any) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN)=> {
-        const uTeacher = await this.teacherByUser(body.user.user, CONN)
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
         const canCreate = [pc.ADMN]
-        if (!canCreate.includes(uTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
+        if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
         const yearExists = await this.checkIfExists(body, CONN)
         if (yearExists && yearExists.name === body.name) { return { status: 404, message: `O ano ${body.name} já existe.` } }
         const currentYear = await this.currentYear(CONN) as Year
@@ -41,7 +46,9 @@ class YearController extends GenericController<EntityTarget<Year>> {
         for (let el of registers) { await CONN.save(Period, { year: newYear, bimester: el } as Period) }
         return { status: 201, data: newYear };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateId(id: any, body: any) {

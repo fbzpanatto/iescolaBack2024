@@ -30,6 +30,7 @@ import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
 import { dbConn } from "../services/db";
+import {Person} from "../model/Person";
 
 interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
@@ -302,18 +303,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const { id: testId, classroom: classroomId } = req.params
     const { year: yearId } = req.query
 
+    let sqlConnection = await dbConn()
+
     try {
 
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const teacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
         const baseTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category', 'discipline'] }) as Test
 
-        const { classrooms} = await this.tClassrooms(req.body.user, CONN)
+        const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
         const baseClassroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
@@ -499,7 +504,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
@@ -702,11 +709,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async insertStudents(req: Request) {
 
+    let sqlConnection = await dbConn()
+
     const body = req.body as insertStudentsBody
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const uTeacher = await this.teacherByUser(body.user.user, CONN)
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
         const test = await this.getTest(body.test.id, body.year, CONN)
+
         if(!test) return { status: 404, message: "Teste não encontrado" }
         switch (test.category.id) {
           case (TEST_CATEGORIES_IDS.LITE_1):
@@ -717,7 +730,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             for(let register of filteredSC){
               const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: register.student_id } } } )
-              if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, student: { id: register.student_id }, test } ) }
+              if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: qUserTeacher.person.user.id, student: { id: register.student_id }, test } ) }
             }
             break;
           }
@@ -728,7 +741,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.getRfluencyHeaders(CONN)
-            await this.linkReading(headers, filteredSC, test, uTeacher.person.user.id, CONN)
+            await this.linkReading(headers, filteredSC, test, qUserTeacher.person.user.id, CONN)
             break;
           }
 
@@ -738,16 +751,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            await this.testQuestLink(true, filteredSC, test, testQuestions, uTeacher.person.user.id, CONN)
+            await this.testQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN)
             break;
           }
         }
         return { status: 200, data: {} };
       })
-    } catch (error: any) {
+    }
+    catch (error: any) {
       console.log('insertStudents', error)
       return { status: 500, message: error.message }
     }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async notTestIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
@@ -806,6 +821,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async findAllByYear(req: Request) {
 
+    let sqlConnection = await dbConn()
+
     try {
       return AppDataSource.transaction(async(CONN) => {
 
@@ -814,14 +831,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
         const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-        const teacher = await this.teacherByUser(req.body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
 
         const masterTeacher =
-          teacher.person.category.id === pc.ADMN ||
-          teacher.person.category.id === pc.SUPE ||
-          teacher.person.category.id === pc.FORM
+          qUserTeacher.person.category.id === pc.ADMN ||
+          qUserTeacher.person.category.id === pc.SUPE ||
+          qUserTeacher.person.category.id === pc.FORM
 
-        const { classrooms } = await this.tClassrooms(req?.body.user, CONN)
+        const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+
         const { disciplines } = await this.tDisciplines(req?.body.user, CONN);
 
         const subQuery = CONN.getRepository(Test)
@@ -878,36 +896,46 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         return { status: 200, data: mappedResult };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async getById(req: Request) {
+
+    let sqlConnection = await dbConn()
+
     const { id } = req.params
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const teacher = await this.teacherByUser(req.body.user.user, CONN)
-        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
-        if(teacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+        if(qUserTeacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
         if (!test) { return { status: 404, message: 'Data not found' } }
         const testQuestions = await this.getTestQuestions(test.id, CONN)
         return { status: 200, data: { ...test, testQuestions } };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async saveTest(body: TestBodySave) {
 
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
 
+    let sqlConnection = await dbConn()
+
     try {
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-        if(!uTeacher) return { status: 404, message: "Usuário inexistente" }
+        if(!qUserTeacher) return { status: 404, message: "Usuário inexistente" }
 
         const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })
 
@@ -949,11 +977,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.name = body.name
         test.category = body.category as TestCategory
         test.discipline = body.discipline as Discipline
-        test.person = uTeacher.person
+        test.person = qUserTeacher.person as Person
         test.period = period
         test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
         test.createdAt = new Date()
-        test.createdByUser = uTeacher.person.user.id
+        test.createdByUser = qUserTeacher.person.user.id
 
         await CONN.save(Test, test);
 
@@ -964,8 +992,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           const tQts = body.testQuestions!.map((el: any) => ({
             ...el,
             createdAt: new Date(),
-            createdByUser: uTeacher.person.user.id,
-            question: { ...el.question, person: el.question.person || uTeacher.person, createdAt: new Date(), createdByUser: uTeacher.person.user.id },
+            createdByUser: qUserTeacher.person.user.id,
+            question: { ...el.question, person: el.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id },
             test: test
           }))
 
@@ -974,18 +1002,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         return { status: 201, data: test }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTest(id: number | string, req: Request) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const uTeacher = await this.teacherByUser(req.body.user.user, CONN) as Teacher
-        const userId = uTeacher.person.user.id
-        const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+
+        const userId = qUserTeacher.person.user.id
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
         const test = await CONN.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
         if(!test) return { status: 404, message: "Teste não encontrado" }
-        if(uTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+        if(qUserTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
         test.name = req.body.name
         test.active = req.body.active
         test.updatedAt = new Date()
@@ -996,7 +1031,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           const dataTq = await this.getTestQuestions(test.id, CONN)
           for (let next of bodyTq) {
             const curr = dataTq.find(el => el.id === next.id);
-            if (!curr) { await CONN.save(TestQuestion, { ...next, createdAt: new Date(), createdByUser: userId, question: { ...next.question, person: next.question.person || uTeacher.person, createdAt: new Date(), createdByUser: userId, }, test }) }
+            if (!curr) { await CONN.save(TestQuestion, { ...next, createdAt: new Date(), createdByUser: userId, question: { ...next.question, person: next.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: userId, }, test }) }
             else {
               const testQuestionCondition = this.diffs(curr, next);
               if (testQuestionCondition) { await CONN.save(TestQuestion, { ...next, createdAt: curr.createdAt, createdByUser: curr.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
@@ -1011,7 +1046,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const result = (await this.findOneById(id, req, CONN)).data
         return { status: 200, data: result };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {

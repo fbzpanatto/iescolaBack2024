@@ -1,19 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {
-  QueryClassrooms,
-  QuerySchools,
-  QueryStudentClassrooms,
-  SavePerson,
-  QueryTest,
-  QueryYear,
-  QueryTestClassroom,
-  QueryTeacherClassrooms,
-  QueryUser,
-  QueryClassroom,
-  QueryState
-} from "../interfaces/interfaces";
+import { QueryClassroom, QueryClassrooms, QuerySchools, QueryState, QueryStudentClassrooms, QueryTeacherClassrooms, QueryTest, QueryTestClassroom, QueryUser, QueryUserTeacher, QueryYear, SavePerson  } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
@@ -132,41 +120,28 @@ export class GenericController<T> {
     return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
   }
 
-  // TODO: TRANSFORM THIS INTO PURE SQL.
-  async tClassrooms(body: { user: number }, CONN?: EntityManager) {
-
-    if(!CONN) {
-      const result = (await AppDataSource.createQueryBuilder()
-        .select("teacher.id", "teacher")
-        .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
-        .from(Teacher, "teacher")
-        .leftJoin("teacher.person", "person")
-        .leftJoin("person.user", "user")
-        .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-        .leftJoin("teacherClassDiscipline.classroom", "classroom")
-        .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-        .groupBy("teacher.id")
-        .getRawOne()) as { teacher: number; classrooms: string };
-
-      return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
-    }
-
-    const result = (await CONN.createQueryBuilder()
-      .select("teacher.id", "teacher")
-      .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)", "classrooms" )
-      .from(Teacher, "teacher")
-      .leftJoin("teacher.person", "person")
-      .leftJoin("person.user", "user")
-      .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-      .leftJoin("teacherClassDiscipline.classroom", "classroom")
-      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-      .groupBy("teacher.id")
-      .getRawOne()) as { teacher: number; classrooms: string };
-
-    return { id: result.teacher, classrooms: result.classrooms?.split(",").map((classroomId: string) => Number(classroomId)) ?? [] }
-  }
-
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qTeacherByUser(conn: PoolConnection, userId: number) {
+    const query =
+
+      `
+        SELECT teacher.id, teacher.email, teacher.register,
+               p.id AS person_id, p.name AS person_name,
+               pc.id AS person_category_id, pc.name AS person_category_name,
+               u.id AS user_id, u.username AS user_name, u.email AS user_email
+        FROM teacher
+          INNER JOIN person AS p ON teacher.personId = p.id
+          INNER JOIN person_category AS pc ON p.categoryId = pc.id
+          INNER JOIN user AS u ON p.id = u.personId
+        WHERE u.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [userId])
+    const data = (queryResult as any[])[0]
+
+    return this.formatUserTeacher(data)
+  }
 
   async qTeacherClassrooms(conn: PoolConnection, userId: number) {
     const query =
@@ -354,6 +329,23 @@ export class GenericController<T> {
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+
+  formatUserTeacher(el: {[key: string]: any}) {
+
+    return {
+      id: el.id,
+      email: el.email,
+      register: el.register,
+      person: {
+        id: el.person_id,
+        name: el.person_name,
+        category: { id: el.person_category_id, name: el.person_category_name },
+        user: { id: el.user_id, username: el.user_name, email: el.user_email
+        }
+      }
+    } as QueryUserTeacher
+  }
 
   formatedTest(qTest: QueryTest) {
     return {

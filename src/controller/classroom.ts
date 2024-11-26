@@ -5,6 +5,7 @@ import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
 import { pc } from "../utils/personCategories";
 import { AppDataSource } from "../data-source";
+import {dbConn} from "../services/db";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -13,7 +14,10 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   async getAllClassrooms( request: Request, teacherForm: boolean, CONN?: EntityManager ) {
 
     const { body } = request as { body: TeacherBody };
+
     let result: Classroom[] | null = null
+
+    let sqlConnection = await dbConn()
 
     try {
 
@@ -22,9 +26,9 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
       if(!CONN) {
         result = await AppDataSource.transaction(async (alternative) => {
 
-          const uTeacher = await this.teacherByUser(body.user.user, alternative);
-          const tClasses = await this.tClassrooms(request?.body.user, alternative);
-          const masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+          const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+          const tClasses = await this.qTeacherClassrooms(sqlConnection, request?.body.user.user)
+          const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
           return await alternative.getRepository(Classroom)
             .createQueryBuilder("classroom")
@@ -43,11 +47,11 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         return { status: 200, data: result };
       }
 
-      const uTeacher = await this.teacherByUser(body.user.user, CONN);
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-      const tClasses = await this.tClassrooms(request?.body.user, CONN);
+      const tClasses = await this.qTeacherClassrooms(sqlConnection, request?.body.user.user)
 
-      masterUser = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+      masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
       const data = await CONN.getRepository(Classroom)
         .createQueryBuilder("classroom")
@@ -65,7 +69,9 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       return { status: 200, data }
 
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

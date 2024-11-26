@@ -20,9 +20,7 @@ import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../utils/email.service";
 import { generatePassword } from "../utils/generatePassword";
 
-import { selectJoinsWhere } from '../utils/queries'
 import { dbConn } from "../services/db";
-import { PoolConnection } from "mysql2/promise";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -43,59 +41,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  // async myNewTestDbConnection(conn: PoolConnection){
-  //
-  //   try {
-  //     const baseTable = 'teacher'
-  //     const baseAlias = 't'
-  //     const selectFields = ['DISTINCT t.id, p.name, p.birth, t.email, t.register, pc.name AS category, tcd.classroomId, cl.shortName AS classroom, sch.shortName AS school,' +
-  //     ' tcd.startedAt,' +
-  //     ' tcd.endedAt']
-  //     const whereConditions = {}
-  //     const joins = [
-  //       { table: 'person', alias: 'p', conditions: [{ column1: 't.personId', column2: 'p.id' }] },
-  //       { table: 'person_category', alias: 'pc', conditions: [{ column1: 'p.categoryId', column2: 'pc.id' }] },
-  //       { table: 'teacher_class_discipline', alias: 'tcd', conditions: [{ column1: 't.id', column2: 'tcd.teacherId' }] },
-  //       { table: 'classroom', alias: 'cl', conditions: [{ column1: 'tcd.classroomId', column2: 'cl.id' }] },
-  //       { table: 'school', alias: 'sch', conditions: [{ column1: 'cl.schoolId', column2: 'sch.id' }] }
-  //     ]
-  //
-  //     const queryResult = (await selectJoinsWhere(conn, baseTable, baseAlias, selectFields, whereConditions, joins)) as Array<any>;
-  //
-  //     const result = queryResult.reduce((acc, row) => {
-  //       let teacher = acc.find((t: any) => t.id === row.id);
-  //
-  //       if (!teacher) {
-  //         teacher = { id: row.id, name: row.name, birth: row.birth, email: row.email, register: row.register, category: row.category, teacher_class_discipline: [] };
-  //         acc.push(teacher);
-  //       }
-  //
-  //       if (row.classroomId) { teacher.teacher_class_discipline.push({ classroomId: row.classroomId, classroom: row.classroom, school: row.school, startedAt: row.startedAt, endedAt: row.endedAt }) }
-  //
-  //       return acc;
-  //     }, []);
-  //
-  //     for(let item of result) {
-  //       console.log(item)
-  //     }
-  //   } catch (err) { console.log('err', err) }
-  // }
-
   async findAllWhereTeacher(request: Request ) {
 
-    // let conn = null;
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
 
-    try {
+    let sqlConnection = await dbConn()
 
-      // conn = await dbConn()
-      // await this.myNewTestDbConnection(conn)
+    try {
 
       return await AppDataSource.transaction(async(CONN)=> {
 
-        const teacher = await this.teacherByUser(body.user.user, CONN);
-        const teacherClasses = await this.tClassrooms(body?.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qTeacherClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+
         const notInCategories = [pc.ADMN, pc.SUPE, pc.FORM];
 
         const newResult = await CONN.getRepository(Teacher)
@@ -106,10 +65,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           .leftJoin("teacherClassDiscipline.classroom", "classroom")
           .where(
             new Brackets((qb) => {
-              if (teacher.person.category.id === pc.PROF || teacher.person.category.id === pc.MONI) { qb.where("teacher.id = :teacherId", { teacherId: teacher.id }); return }
-              if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.FORM) {
+              if (qUserTeacher.person.category.id === pc.PROF || qUserTeacher.person.category.id === pc.MONI) { qb.where("teacher.id = :teacherId", { teacherId: qUserTeacher.id }); return }
+              if (qUserTeacher.person.category.id != pc.ADMN && qUserTeacher.person.category.id != pc.SUPE && qUserTeacher.person.category.id != pc.FORM) {
                 qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
-                  .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: teacherClasses.classrooms })
+                  .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms })
                   .andWhere("teacherClassDiscipline.endedAt IS NULL");
                 return;
               }
@@ -125,19 +84,22 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    // finally { if (conn) { conn.release() } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async findOneTeacher(id: string | number, request?: Request) {
 
     const body = request?.body as TeacherBody;
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const teacher = await this.teacherByUser(body.user.user, CONN);
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
         const cannotChange = [pc.MONI, pc.PROF];
 
-        if ( teacher.id !== Number(id) && cannotChange.includes(teacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
+        if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
         const el = await CONN.getRepository(Teacher)
           .createQueryBuilder("teacher")
@@ -172,13 +134,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         return { status: 200, data: newResult };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async getRequestedStudentTransfers(request?: Request) {
+  async getRequestedStudentTransfers(req?: Request) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const teacherClasses = await this.tClassrooms(request?.body.user, CONN);
+
+        const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+
         const studentClassrooms = await CONN.getRepository(StudentClassroom)
           .createQueryBuilder("studentClassroom")
           .leftJoin("studentClassroom.classroom", "classroom")
@@ -193,7 +162,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         return { status: 200, data: studentClassrooms }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTeacher(id: string, body: TeacherBody) {
@@ -291,13 +262,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async saveTeacher(body: TeacherBody) {
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const teacherUserFromFront = await this.teacherByUser(body.user.user, CONN) as Teacher;
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria."
-        if (!this.canChange(teacherUserFromFront.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
+        if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
 
         const registerExists = await CONN.findOne(Teacher, { where: { register: body.register } });
 
@@ -311,7 +284,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth,category });
 
-        const teacher = await CONN.save(Teacher, this.createTeacher(teacherUserFromFront.person.user.id, person, body));
+        const teacher = await CONN.save(Teacher, this.createTeacher(qUserTeacher.person.user.id, person, body));
 
         const { username, passwordObject, email } = this.generateUser(body);
 
@@ -339,7 +312,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
         return { status: 201, data: teacher };
       });
-    } catch (error: any) { return { status: 500, message: error.message } } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
 
   createTeacher(userId: number, person: Person, body: TeacherBody) {
     const teacher = new Teacher();

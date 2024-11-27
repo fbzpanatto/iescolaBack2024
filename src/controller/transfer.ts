@@ -11,6 +11,7 @@ import { Teacher } from "../model/Teacher";
 import { transferEmail } from "../utils/email.service";
 import { Student } from "../model/Student";
 import { pc } from "../utils/personCategories";
+import {dbConn} from "../services/db";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -56,10 +57,13 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   }
 
   override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}})
 
@@ -92,7 +96,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         for(let el of teachers) {
           if(student) {
-            await transferEmail(el.user_email, student.person.name, newClass.shortName, uTeacher.person.name, newClass.school.shortName)
+            await transferEmail(el.user_email, student.person.name, newClass.shortName, qUserTeacher.person.name, newClass.school.shortName)
           }
         }
 
@@ -100,43 +104,49 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.student = body.student;
         transfer.startedAt = body.startedAt;
         transfer.endedAt = body.endedAt;
-        transfer.requester = uTeacher;
+        transfer.requester = qUserTeacher as Teacher;
         transfer.requestedClassroom = body.classroom;
         transfer.year = await this.currentYear(CONN)
         transfer.currentClassroom = body.currentClassroom;
-        transfer.createdByUser = uTeacher.person.user.id;
+        transfer.createdByUser = qUserTeacher.person.user.id;
         transfer.status = await this.transferStatus(transferStatus.PENDING, CONN) as TransferStatus
 
         const result = await CONN.save(Transfer, transfer)
 
         return { status: 201, data: result }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   override async updateId(transferId: number | string, body: ObjectLiteral) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN)
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
         const currTransfer = await CONN.findOne(Transfer, {
           relations: ['status', 'requester.person', 'requestedClassroom'],
           where: { id: Number(transferId), status: { id: transferStatus.PENDING }, endedAt: IsNull() }
         })
 
-        const isAdmin = uTeacher.person.category.id === pc.ADMN;
+        const isAdmin = qUserTeacher.person.category.id === pc.ADMN;
 
         if (!currTransfer) return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' }
 
-        if(body.cancel && !(isAdmin || uTeacher.id === currTransfer.requester.id)) {
+        if(body.cancel && !(isAdmin || qUserTeacher.id === currTransfer.requester.id)) {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
         }
 
-        if(body.reject && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
+        if(body.reject && ![pc.ADMN, pc.SUPE, pc.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' }
         }
 
-        if(body.accept && ![pc.ADMN, pc.SUPE, pc.SECR].includes(uTeacher.person.category.id)) {
+        if(body.accept && ![pc.ADMN, pc.SUPE, pc.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência. Solicite ao auxiliar administrativo da unidade escolar.' }
         }
 
@@ -144,8 +154,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           currTransfer.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
-          currTransfer.receiver = uTeacher
-          currTransfer.updatedByUser = uTeacher.person.user.id
+          currTransfer.receiver = qUserTeacher as Teacher
+          currTransfer.updatedByUser = qUserTeacher.person.user.id
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Cancelada com sucesso.' }
         }
@@ -154,8 +164,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           currTransfer.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
-          currTransfer.receiver = uTeacher
-          currTransfer.updatedByUser = uTeacher.person.user.id
+          currTransfer.receiver = qUserTeacher as Teacher
+          currTransfer.updatedByUser = qUserTeacher.person.user.id
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: 'Rejeitada com sucesso.' }
         }
@@ -180,21 +190,23 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             classroom: currTransfer.requestedClassroom,
             startedAt: new Date(),
             rosterNumber: last,
-            createdByUser: uTeacher.person.user.id,
+            createdByUser: qUserTeacher.person.user.id,
             year: await this.currentYear(CONN)
           }) as StudentClassroom
 
-          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+          await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
           currTransfer.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
           currTransfer.endedAt = new Date()
-          currTransfer.receiver = uTeacher
+          currTransfer.receiver = qUserTeacher as Teacher
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: newStudentClassroom }
         }
         let data = {}
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

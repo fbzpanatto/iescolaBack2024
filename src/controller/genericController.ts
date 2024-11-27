@@ -82,12 +82,6 @@ export class GenericController<T> {
     return await CONN.findOne(TransferStatus, { where: { id: id } })
   }
 
-  async teacherByUser(userId: number, CONN?: EntityManager) {
-    const options = { relations: ["person.category", "person.user"], where: { person: { user: { id: userId } } } }
-    if(!CONN) { return (await AppDataSource.getRepository(Teacher).findOne(options)) as Teacher }
-    return await CONN.findOne(Teacher, options) as Teacher
-  }
-
   async tDisciplines(body: { user: number }, CONN?: EntityManager) {
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()

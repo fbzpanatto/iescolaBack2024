@@ -168,25 +168,29 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async updateTeacher(id: string, body: TeacherBody) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const uTeacher = await this.teacherByUser(body.user.user, CONN)
+
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user"], where: { id: Number(id) }})
 
         if (!teacher) { return { status: 404, message: "Data not found" } }
 
         const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
-        if (!this.canChange(uTeacher.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
+        if (!this.canChange(qUserTeacher.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
 
-        if (uTeacher.person.category.id === pc.PROF || (uTeacher.person.category.id === pc.MONI && uTeacher.id !== teacher.id)) {
+        if (qUserTeacher.person.category.id === pc.PROF || (qUserTeacher.person.category.id === pc.MONI && qUserTeacher.id !== teacher.id)) {
           return { status: 403, message: "Você não tem permissão para editar este registro." };
         }
 
         teacher.person.name = body.name;
         teacher.person.birth = body.birth;
         teacher.updatedAt = new Date();
-        teacher.updatedByUser = uTeacher.person.user.id
+        teacher.updatedByUser = qUserTeacher.person.user.id
 
         if(teacher.email != body.email) {
 
@@ -219,7 +223,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         return { status: 200, data: teacher };
       })
-    } catch ( error: any ) { return { status: 500, message: error.message } }
+    }
+    catch ( error: any ) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateRelation(teacher: Teacher, body: TeacherBody, CONN: EntityManager) {

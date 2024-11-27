@@ -92,12 +92,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     const { student, oldYear, newClassroom, oldClassroom, user } = body
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN)=> {
         const currentYear: Year = await this.currentYear(CONN)
         if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
-        const uTeacher = await this.teacherByUser(user.user, CONN)
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const activeSc = await CONN.findOne(StudentClassroom, {
           relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: IsNull() }
@@ -151,24 +153,26 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           year: currentYear,
           rosterNumber: 99,
           startedAt: new Date(),
-          createdByUser: uTeacher.person.user.id
+          createdByUser: qUserTeacher.person.user.id
         }) as StudentClassroom
 
         await AppDataSource.getRepository(Transfer).save({
           startedAt: new Date(),
           endedAt: new Date(),
-          requester: uTeacher,
+          requester: qUserTeacher,
           requestedClassroom: classroom,
           currentClassroom: oldClassInDb,
-          receiver: uTeacher,
+          receiver: qUserTeacher,
           student: student,
           status: await CONN.findOne(TransferStatus, { where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
           year: currentYear,
-          createdByUser: uTeacher.person.user.id
+          createdByUser: qUserTeacher.person.user.id
         })
         return { status: 200, data: newStudentClassroom };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async allStudents(req: Request) {
@@ -244,7 +248,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const tClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
 
@@ -291,20 +295,20 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         let student: Student | null = null;
 
-        student = await CONN.save(Student, this.createStudent(body, person, state, uTeacher.person.user.id));
+        student = await CONN.save(Student, this.createStudent(body, person, state, qUserTeacher.person.user.id));
 
         if (!!disabilities.length) {
-          const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability, createdByUser: uTeacher.person.user.id } as StudentDisability })
+          const mappDis = disabilities.map((disability) => { return { student: student as Student, startedAt: new Date(), disability, createdByUser: qUserTeacher.person.user.id } as StudentDisability })
           await CONN.save(StudentDisability, mappDis);
         }
 
-        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: uTeacher.person.user.id })) as StudentClassroom;
+        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
 
         const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
         const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-        const transfer = { startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: uTeacher, student, status: tStatus, createdByUser: uTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
+        const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
 
         await CONN.save(Transfer, transfer);
 
@@ -727,9 +731,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher: Teacher = await this.teacherByUser(body.user.user, CONN)
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-        const masterUser: boolean = uTeacher.person.category.id === pc.ADMN || uTeacher.person.category.id === pc.SUPE || uTeacher.person.category.id === pc.FORM;
+        const masterUser: boolean = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
         const { classrooms } = await this.qTeacherClassrooms(sqlConnection, body.user.user)
 
@@ -740,13 +744,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (!student) { return { status: 404, message: "Registro não encontrado" } }
 
-        student.active = body.student.active; student.updatedAt = new Date(); student.updatedByUser = uTeacher.person.user.id;
+        student.active = body.student.active; student.updatedAt = new Date(); student.updatedByUser = qUserTeacher.person.user.id;
 
         await CONN.save(Student, student)
 
         const status: TransferStatus = await CONN.findOne(TransferStatus, { where: { id: 6, name: "Formado" } }) as TransferStatus
         const year: Year = await CONN.findOne(Year, { where: { id: body.year } }) as Year
-        const entity = { status, year, student, receiver: uTeacher, createdByUser: uTeacher.person.user.id, updatedByUser: uTeacher.person.user.id, startedAt: new Date(), endedAt: new Date(), requester: uTeacher, requestedClassroom: body.student.classroom, currentClassroom: body.student.classroom  }
+        const entity = { status, year, student, receiver: qUserTeacher, createdByUser: qUserTeacher.person.user.id, updatedByUser: qUserTeacher.person.user.id, startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: body.student.classroom, currentClassroom: body.student.classroom  }
         const transferResponse = await CONN.save(Transfer, entity)
 
         return { status: 201, data: transferResponse };

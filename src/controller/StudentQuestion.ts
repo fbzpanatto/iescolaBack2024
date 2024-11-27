@@ -13,6 +13,7 @@ import { Classroom } from "../model/Classroom";
 import { UserInterface } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Year } from "../model/Year";
+import {dbConn} from "../services/db";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -23,12 +24,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { body, query } = req
     const { year } = query
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const cY = await this.currentYear(CONN)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
@@ -41,7 +44,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const readingFluency: ReadingFluency | null = await CONN.findOne(ReadingFluency, options)
 
         if(!readingFluency) {
-          data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id, rClassroom: body.classroom }); return { status: 201, data }
+          data = await CONN.save(ReadingFluency, {...body, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id, rClassroom: body.classroom }); return { status: 201, data }
         }
 
         const id = body.studentClassroom.id
@@ -57,14 +60,16 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         readingFluency.rClassroom = body.classroom; readingFluency.readingFluencyLevel = body.readingFluencyLevel
 
-        data = await CONN.save(ReadingFluency, {...readingFluency, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+        data = await CONN.save(ReadingFluency, {...readingFluency, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 
         return { status: 201, data }
       })
-    } catch (error: any) {
+    }
+    catch (error: any) {
       console.log('error', error)
       return { status: 500, message: error.message }
     }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateAlphabetic(req: Request){
@@ -72,12 +77,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { body, query } = req
     const { year } = query
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const cY = await this.currentYear(CONN)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
@@ -94,7 +101,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const alpha = await CONN.findOne(Alphabetic, options)
 
         if(!alpha) {
-          data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: uTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data }
+          data = await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: qUserTeacher.person.user.id, alphabeticLevel: body.examLevel, student: body.student, rClassroom: body.classroom, test }); return { status: 201, data }
         }
 
         const id = body.studentClassroom.id
@@ -110,23 +117,27 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         alpha.rClassroom = body.classroom; alpha.alphabeticLevel = body.examLevel
 
-        data = await CONN.save(Alphabetic, {...alpha, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+        data = await CONN.save(Alphabetic, {...alpha, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 
         return { status: 201, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateAlphabeticFirstLevel(req: Request){
 
     const { body } = req
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const uTeacher = await this.teacherByUser(body.user.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
         const student = body.student
         const alphabeticFirst = body.alphabeticFirst
@@ -134,17 +145,19 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const first = await CONN.findOne(AlphabeticFirst, { where: { student } })
 
         if(!first){
-          data = await CONN.save(AlphabeticFirst, { student, alphabeticFirst, createdAt: new Date(), createdByUser: uTeacher.person.user.id })
+          data = await CONN.save(AlphabeticFirst, { student, alphabeticFirst, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id })
           return { status: 201, data }
         }
 
         first.alphabeticFirst = alphabeticFirst
 
-        data = await CONN.save(AlphabeticFirst, { ...first, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id })
+        data = await CONN.save(AlphabeticFirst, { ...first, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 
         return { status: 201, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateQuestion(req: Request, body: ObjectLiteral) {
@@ -205,24 +218,29 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
   }
 
   async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
+
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
 
-        const uTeacher = await this.teacherByUser(body.user!.user, CONN);
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user!.user)
 
         delete body.user
 
         let newBody;
 
-        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: uTeacher.person.user.id } }
-        else { newBody = { ...body, createdAt: new Date(), createdByUser: uTeacher.person.user.id } }
+        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id } }
+        else { newBody = { ...body, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id } }
 
         let data = await CONN.save(Alphabetic, newBody)
         return { status: 200, data }
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

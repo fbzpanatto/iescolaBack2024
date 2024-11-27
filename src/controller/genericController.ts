@@ -2,7 +2,7 @@ import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptio
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
-  QueryAlphaStuClassrooms, QueryAlphaStuClassroomsFormated,
+  QueryAlphaStuClassrooms,
   QueryClassroom,
   QueryClassrooms,
   QuerySchools,
@@ -90,11 +90,9 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt,
+        SELECT DISTINCT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt,
                s.id AS student_id,
-               p.id AS person_id, p.name AS person_name,
-               a.id AS alphabetic_id, a.alphabeticLevelId AS alphabeticLevel,
-               t.id AS test_id
+               p.id AS person_id, p.name AS person_name
         FROM student_classroom AS sc
           INNER JOIN year AS y ON sc.yearId = y.id
           INNER JOIN student AS s ON sc.studentId = s.id
@@ -367,29 +365,16 @@ export class GenericController<T> {
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
   formatAlphabeticStudentClassrooms(arr: QueryAlphaStuClassrooms[]) {
-    return arr.reduce((acc: QueryAlphaStuClassroomsFormated[], prev: QueryAlphaStuClassrooms) => {
-      const find = acc.find(el => el.id === prev.id)
-      if(!find) {
-
-        const newElement = {
-          id: prev.id,
-          rosterNumber: prev.rosterNumber,
-          startedAt: prev.startedAt,
-          endedAt: prev.endedAt,
-          student: {
-            id: prev.student_id,
-            person: { id: prev.person_id, name: prev.person_name },
-            alphabetic: [{ id: prev.alphabetic_id, alphabeticLevel: prev.alphabeticLevel, test: { id: prev.test_id }
-            }]
-          }
+    return arr.map(el => {
+      return {
+        id: el.id,
+        rosterNumber: el.rosterNumber,
+        startedAt: el.startedAt,
+        endedAt: el.endedAt,
+        student: { id: el.student_id, person: { id: el.person_id, name: el.person_name }
         }
-
-        acc.push(newElement)
-        return acc
       }
-      find.student.alphabetic.push({ id: prev.alphabetic_id, alphabeticLevel: prev.alphabeticLevel, test: { id: prev.test_id }})
-      return acc
-    }, [])
+    })
   }
 
   formatUserTeacher(el: {[key: string]: any}) {

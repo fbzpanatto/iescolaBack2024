@@ -79,18 +79,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const students = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
+            const sCs = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
 
             const headers = await this.alphaHeaders(yearName, appCONN)
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                data = await this.alphabeticTest(false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, students, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                data = await this.alphabeticTest(true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
                 break;
               }
             }

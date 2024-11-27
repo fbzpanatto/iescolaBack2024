@@ -839,7 +839,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
 
-        const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user);
+        const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user.user);
 
         const subQuery = CONN.getRepository(Test)
           .createQueryBuilder("t")

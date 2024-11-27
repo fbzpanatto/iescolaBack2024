@@ -2,6 +2,7 @@ import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptio
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
+  QueryAlphaStuClassrooms, QueryAlphaStuClassroomsFormated,
   QueryClassroom,
   QueryClassrooms,
   QuerySchools,
@@ -84,6 +85,31 @@ export class GenericController<T> {
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qAlphabeticStudents(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
+    const query =
+
+      `
+        SELECT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt,
+               s.id AS student_id,
+               p.id AS person_id, p.name AS person_name,
+               a.id AS alphabetic_id, a.alphabeticLevelId AS alphabeticLevel,
+               t.id AS test_id
+        FROM student_classroom AS sc
+          INNER JOIN year AS y ON sc.yearId = y.id
+          INNER JOIN student AS s ON sc.studentId = s.id
+          INNER JOIN person AS p ON s.personId = p.id
+          LEFT JOIN alphabetic AS a ON a.studentId = s.id
+          LEFT JOIN test AS t ON a.testId = t.id
+        WHERE sc.classroomId = ?
+          AND (sc.startedAt < ? OR a.id IS NOT NULL)
+          AND y.name = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
+
+    return this.formatAlphabeticStudentClassrooms(queryResult as QueryAlphaStuClassrooms[])
+  }
 
   async qCurrentYear(conn: PoolConnection) {
     const query =
@@ -339,6 +365,32 @@ export class GenericController<T> {
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatAlphabeticStudentClassrooms(arr: QueryAlphaStuClassrooms[]) {
+    return arr.reduce((acc: QueryAlphaStuClassroomsFormated[], prev: QueryAlphaStuClassrooms) => {
+      const find = acc.find(el => el.id === prev.id)
+      if(!find) {
+
+        const newElement = {
+          id: prev.id,
+          rosterNumber: prev.rosterNumber,
+          startedAt: prev.startedAt,
+          endedAt: prev.endedAt,
+          student: {
+            id: prev.student_id,
+            person: { id: prev.person_id, name: prev.person_name },
+            alphabetic: [{ id: prev.alphabetic_id, alphabeticLevel: prev.alphabeticLevel, test: { id: prev.test_id }
+            }]
+          }
+        }
+
+        acc.push(newElement)
+        return acc
+      }
+      find.student.alphabetic.push({ id: prev.alphabetic_id, alphabeticLevel: prev.alphabeticLevel, test: { id: prev.test_id }})
+      return acc
+    }, [])
+  }
 
   formatUserTeacher(el: {[key: string]: any}) {
 

@@ -23,7 +23,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { QueryStudentClassrooms, TestBodySave } from "../interfaces/interfaces";
+import {QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, TestBodySave} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -79,7 +79,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const students = await this.alphabeticStudents(test, Number(classroomId), (yearName as string), appCONN)
+            const students = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
+
             const headers = await this.alphaHeaders(yearName, appCONN)
 
             switch (test.category.id) {
@@ -524,27 +525,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async alphabeticStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoin("student.alphabetic", "alphabetic")
-      .leftJoin("alphabetic.test", "test")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-        qb.orWhere("alphabetic.id IS NOT NULL")
-      }))
-      .andWhere("year.name = :yearName", { yearName })
-      .getMany();
-  }
-
-  async createLinkAlphabetic(studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+  async createLinkAlphabetic(studentClassrooms: QueryAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
-      if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: studentClassroom.student, test } ) }
+      if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom.student.id }, test } ) }
     }
   }
 
@@ -1254,7 +1238,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: StudentClassroom[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager){
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: QueryAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager){
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)
 

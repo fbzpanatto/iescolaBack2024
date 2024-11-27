@@ -109,8 +109,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.year = await this.currentYear(CONN)
         transfer.currentClassroom = body.currentClassroom;
         transfer.createdByUser = qUserTeacher.person.user.id;
-        transfer.status = await this.transferStatus(transferStatus.PENDING, CONN) as TransferStatus
-
+        transfer.status = await this.qTransferStatus(sqlConnection, transferStatus.PENDING) as TransferStatus
         const result = await CONN.save(Transfer, transfer)
 
         return { status: 201, data: result }
@@ -151,8 +150,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         }
 
         if (body.cancel) {
-
-          currTransfer.status = await this.transferStatus(transferStatus.CANCELED, CONN) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.CANCELED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -162,7 +160,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         if (body.reject) {
 
-          currTransfer.status = await this.transferStatus(transferStatus.REFUSED, CONN) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.REFUSED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -195,7 +193,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           }) as StudentClassroom
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
-          currTransfer.status = await this.transferStatus(transferStatus.ACCEPTED, CONN) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.ACCEPTED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           await CONN.save(Transfer, currTransfer)

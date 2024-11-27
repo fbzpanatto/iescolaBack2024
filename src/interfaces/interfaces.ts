@@ -15,6 +15,7 @@ export interface InactiveNewClassroom { student: Student; oldYear: number; newCl
 export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
 export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, testQuestions?: {}[], year: { id: number }, user: UserInterface }
 
+export interface QueryTransferStatus { id: number, name: string }
 export interface QueryUserTeacher { id: number, email: string, register: string, person: { id: number, name: string, category: { id: number, name: string }, user: { id: number, username: string, email: string } } }
 export interface QueryState { id: number, name: string, acronym: string }
 export interface QueryClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }

@@ -1,7 +1,21 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryClassroom, QueryClassrooms, QuerySchools, QueryState, QueryStudentClassrooms, QueryTeacherClassrooms, QueryTest, QueryTestClassroom, QueryUser, QueryUserTeacher, QueryYear, SavePerson  } from "../interfaces/interfaces";
+import {
+  QueryClassroom,
+  QueryClassrooms,
+  QuerySchools,
+  QueryState,
+  QueryStudentClassrooms,
+  QueryTeacherClassrooms,
+  QueryTest,
+  QueryTestClassroom,
+  QueryTransferStatus,
+  QueryUser,
+  QueryUserTeacher,
+  QueryYear,
+  SavePerson
+} from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
@@ -77,11 +91,6 @@ export class GenericController<T> {
     return await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
   }
 
-  async transferStatus(id: number, CONN?: EntityManager) {
-    if(!CONN) { return (await AppDataSource.getRepository(TransferStatus).findOne({ where: { id: id } })) as TransferStatus }
-    return await CONN.findOne(TransferStatus, { where: { id: id } })
-  }
-
   async tDisciplines(body: { user: number }, CONN?: EntityManager) {
     if(!CONN) {
       const result = (await AppDataSource.createQueryBuilder()
@@ -115,6 +124,19 @@ export class GenericController<T> {
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qTransferStatus(conn: PoolConnection, statusId: number) {
+    const query =
+
+      `
+          SELECT *
+          FROM transfer_status AS ts
+          WHERE ts.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [statusId])
+    return (queryResult as QueryTransferStatus[])[0]
+  }
 
   async qTeacherByUser(conn: PoolConnection, userId: number) {
     const query =
@@ -323,7 +345,6 @@ export class GenericController<T> {
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
-
 
   formatUserTeacher(el: {[key: string]: any}) {
 

@@ -7,7 +7,7 @@ import {
   QuerySchools,
   QueryState,
   QueryStudentClassrooms,
-  QueryTeacherClassrooms,
+  QueryTeacherClassrooms, QueryTeacherDisciplines,
   QueryTest,
   QueryTestClassroom,
   QueryTransferStatus,
@@ -19,8 +19,6 @@ import {
 import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
-import { TransferStatus } from "../model/TransferStatus";
-import { Teacher } from "../model/Teacher";
 import { PoolConnection } from "mysql2/promise";
 import { format } from "mysql2";
 import { Test } from "../model/Test";
@@ -91,39 +89,49 @@ export class GenericController<T> {
     return await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
   }
 
-  async tDisciplines(body: { user: number }, CONN?: EntityManager) {
-    if(!CONN) {
-      const result = (await AppDataSource.createQueryBuilder()
-      .select("teacher.id", "teacher")
-      .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
-      .from(Teacher, "teacher")
-      .leftJoin("teacher.person", "person")
-      .leftJoin("person.user", "user")
-      .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-      .leftJoin("teacherClassDiscipline.discipline", "discipline")
-      .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-      .groupBy("teacher.id")
-      .getRawOne()) as { teacher: number; disciplines: string };
+  // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-      return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] };
-    }
+  async qTeacherDisciplines(conn: PoolConnection, userId: number) {
+    const query =
 
-    const result = (await CONN.createQueryBuilder()
-    .select("teacher.id", "teacher")
-    .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)", "disciplines" )
-    .from(Teacher, "teacher")
-    .leftJoin("teacher.person", "person")
-    .leftJoin("person.user", "user")
-    .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-    .leftJoin("teacherClassDiscipline.discipline", "discipline")
-    .where("user.id = :userId AND teacherClassDiscipline.endedAt IS NULL", { userId: body.user })
-    .groupBy("teacher.id")
-    .getRawOne()) as { teacher: number; disciplines: string };
+      `
+        SELECT t.id, GROUP_CONCAT(DISTINCT d.id ORDER BY d.id ASC) AS disciplines
+        FROM teacher AS t
+          INNER JOIN person AS p ON t.personId = p.id
+          INNER JOIN user AS u ON p.id = u.personId
+          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
+          INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+        WHERE u.id = ? AND tcd.endedAt IS NULL
+        GROUP BY t.id
+      `
 
-    return { id: result.teacher, disciplines: result.disciplines?.split(",").map((disciplineId: string) => Number(disciplineId)) ?? [] }
+    const [ queryResult ] = await conn.query(format(query), [userId])
+
+    const qTeacherDisciplines = (queryResult as QueryTeacherDisciplines[])[0]
+
+    return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
   }
 
-  // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
+    const query =
+
+      `
+        SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
+        FROM teacher AS t
+          INNER JOIN person AS p ON t.personId = p.id
+          INNER JOIN user AS u ON p.id = u.personId
+          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
+          INNER JOIN classroom AS c ON tcd.classroomId = c.id
+        WHERE u.id = ? AND tcd.endedAt IS NULL
+        GROUP BY t.id
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [userId])
+
+    const qTeacherClassrooms = (queryResult as QueryTeacherClassrooms[])[0]
+
+    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
+  }
 
   async qTransferStatus(conn: PoolConnection, statusId: number) {
     const query =
@@ -157,27 +165,6 @@ export class GenericController<T> {
     const data = (queryResult as any[])[0]
 
     return this.formatUserTeacher(data)
-  }
-
-  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
-    const query =
-
-      `
-        SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
-        FROM teacher AS t
-          INNER JOIN person AS p ON t.personId = p.id
-          INNER JOIN user AS u ON p.id = u.personId
-          INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
-          INNER JOIN classroom AS c ON tcd.classroomId = c.id
-        WHERE u.id = ? AND tcd.endedAt IS NULL
-        GROUP BY t.id
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [userId])
-
-    const qTeacherClassrooms = (queryResult as QueryTeacherClassrooms[])[0]
-
-    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
   }
 
   async qState(conn: PoolConnection, stateId: number) {

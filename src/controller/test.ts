@@ -13,7 +13,6 @@ import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
 import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Teacher } from "../model/Teacher";
 import { Question } from "../model/Question";
 import { Descriptor } from "../model/Descriptor";
 import { Topic } from "../model/Topic";
@@ -24,7 +23,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {QueryStudentClassrooms, QueryTest, TestBodySave} from "../interfaces/interfaces";
+import { QueryStudentClassrooms, TestBodySave } from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -840,7 +839,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
 
-        const { disciplines } = await this.tDisciplines(req?.body.user, CONN);
+        const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user);
 
         const subQuery = CONN.getRepository(Test)
           .createQueryBuilder("t")

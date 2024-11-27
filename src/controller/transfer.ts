@@ -12,6 +12,7 @@ import { transferEmail } from "../utils/email.service";
 import { Student } from "../model/Student";
 import { pc } from "../utils/personCategories";
 import {dbConn} from "../services/db";
+import {Year} from "../model/Year";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -106,7 +107,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.endedAt = body.endedAt;
         transfer.requester = qUserTeacher as Teacher;
         transfer.requestedClassroom = body.classroom;
-        transfer.year = await this.currentYear(CONN)
+        transfer.year = await this.qCurrentYear(sqlConnection) as unknown as Year
         transfer.currentClassroom = body.currentClassroom;
         transfer.createdByUser = qUserTeacher.person.user.id;
         transfer.status = await this.qTransferStatus(sqlConnection, transferStatus.PENDING) as TransferStatus
@@ -176,7 +177,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           if (!stClass) { return { status: 404, message: 'Registro não encontrado.' } }
 
-          const currentYear = await this.currentYear(CONN)
+          const currentYear = await this.qCurrentYear(sqlConnection)
 
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: currTransfer.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })
 
@@ -189,7 +190,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             startedAt: new Date(),
             rosterNumber: last,
             createdByUser: qUserTeacher.person.user.id,
-            year: await this.currentYear(CONN)
+            year: await this.qCurrentYear(sqlConnection)
           }) as StudentClassroom
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })

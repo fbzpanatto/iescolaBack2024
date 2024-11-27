@@ -1,4 +1,4 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
@@ -16,7 +16,6 @@ import {
   QueryYear,
   SavePerson
 } from "../interfaces/interfaces";
-import { Year } from "../model/Year";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -84,12 +83,20 @@ export class GenericController<T> {
     const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el
   }
 
-  async currentYear(CONN?: EntityManager) {
-    if(!CONN) { return (await AppDataSource.getRepository(Year).findOne({ where: { endedAt: IsNull(), active: true } })) as Year }
-    return await CONN.findOne(Year, { where: { endedAt: IsNull(), active: true } }) as Year
-  }
-
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qCurrentYear(conn: PoolConnection) {
+    const query =
+
+      `
+        SELECT *
+        FROM year
+        WHERE year.endedAt IS NULL AND year.active = 1
+      `
+
+    const [ queryResult ] = await conn.query(format(query))
+    return (queryResult as QueryYear[])[0]
+  }
 
   async qTeacherDisciplines(conn: PoolConnection, userId: number) {
     const query =

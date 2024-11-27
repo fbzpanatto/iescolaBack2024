@@ -12,7 +12,6 @@ import { Student} from "../model/Student";
 import { Classroom } from "../model/Classroom";
 import { UserInterface } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { Year } from "../model/Year";
 import {dbConn} from "../services/db";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
@@ -33,7 +32,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-        const cY = await this.currentYear(CONN)
+        const cY = await this.qCurrentYear(sqlConnection)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -86,7 +85,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-        const cY = await this.currentYear(CONN)
+        const cY = await this.qCurrentYear(sqlConnection)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -164,10 +163,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
     const { year } = req.query
 
+    let sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
-        const cY: Year = await this.currentYear(CONN)
+        const cY = await this.qCurrentYear(sqlConnection)
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -197,10 +198,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const mappedRes = { ...res, score: sQ.testQuestion.answer.includes(res.answer.trim().toUpperCase()) ? 1 : 0 }
         return { status: 200, data: mappedRes };
       })
-    } catch (error: any) {
+    }
+    catch (error: any) {
       console.log(error)
       return { status: 500, message: error.message }
     }
+    finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTestStatus(id: number | string, body: ObjectLiteral) {

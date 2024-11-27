@@ -47,11 +47,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
     const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
 
+    let sqlConnection = await dbConn()
+
     try {
 
       return AppDataSource.transaction(async(CONN) => {
 
-        const currentYear = await this.currentYear(CONN)
+        const currentYear = await this.qCurrentYear(sqlConnection)
 
         if (!currentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
@@ -83,20 +85,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         return { status: 200, data: preResult.map((student) => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))};
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async setInactiveNewClassroom(body: InactiveNewClassroom) {
 
     // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
 
-    const { student, oldYear, newClassroom, oldClassroom, user } = body
+    const { student, oldYear, newClassroom, oldClassroom } = body
 
     let sqlConnection = await dbConn()
 
     try {
       return await AppDataSource.transaction(async(CONN)=> {
-        const currentYear: Year = await this.currentYear(CONN)
+        const currentYear = await this.qCurrentYear(sqlConnection)
         if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
@@ -181,27 +185,22 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     try {
 
-      return await AppDataSource.transaction(async(CONN) => {
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+      const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+      const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+      const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+      const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-        const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+      const studentsClassrooms = await this.studentsClassrooms(
+        { search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string },
+        masterTeacher,
+        limit,
+        offset,
+        sqlConnection
+      )
 
-        const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
-
-        const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
-        const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
-
-        const studentsClassrooms = await this.studentsClassrooms(
-          {
-            search: req.query.search as string,
-            year: req.params.year, teacherClasses,
-            owner: req.query.owner as string
-          }, masterTeacher, limit, offset
-        )
-
-        return { status: 200, data: studentsClassrooms }
-      })
+      return { status: 200, data: studentsClassrooms }
 
     }
     catch (error: any) { return { status: 500, message: error.message } }
@@ -252,14 +251,14 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const tClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
 
-        const year = await this.currentYear(CONN);
+        const qCurrentYear = await this.qCurrentYear(sqlConnection);
         const state = await this.qState(sqlConnection, body.state) as State
         const classroom = await this.qClassroom(sqlConnection, body.classroom)
         const category = await this.studentCategory(CONN);
         const disabilities = await this.disabilities(body.disabilities, CONN);
         const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
 
-        if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
+        if (!qCurrentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
         const exists = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } })
 
@@ -302,13 +301,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           await CONN.save(StudentDisability, mappDis);
         }
 
-        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
+        const stObject = (await CONN.save(StudentClassroom, { student, classroom, year: qCurrentYear, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
 
         const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
         const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-        const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
+        let currentYear = qCurrentYear as unknown as Year
+
+        const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: currentYear } as Transfer
 
         await CONN.save(Transfer, transfer);
 
@@ -333,7 +334,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const tClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
 
-        const year = await this.currentYear(CONN);
+        const qCurrYear = await this.qCurrentYear(sqlConnection);
 
         for(let element of body.arrayOfData) {
 
@@ -344,7 +345,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const category = await this.studentCategory(CONN);
           const person = this.createPerson({ name: element.name.toUpperCase().trim(), birth: element.birth, category });
 
-          if (!year) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
+          if (!qCurrYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
           const exists = await CONN.findOne(Student, { where: { ra: element.ra, dv: element.dv } })
 
@@ -382,13 +383,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           student = await CONN.save(Student, this.createStudentBulk(element, person, state, qUserTeacher.person.user.id));
 
-          const stObject = (await CONN.save(StudentClassroom, { student, classroom, year, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
+          const stObject = (await CONN.save(StudentClassroom, { student, classroom, year: qCurrYear, rosterNumber, startedAt: new Date(), createdByUser: qUserTeacher.person.user.id })) as StudentClassroom;
 
           const notDigit = /\D/g; const classroomNumber = Number(stObject.classroom.shortName.replace(notDigit, ""));
 
           const tStatus = (await CONN.findOne(TransferStatus, { where: { id: 5, name: "Novo" }})) as TransferStatus;
 
-          const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: await this.currentYear(CONN) } as Transfer
+          let currYear = qCurrYear as unknown as Year
+
+          const transfer = { startedAt: new Date(), endedAt: new Date(), requester: qUserTeacher, requestedClassroom: classroom, currentClassroom: classroom, receiver: qUserTeacher, student, status: tStatus, createdByUser: qUserTeacher.person.user.id, year: currYear } as Transfer
 
           await CONN.save(Transfer, transfer);
         }
@@ -573,11 +576,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .getRawOne();
   }
 
-  async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number ) {
+  async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number, sqlConnection: any) {
     return await AppDataSource.transaction(async(CONN) => {
 
       const isOwner = options.owner === ISOWNER.OWNER;
-      const yearName = options.year ?? (await this.currentYear(CONN)).name;
+      const yearName = options.year ?? (await this.qCurrentYear(sqlConnection)).name;
 
       let allClassrooms: Classroom[] = [];
 

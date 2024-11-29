@@ -353,14 +353,14 @@ export class GenericController<T> {
   async qStudentClassroomsForTest(conn: PoolConnection, testId: number, classroomId: number, yearName: string) {
     const query =
       `
-          SELECT sc.id AS student_classroom_id,
-                 s.id AS student_id,
-                 sts.id AS student_classroom_test_status_id
-          FROM student_classroom AS sc
-           INNER JOIN year AS y ON sc.yearId = y.id
-           INNER JOIN student AS s ON sc.studentId = s.id
-           INNER JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
-          WHERE sc.classroomId = ? AND y.name = ?
+        SELECT sc.id AS student_classroom_id,
+               s.id AS student_id,
+               sts.id AS student_classroom_test_status_id
+        FROM student_classroom AS sc
+         INNER JOIN year AS y ON sc.yearId = y.id
+         INNER JOIN student AS s ON sc.studentId = s.id
+         LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
+        WHERE sc.classroomId = ? AND y.name = ?
       `;
 
     const [queryResult] = await conn.query(format(query), [testId, classroomId, yearName]);

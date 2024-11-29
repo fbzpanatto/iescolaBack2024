@@ -583,8 +583,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
 
-    console.log(test)
-
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
     let studentClassrooms = await CONN.getRepository(StudentClassroom)
@@ -604,10 +602,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("testQuestion.test", "test")
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("studentStatus.testId = :testId", { testId: test.id })
-      }))
+      .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })
       .andWhere("testQuestion.test = :testId", { testId: test.id })
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })

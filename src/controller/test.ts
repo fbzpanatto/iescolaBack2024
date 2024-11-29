@@ -23,7 +23,7 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, TestBodySave} from "../interfaces/interfaces";
+import {QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -178,7 +178,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            await this.testQuestLink(true, await this.studentClassrooms(test, Number(classroomId), (yearName as string), appCONN), test, testQuestions, tUser?.userId as number, appCONN)
+            const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConnection, testId, classroomId, yearName)
+
+            await this.qTestQuestLink(true, qStudentsClassroom, test, testQuestions, tUser?.userId as number, appCONN)
 
             let diffOe = 0
             let validSc = 0
@@ -686,6 +688,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: studentClassroom.student?.id ?? studentClassroom.student_id } } }
         const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
         if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: testQuestion, student: { id: studentClassroom.student?.id ?? studentClassroom.student_id }, createdAt: new Date(), createdByUser: userId })}
+      }
+    }
+  }
+
+  async qTestQuestLink(status: boolean, arr: QueryStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+    for(let sC of arr) {
+      if(status){
+        const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
+        const stStatus = await CONN.findOne(StudentTestStatus, options)
+        const el = { active: true, test, studentClassroom: { id: sC.student_classroom_id }, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+        if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+      }
+      for(let testQuestion of testQuestions) {
+        const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: sC.student_id } } }
+        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
+        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: testQuestion, student: { id: sC.student_id }, createdAt: new Date(), createdByUser: userId })}
       }
     }
   }

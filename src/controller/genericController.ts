@@ -1,4 +1,4 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import {Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
@@ -7,7 +7,7 @@ import {
   QueryClassrooms,
   QuerySchools,
   QueryState,
-  QueryStudentClassrooms,
+  QueryStudentClassrooms, QueryStudentsClassroomsForTest,
   QueryTeacherClassrooms, QueryTeacherDisciplines,
   QueryTest,
   QueryTestClassroom,
@@ -22,6 +22,7 @@ import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
 import { format } from "mysql2";
 import { Test } from "../model/Test";
+import {StudentClassroom} from "../model/StudentClassroom";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -347,6 +348,23 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
     return queryResult as QueryStudentClassrooms[]
+  }
+
+  async qStudentClassroomsForTest(conn: PoolConnection, testId: number, classroomId: number, yearName: string) {
+    const query =
+      `
+          SELECT sc.id AS student_classroom_id,
+                 s.id AS student_id,
+                 sts.id AS student_classroom_test_status_id
+          FROM student_classroom AS sc
+           INNER JOIN year AS y ON sc.yearId = y.id
+           INNER JOIN student AS s ON sc.studentId = s.id
+           INNER JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
+          WHERE sc.classroomId = ? AND y.name = ?
+      `;
+
+    const [queryResult] = await conn.query(format(query), [testId, classroomId, yearName]);
+    return queryResult as QueryStudentsClassroomsForTest[];
   }
 
   async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {

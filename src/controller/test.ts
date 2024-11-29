@@ -185,8 +185,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            const mappedResult = (await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, appCONN))
-              .map((sc: StudentClassroom) => {
+            const result = await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), yearName as string, appCONN)
+
+            const mappedResult = result.map((sc: StudentClassroom) => {
 
                 const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
@@ -587,12 +588,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
     let studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("classroom.school", "school")
+      .innerJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
+      .innerJoinAndSelect("studentStatus.test", "stStatusTest")
+      .innerJoin("studentClassroom.year", "year")
+      .innerJoinAndSelect("student.person", "person")
+      .innerJoinAndSelect("studentClassroom.classroom", "classroom")
+      .innerJoinAndSelect("classroom.school", "school")
       .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
       .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
       .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
@@ -602,7 +603,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("studentQuestions.id IS NOT NULL")
+        qb.orWhere("studentStatus.testId = :testId", { testId: test.id })
       }))
       .andWhere("testQuestion.test = :testId", { testId: test.id })
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
@@ -612,7 +613,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .getMany();
 
-    return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
+    return this.duplicatedStudents(studentClassrooms).map((sc: StudentClassroom) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) })) as StudentClassroom[]
   }
 
   async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {

@@ -143,9 +143,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           for(let test of tests) {
 
-            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
-
-            const testQuestions = await testController.getTestQuestions(test.id, CONN, fields)
+            const testQuestions = await this.qTestQuestions(sqlConnection, test.id) as TestQuestion[]
 
             test.testQuestions = testQuestions
             testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
@@ -265,9 +263,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
-        const testQuestions = await testController.getTestQuestionsSimple(testId, CONN)
-        if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
-        const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
+        const qTestQuestions = await this.qTestQuestions(sqlConnection, testId) as TestQuestion[]
+
+        if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" }
+        const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
 
         const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
@@ -297,7 +296,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
 
             return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id,
-              totals: testQuestions.map(tQ => {
+              totals: qTestQuestions.map(tQ => {
 
                 if(!tQ.active) {
                   return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
@@ -363,7 +362,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }))
         }))
 
-        data = { ...formatedTest, schools: [...schools, cityHall], testQuestions, questionGroups, answersLetters };
+        data = { ...formatedTest, schools: [...schools, cityHall], testQuestions: qTestQuestions, questionGroups, answersLetters };
 
         break;
       }

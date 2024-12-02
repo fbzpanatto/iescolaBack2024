@@ -1,31 +1,13 @@
-import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {
-  QueryAlphabeticLevels,
-  QueryAlphaStuClassrooms, QueryAlphaTests,
-  QueryClassroom,
-  QueryClassrooms,
-  QueryFormatedYear,
-  QuerySchools,
-  QueryState,
-  QueryStudentClassrooms,
-  QueryStudentsClassroomsForTest,
-  QueryTeacherClassrooms,
-  QueryTeacherDisciplines,
-  QueryTest,
-  QueryTestClassroom,
-  QueryTransferStatus,
-  QueryUser,
-  QueryUserTeacher,
-  QueryYear,
-  SavePerson
-} from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {PoolConnection} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { QueryAlphabeticLevels, QueryAlphaStuClassrooms, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson } from "../interfaces/interfaces";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { PoolConnection } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
+import {TestQuestion} from "../model/TestQuestion";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -441,7 +423,46 @@ export class GenericController<T> {
     return this.formatAlphabeticTests(queryResult as QueryAlphaTests[])
   }
 
+  async qTestQuestions(conn: PoolConnection, testId: number | string) {
+
+    const query =
+      `
+        SELECT 
+            tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
+            qt.id AS question_id,
+            qg.id AS question_group_id, qg.name AS question_group_name
+                
+        FROM test_question AS tq
+        INNER JOIN question AS qt ON tq.questionId = qt.id
+        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+        INNER JOIN test AS tt ON tq.testId = tt.id
+        WHERE tt.id = ?
+        ORDER BY qg.id, tq.order
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId])
+    return this.formatTestQuestions(queryResult as QueryTestQuestions[])
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatTestQuestions(arr: QueryTestQuestions[]) {
+    return arr.map(el => {
+      return {
+        id: el.test_question_id,
+        order: el.test_question_order,
+        answer: el.test_question_answer,
+        active: el.test_question_active,
+        question: {
+          id: el.question_id,
+        },
+        questionGroup: {
+          id: el.question_group_id,
+          name: el.question_group_name,
+        }
+      }
+    })
+  }
 
   formatAlphabeticTests(arr: QueryAlphaTests[]) {
     return arr.map(el => {

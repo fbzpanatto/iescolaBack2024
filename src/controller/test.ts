@@ -1219,26 +1219,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  // async alphabeticTests(yearName: string, test: any, CONN: EntityManager){
-  //
-  //   return await CONN.getRepository(Test)
-  //     .createQueryBuilder('test')
-  //     .select(['test.id', 'test.active'])
-  //     .leftJoinAndSelect("test.discipline", "discipline")
-  //     .addSelect(['discipline.id'])
-  //     .leftJoinAndSelect("test.period", "period")
-  //     .leftJoin("period.bimester", "bimester")
-  //     .addSelect(['bimester.id'])
-  //     .leftJoin("period.year", "year")
-  //     .addSelect(['year.id'])
-  //     .leftJoin("test.category", "category")
-  //     .addSelect(['category.id'])
-  //     .where("category.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
-  //     .andWhere("discipline.id = :disciplineId", { disciplineId: test.discipline?.id ?? test.discipline_id })
-  //     .andWhere("year.name = :yearName", { yearName })
-  //     .getMany()
-  // }
-
   async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: QueryAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager, sqlConnection: PoolConnection) {
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)

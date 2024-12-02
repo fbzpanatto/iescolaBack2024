@@ -134,7 +134,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
 
-        const tests = await testController.alphabeticTests(qTest?.year_name, qTest, CONN)
+        const tests = await this.qAlphabeticTests(sqlConnection, qTest.test_category_id, qTest.discipline_id, qTest.year_name) as unknown as Test[]
 
         let schools;
         let testQuestionsIds: number[] = []

@@ -3,7 +3,7 @@ import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
 import {
   QueryAlphabeticLevels,
-  QueryAlphaStuClassrooms,
+  QueryAlphaStuClassrooms, QueryAlphaTests,
   QueryClassroom,
   QueryClassrooms,
   QueryFormatedYear,
@@ -89,6 +89,38 @@ export class GenericController<T> {
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
+    const qYear =
+
+      `
+        SELECT year.id, year.name, period.id AS period_id, bimester.id AS bimester_id, bimester.name AS bimester_name, bimester.testName AS bimester_testName
+        FROM year
+            INNER JOIN period ON period.yearId = year.id
+            INNER JOIN bimester ON period.bimesterId = bimester.id
+        WHERE year.name = ?
+      `
+
+    const [qYearResult] = await conn.query(format(qYear), [yearName]);
+    let year = this.formatAlphabeticYearHeader(qYearResult as QueryYear[])
+
+    const qAlphabeticLevels =
+
+      `
+        SELECT al.id, al.shortName, al.color
+        FROM alphabetic_level AS al
+      `
+
+    const [qAlphaLevelsResult] = await conn.query(format(qAlphabeticLevels), []);
+    const alphabeticLevels = qAlphaLevelsResult as QueryAlphabeticLevels[]
+
+    return year.periods.flatMap(period => {
+      return {
+        ...period.bimester,
+        levels: alphabeticLevels,
+      }
+    })
+  }
 
   async qAlphabeticStudents(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
     const query =
@@ -370,39 +402,6 @@ export class GenericController<T> {
     return queryResult as QueryStudentsClassroomsForTest[];
   }
 
-  // TODO: CONTINUAR DAQUI
-  async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
-    const qYear =
-
-      `
-        SELECT year.id, year.name, period.id AS period_id, bimester.id AS bimester_id, bimester.name AS bimester_name, bimester.testName AS bimester_testName
-        FROM year
-            INNER JOIN period ON period.yearId = year.id
-            INNER JOIN bimester ON period.bimesterId = bimester.id
-        WHERE year.name = ?
-      `
-
-    const [qYearResult] = await conn.query(format(qYear), [yearName]);
-    let year = this.formatAlphabeticYearHeader(qYearResult as QueryYear[])
-
-    const qAlphabeticLevels =
-
-      `
-        SELECT al.id, al.shortName, al.color
-        FROM alphabetic_level AS al
-      `
-
-    const [qAlphaLevelsResult] = await conn.query(format(qAlphabeticLevels), []);
-    const alphabeticLevels = qAlphaLevelsResult as QueryAlphabeticLevels[]
-
-    return year.periods.flatMap(period => {
-      return {
-        ...period.bimester,
-        levels: alphabeticLevels,
-      }
-    })
-  }
-
   async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {
     const query =
 
@@ -416,7 +415,49 @@ export class GenericController<T> {
     return queryResult as any[]
   }
 
+  async qAlphabeticTests(conn: PoolConnection, categoryId: number, disciplineId: number, yearName: string) {
+    const query =
+
+      `
+        SELECT 
+            t.id AS test_id, t.active AS test_active,
+            d.id AS discipline_id, d.name AS discipline_name,
+            tc.id AS test_category_id,
+            pr.id AS period_id,
+            b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName,
+            y.id AS year_id, y.name AS year_name           
+            
+        FROM test AS t
+            INNER JOIN discipline AS d ON t.disciplineId = d.id
+            INNER JOIN period AS pr ON t.periodId = pr.id
+            INNER JOIN bimester AS b ON pr.bimesterId = b.id
+            INNER JOIN year AS y ON pr.yearId = y.id
+            INNER JOIN test_category AS tc ON t.categoryId = tc.id
+        WHERE tc.id = ? AND d.id = ? AND y.name = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName])
+
+    return this.formatAlphabeticTests(queryResult as QueryAlphaTests[])
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatAlphabeticTests(arr: QueryAlphaTests[]) {
+    return arr.map(el => {
+      return {
+        id: el.test_id,
+        active: el.test_active,
+        category: { id: el.test_id },
+        discipline: { id: el.discipline_id, name: el.discipline_name },
+        period: {
+          id: el.period_id,
+          bimester: { id: el.bimester_id, name: el.bimester_name, testName: el.bimester_testName },
+          year: { id: el.year_id, name: el.year_name }
+        }
+      }
+    })
+  }
 
   formatAlphabeticStudentClassrooms(arr: QueryAlphaStuClassrooms[]) {
     return arr.map(el => {

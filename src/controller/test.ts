@@ -23,13 +23,14 @@ import { TestCategory } from "../model/TestCategory";
 import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave} from "../interfaces/interfaces";
+import { QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
 import { dbConn } from "../services/db";
-import {Person} from "../model/Person";
+import { Person } from "../model/Person";
+import { PoolConnection } from "mysql2/promise";
 
 interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
@@ -81,17 +82,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const sCs = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
 
-            // TODO: CONTINUAR DAQUI
             const headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                data = await this.alphabeticTest(false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN, sqlConnection)
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN)
+                data = await this.alphabeticTest(true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, yearName, appCONN, sqlConnection)
                 break;
               }
             }
@@ -338,7 +338,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as unknown as AlphaHeaders[]
 
-            const tests = await this.alphabeticTests(year.name, baseTest, CONN)
+            const tests = await this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as unknown as Test[]
 
             let testQuestionsIds: number[] = []
 
@@ -1219,35 +1219,35 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  async alphabeticTests(yearName: string, test: any, CONN: EntityManager){
+  // async alphabeticTests(yearName: string, test: any, CONN: EntityManager){
+  //
+  //   return await CONN.getRepository(Test)
+  //     .createQueryBuilder('test')
+  //     .select(['test.id', 'test.active'])
+  //     .leftJoinAndSelect("test.discipline", "discipline")
+  //     .addSelect(['discipline.id'])
+  //     .leftJoinAndSelect("test.period", "period")
+  //     .leftJoin("period.bimester", "bimester")
+  //     .addSelect(['bimester.id'])
+  //     .leftJoin("period.year", "year")
+  //     .addSelect(['year.id'])
+  //     .leftJoin("test.category", "category")
+  //     .addSelect(['category.id'])
+  //     .where("category.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
+  //     .andWhere("discipline.id = :disciplineId", { disciplineId: test.discipline?.id ?? test.discipline_id })
+  //     .andWhere("year.name = :yearName", { yearName })
+  //     .getMany()
+  // }
 
-    return await CONN.getRepository(Test)
-      .createQueryBuilder('test')
-      .select(['test.id', 'test.active'])
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .addSelect(['discipline.id'])
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoin("period.bimester", "bimester")
-      .addSelect(['bimester.id'])
-      .leftJoin("period.year", "year")
-      .addSelect(['year.id'])
-      .leftJoin("test.category", "category")
-      .addSelect(['category.id'])
-      .where("category.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
-      .andWhere("discipline.id = :disciplineId", { disciplineId: test.discipline?.id ?? test.discipline_id })
-      .andWhere("year.name = :yearName", { yearName })
-      .getMany()
-  }
-
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: QueryAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager){
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: QueryAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, yearN: string, CONN: EntityManager, sqlConnection: PoolConnection) {
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)
 
-    const tests = await this.alphabeticTests(yearN, test, CONN)
+    const qTests = await this.qAlphabeticTests(sqlConnection, test.category.id, test.discipline.id, yearN) as unknown as Test[]
 
     let headers = aHeaders.map(bi => {
 
-      const test = tests.find(test => test.period.bimester.id === bi.id)
+      const test = qTests.find(test => test.period.bimester.id === bi.id)
 
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
@@ -1258,7 +1258,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let testQuestionsIds: number[] = []
 
-      for(let test of tests) {
+      for(let test of qTests) {
 
         const fields = [
           "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"
@@ -1272,7 +1272,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
       preResultSc = (await this.alphaQuestions(yearN, test, testQuestionsIds, CONN, classId))
         .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))

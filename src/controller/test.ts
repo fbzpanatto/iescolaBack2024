@@ -428,7 +428,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
 
-            const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN)
+            const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN, sqlConnection)
 
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -1092,17 +1092,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async getTestQuestionsSimple(testId: string, CONN: EntityManager){
-    return await CONN.getRepository(TestQuestion)
-      .createQueryBuilder("testQuestion")
-      .select(["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active"])
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .where("testQuestion.test = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .getMany();
-  }
-
   async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
     let studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
@@ -1132,9 +1121,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
   }
 
-  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
+  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager, sqlConnection: PoolConnection) {
 
-    const testQuestions = await this.getTestQuestionsSimple(testId, CONN)
+    const testQuestions = await this.qTestQuestions(sqlConnection, testId) as TestQuestion[]
+
     if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
 

@@ -7,7 +7,6 @@ import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
 import { format } from "mysql2";
 import { Test } from "../model/Test";
-import {TestQuestion} from "../model/TestQuestion";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}

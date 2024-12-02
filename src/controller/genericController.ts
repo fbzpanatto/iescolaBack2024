@@ -1,14 +1,18 @@
-import {Brackets, DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
+import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
 import {
+  QueryAlphabeticLevels,
   QueryAlphaStuClassrooms,
   QueryClassroom,
   QueryClassrooms,
+  QueryFormatedYear,
   QuerySchools,
   QueryState,
-  QueryStudentClassrooms, QueryStudentsClassroomsForTest,
-  QueryTeacherClassrooms, QueryTeacherDisciplines,
+  QueryStudentClassrooms,
+  QueryStudentsClassroomsForTest,
+  QueryTeacherClassrooms,
+  QueryTeacherDisciplines,
   QueryTest,
   QueryTestClassroom,
   QueryTransferStatus,
@@ -17,12 +21,11 @@ import {
   QueryYear,
   SavePerson
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { PoolConnection } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
-import {StudentClassroom} from "../model/StudentClassroom";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {PoolConnection} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -367,6 +370,39 @@ export class GenericController<T> {
     return queryResult as QueryStudentsClassroomsForTest[];
   }
 
+  // TODO: CONTINUAR DAQUI
+  async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
+    const qYear =
+
+      `
+        SELECT year.id, year.name, period.id AS period_id, bimester.id AS bimester_id, bimester.name AS bimester_name, bimester.testName AS bimester_testName
+        FROM year
+            INNER JOIN period ON period.yearId = year.id
+            INNER JOIN bimester ON period.bimesterId = bimester.id
+        WHERE year.name = ?
+      `
+
+    const [qYearResult] = await conn.query(format(qYear), [yearName]);
+    let year = this.formatAlphabeticYearHeader(qYearResult as QueryYear[])
+
+    const qAlphabeticLevels =
+
+      `
+        SELECT al.id, al.shortName, al.color
+        FROM alphabetic_level AS al
+      `
+
+    const [qAlphaLevelsResult] = await conn.query(format(qAlphabeticLevels), []);
+    const alphabeticLevels = qAlphaLevelsResult as QueryAlphabeticLevels[]
+
+    return year.periods.flatMap(period => {
+      return {
+        ...period.bimester,
+        levels: alphabeticLevels,
+      }
+    })
+  }
+
   async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {
     const query =
 
@@ -423,5 +459,13 @@ export class GenericController<T> {
       },
       discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
     } as unknown as Test
+  }
+
+  formatAlphabeticYearHeader(el: QueryYear[]){
+    return el.reduce((acc: QueryFormatedYear, prev: QueryYear) => {
+      if (!acc.id) { acc.id = prev.id; acc.name = prev.name; acc.periods = [] }
+      acc.periods.push({id: prev.period_id, bimester: {id: prev.bimester_id, name: prev.bimester_name, testName: prev.bimester_testName}});
+      return acc;
+    }, {} as QueryFormatedYear)
   }
 }

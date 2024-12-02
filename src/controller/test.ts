@@ -81,7 +81,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const sCs = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
 
-            const headers = await this.alphaHeaders(yearName, appCONN)
+            // TODO: CONTINUAR DAQUI
+            const headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
@@ -335,7 +336,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
             if(!year) return { status: 404, message: "Ano não encontrado." }
 
-            let headers = await this.alphaHeaders(year.name, CONN) as AlphaHeaders[]
+            let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as unknown as AlphaHeaders[]
 
             const tests = await this.alphabeticTests(year.name, baseTest, CONN)
 
@@ -1216,24 +1217,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
 
     return data
-  }
-
-  async alphaHeaders(yearName: string, CONN: EntityManager){
-
-    const year = await CONN.getRepository(Year)
-      .createQueryBuilder("year")
-      .select(['year.id', 'year.name', 'periods.id', 'bimester.id', 'bimester.name', 'bimester.testName'])
-      .leftJoinAndSelect("year.periods", "periods")
-      .leftJoinAndSelect("periods.bimester", "bimester")
-      .where("year.name = :yearName", { yearName })
-      .getMany()
-
-    const alphabeticLevels = await CONN.getRepository(AlphabeticLevel)
-      .createQueryBuilder("alphabeticLevel")
-      .select(['alphabeticLevel.id', 'alphabeticLevel.shortName', 'alphabeticLevel.color', ])
-      .getMany()
-
-    return year.flatMap(y => y.periods.flatMap(el => ({...el.bimester, levels: alphabeticLevels})))
   }
 
   async alphabeticTests(yearName: string, test: any, CONN: EntityManager){

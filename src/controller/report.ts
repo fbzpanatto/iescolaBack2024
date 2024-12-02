@@ -132,7 +132,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qTest?.year_id) return { status: 404, message: "Ano não encontrado." }
 
-        let headers = await testController.alphaHeaders(qTest?.year_name, CONN) as AlphaHeaders[]
+        let headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
 
         const tests = await testController.alphabeticTests(qTest?.year_name, qTest, CONN)
 

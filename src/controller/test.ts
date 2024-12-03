@@ -181,14 +181,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConnection, test, classroomId, yearName)
 
-            console.log('-------------------------------- / -----------------------------------')
-
-            console.log('test', test)
-
-            console.log('-------------------------------- / -----------------------------------')
-
-            console.log('qStudentsClassroom', qStudentsClassroom)
-
             await this.qTestQuestLink(true, qStudentsClassroom, test, testQuestions, tUser?.userId as number, appCONN)
 
             let diffOe = 0

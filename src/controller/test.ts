@@ -660,7 +660,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async (CONN) => {
         const test = await this.getTest(Number(testId), Number(yearName), CONN)
-        if(!test) return { status: 404, message: "Teste não encontrado" }
+        if(!test) { return { status: 404, message: "Teste não encontrado" } }
+        if(!test.active) { return { status: 400, message: "Não é possível incluir um aluno em uma avaliação já encerrada." } }
+
         let data;
         switch (test.category.id) {
           case TEST_CATEGORIES_IDS.LITE_1:

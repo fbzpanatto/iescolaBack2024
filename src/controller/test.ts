@@ -80,7 +80,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const sCs = await this.qAlphabeticStudents(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
+            const sCs = await this.qAlphabeticStudentsForLink(sqlConnection, Number(classroomId), test.createdAt, (yearName as string))
 
             const headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
 
@@ -179,7 +179,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConnection, testId, classroomId, yearName)
+            const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConnection, test, classroomId, yearName)
+
+            console.log('-------------------------------- / -----------------------------------')
+
+            console.log('test', test)
+
+            console.log('-------------------------------- / -----------------------------------')
+
+            console.log('qStudentsClassroom', qStudentsClassroom)
 
             await this.qTestQuestLink(true, qStudentsClassroom, test, testQuestions, tUser?.userId as number, appCONN)
 
@@ -698,8 +706,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(status){
         const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
         const stStatus = await CONN.findOne(StudentTestStatus, options)
-        const el = { active: true, test, studentClassroom: { id: sC.student_classroom_id }, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-        if(!stStatus) { await CONN.save(StudentTestStatus, el) }
+        if(!stStatus) {
+          const el = { active: true, test, studentClassroom: { id: sC.student_classroom_id }, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+          await CONN.save(StudentTestStatus, el)
+        }
       }
       for(let testQuestion of testQuestions) {
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: sC.student_id } } }
@@ -1221,6 +1231,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
+
+    // const year = await this.qYearByName(sqlConnection, yearN)
+    // let preResultScTwo = await this.qAlphabeticStudentsWithoutTestQuestions(sqlConnection, test, classId, year.id)
 
     let preResultSc = await this.getAlphabeticStudents(test, classId, yearN, CONN )
 

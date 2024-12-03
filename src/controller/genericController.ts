@@ -1,12 +1,33 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
-import { QueryAlphabeticLevels, QueryAlphaStuClassrooms, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { PoolConnection } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
+import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
+import {
+  QueryAlphabeticLevels,
+  QueryAlphaStuClassrooms,
+  QueryAlphaTests,
+  QueryClassroom,
+  QueryClassrooms,
+  QueryFormatedYear,
+  QuerySchools,
+  QueryState,
+  QueryStudentClassrooms,
+  QueryStudentsClassroomsForTest,
+  QueryTeacherClassrooms,
+  QueryTeacherDisciplines,
+  QueryTest,
+  QueryTestClassroom,
+  QueryTestQuestions,
+  QueryTransferStatus,
+  QueryUser,
+  QueryUserTeacher,
+  QueryYear,
+  SavePerson
+} from "../interfaces/interfaces";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {PoolConnection} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -103,7 +124,69 @@ export class GenericController<T> {
     })
   }
 
-  async qAlphabeticStudents(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
+  async qAlphabeticStudentsWithoutTestQuestions(conn: PoolConnection, test: Test, classroomId: number, year: number) {
+
+    console.log(test)
+
+    const query =
+
+      `
+        SELECT
+          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
+          student.id AS studentId, student.active, 
+          person.id AS personId, person.name AS name,
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId,
+          student_disability.id AS studentDisabilityId, student_disability.studentId AS disabilityStudentId,
+          disability.name AS disabilityName            
+        FROM student_classroom
+          INNER JOIN student ON student_classroom.studentId = student.id
+          INNER JOIN person ON student.personId = person.id
+          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
+          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+          INNER JOIN test ON alphabetic.testId = test.id
+          INNER JOIN discipline ON test.disciplineId = discipline.id
+          INNER JOIN test_category ON test.categoryId = test_category.id
+          INNER JOIN period ON test.periodId = period.id
+          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
+          INNER JOIN year ON period.yearId = year.id
+          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+          LEFT JOIN student_disability ON student.id = student_disability.studentId
+          LEFT JOIN disability ON student_disability.disabilityId = disability.id
+        WHERE 
+          (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
+          (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
+          discipline.id = ? AND test_category.id
+        ORDER BY student_classroom.rosterNumber
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
+
+    return (queryResult as Array<any>).reduce((acc: any[], prev) => {
+      const studentClassroom = acc.find(el => el.id === prev.id)
+      if (!studentClassroom) {
+        acc.push({
+          id: prev.id,
+          rosterNumber: prev.rosterNumber,
+          startedAt: prev.startedAt,
+          endedAt: prev.endedAt,
+          student: {
+            id: prev.studentId,
+            active: prev.active,
+            person: {
+              id: prev.personId,
+              name: prev.name
+            },
+            alphabetic: [],
+            studentDisabilities: []
+          }
+        })
+      }
+      return acc
+    }, [])
+  }
+
+  async qAlphabeticStudentsForLink(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
     const query =
 
       `
@@ -366,20 +449,23 @@ export class GenericController<T> {
     return queryResult as QueryStudentClassrooms[]
   }
 
-  async qStudentClassroomsForTest(conn: PoolConnection, testId: number, classroomId: number, yearName: string) {
+  async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string) {
     const query =
       `
-        SELECT sc.id AS student_classroom_id,
+        SELECT sc.id AS student_classroom_id, sc.startedAt,
                s.id AS student_id,
-               sts.id AS student_classroom_test_status_id
+               sts.id AS student_classroom_test_status_id,
+               person.name
         FROM student_classroom AS sc
          INNER JOIN year AS y ON sc.yearId = y.id
          INNER JOIN student AS s ON sc.studentId = s.id
+         INNER JOIN person ON s.personId = person.id
          LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
-        WHERE sc.classroomId = ? AND y.name = ?
+        WHERE sc.classroomId = ? AND y.name = ? AND (sc.startedAt < ? OR sts.id IS NOT NULL)
+        ORDER BY sc.rosterNumber
       `;
 
-    const [queryResult] = await conn.query(format(query), [testId, classroomId, yearName]);
+    const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
     return queryResult as QueryStudentsClassroomsForTest[];
   }
 
@@ -512,6 +598,7 @@ export class GenericController<T> {
     return {
       id: qTest.id,
       name: qTest.name,
+      createdAt: qTest.createdAt,
       category: { id: qTest.test_category_id, name: qTest.test_category_name },
       period: {
         id: qTest.period_id,

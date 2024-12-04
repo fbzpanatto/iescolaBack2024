@@ -535,38 +535,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async getAlphabeticStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      // .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
-      // .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
-      .leftJoinAndSelect("student.alphabetic", "alphabetic")
-      .leftJoinAndSelect("alphabetic.rClassroom", "rClassroom")
-      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-      .leftJoinAndSelect("alphabetic.test", "stAlphabeticTest")
-      .leftJoinAndSelect("stAlphabeticTest.discipline", "testDiscipline")
-      .leftJoinAndSelect("stAlphabeticTest.category", "testCategory")
-      .leftJoinAndSelect("stAlphabeticTest.period", "period")
-      .leftJoinAndSelect("period.bimester", "bimester")
-      .leftJoinAndSelect("period.year", "pYear")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoin("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("alphabetic.id IS NOT NULL")
-      }))
-      .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline.id })
-      .andWhere("testCategory.id = :testCategory", { testCategory: test.category.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .andWhere("pYear.name = :yearName", { yearName })
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .getMany()
-  }
-
   async linkReading(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}

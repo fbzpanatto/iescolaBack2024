@@ -1,30 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {
-  QueryAlphabeticLevels,
-  QueryAlphaStudents,
-  QueryAlphaStuClassrooms,
-  QueryAlphaStudentsFormated,
-  QueryAlphaTests,
-  QueryClassroom,
-  QueryClassrooms,
-  QueryFormatedYear,
-  QuerySchools,
-  QueryState,
-  QueryStudentClassrooms,
-  QueryStudentsClassroomsForTest,
-  QueryTeacherClassrooms,
-  QueryTeacherDisciplines,
-  QueryTest,
-  QueryTestClassroom,
-  QueryTestQuestions,
-  QueryTransferStatus,
-  QueryUser,
-  QueryUserTeacher,
-  QueryYear,
-  SavePerson
- } from "../interfaces/interfaces";
+import { QueryAlphabeticLevels, QueryAlphaStudents, QueryAlphaStuClassrooms, QueryAlphaStudentsFormated, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";

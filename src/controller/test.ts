@@ -1225,7 +1225,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
 
-    let preResultSc = await this.qAlphaDisabilities(sqlConn, await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id)) as unknown as StudentClassroom[]
+    let preResultSc = await this.qStudentDisabilities(sqlConn, await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id)) as unknown as StudentClassroom[]
 
     if(questions) {
 

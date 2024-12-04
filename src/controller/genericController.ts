@@ -161,7 +161,7 @@ export class GenericController<T> {
     return this.formatAlphaStuWQuestions(queryResult as QueryAlphabeticStudentsWithoutQuestions[])
   }
 
-  async qAlphaDisabilities(conn: PoolConnection, arr: QueryAlphaStuWithoutQuesFormated[]) {
+  async qStudentDisabilities(conn: PoolConnection, arr: QueryAlphaStuWithoutQuesFormated[]) {
     for(let item of arr) {
 
       const query =

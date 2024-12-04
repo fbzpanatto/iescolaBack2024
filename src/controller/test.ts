@@ -1205,6 +1205,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"
         ]
 
+        // TODO: continuar daqui
         const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
         test.testQuestions = testQuestions
 

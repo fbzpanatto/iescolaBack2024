@@ -451,6 +451,38 @@ export class GenericController<T> {
     return queryResult as any[]
   }
 
+  async qReadingFluencyHeaders(conn: PoolConnection) {
+    const query =
+
+      `
+        SELECT 
+            rfg.id AS id,
+            rfl.id AS readingFluencyLevelId, rfl.name AS readingFluencyLevelName, rfl.color AS readingFluencyLevelColor,
+            rfe.id AS readingFluencyExamId, rfe.name AS readingFluencyExamName, rfe.color AS readingFluencyExamColor
+        FROM reading_fluency_group AS rfg
+          INNER JOIN reading_fluency_level AS rfl ON rfg.readingFluencyLevelId = rfl.id
+          INNER JOIN reading_fluency_exam as rfe ON rfg.readingFluencyExamId = rfe.id
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [])
+
+    return (queryResult as Array<{[key: string]:any}>).map(el => {
+      return {
+        id: el.id,
+        readingFluencyExam: {
+          id: el.readingFluencyExamId,
+          name: el.readingFluencyExamName,
+          color: el.readingFluencyExamColor,
+        },
+        readingFluencyLevel: {
+          id: el.readingFluencyLevelId,
+          name: el.readingFluencyLevelName,
+          color: el.readingFluencyLevelColor,
+        }
+      }
+    })
+  }
+
   async qAlphabeticTests(conn: PoolConnection, categoryId: number, disciplineId: number, yearName: string) {
     const query =
 

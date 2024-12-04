@@ -12,6 +12,7 @@ import { AlphaHeaders, testController } from "./test";
 import { Year } from "../model/Year";
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
+import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -182,7 +183,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
-        const headers = await testController.getRfluencyHeaders(CONN)
+        const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
+
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
         let localSchools = await this.qSchools(sqlConnection, Number(testId))

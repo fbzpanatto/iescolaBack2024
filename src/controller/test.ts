@@ -100,7 +100,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            const headers = await this.getRfluencyHeaders(appCONN)
+            const headers = await this.qReadingFluencyHeaders(sqlConn) as unknown as ReadingFluencyGroup[]
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, appCONN)
@@ -399,7 +399,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
-            const headers = await this.getRfluencyHeaders(CONN)
+            const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
@@ -713,7 +713,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            const headers = await this.getRfluencyHeaders(CONN)
+            const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
             await this.linkReading(headers, filteredSC, test, qUserTeacher.person.user.id, CONN)
             break;
           }
@@ -1036,14 +1036,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("test.id = :testId", { testId })
       .andWhere("year.name = :yearName", { yearName })
       .getOne()
-  }
-
-  async getRfluencyHeaders(CONN: EntityManager) {
-    return await CONN.getRepository(ReadingFluencyGroup)
-      .createQueryBuilder("rfg")
-      .leftJoinAndSelect("rfg.readingFluencyExam", "readingFluencyExam")
-      .leftJoinAndSelect("rfg.readingFluencyLevel", "readingFluencyLevel")
-      .getMany() as ReadingFluencyGroup[]
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {

@@ -1201,12 +1201,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for(let test of qTests) {
 
-        const fields = [
-          "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"
-        ]
+        const testQuestions = await this.qTestQuestions(sqlConn, test.id) as unknown as TestQuestion[]
 
-        // TODO: continuar daqui
-        const testQuestions = await this.getTestQuestions(test.id, CONN, fields)
         test.testQuestions = testQuestions
 
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]

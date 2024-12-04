@@ -3,7 +3,9 @@ import {AppDataSource} from "../data-source";
 import {Person} from "../model/Person";
 import {
   QueryAlphabeticLevels,
+  QueryAlphabeticStudentsWithoutQuestions,
   QueryAlphaStuClassrooms,
+  QueryAlphaStuWithoutQuesFormated,
   QueryAlphaTests,
   QueryClassroom,
   QueryClassrooms,
@@ -124,9 +126,7 @@ export class GenericController<T> {
     })
   }
 
-  async qAlphabeticStudentsWithoutTestQuestions(conn: PoolConnection, test: Test, classroomId: number, year: number) {
-
-    console.log(test)
+  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number) {
 
     const query =
 
@@ -135,9 +135,7 @@ export class GenericController<T> {
           student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
           student.id AS studentId, student.active, 
           person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId,
-          student_disability.id AS studentDisabilityId, student_disability.studentId AS disabilityStudentId,
-          disability.name AS disabilityName            
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId         
         FROM student_classroom
           INNER JOIN student ON student_classroom.studentId = student.id
           INNER JOIN person ON student.personId = person.id
@@ -151,8 +149,6 @@ export class GenericController<T> {
           INNER JOIN bimester AS bim ON period.bimesterId = bim.id
           INNER JOIN year ON period.yearId = year.id
           INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-          LEFT JOIN student_disability ON student.id = student_disability.studentId
-          LEFT JOIN disability ON student_disability.disabilityId = disability.id
         WHERE 
           (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
           (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
@@ -162,28 +158,24 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
 
-    return (queryResult as Array<any>).reduce((acc: any[], prev) => {
-      const studentClassroom = acc.find(el => el.id === prev.id)
-      if (!studentClassroom) {
-        acc.push({
-          id: prev.id,
-          rosterNumber: prev.rosterNumber,
-          startedAt: prev.startedAt,
-          endedAt: prev.endedAt,
-          student: {
-            id: prev.studentId,
-            active: prev.active,
-            person: {
-              id: prev.personId,
-              name: prev.name
-            },
-            alphabetic: [],
-            studentDisabilities: []
-          }
-        })
-      }
-      return acc
-    }, [])
+    return this.formatAlphaStuWQuestions(queryResult as QueryAlphabeticStudentsWithoutQuestions[])
+  }
+
+  async qAlphaDisabilities(conn: PoolConnection, arr: QueryAlphaStuWithoutQuesFormated[]) {
+    for(let item of arr) {
+
+      const query =
+        `
+          SELECT sd.id, sd.startedAt, sd.endedAt
+          FROM student_disability AS sd 
+          WHERE sd.studentId = ?
+        `
+
+      const [ queryResult ] = await conn.query(format(query), [item.student.id])
+
+      item.student.studentDisabilities = queryResult as { id: number, startedAt: string, endedAt: string | null }[]
+    }
+    return arr
   }
 
   async qAlphabeticStudentsForLink(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
@@ -530,6 +522,31 @@ export class GenericController<T> {
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatAlphaStuWQuestions(el: QueryAlphabeticStudentsWithoutQuestions[]) {
+    return el.reduce((acc: QueryAlphaStuWithoutQuesFormated[], prev) => {
+
+      let studentClassroom = acc.find(el => el.id === prev.id)
+
+      if (!studentClassroom) {
+
+        studentClassroom = {
+          id: prev.id,
+          rosterNumber: prev.rosterNumber,
+          startedAt: prev.startedAt,
+          endedAt: prev.endedAt,
+          student: { id: prev.studentId, active: prev.active, person: { id: prev.personId, name: prev.name }, alphabetic: []
+          }
+        }
+
+        acc.push(studentClassroom)
+      }
+
+      studentClassroom.student.alphabetic.push({ id: prev.alphabeticId, alphabeticLevelId: prev.alphabeticLevelId, rClassroomId: prev.rClassroomId })
+
+      return acc
+    }, [])
+  }
 
   formatTestQuestions(arr: QueryTestQuestions[]) {
     return arr.map(el => {

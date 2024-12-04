@@ -1,11 +1,11 @@
-import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
 import {
   QueryAlphabeticLevels,
-  QueryAlphabeticStudentsWithoutQuestions,
+  QueryAlphaStudents,
   QueryAlphaStuClassrooms,
-  QueryAlphaStuWithoutQuesFormated,
+  QueryAlphaStudentsFormated,
   QueryAlphaTests,
   QueryClassroom,
   QueryClassrooms,
@@ -24,12 +24,12 @@ import {
   QueryUserTeacher,
   QueryYear,
   SavePerson
-} from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {PoolConnection} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
+ } from "../interfaces/interfaces";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { PoolConnection } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -158,10 +158,10 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
 
-    return this.formatAlphaStuWQuestions(queryResult as QueryAlphabeticStudentsWithoutQuestions[])
+    return this.formatAlphaStuWQuestions(queryResult as QueryAlphaStudents[])
   }
 
-  async qStudentDisabilities(conn: PoolConnection, arr: QueryAlphaStuWithoutQuesFormated[]) {
+  async qStudentDisabilities(conn: PoolConnection, arr: QueryAlphaStudentsFormated[]) {
     for(let item of arr) {
 
       const query =
@@ -523,8 +523,8 @@ export class GenericController<T> {
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
-  formatAlphaStuWQuestions(el: QueryAlphabeticStudentsWithoutQuestions[]) {
-    return el.reduce((acc: QueryAlphaStuWithoutQuesFormated[], prev) => {
+  formatAlphaStuWQuestions(el: QueryAlphaStudents[]) {
+    return el.reduce((acc: QueryAlphaStudentsFormated[], prev) => {
 
       let studentClassroom = acc.find(el => el.id === prev.id)
 

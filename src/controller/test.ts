@@ -20,10 +20,9 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
-import { ReadingFluencyGroup } from "../model/ReadingFluencyGroup";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { QueryAlphaStuClassroomsFormated, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
+import {QueryAlphaStuClassroomsFormated, QueryReadingFluenciesHeaders, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -100,7 +99,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            const headers = await this.qReadingFluencyHeaders(sqlConn) as unknown as ReadingFluencyGroup[]
+            const headers = await this.qReadingFluencyHeaders(sqlConn)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, appCONN)
@@ -137,7 +136,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               .flatMap((el: any) => el.student.readingFluency)
 
             const percentColumn = headers.reduce((acc, prev) => {
-              const key = prev.readingFluencyExam.id;
+              const key = prev.readingFluencyExamId;
               if(!acc[key]) { acc[key] = 0 }
               return acc
             }, {} as any)
@@ -146,14 +145,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
               const el = allFluencies.filter((el: any) => {
                 const sameClassroom = el.rClassroom?.id === classroomId
-                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExam.id
-                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevel.id
+                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExamId
+                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevelId
                 return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
               })
 
               const value = el.length ?? 0
-              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
-              percentColumn[header.readingFluencyExam.id] += value
+              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExamId })
+              percentColumn[header.readingFluencyExamId] += value
             }
 
             const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
@@ -399,7 +398,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
-            const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
+            const headers = await this.qReadingFluencyHeaders(sqlConnection)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
@@ -535,16 +534,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async linkReading(headers: ReadingFluencyGroup[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+  async linkReading(headers: QueryReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
       const stStatus = await CONN.findOne(StudentTestStatus, options)
       const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
       if(!stStatus) { await CONN.save(StudentTestStatus, el) }
-      for(let exam of headers.flatMap(el => el.readingFluencyExam)) {
-        const options = { where: { readingFluencyExam: { id: exam.id }, test: { id: test.id }, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id } } }
+      for(let exam of headers) {
+        const options = { where: { readingFluencyExam: { id: exam.readingFluencyExamId }, test: { id: test.id }, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id } } }
         const sReadingFluency = await CONN.findOne(ReadingFluency, options)
-        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id }, test, readingFluencyExam: exam }) }
+        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id }, test, readingFluencyExam: { id: exam.readingFluencyExamId } } ) }
       }
     }
   }
@@ -713,7 +712,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
+            const headers = await this.qReadingFluencyHeaders(sqlConnection)
             await this.linkReading(headers, filteredSC, test, qUserTeacher.person.user.id, CONN)
             break;
           }
@@ -1468,22 +1467,22 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  readingFluencyHeaders(preHeaders: ReadingFluencyGroup[]) {
+  readingFluencyHeaders(preHeaders: QueryReadingFluenciesHeaders[]) {
     return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
-      let exam = acc.find(el => el.exam_id === prev.readingFluencyExam.id);
+      let exam = acc.find(el => el.exam_id === prev.readingFluencyExamId);
       if (!exam) {
         exam = {
-          exam_id: prev.readingFluencyExam.id,
-          exam_name: prev.readingFluencyExam.name,
-          exam_color: prev.readingFluencyExam.color,
+          exam_id: prev.readingFluencyExamId,
+          exam_name: prev.readingFluencyExamName,
+          exam_color: prev.readingFluencyExamColor,
           exam_levels: []
         };
         acc.push(exam);
       }
       exam.exam_levels.push({
-        level_id: prev.readingFluencyLevel.id,
-        level_name: prev.readingFluencyLevel.name,
-        level_color: prev.readingFluencyLevel.color
+        level_id: prev.readingFluencyLevelId,
+        level_name: prev.readingFluencyLevelName,
+        level_color: prev.readingFluencyLevelColor
       });
       return acc;
     }, []);
@@ -1531,18 +1530,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  readingFluencyTotalizator(headers: ReadingFluencyGroup[], classroom: Classroom){
+  readingFluencyTotalizator(headers: QueryReadingFluenciesHeaders[], classroom: Classroom){
 
     let totalNuColumn: any[] = []
-    const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+    const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
     for(let header of headers) {
 
-      const el = classroom.studentClassrooms.flatMap(studentClassroom => studentClassroom.student.readingFluency.filter(readingFluency => readingFluency.rClassroom?.id === studentClassroom.classroom.id && readingFluency.readingFluencyExam.id === header.readingFluencyExam.id && readingFluency.readingFluencyLevel?.id === header.readingFluencyLevel.id))
+      const el = classroom.studentClassrooms.flatMap(studentClassroom => studentClassroom.student.readingFluency.filter(readingFluency => readingFluency.rClassroom?.id === studentClassroom.classroom.id && readingFluency.readingFluencyExam.id === header.readingFluencyExamId && readingFluency.readingFluencyLevel?.id === header.readingFluencyLevelId))
 
       const value = el.length ?? 0
-      totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExam.id })
-      percentColumn[header.readingFluencyExam.id] += value
+      totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExamId })
+      percentColumn[header.readingFluencyExamId] += value
     }
 
     return totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)

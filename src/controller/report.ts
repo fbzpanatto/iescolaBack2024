@@ -183,7 +183,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
-        const headers = await this.qReadingFluencyHeaders(sqlConnection) as unknown as ReadingFluencyGroup[]
+        const headers = await this.qReadingFluencyHeaders(sqlConnection)
 
         const fluencyHeaders = testController.readingFluencyHeaders(headers)
 
@@ -208,12 +208,12 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         }
 
         const totalCityHallColumn: any[] = []
-        const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+        const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
         const localSchoolsAllSchools = localSchools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
 
           let totalNuColumn: any[] = []
-          const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExam.id; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
+          const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
           for(let hD of headers) {
 
@@ -221,21 +221,21 @@ class ReportController extends GenericController<EntityTarget<Test>> {
               el.studentsClassrooms.flatMap(item =>
                 item.readingFluency?.filter(rD =>
                   item.classroomId === rD.rClassroomId &&
-                  rD.readingFluencyExamId === hD.readingFluencyExam.id &&
-                  rD.readingFluencyLevelId === hD.readingFluencyLevel.id
+                  rD.readingFluencyExamId === hD.readingFluencyExamId &&
+                  rD.readingFluencyLevelId === hD.readingFluencyLevelId
                 )
               )
             )
 
             const value = studentClassrooms.length ?? 0
-            totalNuColumn.push({ total: value, divideByExamId: hD.readingFluencyExam.id })
+            totalNuColumn.push({ total: value, divideByExamId: hD.readingFluencyExamId })
 
-            const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === hD.readingFluencyExam.id && el.readingFluencyLevelId === hD.readingFluencyLevel.id)
-            if(!cityHallColumn) { totalCityHallColumn.push({ total: value, readingFluencyExamId: hD.readingFluencyExam.id, readingFluencyLevelId: hD.readingFluencyLevel.id })}
+            const cityHallColumn = totalCityHallColumn.find(el => el.readingFluencyExamId === hD.readingFluencyExamId && el.readingFluencyLevelId === hD.readingFluencyLevelId)
+            if(!cityHallColumn) { totalCityHallColumn.push({ total: value, readingFluencyExamId: hD.readingFluencyExamId, readingFluencyLevelId: hD.readingFluencyLevelId })}
             else { cityHallColumn.total += value }
 
-            percentColumn[hD.readingFluencyExam.id] += value
-            examTotalCityHall[hD.readingFluencyExam.id] += value
+            percentColumn[hD.readingFluencyExamId] += value
+            examTotalCityHall[hD.readingFluencyExamId] += value
           }
 
           const percentTotalByColumn = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)

@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryAlphabeticLevels, QueryAlphaStudents, QueryAlphaStuClassrooms, QueryAlphaStudentsFormated, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson } from "../interfaces/interfaces";
+import { QueryAlphabeticLevels, QueryAlphaStudents, QueryAlphaStuClassrooms, QueryAlphaStudentsFormated, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson, QueryReadingFluenciesHeaders } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -452,6 +452,7 @@ export class GenericController<T> {
   }
 
   async qReadingFluencyHeaders(conn: PoolConnection) {
+
     const query =
 
       `
@@ -466,21 +467,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [])
 
-    return (queryResult as Array<{[key: string]:any}>).map(el => {
-      return {
-        id: el.id,
-        readingFluencyExam: {
-          id: el.readingFluencyExamId,
-          name: el.readingFluencyExamName,
-          color: el.readingFluencyExamColor,
-        },
-        readingFluencyLevel: {
-          id: el.readingFluencyLevelId,
-          name: el.readingFluencyLevelName,
-          color: el.readingFluencyLevelColor,
-        }
-      }
-    })
+    return queryResult as Array<QueryReadingFluenciesHeaders>
   }
 
   async qAlphabeticTests(conn: PoolConnection, categoryId: number, disciplineId: number, yearName: string) {

@@ -348,6 +348,19 @@ export class GenericController<T> {
     return (queryResult as QueryYear[])[0]
   }
 
+  async qYearById(conn: PoolConnection, yearId: number | string) {
+    const query =
+
+      `
+        SELECT y.id, y.name
+        FROM year AS y
+        WHERE y.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [yearId])
+    return (queryResult as QueryYear[])[0]
+  }
+
   async qClassroom(conn: PoolConnection, classroomId: number) {
     const query =
 

@@ -302,7 +302,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getGraphic(req: Request) {
 
     const { id: testId, classroom: classroomId } = req.params
-    const { year: yearId } = req.query
 
     let sqlConnection = await dbConn()
 
@@ -311,6 +310,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
+
+        const year = await this.qYearById(sqlConnection, String(req.query?.year))
+        if(!year) return { status: 404, message: "Ano não encontrado." }
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
 
@@ -329,9 +331,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_1:
           case TEST_CATEGORIES_IDS.LITE_2:
           case TEST_CATEGORIES_IDS.LITE_3: {
-
-            const year = await CONN.findOne(Year, { where: { id: Number(yearId) } })
-            if(!year) return { status: 404, message: "Ano não encontrado." }
 
             let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as unknown as AlphaHeaders[]
 
@@ -400,7 +399,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.qReadingFluencyHeaders(sqlConnection)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const test = await this.getReadingFluencyForGraphic(testId, yearId as string, CONN) as Test
+            const test = await this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Test
 
             let response= { ...test, fluencyHeaders }
 
@@ -425,7 +424,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
 
-            const { test, testQuestions } = await this.getTestForGraphic(testId, yearId as string, CONN, sqlConnection)
+            const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN, sqlConnection)
 
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }

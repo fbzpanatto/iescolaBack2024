@@ -187,69 +187,69 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
-                const studentTotals = { rowTotal: 0, rowPercent: 0 }
+              const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-                if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
+              if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
 
-                if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
+              if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
+                sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
 
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+                diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+              }
+
+              if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
+
+                sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
+
+                diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
+              }
+
+              validSc += 1
+              validStudentsTotalizator += 1
+
+              let counterPercentage = 0
+
+              studentTotals.rowTotal = qTestQuestions.reduce((acc, testQuestion) => {
+
+                if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
+
+                counterPercentage += 1
+
+                const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
+
+                if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
+
+                let element = totals.find(el => el.id === testQuestion.id)
+
+                if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
+                  element!.tNumber += 1
+                  classroomPoints += 1
+                  acc += 1
                 }
 
-                if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
+                element!.tTotal += 1
+                classroomPercent += 1
+                element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
 
-                  sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
+                const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
 
-                  diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
-                }
+                let ltItem = answersLetters.find(el => el.letter === letter)
+                if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
 
-                validSc += 1
-                validStudentsTotalizator += 1
+                let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
+                if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
 
-                let counterPercentage = 0
+                ltQ.occurrences += 1
 
-                studentTotals.rowTotal = qTestQuestions.reduce((acc, testQuestion) => {
+                answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
 
-                  if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
+                return acc
+              }, 0)
 
-                  counterPercentage += 1
+              studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
 
-                  const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
-
-                  if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
-
-                  let element = totals.find(el => el.id === testQuestion.id)
-
-                  if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
-                    element!.tNumber += 1
-                    classroomPoints += 1
-                    acc += 1
-                  }
-
-                  element!.tTotal += 1
-                  classroomPercent += 1
-                  element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
-
-                  const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
-
-                  let ltItem = answersLetters.find(el => el.letter === letter)
-                  if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
-
-                  let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
-                  if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
-
-                  ltQ.occurrences += 1
-
-                  answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
-
-                  return acc
-                }, 0)
-
-                studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
-
-                return { ...sc, student: { ...sc.student, studentTotals } }
+              return { ...sc, student: { ...sc.student, studentTotals } }
               })
 
             for(let item of mappedResult) {

@@ -165,26 +165,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let testQuestionsIds: number[] = []
 
-            const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
-            const testQuestions = await this.getTestQuestions(test.id, appCONN, fields)
+            const qTestQuestions = await this.qTestQuestions(sqlConn, test.id) as TestQuestion[]
 
-            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+            testQuestionsIds = [ ...testQuestionsIds, ...qTestQuestions.map(testQuestion => testQuestion.id) ]
             const questionGroups = await this.getTestQuestionsGroups(testId, appCONN)
 
             let classroomPoints = 0
             let classroomPercent = 0
             let validStudentsTotalizator = 0
-            let totals: Totals[] = testQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
+            let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
             const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConn, test, classroomId, test.period.year.name)
 
-            await this.qTestQuestLink(true, qStudentsClassroom, test, testQuestions, tUser?.userId as number, appCONN)
+            await this.qTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, appCONN)
 
             let diffOe = 0
             let validSc = 0
 
-            const result = await this.stuQuestionsWithDuplicated(test, testQuestions, Number(classroomId), test.period.year.name, appCONN)
+            const result = await this.stuQuestionsWithDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, appCONN)
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -211,7 +210,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 let counterPercentage = 0
 
-                studentTotals.rowTotal = testQuestions.reduce((acc, testQuestion) => {
+                studentTotals.rowTotal = qTestQuestions.reduce((acc, testQuestion) => {
 
                   if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
 
@@ -267,7 +266,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totalOfSc: mappedResult.length - diffOe,
               totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
               classroom,
-              testQuestions,
+              testQuestions: qTestQuestions,
               questionGroups,
               classroomPoints,
               studentClassrooms: mappedResult,

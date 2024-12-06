@@ -12,7 +12,6 @@ import { AlphaHeaders, testController } from "./test";
 import { Year } from "../model/Year";
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
-import {ReadingFluencyGroup} from "../model/ReadingFluencyGroup";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -201,7 +200,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
             for(let studentClassroom of classroom.studentsClassrooms) {
 
-              studentClassroom.readingFluency = await this.qReadingFluency(sqlConnection, Number(testId), studentClassroom.studentId)
+              studentClassroom.student.readingFluency = await this.qReadingFluency(sqlConnection, Number(testId), studentClassroom.student.id)
 
             }
           }
@@ -219,7 +218,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
             const studentClassrooms = school.classrooms.flatMap(el =>
               el.studentsClassrooms.flatMap(item =>
-                item.readingFluency?.filter(rD =>
+                item.student.readingFluency?.filter(rD =>
                   item.classroomId === rD.rClassroomId &&
                   rD.readingFluencyExamId === hD.readingFluencyExamId &&
                   rD.readingFluencyLevelId === hD.readingFluencyLevelId

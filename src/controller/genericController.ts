@@ -1,7 +1,31 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { QueryAlphabeticLevels, QueryAlphaStudents, QueryAlphaStuClassrooms, QueryAlphaStudentsFormated, QueryAlphaTests, QueryClassroom, QueryClassrooms, QueryFormatedYear, QuerySchools, QueryState, QueryStudentClassrooms, QueryStudentsClassroomsForTest, QueryTeacherClassrooms, QueryTeacherDisciplines, QueryTest, QueryTestClassroom, QueryTestQuestions, QueryTransferStatus, QueryUser, QueryUserTeacher, QueryYear, SavePerson, QueryReadingFluenciesHeaders } from "../interfaces/interfaces";
+import {
+  QueryAlphabeticLevels,
+  QueryAlphaStudents,
+  QueryAlphaStuClassrooms,
+  QueryAlphaStudentsFormated,
+  QueryAlphaTests,
+  QueryClassroom,
+  QueryClassrooms,
+  QueryFormatedYear,
+  QuerySchools,
+  QueryState,
+  QueryStudentsClassroomsForTest,
+  QueryTeacherClassrooms,
+  QueryTeacherDisciplines,
+  QueryTest,
+  QueryTestClassroom,
+  QueryTestQuestions,
+  QueryTransferStatus,
+  QueryUser,
+  QueryUserTeacher,
+  QueryYear,
+  SavePerson,
+  QueryReadingFluenciesHeaders,
+  QueryStudentClassroomFormated
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -175,7 +199,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
 
-    return this.formatAlphabeticStudentClassrooms(queryResult as QueryAlphaStuClassrooms[])
+    return this.formatStudentClassroom(queryResult as QueryAlphaStuClassrooms[])
   }
 
   async qCurrentYear(conn: PoolConnection) {
@@ -417,21 +441,6 @@ export class GenericController<T> {
     return queryResult as QueryClassrooms[]
   }
 
-  async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
-    const query =
-
-      `
-        SELECT sc.id, sc.studentId, sc.classroomId, p.name, sc.yearId, sc.endedAt
-        FROM student_classroom AS sc
-          INNER JOIN student AS s ON sc.studentId = s.id
-          INNER JOIN person AS p ON s.personId = p.id
-        WHERE sc.classroomId = ? AND sc.yearId = ?
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
-    return queryResult as QueryStudentClassrooms[]
-  }
-
   async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string) {
     const query =
       `
@@ -531,7 +540,36 @@ export class GenericController<T> {
     return this.formatTestQuestions(queryResult as QueryTestQuestions[])
   }
 
+  async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
+    const query =
+
+      `
+        SELECT sc.id, sc.rosterNumber, sc.classroomId, sc.startedAt, sc.endedAt, s.id AS student_id, p.id AS person_id, p.name AS person_name
+        FROM student_classroom AS sc
+          INNER JOIN student AS s ON sc.studentId = s.id
+          INNER JOIN person AS p ON s.personId = p.id
+        WHERE sc.classroomId = ? AND sc.yearId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
+    return  this.formatStudentClassroom(queryResult as Array<QueryStudentClassroomFormated>)
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatStudentClassroom(arr: any[]) {
+    return arr.map(el => {
+      return {
+        id: el.id,
+        rosterNumber: el.rosterNumber,
+        classroomId: el.classroomId,
+        startedAt: el.startedAt,
+        endedAt: el.endedAt,
+        student: { id: el.student_id, person: { id: el.person_id, name: el.person_name }
+        }
+      }
+    })
+  }
 
   formatAlphaStuWQuestions(el: QueryAlphaStudents[]) {
     return el.reduce((acc: QueryAlphaStudentsFormated[], prev) => {
@@ -587,19 +625,6 @@ export class GenericController<T> {
           id: el.period_id,
           bimester: { id: el.bimester_id, name: el.bimester_name, testName: el.bimester_testName },
           year: { id: el.year_id, name: el.year_name }
-        }
-      }
-    })
-  }
-
-  formatAlphabeticStudentClassrooms(arr: QueryAlphaStuClassrooms[]) {
-    return arr.map(el => {
-      return {
-        id: el.id,
-        rosterNumber: el.rosterNumber,
-        startedAt: el.startedAt,
-        endedAt: el.endedAt,
-        student: { id: el.student_id, person: { id: el.person_id, name: el.person_name }
         }
       }
     })

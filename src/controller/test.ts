@@ -22,7 +22,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {QueryAlphaStuClassroomsFormated, QueryReadingFluenciesHeaders, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave} from "../interfaces/interfaces";
+import { QueryAlphaStuClassroomsFormated, QueryReadingFluenciesHeaders, QueryStudentClassrooms, QueryStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -318,7 +318,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
-        const baseTest = await CONN.findOne(Test, { where: { id: Number(testId) }, relations: ['category', 'discipline'] }) as Test
+        const baseTest = this.formatedTest(await this.qTestByIdAndYear(sqlConnection, Number(testId), year.name))
 
         const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
 

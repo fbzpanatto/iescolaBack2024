@@ -324,8 +324,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
 
-        const baseClassroom = await CONN.findOne(Classroom, { where: { id: Number(classroomId) }, relations: ["school"] })
-        if (!baseClassroom) return { status: 404, message: "Sala não encontrada" }
+        const qClassroom = await this.qClassroom(sqlConnection, Number(classroomId))
+        if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
 
         switch (baseTest.category?.id) {
           case TEST_CATEGORIES_IDS.LITE_1:
@@ -364,7 +364,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             if(TEST_CATEGORIES_IDS.LITE_1 === baseTest.category?.id) {
 
-              classrooms = this.cityHallResponse(baseClassroom, onlyClasses).map((c) => {
+              classrooms = this.cityHallResponse(qClassroom, onlyClasses).map((c) => {
                 return { id: c.id, name: c.name, shortName: c.shortName, school: c.school, percent: this.alphaTotalizator(headers, c) }
               })
 
@@ -375,13 +375,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
               cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-              classrooms = [ ...allClassrooms.filter(c => c.school.id === baseClassroom.school.id), cityHall ]
+              classrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
             }
 
             const test = {
               id: 99,
               name: baseTest.name,
-              classrooms: [baseClassroom],
+              classrooms: [qClassroom],
               category: { id: baseTest.category.id, name: baseTest.category.name },
               discipline: { name: baseTest.discipline.name },
               period: { bimester: { name: 'TODOS' }, year }
@@ -401,7 +401,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let response= { ...test, fluencyHeaders }
 
-            response.classrooms = this.cityHallResponse(baseClassroom, response.classrooms)
+            response.classrooms = this.cityHallResponse(qClassroom, response.classrooms)
 
             data = {
               ...response,
@@ -465,8 +465,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 }
               })
 
-            const classroomNumber = baseClassroom.shortName.replace(/\D/g, "");
-            const baseSchoolId = baseClassroom.school.id;
+            const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
+            const baseSchoolId = qClassroom.school.id;
 
             const schoolResults = classroomResults.filter(cl => {
               const clNumber = cl.shortName.replace(/\D/g, "");

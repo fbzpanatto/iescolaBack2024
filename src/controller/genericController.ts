@@ -309,7 +309,7 @@ export class GenericController<T> {
     return (queryResult as QueryTestClassroom[])[0]
   }
 
-  // TODO: create a function that checks if there is only on element into array. Return error if there is more than one?
+  // TODO: create a function that checks if there is only one element into array. Return error if there is more than one?
   async qTestByIdAndYear(conn: PoolConnection, testId: number, yearName: string) {
     const query =
 

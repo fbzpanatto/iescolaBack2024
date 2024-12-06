@@ -341,9 +341,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
               for(let test of tests) {
 
-                const testQuestions = await this.getTestQuestions(
-                  test.id, CONN, ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "questionGroup.id", "questionGroup.name"]
-                )
+                const testQuestions = await this.qTestQuestions(sqlConnection, test.id) as unknown as TestQuestion[]
 
                 test.testQuestions = testQuestions
                 testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]

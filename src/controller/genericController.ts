@@ -1,31 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {
-  QueryAlphabeticLevels,
-  QueryAlphaStudents,
-  QueryAlphaStuClassrooms,
-  QueryAlphaStudentsFormated,
-  QueryAlphaTests,
-  QueryClassroom,
-  QueryClassrooms,
-  QueryFormatedYear,
-  QuerySchools,
-  QueryState,
-  QueryStudentsClassroomsForTest,
-  QueryTeacherClassrooms,
-  QueryTeacherDisciplines,
-  QueryTest,
-  QueryTestClassroom,
-  QueryTestQuestions,
-  QueryTransferStatus,
-  QueryUser,
-  QueryUserTeacher,
-  QueryYear,
-  SavePerson,
-  QueryReadingFluenciesHeaders,
-  QueryStudentClassroomFormated
-} from "../interfaces/interfaces";
+import { qAlphabeticLevels, qAlphaStudents, qAlphaStuClassrooms, qAlphaStudentsFormated, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qSchools, qState, qStudentsClassroomsForTest, qTeacherClassrooms, qTeacherDisciplines, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, qReadingFluenciesHeaders, qStudentClassroomFormated } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -107,7 +83,7 @@ export class GenericController<T> {
       `
 
     const [qYearResult] = await conn.query(format(qYear), [yearName]);
-    let year = this.formatAlphabeticYearHeader(qYearResult as QueryYear[])
+    let year = this.formatAlphabeticYearHeader(qYearResult as qYear[])
 
     const qAlphabeticLevels =
 
@@ -117,7 +93,7 @@ export class GenericController<T> {
       `
 
     const [qAlphaLevelsResult] = await conn.query(format(qAlphabeticLevels), []);
-    const alphabeticLevels = qAlphaLevelsResult as QueryAlphabeticLevels[]
+    const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[]
 
     return year.periods.flatMap(period => {
       return {
@@ -159,10 +135,10 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
 
-    return this.formatAlphaStuWQuestions(queryResult as QueryAlphaStudents[])
+    return this.formatAlphaStuWQuestions(queryResult as qAlphaStudents[])
   }
 
-  async qStudentDisabilities(conn: PoolConnection, arr: QueryAlphaStudentsFormated[]) {
+  async qStudentDisabilities(conn: PoolConnection, arr: qAlphaStudentsFormated[]) {
     for(let item of arr) {
 
       const query =
@@ -199,7 +175,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
 
-    return this.formatStudentClassroom(queryResult as QueryAlphaStuClassrooms[])
+    return this.formatStudentClassroom(queryResult as qAlphaStuClassrooms[])
   }
 
   async qCurrentYear(conn: PoolConnection) {
@@ -212,7 +188,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query))
-    return (queryResult as QueryYear[])[0]
+    return (queryResult as qYear[])[0]
   }
 
   async qTeacherDisciplines(conn: PoolConnection, userId: number) {
@@ -231,7 +207,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [userId])
 
-    const qTeacherDisciplines = (queryResult as QueryTeacherDisciplines[])[0]
+    const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
 
     return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
   }
@@ -252,7 +228,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [userId])
 
-    const qTeacherClassrooms = (queryResult as QueryTeacherClassrooms[])[0]
+    const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
 
     return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
   }
@@ -267,7 +243,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [statusId])
-    return (queryResult as QueryTransferStatus[])[0]
+    return (queryResult as qTransferStatus[])[0]
   }
 
   async qTeacherByUser(conn: PoolConnection, userId: number) {
@@ -301,7 +277,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [stateId])
-    return (queryResult as QueryState[])[0]
+    return (queryResult as qState[])[0]
   }
 
   async qUser(conn: PoolConnection, userId: number) {
@@ -317,7 +293,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [userId])
-    return (queryResult as QueryUser[])[0]
+    return (queryResult as qUser[])[0]
   }
 
   async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {
@@ -330,7 +306,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
-    return (queryResult as QueryTestClassroom[])[0]
+    return (queryResult as qTestClassroom[])[0]
   }
 
   // TODO: create a function that checks if there is only one element into array. Return error if there is more than one?
@@ -356,7 +332,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId, yearName])
-    return (queryResult as QueryTest[])[0]
+    return (queryResult as qTest[])[0]
   }
 
   async qYearByName(conn: PoolConnection, yearName: string) {
@@ -369,7 +345,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [yearName])
-    return (queryResult as QueryYear[])[0]
+    return (queryResult as qYear[])[0]
   }
 
   async qYearById(conn: PoolConnection, yearId: number | string) {
@@ -382,7 +358,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [yearId])
-    return (queryResult as QueryYear[])[0]
+    return (queryResult as qYear[])[0]
   }
 
   async qClassroom(conn: PoolConnection, classroomId: number) {
@@ -397,7 +373,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [classroomId])
 
-    const res = (queryResult as QueryClassroom[])[0]
+    const res = (queryResult as qClassroom[])[0]
 
     return {
       id: res.id,
@@ -424,7 +400,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId])
-    return queryResult as QuerySchools[]
+    return queryResult as qSchools[]
   }
 
   async qClassroomsByTestId(conn: PoolConnection, schoolId: number, testId: number) {
@@ -438,7 +414,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [schoolId, testId])
-    return queryResult as QueryClassrooms[]
+    return queryResult as qClassrooms[]
   }
 
   async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string) {
@@ -458,7 +434,7 @@ export class GenericController<T> {
       `;
 
     const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
-    return queryResult as QueryStudentsClassroomsForTest[];
+    return queryResult as qStudentsClassroomsForTest[];
   }
 
   async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {
@@ -490,7 +466,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [])
 
-    return queryResult as Array<QueryReadingFluenciesHeaders>
+    return queryResult as Array<qReadingFluenciesHeaders>
   }
 
   async qAlphabeticTests(conn: PoolConnection, categoryId: number, disciplineId: number, yearName: string) {
@@ -516,7 +492,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName])
 
-    return this.formatAlphabeticTests(queryResult as QueryAlphaTests[])
+    return this.formatAlphabeticTests(queryResult as qAlphaTests[])
   }
 
   async qTestQuestions(conn: PoolConnection, testId: number | string) {
@@ -537,7 +513,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [testId])
-    return this.formatTestQuestions(queryResult as QueryTestQuestions[])
+    return this.formatTestQuestions(queryResult as qTestQuestions[])
   }
 
   async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
@@ -552,7 +528,7 @@ export class GenericController<T> {
       `
 
     const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
-    return  this.formatStudentClassroom(queryResult as Array<QueryStudentClassroomFormated>)
+    return  this.formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
@@ -571,8 +547,8 @@ export class GenericController<T> {
     })
   }
 
-  formatAlphaStuWQuestions(el: QueryAlphaStudents[]) {
-    return el.reduce((acc: QueryAlphaStudentsFormated[], prev) => {
+  formatAlphaStuWQuestions(el: qAlphaStudents[]) {
+    return el.reduce((acc: qAlphaStudentsFormated[], prev) => {
 
       let studentClassroom = acc.find(el => el.id === prev.id)
 
@@ -596,7 +572,7 @@ export class GenericController<T> {
     }, [])
   }
 
-  formatTestQuestions(arr: QueryTestQuestions[]) {
+  formatTestQuestions(arr: qTestQuestions[]) {
     return arr.map(el => {
       return {
         id: el.test_question_id,
@@ -614,7 +590,7 @@ export class GenericController<T> {
     })
   }
 
-  formatAlphabeticTests(arr: QueryAlphaTests[]) {
+  formatAlphabeticTests(arr: qAlphaTests[]) {
     return arr.map(el => {
       return {
         id: el.test_id,
@@ -643,10 +619,10 @@ export class GenericController<T> {
         user: { id: el.user_id, username: el.user_name, email: el.user_email
         }
       }
-    } as QueryUserTeacher
+    } as qUserTeacher
   }
 
-  formatedTest(qTest: QueryTest) {
+  formatedTest(qTest: qTest) {
     return {
       id: qTest.id,
       name: qTest.name,
@@ -661,11 +637,11 @@ export class GenericController<T> {
     } as unknown as Test
   }
 
-  formatAlphabeticYearHeader(el: QueryYear[]){
-    return el.reduce((acc: QueryFormatedYear, prev: QueryYear) => {
+  formatAlphabeticYearHeader(el: qYear[]){
+    return el.reduce((acc: qFormatedYear, prev: qYear) => {
       if (!acc.id) { acc.id = prev.id; acc.name = prev.name; acc.periods = [] }
       acc.periods.push({id: prev.period_id, bimester: {id: prev.bimester_id, name: prev.bimester_name, testName: prev.bimester_testName}});
       return acc;
-    }, {} as QueryFormatedYear)
+    }, {} as qFormatedYear)
   }
 }

@@ -22,7 +22,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { QueryAlphaStuClassroomsFormated, QueryReadingFluenciesHeaders, QueryStudentClassroomFormated, QueryStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
+import { qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -523,14 +523,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async createLinkAlphabetic(studentClassrooms: QueryAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
+  async createLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
       if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom.student.id }, test } ) }
     }
   }
 
-  async linkReading(headers: QueryReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
+  async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let studentClassroom of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
       const stStatus = await CONN.findOne(StudentTestStatus, options)
@@ -657,7 +657,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async qTestQuestLink(status: boolean, arr: QueryStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
+  async qTestQuestLink(status: boolean, arr: qStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let sC of arr) {
       if(status){
         const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
@@ -1167,7 +1167,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: QueryAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, CONN: EntityManager, sqlConn: PoolConnection) {
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: qAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, CONN: EntityManager, sqlConn: PoolConnection) {
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)
 
@@ -1373,7 +1373,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
   }
 
-  qDuplicatedStudents(studentClassrooms: QueryStudentClassroomFormated[]) {
+  qDuplicatedStudents(studentClassrooms: qStudentClassroomFormated[]) {
     const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
     const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
@@ -1463,7 +1463,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  readingFluencyHeaders(preHeaders: QueryReadingFluenciesHeaders[]) {
+  readingFluencyHeaders(preHeaders: qReadingFluenciesHeaders[]) {
     return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
       let exam = acc.find(el => el.exam_id === prev.readingFluencyExamId);
       if (!exam) {
@@ -1526,7 +1526,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     })
   }
 
-  readingFluencyTotalizator(headers: QueryReadingFluenciesHeaders[], classroom: Classroom){
+  readingFluencyTotalizator(headers: qReadingFluenciesHeaders[], classroom: Classroom){
 
     let totalNuColumn: any[] = []
     const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)

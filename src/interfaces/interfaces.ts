@@ -16,29 +16,27 @@ export interface StudentClassroomFnOptions { search?: string; year?: string; tea
 export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, testQuestions?: {}[], year: { id: number }, user: UserInterface }
 
 
-export interface QueryStudentClassroomFormated { id: number, rosterNumber: number, classroomId: number, startedAt: string, endedAt: string | null, student: { id: number, person: { id: number, name: string }, readingFluency?: QueryReadingFluency[] }}
-export interface QueryReadingFluenciesHeaders { id: number, readingFluencyLevelId: number, readingFluencyLevelName: string, readingFluencyLevelColor: string, readingFluencyExamId: number, readingFluencyExamName: string, readingFluencyExamColor: string  }
-export interface QueryAlphaStudentsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string | null, student: { id: number, active: boolean, person: { id: number, name: string }, alphabetic: { id: number, alphabeticLevelId: number, rClassroomId: number }[], studentDisabilities?: { id: number, startedAt: string, endedAt: string | null }[] }}
-export interface QueryAlphaStudents { id: number, rosterNumber: number, startedAt: string, endedAt: string | null, studentId: number, active: boolean, personId: number, name: string, alphabeticId: number, alphabeticLevelId: number, rClassroomId: number }
-export interface QueryTestQuestions { test_question_id: number, test_question_order: number, test_question_answer: string, test_question_active: boolean, question_id: number, question_group_id: number, question_group_name: string }
-export interface QueryAlphaTests { test_id: number, test_active: number, discipline_id: number, discipline_name: string, test_category_id: number, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: number, year_name: string }
-export interface QueryAlphabeticLevels { id: number, shortName: string, color: string }
-export interface QueryFormatedYear { id: number, name: string, periods: { id: number, bimester: { id: number, name: string, testName: string } }[] }
-export interface QueryYear { id: number, name: string, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string }
-export interface QueryStudentsClassroomsForTest { student_classroom_id: number, student_id: number, student_classroom_test_status_id: number }
-export interface QueryAlphaStuClassroomsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string, student: { id: number, person: { id: number, name: string } } }
-export interface QueryAlphaStuClassrooms { id: number, rosterNumber: number, startedAt: string, endedAt: string, student_id: number, person_id: number, person_name: string, alphabetic_id: number, alphabeticLevel: number, test_id: number }
-export interface QueryYear { id: number, name: string, active: boolean, createdAt: string, endedAt: string }
-export interface QueryTransferStatus { id: number, name: string }
-export interface QueryUserTeacher { id: number, email: string, register: string, person: { id: number, name: string, category: { id: number, name: string }, user: { id: number, username: string, email: string } } }
-export interface QueryState { id: number, name: string, acronym: string }
-export interface QueryClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }
-export interface QueryUser { userId: number, categoryId: number }
-export interface QueryTeacherClassrooms { id: number, classrooms: string }
-export interface QueryTeacherDisciplines { id: number, disciplines: string }
-export interface QueryTestClassroom { testId: number, classroomId: number }
-export interface QueryYear { id: number, name: string }
-export interface QueryTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
-export interface QuerySchools { id: number, name: string, shortName: string, classrooms: QueryClassrooms[] }
-export interface QueryClassrooms { id: number, shortName: string, studentsClassrooms: QueryStudentClassroomFormated[] }
-export interface QueryReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }
+export interface qStudentClassroomFormated { id: number, rosterNumber: number, classroomId: number, startedAt: string, endedAt: string | null, student: { id: number, person: { id: number, name: string }, readingFluency?: qReadingFluency[] }}
+export interface qReadingFluenciesHeaders { id: number, readingFluencyLevelId: number, readingFluencyLevelName: string, readingFluencyLevelColor: string, readingFluencyExamId: number, readingFluencyExamName: string, readingFluencyExamColor: string  }
+export interface qAlphaStudentsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string | null, student: { id: number, active: boolean, person: { id: number, name: string }, alphabetic: { id: number, alphabeticLevelId: number, rClassroomId: number }[], studentDisabilities?: { id: number, startedAt: string, endedAt: string | null }[] }}
+export interface qAlphaStudents { id: number, rosterNumber: number, startedAt: string, endedAt: string | null, studentId: number, active: boolean, personId: number, name: string, alphabeticId: number, alphabeticLevelId: number, rClassroomId: number }
+export interface qTestQuestions { test_question_id: number, test_question_order: number, test_question_answer: string, test_question_active: boolean, question_id: number, question_group_id: number, question_group_name: string }
+export interface qAlphaTests { test_id: number, test_active: number, discipline_id: number, discipline_name: string, test_category_id: number, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: number, year_name: string }
+export interface qAlphabeticLevels { id: number, shortName: string, color: string }
+export interface qFormatedYear { id: number, name: string, periods: { id: number, bimester: { id: number, name: string, testName: string } }[] }
+export interface qYear { id: number, name: string, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, active: boolean, createdAt: string, endedAt: string }
+export interface qStudentsClassroomsForTest { student_classroom_id: number, student_id: number, student_classroom_test_status_id: number }
+export interface qAlphaStuClassroomsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string, student: { id: number, person: { id: number, name: string } } }
+export interface qAlphaStuClassrooms { id: number, rosterNumber: number, startedAt: string, endedAt: string, student_id: number, person_id: number, person_name: string, alphabetic_id: number, alphabeticLevel: number, test_id: number }
+export interface qTransferStatus { id: number, name: string }
+export interface qUserTeacher { id: number, email: string, register: string, person: { id: number, name: string, category: { id: number, name: string }, user: { id: number, username: string, email: string } } }
+export interface qState { id: number, name: string, acronym: string }
+export interface qClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }
+export interface qUser { userId: number, categoryId: number }
+export interface qTeacherClassrooms { id: number, classrooms: string }
+export interface qTeacherDisciplines { id: number, disciplines: string }
+export interface qTestClassroom { testId: number, classroomId: number }
+export interface qTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
+export interface qSchools { id: number, name: string, shortName: string, classrooms: qClassrooms[] }
+export interface qClassrooms { id: number, shortName: string, studentsClassrooms: qStudentClassroomFormated[] }
+export interface qReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }

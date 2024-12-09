@@ -36,7 +36,7 @@ export interface qUser { userId: number, categoryId: number }
 export interface qTeacherClassrooms { id: number, classrooms: string }
 export interface qTeacherDisciplines { id: number, disciplines: string }
 export interface qTestClassroom { testId: number, classroomId: number }
-export interface qTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: string, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
+export interface qTest extends Test { id: number, name: string, active: boolean, createdAt: Date, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: number, year_name: string, year_active: number | boolean, discipline_id: number, discipline_name: string, test_category_id: number, test_category_name: string, person_id: number, person_name: string }
 export interface qSchools { id: number, name: string, shortName: string, classrooms: qClassrooms[] }
 export interface qClassrooms { id: number, shortName: string, studentsClassrooms: qStudentClassroomFormated[] }
 export interface qReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }

@@ -154,6 +154,33 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let preResult = await testController.alphaQuestions(qTest.year_name, qTest, testQuestionsIds, CONN)
 
+        // -------------------------------------------------
+        // let localSchools = await this.qSchools(sqlConnection, qTest.id)
+        // for(let school of localSchools) {
+        //
+        //   school.classrooms = await this.qClassroomsByTestId(sqlConnection, school.id, qTest.id)
+        //
+        //   for(let classroom of school.classrooms) {
+        //
+        //     classroom.studentsClassrooms = testController
+        //       .duplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, Number(qTest.year_id)))
+        //       .filter((el:any) => !el.ignore)
+        //
+        //     for(let studentClassroom of classroom.studentsClassrooms) {
+        //
+        //
+        //
+        //     }
+        //   }
+        // }
+        //
+        // const arr1 = preResult.flatMap(sc => sc.classrooms.flatMap(c => c.studentClassrooms.map(item => item.id)))
+        // const arr2 = localSchools.flatMap(sc => sc.classrooms.flatMap(c => c.studentsClassrooms.map(item => item.id)))
+        //
+        // const difference = arr1.filter(element => !arr2.includes(element));
+        // console.log('preResult: ', arr1.length, 'localSchools: ', arr2.length, 'difference: ', difference)
+        // -------------------------------------------------
+
         let mappedSchools = preResult.map(school => {
           const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
           return { ...element, totals: testController.aggregateResult(element, testController.alphaAllClasses23(school.classrooms, headers)) }

@@ -1,35 +1,35 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
-import { pc } from "../utils/personCategories";
-import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
-import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
-import { Alphabetic } from "../model/Alphabetic";
-import { School } from "../model/School";
-import { Disability } from "../model/Disability";
-import { dbConn } from "../services/db";
-import { Person } from "../model/Person";
-import { PoolConnection } from "mysql2/promise";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {StudentQuestion} from "../model/StudentQuestion";
+import {StudentTestStatus} from "../model/StudentTestStatus";
+import {pc} from "../utils/personCategories";
+import {Year} from "../model/Year";
+import {Brackets, EntityManager, EntityTarget, ObjectLiteral} from "typeorm";
+import {Question} from "../model/Question";
+import {Descriptor} from "../model/Descriptor";
+import {Topic} from "../model/Topic";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, TestBodySave} from "../interfaces/interfaces";
+import {AlphabeticLevel} from "../model/AlphabeticLevel";
+import {Alphabetic} from "../model/Alphabetic";
+import {School} from "../model/School";
+import {Disability} from "../model/Disability";
+import {dbConn} from "../services/db";
+import {Person} from "../model/Person";
+import {PoolConnection} from "mysql2/promise";
 
 interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
@@ -1199,9 +1199,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
-      //   TODO: Refactor this alphaQuestions TO pure SQL. School > Classroom > Students > etc... One function for each entity query.
-      preResultSc = (await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId))
-        .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId)
+      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
     }
 
     let studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))

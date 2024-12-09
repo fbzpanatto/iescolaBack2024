@@ -110,9 +110,9 @@ export class GenericController<T> {
       `
         SELECT
           student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
-          student.id AS studentId, student.active, 
+          student.id AS studentId, student.active,
           person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId         
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId
         FROM student_classroom
           INNER JOIN student ON student_classroom.studentId = student.id
           INNER JOIN person ON student.personId = person.id

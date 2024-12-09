@@ -1199,9 +1199,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
+      //   TODO: Refactor this alphaQuestions TO pure SQL. School > Classroom > Students > etc... One function for each entity query.
       preResultSc = (await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId))
         .flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
-
     }
 
     let studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
@@ -1367,13 +1367,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return await query.getMany();
   }
 
-  duplicatedStudents(studentClassrooms: StudentClassroom[]): any {
-    const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-    const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
-    return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
-  }
-
-  qDuplicatedStudents(studentClassrooms: qStudentClassroomFormated[]) {
+  duplicatedStudents(studentClassrooms: StudentClassroom[] | qStudentClassroomFormated[]): any {
     const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
     const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });

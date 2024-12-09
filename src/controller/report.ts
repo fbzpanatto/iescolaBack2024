@@ -195,7 +195,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           for(let classroom of school.classrooms) {
 
             classroom.studentsClassrooms = testController
-              .qDuplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, qYear.id))
+              .duplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, qYear.id))
               .filter((el:any) => !el.ignore)
 
             for(let studentClassroom of classroom.studentsClassrooms) {

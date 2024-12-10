@@ -1,13 +1,13 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, In, IsNull } from "typeorm";
+import { Brackets, EntityManager, EntityTarget, IsNull } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Discipline } from "../model/Discipline";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
-import { TeacherBody, TeacherResponse } from "../interfaces/interfaces";
-import { TeacherClassDiscipline as TCDRelation } from "../model/TeacherClassDiscipline";
+import { TeacherBody } from "../interfaces/interfaces";
+import { TeacherClassDiscipline, TeacherClassDiscipline as TCDRelation } from "../model/TeacherClassDiscipline";
 import { teacherRelationController } from "./teacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
@@ -94,46 +94,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     let sqlConnection = await dbConn()
 
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+      const cannotChange = [pc.MONI, pc.PROF];
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
-        const cannotChange = [pc.MONI, pc.PROF];
+      if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
-        if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
+      const qTeacher = await this.qTeacherRelationship(sqlConnection, id)
 
-        const el = await CONN.getRepository(Teacher)
-          .createQueryBuilder("teacher")
-          .select("teacher.id", "teacher_id")
-          .addSelect("teacher.email", "teacher_email")
-          .addSelect("teacher.register", "teacher_register")
-          .addSelect("person.id", "person_id")
-          .addSelect("person.name", "person_name")
-          .addSelect("person.birth", "person_birth")
-          .addSelect("category.id", "category_id")
-          .addSelect("category.name", "category_name")
-          .addSelect("GROUP_CONCAT(DISTINCT classroom.id ORDER BY classroom.id ASC)","classroom_ids")
-          .addSelect("GROUP_CONCAT(DISTINCT discipline.id ORDER BY discipline.id ASC)","discipline_ids")
-          .leftJoin("teacher.person", "person")
-          .leftJoin("person.category", "category")
-          .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-          .leftJoin("teacherClassDiscipline.classroom", "classroom")
-          .leftJoin("teacherClassDiscipline.discipline", "discipline")
-          .where("teacher.id = :teacherId AND teacherClassDiscipline.endedAt IS NULL", { teacherId: id })
-          .getRawOne();
+      if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
 
-        if (!el.teacher_id) { return { status: 404, message: "Dado não encontrado" } }
-
-        let newResult = {
-          id: el.teacher_id,
-          email: el.teacher_email,
-          register: el.teacher_register,
-          person: { id: el.person_id, name: el.person_name, birth: el.person_birth, category: { id: el.category_id, name: el.category_name } },
-          teacherClasses:el.classroom_ids?.split(",").map((item: string) => parseInt(item)) ?? [],
-          teacherDisciplines:el.discipline_ids?.split(",").map((item: string) => parseInt(item)) ?? []
-        } as TeacherResponse;
-
-        return { status: 200, data: newResult };
-      })
+      return { status: 200, data: qTeacher };
     }
     catch (error: any) { return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }
@@ -301,23 +271,18 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           return { status: 201, data: teacher }
         }
 
-        const classrooms = await CONN.findBy(Classroom, {id: In(body.teacherClasses) });
-        const disciplines = await CONN.findBy(Discipline, { id: In(body.teacherDisciplines) });
-
-        for (const classroom of classrooms) {
-          for (const discipline of disciplines) {
-            const el = new TCDRelation();
-            el.teacher = teacher;
-            el.classroom = classroom;
-            el.discipline = discipline;
-            el.startedAt = new Date();
-            await CONN.save(el);
-          }
+        for (const rel of body.teacherClassesDisciplines) {
+          await CONN.save(TeacherClassDiscipline, {
+            teacher: teacher,
+            classroom: { id: rel.classroomId },
+            discipline: { id: rel.disciplineId },
+            startedAt: new Date()
+          })
         }
 
-        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
-        return { status: 201, data: teacher };
-      });
+        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
+        return { status: 201, data: teacher }
+      })
     }
     catch (error: any) { return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }

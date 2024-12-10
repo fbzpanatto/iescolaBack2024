@@ -1,7 +1,32 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { qAlphabeticLevels, qAlphaStudents, qAlphaStuClassrooms, qAlphaStudentsFormated, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qSchools, qState, qStudentsClassroomsForTest, qTeacherClassrooms, qTeacherDisciplines, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, qReadingFluenciesHeaders, qStudentClassroomFormated } from "../interfaces/interfaces";
+import {
+  qAlphabeticLevels,
+  qAlphaStudents,
+  qAlphaStuClassrooms,
+  qAlphaStudentsFormated,
+  qAlphaTests,
+  qClassroom,
+  qClassrooms,
+  qFormatedYear,
+  qSchools,
+  qState,
+  qStudentsClassroomsForTest,
+  qTeacherClassrooms,
+  qTeacherDisciplines,
+  qTest,
+  qTestClassroom,
+  qTestQuestions,
+  qTransferStatus,
+  qUser,
+  qUserTeacher,
+  qYear,
+  SavePerson,
+  qReadingFluenciesHeaders,
+  qStudentClassroomFormated,
+  qTeacherRelationShip
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -529,6 +554,60 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
     return  this.formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
+  }
+
+  async qTeacherRelationship(conn: PoolConnection, teacherId: number | string) {
+    const qTeacher =
+
+      `
+        SELECT 
+          person.id AS person_id, person.name AS person_name, person.birth AS person_birth,
+          person_category.id AS category_id, person_category.name AS category_name,
+          teacher.id AS teacher_id, teacher.register AS teacher_register, teacher.email AS teacher_email
+        FROM person
+          INNER JOIN teacher ON person.id = teacher.personId
+          INNER JOIN person_category ON person.categoryId = person_category.id
+        WHERE teacher.id = ?
+      `
+
+    const [ teacherQueryResult ] = await conn.query(format(qTeacher), [teacherId])
+
+    const qRelationships =
+      `
+        SELECT 
+          tcd.id, tcd.teacherId, tcd.classroomId, tcd.disciplineId, 
+          classroom.shortName AS classroomName, 
+          school.shortName AS schoolName, 
+          discipline.name AS disciplineName
+        FROM teacher_class_discipline as tcd
+          INNER JOIN classroom ON tcd.classroomId = classroom.id
+          INNER JOIN school ON classroom.schoolId = school.id
+          INNER JOIN discipline ON tcd.disciplineId = discipline.id
+        WHERE tcd.teacherId = ? AND tcd.endedAt IS NULL
+        ORDER BY classroom.shortName, school.shortName, discipline.name
+      `
+
+    const [ teacherClassesDisciplines ] = (await conn.query(format(qRelationships), [teacherId]))
+
+    let relationships = teacherClassesDisciplines as Array<qTeacherRelationShip>
+
+    let teacher = (teacherQueryResult as Array<any>)[0]
+
+    return {
+      id: teacher.teacher_id,
+      email: teacher.teacher_email,
+      register: teacher.teacher_register,
+      person: {
+        id: teacher.person_id,
+        name: teacher.person_name,
+        birth: teacher.person_birth,
+        category: {
+          id: teacher.category_id,
+          name: teacher.category_name
+        }
+      },
+      teacherClassesDisciplines: relationships.map(el => ({ ...el, active: true }))
+    }
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------

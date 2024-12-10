@@ -5,7 +5,7 @@ import {Test} from "../model/Test";
 
 export interface Data { status: number; data?: any; message?: any }
 export interface UserInterface { user: number, email: string, username: string, category: number, iat: number, exp: number }
-export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory }
+export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory, teacherClassesDisciplines: qTeacherRelationShip[] }
 export interface TeacherResponse {id: number, person: {id: number, name: string, birth: string}, teacherClasses: number[], teacherDisciplines: number[]}
 export interface SavePerson {name: string,birth: Date,category: PersonCategory,}
 export interface SaveStudent { name: string, birth: Date, disabilities: number[], disabilitiesName: string[], ra: string, dv: string,state: number,rosterNumber: string,classroom: number,classroomName: string,observationOne: string,observationTwo: string,user: UserInterface }
@@ -40,3 +40,4 @@ export interface qTest extends Test { id: number, name: string, active: boolean,
 export interface qSchools { id: number, name: string, shortName: string, classrooms: qClassrooms[] }
 export interface qClassrooms { id: number, shortName: string, studentsClassrooms: qStudentClassroomFormated[] }
 export interface qReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }
+export interface qTeacherRelationShip { id: number, teacherId: number, classroomId: number, disciplineId: number, classroomName: string, schoolName: string, disciplineName: string  }

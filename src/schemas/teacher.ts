@@ -47,37 +47,8 @@ export const TEACHER_SCHEMA: Schema = {
     optional: true,
     escape: true
   },
-  teacherClasses: {
+  teacherClassesDisciplines: {
     optional: true,
-    escape: true,
-    custom: {
-      options: (value) => {
-        if (!value || !Array.isArray(value)) {
-          throw new Error("disabilities must be an array");
-        }
-        value = value.map(element => parseInt(element));
-        if (!value.every(Number.isInteger)) {
-          throw new Error("disabilities must be an array of integers");
-        }
-        return true;
-      },
-    },
-  },
-  teacherDisciplines: {
-    optional: true,
-    escape: true,
-    custom: {
-      options: (value) => {
-        if (!value || !Array.isArray(value)) {
-          throw new Error("disabilities must be an array");
-        }
-        value = value.map(element => parseInt(element));
-        if (!value.every(Number.isInteger)) {
-          throw new Error("disabilities must be an array of integers");
-        }
-        return true;
-      },
-    },
   },
   category: { optional: true },
   user: { optional: true },

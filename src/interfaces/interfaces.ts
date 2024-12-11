@@ -40,4 +40,4 @@ export interface qTest extends Test { id: number, name: string, active: boolean,
 export interface qSchools { id: number, name: string, shortName: string, classrooms: qClassrooms[] }
 export interface qClassrooms { id: number, shortName: string, studentsClassrooms: qStudentClassroomFormated[] }
 export interface qReadingFluency { id: number, readingFluencyExamId: number, readingFluencyLevelId: number, rClassroomId: number  }
-export interface qTeacherRelationShip { id: number, teacherId: number, classroomId: number, disciplineId: number, classroomName: string, schoolName: string, disciplineName: string  }
+export interface qTeacherRelationShip { id: number, teacherId: number, classroomId: number, disciplineId: number, classroomName: string, schoolName: string, disciplineName: string, active: boolean  }

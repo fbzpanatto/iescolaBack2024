@@ -1,14 +1,11 @@
 import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, IsNull } from "typeorm";
+import { Brackets, EntityManager, EntityTarget } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
-import { Classroom } from "../model/Classroom";
-import { Discipline } from "../model/Discipline";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
 import { TeacherBody } from "../interfaces/interfaces";
-import { TeacherClassDiscipline, TeacherClassDiscipline as TCDRelation } from "../model/TeacherClassDiscipline";
-import { teacherRelationController } from "./teacherClassDiscipline";
+import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
@@ -21,6 +18,7 @@ import { credentialsEmail } from "../utils/email.service";
 import { generatePassword } from "../utils/generatePassword";
 
 import { dbConn } from "../services/db";
+import { PoolConnection } from "mysql2/promise";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -187,7 +185,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
         }
 
-        if (body.teacherClasses || body.teacherDisciplines) { await this.updateRelation(teacher, body, CONN) }
+        if(body.teacherClassesDisciplines) { await this.qUpdateRelation(CONN, sqlConnection, teacher, body) }
 
         await CONN.save(Teacher, teacher);
 
@@ -198,40 +196,25 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async updateRelation(teacher: Teacher, body: TeacherBody, CONN: EntityManager) {
+  async qUpdateRelation(CONN: EntityManager, sqlConnection: PoolConnection, teacher: Teacher, body: TeacherBody) {
 
-    const tcd = await CONN.getRepository(TCDRelation)
-    .find({ relations: ["teacher", "classroom", "discipline"], where: { endedAt: IsNull(), teacher: { id: Number(teacher.id) } } });
+    const qDbRelationShip = (await this.qTeacherRelationship(sqlConnection, teacher.id)).teacherClassesDisciplines
 
-    const arrOfDiff: TCDRelation[] = [];
-    const cBody = body.teacherClasses.map((el: any) => parseInt(el));
-    const dBody = body.teacherDisciplines.map((el: any) => parseInt(el) );
+    for(let bodyElement of body.teacherClassesDisciplines) {
 
-    const existingRelations = new Set(tcd.map((relation) => `${relation.classroom.id}-${relation.discipline.id}`));
+      const dataBaseRow = qDbRelationShip.find(dataRow => {
+        return dataRow.id === bodyElement.id && dataRow.teacherId === bodyElement.teacherId && dataRow.classroomId === bodyElement.classroomId && dataRow.disciplineId === bodyElement.disciplineId
+      })
 
-    const requestedRelations = new Set(cBody.flatMap((classroomId) => dBody.map((disciplineId) => `${classroomId}-${disciplineId}`) ) );
+      if(dataBaseRow && !bodyElement.active) { await CONN.getRepository(TeacherClassDiscipline).save({...dataBaseRow, endedAt: new Date()})}
 
-    // Encontrar relações a serem encerradas
-    for (let relation of tcd) {
-      const relationKey = `${relation.classroom.id}-${relation.discipline.id}`;
-      if (!requestedRelations.has(relationKey)) { arrOfDiff.push(relation) }
-    }
-
-    // Encerrar relações que estão em arrOfDiff
-    for (let relation of arrOfDiff) { await teacherRelationController.updateId(relation.id, { endedAt: new Date() }, CONN) }
-
-    // Criar novas relações conforme o corpo da requisição
-    for (let classroomId of cBody) {
-      for (let disciplineId of dBody) {
-        const relationKey = `${classroomId}-${disciplineId}`;
-        if (!existingRelations.has(relationKey)) {
-          const el = new TCDRelation();
-          el.teacher = teacher;
-          el.classroom = (await CONN.getRepository(Classroom).findOne({ where: { id: classroomId } })) as Classroom;
-          el.discipline = (await CONN.getRepository(Discipline).findOne({ where: { id: disciplineId } })) as Discipline;
-          el.startedAt = new Date();
-          await teacherRelationController.save(el, {}, CONN);
-        }
+      if(bodyElement.id === null && !dataBaseRow && bodyElement.active && bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId) {
+        await CONN.getRepository(TeacherClassDiscipline).save({
+          teacher: { id: bodyElement.teacherId },
+          discipline: { id: bodyElement.disciplineId },
+          classroom: { id: bodyElement.classroomId },
+          startedAt: new Date(),
+        })
       }
     }
   }

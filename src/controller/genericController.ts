@@ -1,20 +1,23 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
+import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
 import {
   qAlphabeticLevels,
-  qAlphaStudents,
   qAlphaStuClassrooms,
+  qAlphaStudents,
   qAlphaStudentsFormated,
   qAlphaTests,
   qClassroom,
   qClassrooms,
   qFormatedYear,
+  qReadingFluenciesHeaders,
   qSchools,
   qState,
+  qStudentClassroomFormated,
   qStudentsClassroomsForTest,
   qTeacherClassrooms,
   qTeacherDisciplines,
+  qTeacherRelationShip,
   qTest,
   qTestClassroom,
   qTestQuestions,
@@ -22,16 +25,13 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson,
-  qReadingFluenciesHeaders,
-  qStudentClassroomFormated,
-  qTeacherRelationShip
+  SavePerson
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { PoolConnection } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {PoolConnection} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -126,41 +126,6 @@ export class GenericController<T> {
         levels: alphabeticLevels,
       }
     })
-  }
-
-  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number) {
-
-    const query =
-
-      `
-        SELECT
-          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
-          student.id AS studentId, student.active,
-          person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId
-        FROM student_classroom
-          INNER JOIN student ON student_classroom.studentId = student.id
-          INNER JOIN person ON student.personId = person.id
-          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
-          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
-          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
-          INNER JOIN test ON alphabetic.testId = test.id
-          INNER JOIN discipline ON test.disciplineId = discipline.id
-          INNER JOIN test_category ON test.categoryId = test_category.id
-          INNER JOIN period ON test.periodId = period.id
-          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
-          INNER JOIN year ON period.yearId = year.id
-          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-        WHERE 
-          (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
-          (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
-          discipline.id = ? AND test_category.id
-        ORDER BY student_classroom.rosterNumber
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
-
-    return this.formatAlphaStuWQuestions(queryResult as qAlphaStudents[])
   }
 
   async qStudentDisabilities(conn: PoolConnection, arr: qAlphaStudentsFormated[]) {
@@ -610,6 +575,45 @@ export class GenericController<T> {
     }
   }
 
+  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number) {
+
+    const query =
+
+      `
+        SELECT
+          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
+          student.id AS studentId, student.active,
+          person.id AS personId, person.name AS name,
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor,
+          test.id AS testId, test.name AS testName,
+          period.id AS periodId,
+          bim.id AS bimesterId,
+          year.id AS yearId
+        FROM student_classroom
+          INNER JOIN student ON student_classroom.studentId = student.id
+          INNER JOIN person ON student.personId = person.id
+          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
+          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+          INNER JOIN test ON alphabetic.testId = test.id
+          INNER JOIN discipline ON test.disciplineId = discipline.id
+          INNER JOIN test_category ON test.categoryId = test_category.id
+          INNER JOIN period ON test.periodId = period.id
+          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
+          INNER JOIN year ON period.yearId = year.id
+          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+        WHERE 
+          (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
+          (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
+          discipline.id = ? AND test_category.id
+        ORDER BY student_classroom.rosterNumber
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
+
+    return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
   formatStudentClassroom(arr: any[]) {
@@ -626,8 +630,8 @@ export class GenericController<T> {
     })
   }
 
-  formatAlphaStuWQuestions(el: qAlphaStudents[]) {
-    return el.reduce((acc: qAlphaStudentsFormated[], prev) => {
+  formatAlphaStuWQuestions(el: any[]) {
+    return el.reduce((acc: any[], prev) => {
 
       let studentClassroom = acc.find(el => el.id === prev.id)
 
@@ -636,16 +640,37 @@ export class GenericController<T> {
         studentClassroom = {
           id: prev.id,
           rosterNumber: prev.rosterNumber,
-          startedAt: prev.startedAt,
           endedAt: prev.endedAt,
-          student: { id: prev.studentId, active: prev.active, person: { id: prev.personId, name: prev.name }, alphabetic: []
+          student: {
+            id: prev.studentId,
+            alphabetic: [],
+            person: {
+              id: prev.personId,
+              name: prev.name
+            }
           }
         }
-
         acc.push(studentClassroom)
       }
 
-      studentClassroom.student.alphabetic.push({ id: prev.alphabeticId, alphabeticLevelId: prev.alphabeticLevelId, rClassroomId: prev.rClassroomId })
+      studentClassroom.student.alphabetic.push({
+        id: prev.alphabeticId,
+        observation: prev.observation,
+        rClassroom: { id: prev.rClassroomId },
+        alphabeticLevel: {
+          id: prev.alphabeticLevelId,
+          color: prev.alphabeticLevelColor,
+        },
+        test: {
+          id: prev.testId,
+          name: prev.testName,
+          period: {
+            id: prev.periodId,
+            bimester: { id: prev.bimesterId },
+            year: { id: prev.yearId },
+          }
+        }
+      })
 
       return acc
     }, [])

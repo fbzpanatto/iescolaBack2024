@@ -527,7 +527,7 @@ export class GenericController<T> {
         SELECT 
           person.id AS person_id, person.name AS person_name, person.birth AS person_birth,
           person_category.id AS category_id, person_category.name AS category_name,
-          teacher.id AS teacher_id, teacher.register AS teacher_register, teacher.email AS teacher_email, teacher.schoolId AS school_id
+          teacher.id AS teacher_id, teacher.register AS teacher_register, teacher.email AS teacher_email, teacher.schoolId AS school_id, teacher.observation
         FROM person
           INNER JOIN teacher ON person.id = teacher.personId
           INNER JOIN person_category ON person.categoryId = person_category.id
@@ -562,6 +562,7 @@ export class GenericController<T> {
       email: teacher.teacher_email,
       register: teacher.teacher_register,
       school: teacher.school_id,
+      observation: teacher.observation,
       person: {
         id: teacher.person_id,
         name: teacher.person_name,

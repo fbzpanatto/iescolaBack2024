@@ -162,8 +162,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         teacher.person.name = body.name;
         teacher.person.birth = body.birth;
         teacher.updatedAt = new Date();
-        teacher.updatedByUser = qUserTeacher.person.user.id
-        teacher.school = { id: Number(body.school) } as School
+        teacher.updatedByUser = qUserTeacher.person.user.id;
+        teacher.school = { id: Number(body.school) } as School;
+        teacher.observation = body.observation;
 
         if(teacher.email != body.email) {
 
@@ -308,6 +309,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     teacher.person = person;
     teacher.email = body.email;
     teacher.register = body.register;
+    teacher.observation = body.observation;
     return teacher;
   }
 

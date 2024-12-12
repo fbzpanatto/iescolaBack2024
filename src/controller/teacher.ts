@@ -159,8 +159,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           return { status: 403, message: "Você não tem permissão para editar este registro." };
         }
 
-        console.log(body)
-
         teacher.person.name = body.name;
         teacher.person.birth = body.birth;
         teacher.updatedAt = new Date();

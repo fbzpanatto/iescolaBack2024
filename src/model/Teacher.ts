@@ -1,8 +1,9 @@
-import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
 import { IsEmail, Max } from "class-validator";
+import {School} from "./School";
 
 @Entity()
 export class Teacher {
@@ -20,6 +21,9 @@ export class Teacher {
   @OneToOne(() => Person, (person) => person.teacher, { cascade: true })
   @JoinColumn()
   person: Person;
+
+  @ManyToOne(() => School, school => school.teachers, { nullable: true })
+  school: School;
 
   @OneToMany(() => TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher )
   teacherClassDiscipline: TeacherClassDiscipline[];

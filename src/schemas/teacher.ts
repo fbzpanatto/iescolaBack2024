@@ -47,6 +47,12 @@ export const TEACHER_SCHEMA: Schema = {
     optional: true,
     escape: true
   },
+  school: {
+    optional: true,
+  },
+  schoolName: {
+    optional: true,
+  },
   teacherClassesDisciplines: {
     optional: true,
   },

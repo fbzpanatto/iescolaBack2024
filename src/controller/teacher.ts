@@ -19,6 +19,9 @@ import { generatePassword } from "../utils/generatePassword";
 
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
+import {School} from "../model/School";
+import {Discipline} from "../model/Discipline";
+import {Classroom} from "../model/Classroom";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -33,8 +36,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         let disciplines = (await discController.getAllDisciplines(req, CONN)).data;
         let classrooms = (await classroomController.getAllClassrooms(req, true, CONN)).data;
         let personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
+        let schools = await CONN.getRepository(School).find();
 
-        return { status: 200, data: { disciplines, classrooms, personCategories } }
+        return { status: 200, data: { disciplines, classrooms, personCategories, schools } }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -155,10 +159,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           return { status: 403, message: "Você não tem permissão para editar este registro." };
         }
 
+        console.log(body)
+
         teacher.person.name = body.name;
         teacher.person.birth = body.birth;
         teacher.updatedAt = new Date();
         teacher.updatedByUser = qUserTeacher.person.user.id
+        teacher.school = { id: Number(body.school) } as School
 
         if(teacher.email != body.email) {
 
@@ -192,7 +199,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return { status: 200, data: teacher };
       })
     }
-    catch ( error: any ) { return { status: 500, message: error.message } }
+    catch ( error: any ) {
+      console.error( error );
+      return { status: 500, message: error.message }
+    }
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
@@ -249,18 +259,39 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
-        if (body.category.id === pc.ADMN || body.category.id === pc.SUPE || body.category.id === pc.FORM ) {
+        if(body.category.id === pc.ADMN || body.category.id === pc.SUPE || body.category.id === pc.FORM ) {
           await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
           return { status: 201, data: teacher }
         }
 
-        for (const rel of body.teacherClassesDisciplines) {
-          await CONN.save(TeacherClassDiscipline, {
-            teacher: teacher,
-            classroom: { id: rel.classroomId },
-            discipline: { id: rel.disciplineId },
-            startedAt: new Date()
-          })
+        if(body.category.id === pc.DIRE || body.category.id === pc .VICE || body.category.id === pc.COOR || body.category.id === pc.SECR || body.category.id === pc.MONI) {
+
+          const disciplines = await CONN.getRepository(Discipline).find()
+          const classrooms = await CONN.getRepository(Classroom).find({ where: { school: { id: body.school } } })
+
+          for(let discipline of disciplines) {
+            for(let classroom of classrooms) {
+              await CONN.save(TeacherClassDiscipline, {
+                teacher: teacher,
+                classroom: { id: classroom.id },
+                discipline: { id: discipline.id },
+                startedAt: new Date()
+              })
+            }
+          }
+
+          return { status: 201, data: teacher }
+        }
+
+        if(body.category.id === pc.PROF) {
+          for (const rel of body.teacherClassesDisciplines) {
+            await CONN.save(TeacherClassDiscipline, {
+              teacher: teacher,
+              classroom: { id: rel.classroomId },
+              discipline: { id: rel.disciplineId },
+              startedAt: new Date()
+            })
+          }
         }
 
         await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))

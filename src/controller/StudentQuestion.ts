@@ -191,7 +191,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
           return { status: 403, message: 'Informe uma letra válida entre: [A, B, C, D, E]' }
         }
 
-        sQ.rClassroom = body.classroom; sQ.answer = body.answer
+        const updatedBy = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+        sQ.rClassroom = body.classroom; sQ.answer = body.answer; sQ.updatedByUser = updatedBy.id; sQ.updatedAt = new Date()
 
         const res = await CONN.save(StudentQuestion, sQ)
 

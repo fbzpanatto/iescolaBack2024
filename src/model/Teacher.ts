@@ -34,7 +34,7 @@ export class Teacher {
   @OneToMany(() => Transfer, (transfer) => transfer.receiver)
   receiver: Transfer[];
 
-  @Column({ nullable: true, length: 60 })
+  @Column({ nullable: true, length: 100 })
   observation: string
 
   @Column({ nullable: true, select: false })

@@ -72,17 +72,12 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+
+        const teacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
         const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
-        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
+        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
 
-        const subQuery = CONN.getRepository(Test)
-          .createQueryBuilder("t")
-          .select("MIN(t.id)")
-          .where("t.category.id IN (1, 2, 3)")
-          .groupBy("t.category.id");
-
-        const testClasses = await CONN.getRepository(Test)
+        const data = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
           .leftJoinAndSelect("test.period", "period")
@@ -93,25 +88,13 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .leftJoinAndSelect("test.classrooms", "classroom")
           .leftJoinAndSelect("classroom.school", "school")
           .where( new Brackets((qb) => { if (!masterUser) { qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })}}))
-          .andWhere(new Brackets(qb => {
-            qb.where("test.category.id NOT IN (1, 2, 3)")
-              .orWhere(`test.id IN (${subQuery.getQuery()})`);
-          }))
-          .setParameters(subQuery.getParameters())
           .andWhere("year.name = :yearName", { yearName: req.params.year as string })
           .andWhere("test.name LIKE :search", { search: `%${ req.query.search as string }%` })
           .take(limit)
           .skip(offset)
           .getMany();
 
-        const alphaCategories = [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3]
-
-        const mappedResult = testClasses.map(el => {
-          if(alphaCategories.includes(el.category.id)) { el.period.bimester.name = 'TODOS'; return el }
-          return el
-        })
-
-        return { status: 200, data: mappedResult };
+        return { status: 200, data };
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }

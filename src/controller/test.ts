@@ -810,12 +810,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user.user);
 
-        const subQuery = CONN.getRepository(Test)
-          .createQueryBuilder("t")
-          .select("MIN(t.id)")
-          .where("t.category.id IN (1, 2, 3)")
-          .groupBy("t.category.id");
-
         const testClasses = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .select([ 'test.id', 'test.name' ])
@@ -832,11 +826,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
               qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: disciplines });
             }
           }))
-          .andWhere(new Brackets(qb => {
-            qb.where("test.category.id NOT IN (1, 2, 3)")
-              .orWhere(`test.id IN (${subQuery.getQuery()})`);
-          }))
-          .setParameters(subQuery.getParameters())
           .andWhere("year.name = :yearName", { yearName })
           .andWhere( new Brackets((qb) => {
             qb.where("test.name LIKE :search", { search: `%${ search }%` })
@@ -847,22 +836,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .addOrderBy('discipline.name')
           .addOrderBy('school.shortName')
           .addOrderBy('classroom.shortName')
+          .addOrderBy('test.name')
+          .addOrderBy('bimester.name')
           .take(limit)
           .skip(offset)
+          .groupBy('test.id, classroom.id, category.id, period.id, discipline.id, school.id')
           .getMany();
 
-        const alphaCategories = [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3]
-
-        const mappedResult = testClasses.map(el => {
-          if(alphaCategories.includes(el.category.id)) {
-            el.period.bimester.name = 'TODOS'
-            el.period.bimester.testName = 'TODOS'
-            ; return el
-          }
-          return el
-        })
-
-        return { status: 200, data: mappedResult };
+        return { status: 200, data: testClasses };
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }

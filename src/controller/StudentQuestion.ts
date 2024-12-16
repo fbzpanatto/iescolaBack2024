@@ -169,7 +169,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
         const cY = await this.qCurrentYear(sqlConnection)
-        if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
+        if(!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
         const sQ: StudentQuestion | null = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })

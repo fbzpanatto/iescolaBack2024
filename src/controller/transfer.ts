@@ -194,9 +194,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           }) as StudentClassroom
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
+
           currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.ACCEPTED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
+
           await CONN.save(Transfer, currTransfer)
           return { status: 200, data: newStudentClassroom }
         }

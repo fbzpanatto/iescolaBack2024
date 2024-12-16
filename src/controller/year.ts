@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityManager, EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral, SaveOptions } from "typeorm";
+import { EntityManager, EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral } from "typeorm";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
@@ -7,7 +7,11 @@ import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { pc } from "../utils/personCategories";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {dbConn} from "../services/db";
+import { dbConn } from "../services/db";
+import { transferStatus } from "../utils/transferStatus";
+import { Transfer } from "../model/Transfer";
+import { Teacher } from "../model/Teacher";
+import { TransferStatus } from "../model/TransferStatus";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() { super(Year) }
@@ -53,16 +57,24 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
   async updateId(id: any, body: any) {
 
+    const sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async(CONN) => {
+
         const { data } = await this.findOneById(id, {}, CONN);
+
         const yearToUpdate = data
         if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
+
         const yearExists = await this.checkIfExists(body, CONN)
         if (yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
+
         const currentYear = await this.currentYear(CONN)
         if (currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo.` } }
+
         for (const prop in body) { yearToUpdate[prop] = body[prop as keyof Year] }
+
         if (!body.active && body.endedAt === '' || body.endedAt === null) { return { status: 400, message: 'Data de encerramento não pode ser vazia.' } }
         if (!body.active && body.endedAt) {
           const allStudentsClassroomsYear = await CONN.getRepository(StudentClassroom)
@@ -72,7 +84,21 @@ class YearController extends GenericController<EntityTarget<Year>> {
             .andWhere('studentClassroom.endedAt IS NULL')
             .getMany()
           for (let register of allStudentsClassroomsYear) { await CONN.getRepository(StudentClassroom).save({ ...register, endedAt: new Date() }) }
+
+          const qPendingTransferStatus = await this.qPendingTransferStatus(sqlConnection, data.id, transferStatus.PENDING)
+
+          const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+          for(let item of qPendingTransferStatus) {
+
+            item.status = { id: transferStatus.ACCEPTED } as TransferStatus
+            item.endedAt = new Date()
+            item.receiver = qUserTeacher as Teacher
+
+            await CONN.save(Transfer, item)
+          }
         }
+
         const result = await CONN.save(Year, yearToUpdate); return { status: 200, data: result };
       })
     } catch (error: any) { return { status: 500, message: error.message } }

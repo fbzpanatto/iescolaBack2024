@@ -31,6 +31,7 @@ import {Request} from "express";
 import {PoolConnection} from "mysql2/promise";
 import {format} from "mysql2";
 import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -613,6 +614,19 @@ export class GenericController<T> {
     const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
 
     return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+  }
+
+  async qPendingTransferStatus(conn: PoolConnection, year: number, status: number) {
+    const query =
+
+      `
+        SELECT *
+        FROM transfer
+        WHERE transfer.yearId = ? AND transfer.statusId = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [year, status])
+    return  queryResult as Array<Transfer>
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------

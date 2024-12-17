@@ -92,6 +92,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .andWhere("test.name LIKE :search", { search: `%${ req.query.search as string }%` })
           .take(limit)
           .skip(offset)
+          .addOrderBy('test.name')
+          .addOrderBy('bimester.name')
           .getMany();
 
         data = data.map(el => {

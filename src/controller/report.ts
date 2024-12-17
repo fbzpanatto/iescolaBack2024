@@ -77,7 +77,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
 
-        const data = await CONN.getRepository(Test)
+        let data = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
           .leftJoinAndSelect("test.period", "period")
@@ -93,6 +93,11 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .take(limit)
           .skip(offset)
           .getMany();
+
+        data = data.map(el => {
+          if([1, 2, 3].includes(el.category.id)) { return { ...el, period: { ...el.period, bimester: { ...el.period.bimester, name: el.period.bimester.testName } } } }
+          return { ...el }
+        })
 
         return { status: 200, data };
       })

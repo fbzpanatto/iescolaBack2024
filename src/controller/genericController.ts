@@ -629,6 +629,31 @@ export class GenericController<T> {
     return  queryResult as Array<Transfer>
   }
 
+  // async qAlphabeticTest(conn: PoolConnection, limit: number, offset: number, yearName: string, search: string) {
+  //
+  //   const searchTerm = `%${search}%`;
+  //
+  //   const query =
+  //     `
+  //       SELECT MIN(test.id) AS id, test.name, year.name AS year_name
+  //       FROM test
+  //           INNER JOIN test_category AS category ON test.categoryId = category.id
+  //           INNER JOIN period ON test.periodId = period.id
+  //           INNER JOIN year ON period.yearId = year.id
+  //       WHERE
+  //           category.id IN (1, 2, 3) AND
+  //           year.name = ? AND
+  //           test.name LIKE ?
+  //       GROUP BY test.categoryId, test.name
+  //       LIMIT ?
+  //       OFFSET ?
+  //       ;
+  //     `
+  //
+  //   const [ queryResult ] = await conn.query(format(query), [yearName, searchTerm, limit, offset])
+  //   return  queryResult as Array<{ id: number, name: string }>
+  // }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
   formatStudentClassroom(arr: any[]) {

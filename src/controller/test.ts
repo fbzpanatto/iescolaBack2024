@@ -531,15 +531,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
-    for(let studentClassroom of studentClassrooms) {
-      const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroom.id } }}
+    for(let row of studentClassrooms) {
+      const options = { where: { test: { id: test.id }, studentClassroom: { id: row.id } }}
       const stStatus = await CONN.findOne(StudentTestStatus, options)
-      const el = { active: true, test, studentClassroom, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
+      const el = { active: true, test, studentClassroom: row, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
       if(!stStatus) { await CONN.save(StudentTestStatus, el) }
       for(let exam of headers) {
-        const options = { where: { readingFluencyExam: { id: exam.readingFluencyExamId }, test: { id: test.id }, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id } } }
+        const options = { where: { readingFluencyExam: { id: exam.readingFluencyExamId }, test: { id: test.id }, student: { id: row?.student?.id ?? row?.student_id } } }
         const sReadingFluency = await CONN.findOne(ReadingFluency, options)
-        if(!sReadingFluency) { await CONN.save(ReadingFluency, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom?.student?.id ?? studentClassroom?.student_id }, test, readingFluencyExam: { id: exam.readingFluencyExamId } } ) }
+        if(!sReadingFluency) {
+          const toSave = { createdAt: new Date(), createdByUser: userId, student: { id: row?.student?.id ?? row?.student_id }, test, readingFluencyExam: { id: exam.readingFluencyExamId } }
+          await CONN.save(ReadingFluency, toSave)
+        }
       }
     }
   }

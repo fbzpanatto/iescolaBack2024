@@ -362,21 +362,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
             }
 
-            if(TEST_CATEGORIES_IDS.LITE_1 === baseTest.category?.id) {
+            let allClassrooms = this.alphaAllClasses23(onlyClasses, headers)
 
-              classrooms = this.cityHallResponse(qClassroom, onlyClasses).map((c) => {
-                return { id: c.id, name: c.name, shortName: c.shortName, school: c.school, percent: this.alphaTotalizator(headers, c) }
-              })
+            cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-            }
-            else {
-
-              let allClassrooms = this.alphaAllClasses23(onlyClasses, headers)
-
-              cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
-
-              classrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
-            }
+            classrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
 
             const test = {
               id: 99,

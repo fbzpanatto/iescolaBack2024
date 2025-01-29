@@ -1458,41 +1458,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return [ ...filteredClasses, cityHall ]
   }
 
-  alphaTotalizator(headers: AlphaHeaders[], classroom: Classroom) {
-
-    const mappedArr = this.duplicatedStudents(classroom.studentClassrooms)
-      .filter((el: any) => !el.ignore)
-      .map((el: any) => ({
-      currentClassroom: el.classroom.id,
-      alphabetic: el.student.alphabetic.map((alphabeticItem: any) => ({
-        rClassroomId: alphabeticItem.rClassroom?.id,
-        bimesterId: alphabeticItem.test.period.bimester.id,
-        alphabeticLevelId: alphabeticItem.alphabeticLevel?.id
-      }))
-    }))
-
-    const totalNuColumn: any[] = []
-    const perColumn = headers.reduce((acc, bimester) => { acc[bimester.id] = 0; return acc }, {} as Record<number, number>);
-
-    for(let bimester of headers) {
-      for(let level of bimester.levels) {
-        let count = 0;
-        for(let el of mappedArr) {
-          count += el.alphabetic.reduce((sum: any, prev: any) => {
-            return sum + (prev.rClassroomId === el.currentClassroom && prev.bimesterId === bimester.id && prev.alphabeticLevelId === level.id ? 1 : 0);
-          }, 0)
-        }
-        totalNuColumn.push({ total: count, bimesterId: bimester.id });
-        perColumn[bimester.id] += count;
-      }
-    }
-
-    return totalNuColumn.map(el => {
-      const totalPercent = perColumn[el.bimesterId];
-      return totalPercent ? Math.floor((el.total / totalPercent) * 10000) / 100 : 0;
-    })
-  }
-
   readingFluencyTotalizator(headers: qReadingFluenciesHeaders[], classroom: Classroom){
 
     let totalNuColumn: any[] = []

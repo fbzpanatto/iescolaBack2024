@@ -322,7 +322,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
 
-        if(!classrooms.includes(Number(classroomId)) && !masterUser) return { status: 403, message: "Você não tem permissão para acessar essa sala." }
+        if(!classrooms.includes(Number(classroomId)) && !masterUser) {
+          return { status: 403, message: "Você não tem permissão para acessar essa sala." }
+        }
 
         const qClassroom = await this.qClassroom(sqlConnection, Number(classroomId))
         if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
@@ -332,27 +334,49 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_2:
           case TEST_CATEGORIES_IDS.LITE_3: {
 
-            let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as unknown as AlphaHeaders[]
+            let headers = await this.qAlphabeticHeaders(
+              sqlConnection,
+              year.name
+            ) as unknown as AlphaHeaders[]
 
-            const tests = await this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as unknown as Test[]
+            const tests = await this.qAlphabeticTests(
+              sqlConnection,
+              baseTest.category.id,
+              baseTest.discipline.id,
+              year.name
+            ) as unknown as Test[]
 
             let testQuestionsIds: number[] = []
 
             if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
               for(let test of tests) {
 
-                const testQuestions = await this.qTestQuestions(sqlConnection, test.id) as unknown as TestQuestion[]
+                const testQuestions = await this.qTestQuestions(
+                  sqlConnection,
+                  test.id
+                ) as unknown as TestQuestion[]
 
                 test.testQuestions = testQuestions
-                testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+                testQuestionsIds = [
+                  ...testQuestionsIds,
+                  ...testQuestions.map(testQuestion => testQuestion.id)
+                ]
               }
             }
 
-            headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+            headers = headers.map(bi => {
+              return {
+                ...bi,
+                testQuestions: tests.find(t => t.period.bimester.id === bi.id)?.testQuestions
+              }
+            })
 
-            let onlyClasses = (await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)).flatMap(school => school.classrooms).sort((a, b) => a.shortName.localeCompare(b.shortName))
+            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
+            const onlyClasses = schools
+              .flatMap(school => school.classrooms)
+              .sort((a, b) => a.shortName.localeCompare(b.shortName))
 
-            let classrooms;
+            let resClassrooms;
 
             const cityHall = {
               id: 999,
@@ -362,11 +386,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
               totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
             }
 
-            let allClassrooms = this.alphaAllClasses23(onlyClasses, headers)
+            let allClassrooms = this.alphabeticTotalizators(onlyClasses, headers)
 
             cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-            classrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
+            resClassrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
 
             const test = {
               id: 99,
@@ -377,7 +401,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               period: { bimester: { name: 'TODOS' }, year }
             }
 
-            data = { alphabeticHeaders: headers, ...test, classrooms }
+            data = { alphabeticHeaders: headers, ...test, classrooms: resClassrooms }
             break;
           }
 
@@ -1346,7 +1370,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
   }
 
-  alphaAllClasses23(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
+  alphabeticTotalizators(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
     return onlyClasses.map(c => {
 
       let studentClassrooms = c.studentClassrooms.map(el =>

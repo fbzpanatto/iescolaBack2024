@@ -1194,16 +1194,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for(let test of qTests) {
 
-        const testQuestions = await this.qTestQuestions(sqlConn, test.id) as unknown as TestQuestion[]
+        const testQuestions = await this.qTestQuestions(
+          sqlConn,
+          test.id
+        ) as unknown as TestQuestion[]
 
         test.testQuestions = testQuestions
 
-        testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+        testQuestionsIds = [
+          ...testQuestionsIds,
+          ...testQuestions.map(testQuestion => testQuestion.id)
+        ]
 
-        await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
+        await this.testQuestLink(
+          false,
+          preResultSc,
+          test,
+          testQuestions,
+          userId,
+          CONN
+        )
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      headers = headers.map(bi => {
+        return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions }
+      })
 
       const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId)
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))

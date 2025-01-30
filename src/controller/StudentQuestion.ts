@@ -12,7 +12,7 @@ import { Student} from "../model/Student";
 import { Classroom } from "../model/Classroom";
 import { UserInterface } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {dbConn} from "../services/db";
+import { dbConn } from "../services/db";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -237,8 +237,22 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let newBody;
 
-        if(body.id) { delete body.rClassroom; newBody = { ...body, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id } }
-        else { newBody = { ...body, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id } }
+        if(body.id) {
+          delete body.rClassroom;
+          newBody = {
+            ...body,
+            updatedAt: new Date(),
+            updatedByUser: qUserTeacher.person.user.id
+          }
+        }
+
+        else {
+          newBody = {
+            ...body,
+            createdAt: new Date(),
+            createdByUser: qUserTeacher.person.user.id
+          }
+        }
 
         let data = await CONN.save(Alphabetic, newBody)
         return { status: 200, data }

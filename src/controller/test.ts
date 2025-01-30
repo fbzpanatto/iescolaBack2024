@@ -1169,7 +1169,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)
 
-    const qTests = await this.qAlphabeticTests(sqlConn, test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
+    const qTests = await this.qAlphabeticTests(
+      sqlConn,
+      test.category.id,
+      test.discipline.id,
+      test.period.year.name
+    ) as unknown as Test[]
 
     let headers = aHeaders.map(bi => {
 
@@ -1178,7 +1183,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
 
-    let preResultSc = await this.qStudentDisabilities(sqlConn, await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id)) as unknown as StudentClassroom[]
+    let preResultSc = await this.qStudentDisabilities(
+      sqlConn,
+      await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id)
+    ) as unknown as StudentClassroom[]
 
     if(questions) {
 
@@ -1207,7 +1215,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
-    // Visual return for frontEnd
     studentClassrooms = studentClassrooms.map(item => {
       const duplicated = duplicatedStudents.find(d => d.id === item.id);
       const newItem = duplicated ? { ...duplicated } : { ...item };
@@ -1237,7 +1244,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
 
-    for(let item of studentClassrooms) { for(let el of item.student.studentDisabilities) { el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability } }
+    for(let el of studentClassrooms.flatMap(sc => sc.student.studentDisabilities)) {
+      el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
+    }
 
     headers = headers.map(bim => {
 

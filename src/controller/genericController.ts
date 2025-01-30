@@ -1,37 +1,13 @@
-import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {
-  qAlphabeticLevels,
-  qAlphaStuClassrooms,
-  qAlphaStudentsFormated,
-  qAlphaTests,
-  qClassroom,
-  qClassrooms,
-  qFormatedYear,
-  qReadingFluenciesHeaders,
-  qSchools,
-  qState,
-  qStudentClassroomFormated,
-  qStudentsClassroomsForTest,
-  qTeacherClassrooms,
-  qTeacherDisciplines,
-  qTeacherRelationShip,
-  qTest,
-  qTestClassroom,
-  qTestQuestions,
-  qTransferStatus,
-  qUser,
-  qUserTeacher,
-  qYear,
-  SavePerson
-} from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {PoolConnection} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
-import {Transfer} from "../model/Transfer";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { qAlphabeticLevels, qAlphaStuClassrooms, qAlphaStudentsFormated, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson } from "../interfaces/interfaces";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { PoolConnection } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
+import { Transfer } from "../model/Transfer";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -586,7 +562,7 @@ export class GenericController<T> {
           student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
           student.id AS studentId, student.active,
           person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor,
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor, alphabetic.observation,
           test.id AS testId, test.name AS testName,
           period.id AS periodId,
           bim.id AS bimesterId,
@@ -628,31 +604,6 @@ export class GenericController<T> {
     const [ queryResult ] = await conn.query(format(query), [year, status])
     return  queryResult as Array<Transfer>
   }
-
-  // async qAlphabeticTest(conn: PoolConnection, limit: number, offset: number, yearName: string, search: string) {
-  //
-  //   const searchTerm = `%${search}%`;
-  //
-  //   const query =
-  //     `
-  //       SELECT MIN(test.id) AS id, test.name, year.name AS year_name
-  //       FROM test
-  //           INNER JOIN test_category AS category ON test.categoryId = category.id
-  //           INNER JOIN period ON test.periodId = period.id
-  //           INNER JOIN year ON period.yearId = year.id
-  //       WHERE
-  //           category.id IN (1, 2, 3) AND
-  //           year.name = ? AND
-  //           test.name LIKE ?
-  //       GROUP BY test.categoryId, test.name
-  //       LIMIT ?
-  //       OFFSET ?
-  //       ;
-  //     `
-  //
-  //   const [ queryResult ] = await conn.query(format(query), [yearName, searchTerm, limit, offset])
-  //   return  queryResult as Array<{ id: number, name: string }>
-  // }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 

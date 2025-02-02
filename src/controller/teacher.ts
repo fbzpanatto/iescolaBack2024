@@ -148,7 +148,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
-        const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user"], where: { id: Number(id) }})
+        const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user", "school"], where: { id: Number(id) }})
 
         if (!teacher) { return { status: 404, message: "Data not found" } }
 
@@ -163,8 +163,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         teacher.person.birth = body.birth;
         teacher.updatedAt = new Date();
         teacher.updatedByUser = qUserTeacher.person.user.id;
-        teacher.school = { id: Number(body.school) } as School;
         teacher.observation = body.observation;
+
+        if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.FORM && teacher.school === null) {
+
+          teacher.school = { id: Number(body.school) } as School
+        }
 
         if(teacher.email != body.email) {
 
@@ -175,27 +179,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
           const { password, hashedPassword } = generatePassword()
 
-          const user = {
-            id: teacher.person.user.id,
-            username: body.email,
-            email: body.email,
-            password: hashedPassword
-          }
+          const user = { id: teacher.person.user.id, username: body.email, email: body.email, password: hashedPassword }
 
           await CONN.save(User, user)
 
           await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
         }
 
-        if ( teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM ) {
-          await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
-        }
+        const methods = this.methods(teacher, CONN, sqlConnection, body)
 
-        if(body.teacherClassesDisciplines) { await this.qUpdateRelation(CONN, sqlConnection, teacher, body) }
-
-        await CONN.save(Teacher, teacher);
-
-        return { status: 200, data: teacher };
+        return await methods[teacher.person.category.id]()
       })
     }
     catch ( error: any ) {
@@ -205,7 +198,37 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async qUpdateRelation(CONN: EntityManager, sqlConnection: PoolConnection, teacher: Teacher, body: TeacherBody) {
+  async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, sqlConnection: PoolConnection, CONN: EntityManager) {
+
+    if(Number(body.school) != Number(teacher.school.id)) {
+
+      await this.qChangeMasterTeacherSchool(sqlConnection, teacher.id)
+
+      teacher.school = { id: Number(body.school) } as School
+
+      const disciplines = await CONN.find(Discipline)
+      const classrooms = await CONN.find(Classroom, { where: { school: { id: Number(body.school) } } })
+
+      for(let discipline of disciplines) {
+        for(let classroom of classrooms ) {
+          await CONN.getRepository(TeacherClassDiscipline).save({
+            teacher: { id: teacher.id },
+            discipline: { id: discipline.id },
+            classroom: { id: classroom.id },
+            startedAt: new Date(),
+          })
+        }
+      }
+    }
+
+    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
+  }
+
+  async adminSupeFormUpdateMethod(teacher: Teacher, CONN: EntityManager) {
+    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
+  }
+
+  async updateTeacherClassesAndDisciplines(teacher: Teacher, CONN: EntityManager, sqlConnection: PoolConnection, body: TeacherBody) {
 
     const qDbRelationShip = (await this.qTeacherRelationship(sqlConnection, teacher.id)).teacherClassesDisciplines
 
@@ -226,6 +249,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         })
       }
     }
+
+    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
   }
 
   async saveTeacher(body: TeacherBody) {
@@ -279,6 +304,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
             }
           }
 
+          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
+
           return { status: 201, data: teacher }
         }
 
@@ -291,9 +318,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
               startedAt: new Date()
             })
           }
+
+          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
+
+          return { status: 201, data: teacher }
         }
 
         await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
+
         return { status: 201, data: teacher }
       })
     }
@@ -310,6 +342,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     teacher.email = body.email;
     teacher.register = body.register;
     teacher.observation = body.observation;
+    teacher.school = { id: Number(body.school) } as School
     return teacher;
   }
 
@@ -319,6 +352,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const passwordObject = generatePassword()
 
     return { username, passwordObject, email };
+  }
+
+  methods(teacher: Teacher, CONN: EntityManager, sqlConnection: PoolConnection, body: TeacherBody) {
+    return {
+      [pc.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN),
+      [pc.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN),
+      [pc.COOR]: async () => await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN),
+      [pc.SECR]: async () => await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN),
+      [pc.MONI]: async () => await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN),
+      [pc.PROF]: async () => await this.updateTeacherClassesAndDisciplines(teacher, CONN, sqlConnection, body)
+    }
   }
 
   private canChange( uCategory: number, tCategory: number ): boolean {

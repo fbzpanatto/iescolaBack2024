@@ -63,7 +63,7 @@ export async function credentialsEmail(email: string, password: string, post: bo
         <p>Equipe EscolApp - Prefeitura de Itatiba</p>
       `,
     });
-    console.log("Message sent: " + INFO.messageId);
+    console.log("Message sent POST: " + INFO.messageId);
     return;
   }
 
@@ -80,6 +80,6 @@ export async function credentialsEmail(email: string, password: string, post: bo
       <p>Equipe EscolApp - Prefeitura de Itatiba</p>
     `,
   });
-  console.log("Message sent: " + INFO.messageId);
+  console.log("Message sent PUT: " + INFO.messageId);
   return;
 }

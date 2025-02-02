@@ -1,7 +1,32 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { qAlphabeticLevels, qAlphaStuClassrooms, qAlphaStudentsFormated, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson } from "../interfaces/interfaces";
+import {
+  qAlphabeticLevels,
+  qAlphaStuClassrooms,
+  qAlphaStudentsFormated,
+  qAlphaTests,
+  qClassroom,
+  qClassrooms,
+  qFormatedYear,
+  qReadingFluenciesHeaders,
+  qSchools,
+  qState,
+  qStudentClassroomFormated,
+  qStudentsClassroomsForTest,
+  qTeacherClassDiscipline,
+  qTeacherClassrooms,
+  qTeacherDisciplines,
+  qTeacherRelationShip,
+  qTest,
+  qTestClassroom,
+  qTestQuestions,
+  qTransferStatus,
+  qUser,
+  qUserTeacher,
+  qYear,
+  SavePerson
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PoolConnection } from "mysql2/promise";
@@ -210,6 +235,17 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [statusId])
     return (queryResult as qTransferStatus[])[0]
+  }
+
+  async qChangeMasterTeacherSchool(conn: PoolConnection, teacherId: number) {
+
+    const updateQuery =
+      `
+        UPDATE teacher_class_discipline SET endedAt = ? where teacherId = ?;
+      `
+
+    const [ queryResult ] = await conn.query(format(updateQuery), [new Date(), teacherId])
+    return queryResult
   }
 
   async qTeacherByUser(conn: PoolConnection, userId: number) {

@@ -342,7 +342,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     teacher.email = body.email;
     teacher.register = body.register;
     teacher.observation = body.observation;
-    teacher.school = { id: Number(body.school) } as School
+
+    if(Number(body.school)) { teacher.school = { id: Number(body.school) } as School }
+
     return teacher;
   }
 

@@ -12,13 +12,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     const { student, year, limit, offset } = req.query;
 
-    console.log('student:', student, 'year:', year, 'limit:', limit, 'offset:', offset);
+    let sqlConnection = await dbConn()
 
     try {
-
-      let sqlConnection = await dbConn()
-
-      const currentYear = await this.qCurrentYear(sqlConnection)
 
       const el = await this.qTeacherByUser(sqlConnection, req.body.user.user)
       const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
@@ -38,7 +34,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) {
       console.log(error);
       return { status: 500, message: error.message }
-    }
+    } finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
 }

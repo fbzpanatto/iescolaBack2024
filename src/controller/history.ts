@@ -30,6 +30,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const result = await this.qCurrentTeacherStudents(sqlConnection, teacherClasses.classrooms, (student as string))
       const studentIds = result.map((el) => el.studentId)
 
+      if(!studentIds.length) { return { status: 200, data: [] } }
+
       const studentTests = await this.qStudentTestsByYear(sqlConnection, studentIds, (year as string))
 
       return { status: 200, data: studentTests };

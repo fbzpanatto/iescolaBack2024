@@ -13,8 +13,7 @@ import {
   qSchools,
   qState,
   qStudentClassroomFormated,
-  qStudentsClassroomsForTest,
-  qTeacherClassDiscipline,
+  qStudentsClassroomsForTest, qStudentTests,
   qTeacherClassrooms,
   qTeacherDisciplines,
   qTeacherRelationShip,
@@ -639,6 +638,42 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [year, status])
     return  queryResult as Array<Transfer>
+  }
+
+  async qCurrentTeacherStudents(conn: PoolConnection, classrooms: number[], student: string | number) {
+
+    const studentSearch = `%${student}%`
+
+    const query =
+      `
+        SELECT sc.id, stu.id AS studentId, per.name
+        FROM student_classroom AS sc
+        INNER JOIN student AS stu ON sc.studentId = stu.id
+        INNER JOIN person AS per ON stu.personId = per.id
+        WHERE sc.endedAt IS NULL AND sc.classroomId IN (?) AND (per.name LIKE ? OR stu.ra LIKE ?)
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classrooms, studentSearch, studentSearch])
+    return queryResult as { id: number, studentId: number, name: string }[]
+  }
+
+  async qStudentTestsByYear(conn: PoolConnection, studentIds: number[], year: string) {
+
+    const query = `
+      SELECT sts.id AS studentTestStatusId, sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName
+      FROM student_test_status AS sts
+      INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
+      INNER JOIN student AS stu ON sc.studentId = stu.id
+      INNER JOIN person AS per ON stu.personId = per.id
+      INNER JOIN test AS tt ON sts.testId = tt.id
+      INNER JOIN period AS pr ON tt.periodId = pr.id
+      INNER JOIN year AS yr ON pr.yearId = yr.id
+      INNER JOIN bimester AS br ON pr.bimesterId = br.id
+      WHERE stu.id IN (?) AND yr.name = ?;
+    `
+
+    const [ queryResult ] = await conn.query(format(query), [studentIds, year])
+    return queryResult as qStudentTests[]
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------

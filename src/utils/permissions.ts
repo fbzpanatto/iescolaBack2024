@@ -17,7 +17,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "year", methods: getPostPut },
       { entity: "report", methods: getPostPut },
       { entity: "personcategory", methods: getPostPut },
-      { entity: "studentquestion", methods: getPostPut }
+      { entity: "studentquestion", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -31,7 +32,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
-      { entity: "studentquestion", methods: onlyGET }
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -45,7 +47,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
-      { entity: "studentquestion", methods: onlyGET }
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -58,7 +61,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
-      { entity: "transfer", methods: getPostPut }
+      { entity: "transfer", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -71,7 +75,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
-      { entity: "transfer", methods: getPostPut }
+      { entity: "transfer", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -84,7 +89,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
-      { entity: "transfer", methods: getPostPut }
+      { entity: "transfer", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -98,6 +104,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -111,6 +118,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "teacher", methods: onlyGET },
       { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: getPostPut },
+      { entity: "history", methods: onlyGET }
     ]
   },
   {
@@ -124,6 +132,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "teacher", methods: onlyGET },
       { entity: "student", methods: getPostPut },
       { entity: "transfer", methods: onlyGET },
+      { entity: "history", methods: onlyGET }
     ]
   },
 ]

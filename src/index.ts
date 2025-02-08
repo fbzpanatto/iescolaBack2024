@@ -27,6 +27,7 @@ import { TeacherClassroomsRouter } from "./routes/teacherClassrooms";
 import { TeacherRouter } from "./routes/teacher";
 import { TestCategoryRouter } from "./routes/testCategory";
 import { TestRouter } from "./routes/test";
+import { HistoryRouter } from "./routes/history"
 import { TopicRouter } from "./routes/topic";
 import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
@@ -64,6 +65,7 @@ route.use("/teacher", authorization, TeacherRouter);
 route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRouter );
 route.use("/teacher-classroom", authorization, TeacherClassroomsRouter);
 route.use("/test", authorization, TestRouter);
+route.use("/history", authorization, HistoryRouter);
 route.use("/test-category", authorization, TestCategoryRouter);
 route.use("/topic", TopicRouter);
 route.use("/transfer", authorization, TransferRouter);

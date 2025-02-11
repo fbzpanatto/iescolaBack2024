@@ -644,7 +644,7 @@ export class GenericController<T> {
 
     const studentSearch = `%${student.toString().toUpperCase()}%`
 
-    let responseData;
+    let responseData
 
     if(masterTeacher) {
 

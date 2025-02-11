@@ -48,6 +48,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom)
     const studentClassroomId = Number(req?.query.stc)
+    const isHistory = Boolean(req?.query.isHistory)
 
     let sqlConn = await dbConn()
 
@@ -60,7 +61,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(sqlConn, Number(req?.body.user.user))
-      if(!classrooms?.includes(classroomId) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+      if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       return await AppDataSource.transaction(async (appCONN) => {
 
@@ -105,11 +106,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.qReadingFluencyHeaders(sqlConn)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+            const preStudents = await this.stuClassReadF(
+              test, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
 
             await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
 
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+            let studentClassrooms = await this.getReadingFluencyStudents(
+              test, classroomId, test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -179,14 +184,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            const qStudentsClassroom = await this.qStudentClassroomsForTest(sqlConn, test, classroomId, test.period.year.name)
+            const qStudentsClassroom = await this.qStudentClassroomsForTest(
+              sqlConn, test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
 
             await this.qTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, appCONN)
 
             let diffOe = 0
             let validSc = 0
 
-            const result = await this.stuQuestionsWithDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, appCONN)
+            const result = await this.stuQuestionsWithDuplicated(
+              test, qTestQuestions, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -564,7 +573,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager) {
+  async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
@@ -585,6 +594,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("testQuestion.test", "test")
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        if(studentClassroomId) {
+          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
+        }
+      }))
       .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })
       .andWhere("testQuestion.test = :testId", { testId: test.id })
       .andWhere("stStatusTest.id = :testId", { testId: test.id })

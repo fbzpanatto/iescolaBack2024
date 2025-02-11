@@ -418,7 +418,31 @@ export class GenericController<T> {
     return queryResult as qClassrooms[]
   }
 
-  async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string) {
+  async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+
+    let responseQuery;
+
+    if(studentClassroomId) {
+      const query =
+        `
+        SELECT sc.id AS student_classroom_id, sc.startedAt,
+               s.id AS student_id,
+               sts.id AS student_classroom_test_status_id,
+               person.name
+        FROM student_classroom AS sc
+         INNER JOIN year AS y ON sc.yearId = y.id
+         INNER JOIN student AS s ON sc.studentId = s.id
+         INNER JOIN person ON s.personId = person.id
+         LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
+        WHERE sc.classroomId = ? AND y.name = ? AND (sc.startedAt < ? OR sts.id IS NOT NULL) AND sc.id = ?
+        ORDER BY sc.rosterNumber
+      `;
+
+      const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt, studentClassroomId]);
+      responseQuery = queryResult as qStudentsClassroomsForTest[];
+      return responseQuery
+    }
+
     const query =
       `
         SELECT sc.id AS student_classroom_id, sc.startedAt,
@@ -435,7 +459,8 @@ export class GenericController<T> {
       `;
 
     const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
-    return queryResult as qStudentsClassroomsForTest[];
+    responseQuery = queryResult as qStudentsClassroomsForTest[];
+    return responseQuery
   }
 
   async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {

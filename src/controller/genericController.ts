@@ -613,9 +613,9 @@ export class GenericController<T> {
     }
   }
 
-  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number) {
+  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number, studentClassroomId: number | null) {
 
-    const query =
+    let query =
 
       `
         SELECT
@@ -640,12 +640,35 @@ export class GenericController<T> {
           INNER JOIN bimester AS bim ON period.bimesterId = bim.id
           INNER JOIN year ON period.yearId = year.id
           INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-        WHERE 
-          (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
-          (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
-          discipline.id = ? AND test_category.id
-        ORDER BY student_classroom.rosterNumber
       `
+
+    if(studentClassroomId) {
+
+      let stQ = `
+      WHERE
+        (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
+        (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
+        discipline.id = ? AND test_category.id AND student_classroom.id = ?
+      ORDER BY student_classroom.rosterNumber
+      `
+
+      query = query.concat(stQ)
+
+      const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id, studentClassroomId])
+
+      return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+
+    }
+
+    let stQ = `
+      WHERE
+        (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
+        (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
+        discipline.id = ? AND test_category.id
+      ORDER BY student_classroom.rosterNumber
+      `
+
+    query = query.concat(stQ)
 
     const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
 
@@ -704,7 +727,7 @@ export class GenericController<T> {
   async qStudentTestsByYear(conn: PoolConnection, studentIds: number[], year: string) {
 
     const query = `
-      SELECT sts.id AS studentTestStatusId, sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId
+      SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
       FROM student_test_status AS sts
       INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
       INNER JOIN classroom AS cls ON sc.classroomId = cls.id
@@ -717,6 +740,28 @@ export class GenericController<T> {
       INNER JOIN year AS yr ON pr.yearId = yr.id
       INNER JOIN bimester AS br ON pr.bimesterId = br.id
       WHERE stu.id IN (?) AND yr.name = ?;
+    `
+
+    const [ queryResult ] = await conn.query(format(query), [studentIds, year])
+    return queryResult as qStudentTests[]
+  }
+
+  async qStudentAlphabeticsByYear(conn: PoolConnection, studentIds: number[], year: string) {
+
+    const query = `
+      SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
+      FROM alphabetic AS alpha
+      INNER JOIN student AS stu ON alpha.studentId = stu.id
+      INNER JOIN student_classroom AS sc ON stu.id = sc.studentId
+      INNER JOIN classroom AS cls ON sc.classroomId = cls.id
+      INNER JOIN school AS sch ON cls.schoolId = sch.id
+      INNER JOIN person AS per ON stu.personId = per.id
+      INNER JOIN test AS tt ON alpha.testId = tt.id
+      INNER JOIN test_category AS ttc ON tt.categoryId = ttc.id
+      INNER JOIN period AS pr ON tt.periodId = pr.id
+      INNER JOIN year AS yr ON pr.yearId = yr.id
+      INNER JOIN bimester AS br ON pr.bimesterId = br.id
+      WHERE stu.id IN (?) AND yr.name = ? AND sc.endedAt IS NOT NULL
     `
 
     const [ queryResult ] = await conn.query(format(query), [studentIds, year])

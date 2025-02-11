@@ -88,12 +88,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn)
+                data = await this.alphabeticTest(
+                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                )
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn)
+                data = await this.alphabeticTest(
+                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                )
                 break;
               }
             }
@@ -1192,7 +1196,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: qAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, CONN: EntityManager, sqlConn: PoolConnection) {
+  async alphabeticTest(
+    questions: boolean,
+    aHeaders: AlphaHeaders[],
+    test: Test, sC: qAlphaStuClassroomsFormated[],
+    room: Classroom,
+    classId: number,
+    userId: number,
+    CONN: EntityManager,
+    sqlConn: PoolConnection,
+    studentClassroomId: number | null
+  ) {
 
     await this.createLinkAlphabetic(sC, test, userId, CONN)
 
@@ -1212,7 +1226,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     let preResultSc = await this.qStudentDisabilities(
       sqlConn,
-      await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id)
+      await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
     ) as unknown as StudentClassroom[]
 
     if(questions) {

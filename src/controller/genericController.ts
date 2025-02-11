@@ -667,7 +667,7 @@ export class GenericController<T> {
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
         INNER JOIN person AS per ON stu.personId = per.id
-        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?)
+        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?) AND sc.endedAt IS NULL
         `
 
     const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms])

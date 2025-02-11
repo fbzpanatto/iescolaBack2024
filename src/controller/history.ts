@@ -10,8 +10,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getHistory(req: Request) {
 
-    console.log('getHistory')
-
     const { student, year, limit, offset } = req.query;
 
     let sqlConnection = await dbConn()

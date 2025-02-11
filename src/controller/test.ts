@@ -49,12 +49,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classroomId = Number(req?.params.classroom)
     const studentClassroomId = Number(req?.query.stc)
 
-    if(isNaN(studentClassroomId)) {
-      console.log('não filter pelo aluno.')
-    } else {
-      console.log('filtrando pelo aluno.')
-    }
-
     let sqlConn = await dbConn()
 
     try {
@@ -111,11 +105,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.qReadingFluencyHeaders(sqlConn)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, appCONN)
+            const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
             await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
 
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, appCONN)
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -604,7 +598,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return this.duplicatedStudents(studentClassrooms).map((sc: StudentClassroom) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) })) as StudentClassroom[]
   }
 
-  async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+  async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoin("studentClassroom.year", "year")
@@ -614,6 +608,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.readingFluency", "readingFluency")
       .leftJoin("student.person", "person")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        if(studentClassroomId) {
+          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
+        }
+      }))
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
         qb.orWhere("readingFluency.id IS NOT NULL")
@@ -1057,7 +1056,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany();
   }
 
-  async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+  async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
     let studentClassrooms = await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")
       .leftJoinAndSelect("studentClassroom.student", "student")
@@ -1073,6 +1072,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("studentClassroom.classroom", "classroom")
       .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
       .where("studentClassroom.classroom = :classroomId", { classroomId })
+      .andWhere(new Brackets(qb => {
+        if(studentClassroomId) {
+          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
+        }
+      }))
       .andWhere(new Brackets(qb => {
         qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
         qb.orWhere("readingFluency.id IS NOT NULL")

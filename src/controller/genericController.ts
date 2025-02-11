@@ -640,32 +640,54 @@ export class GenericController<T> {
     return  queryResult as Array<Transfer>
   }
 
-  async qCurrentTeacherStudents(conn: PoolConnection, classrooms: number[], student: string | number) {
+  async qCurrentTeacherStudents(conn: PoolConnection, classrooms: number[], student: string | number, masterTeacher: boolean) {
 
-    const studentSearch = `%${student}%`
+    const studentSearch = `%${student.toString().toUpperCase()}%`
 
-    const query =
-      `
+    let responseData;
+
+    if(masterTeacher) {
+
+      let query = `
         SELECT sc.id, stu.id AS studentId, per.name
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
         INNER JOIN person AS per ON stu.personId = per.id
-        WHERE sc.endedAt IS NULL AND sc.classroomId IN (?) AND (per.name LIKE ? OR stu.ra LIKE ?)
-      `
+        WHERE per.name LIKE ? OR stu.ra LIKE ?
+        `
 
-    const [ queryResult ] = await conn.query(format(query), [classrooms, studentSearch, studentSearch])
-    return queryResult as { id: number, studentId: number, name: string }[]
+      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch])
+      responseData = queryResult
+
+      return responseData as { id: number, studentId: number, name: string }[]
+    }
+
+    let query = `
+        SELECT sc.id, stu.id AS studentId, per.name
+        FROM student_classroom AS sc
+        INNER JOIN student AS stu ON sc.studentId = stu.id
+        INNER JOIN person AS per ON stu.personId = per.id
+        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?)
+        `
+
+    const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms])
+    responseData = queryResult
+
+    return responseData as { id: number, studentId: number, name: string }[]
   }
 
   async qStudentTestsByYear(conn: PoolConnection, studentIds: number[], year: string) {
 
     const query = `
-      SELECT sts.id AS studentTestStatusId, sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName
+      SELECT sts.id AS studentTestStatusId, sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId
       FROM student_test_status AS sts
       INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
+      INNER JOIN classroom AS cls ON sc.classroomId = cls.id
+      INNER JOIN school AS sch ON cls.schoolId = sch.id
       INNER JOIN student AS stu ON sc.studentId = stu.id
       INNER JOIN person AS per ON stu.personId = per.id
       INNER JOIN test AS tt ON sts.testId = tt.id
+      INNER JOIN test_category AS ttc ON tt.categoryId = ttc.id
       INNER JOIN period AS pr ON tt.periodId = pr.id
       INNER JOIN year AS yr ON pr.yearId = yr.id
       INNER JOIN bimester AS br ON pr.bimesterId = br.id

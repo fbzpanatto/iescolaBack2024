@@ -47,6 +47,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom)
+    const studentClassroomId = Number(req?.query.stc)
+
+    if(isNaN(studentClassroomId)) {
+      console.log('não filter pelo aluno.')
+    } else {
+      console.log('filtrando pelo aluno.')
+    }
 
     let sqlConn = await dbConn()
 
@@ -63,9 +70,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       return await AppDataSource.transaction(async (appCONN) => {
 
-        const test = this.formatedTest(await this.qTestByIdAndYear(sqlConn, testId, String(req?.params.year)))
+        const qTest = await this.qTestByIdAndYear(sqlConn, testId, String(req?.params.year))
 
-        if(!test) return { status: 404, message: "Teste não encontrado" }
+        if(!qTest) return { status: 404, message: "Teste não encontrado" }
+
+        const test = this.formatedTest(qTest)
 
         const classroom = await this.qClassroom(sqlConn, classroomId)
 
@@ -106,7 +115,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
 
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, appCONN )
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, appCONN)
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -311,7 +320,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let data;
 
-        const year = await this.qYearById(sqlConnection, String(req.query?.year))
+        const year = await this.qYearByName(sqlConnection, String(req.query?.year))
         if(!year) return { status: 404, message: "Ano não encontrado." }
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)

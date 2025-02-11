@@ -10,6 +10,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getHistory(req: Request) {
 
+    console.log('getHistory')
+
     const { student, year, limit, offset } = req.query;
 
     let sqlConnection = await dbConn()
@@ -23,7 +25,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-      const result = await this.qCurrentTeacherStudents(sqlConnection, teacherClasses.classrooms, (student as string))
+      const result = await this.qCurrentTeacherStudents(sqlConnection, teacherClasses.classrooms, (student as string), masterTeacher)
+
       const studentIds = result.map((el) => el.studentId)
 
       if(!studentIds.length) { return { status: 200, data: [] } }

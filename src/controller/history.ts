@@ -20,17 +20,17 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
       const masterTeacher = el.person.category.id === pc.ADMN || el.person.category.id === pc.SUPE || el.person.category.id === pc.FORM
 
-      // const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
-      // const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+      const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+      const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-      const result = await this.qCurrentTeacherStudents(sqlConnection, teacherClasses.classrooms, (student as string), masterTeacher)
+      const result = await this.qCurrentTeacherStudents(sqlConnection, teacherClasses.classrooms, (student as string), masterTeacher, limit, offset)
 
       const studentIds = result.map((el) => el.studentId)
 
       if(!studentIds.length) { return { status: 200, data: [] } }
 
-      const studentTests = await this.qStudentTestsByYear(sqlConnection, studentIds, (year as string))
-      const studentAlpha = await this.qStudentAlphabeticsByYear(sqlConnection, studentIds, (year as string))
+      const studentTests = await this.qStudentTestsByYear(sqlConnection, studentIds, (year as string), limit, offset)
+      const studentAlpha = await this.qStudentAlphabeticByYear(sqlConnection, studentIds, (year as string), limit, offset)
 
       return { status: 200, data: [...studentAlpha, ...studentTests] };
     } catch (error: any) {

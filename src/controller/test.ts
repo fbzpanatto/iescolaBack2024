@@ -1261,7 +1261,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions }
       })
 
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId)
+      // TODO: implement studentClassroomId filter here
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId, studentClassroomId)
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
     }
 
@@ -1346,7 +1347,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 
-  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number) {
+  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number, studentClassroomId?: number | null) {
 
     const hasQuestions = !!testQuestionsIds.length
 
@@ -1425,6 +1426,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
 
     if (classroomId) { query.andWhere("studentClassroom.classroom = :classroomId", { classroomId }) }
+    if (studentClassroomId) { query.andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId }) }
 
     return await query.getMany();
   }

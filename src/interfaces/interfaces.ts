@@ -31,7 +31,6 @@ export interface qUserTeacher { id: number, email: string, register: string, per
 export interface qState { id: number, name: string, acronym: string }
 export interface qClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }
 export interface qUser { userId: number, categoryId: number }
-export interface qTeacherClassDiscipline { id: number, startedAt: string, endedAt: string, disciplineId: number, teacherId: number, classroomId: number }
 export interface qTeacherClassrooms { id: number, classrooms: string }
 export interface qTeacherDisciplines { id: number, disciplines: string }
 export interface qTestClassroom { testId: number, classroomId: number }

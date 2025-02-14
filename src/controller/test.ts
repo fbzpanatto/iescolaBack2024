@@ -82,7 +82,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const sCs = await this.qAlphabeticStudentsForLink(sqlConn, Number(classroomId), test.createdAt, test.period.year.name)
+            const sCs =
+              await this.qAlphabeticStudentsForLink(
+                sqlConn,
+                Number(classroomId),
+                test.createdAt,
+                test.period.year.name
+              )
 
             const headers = await this.qAlphabeticHeaders(sqlConn, test.period.year.name) as unknown as AlphaHeaders[]
 
@@ -551,13 +557,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }))
       .andWhere("studentClassroomYear.name = :yearName", { yearName })
       .getMany();
-  }
-
-  async createLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
-    for(let studentClassroom of studentClassrooms) {
-      const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
-      if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom.student.id }, test } ) }
-    }
   }
 
   async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
@@ -1199,7 +1198,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async alphabeticTest(
     questions: boolean,
     aHeaders: AlphaHeaders[],
-    test: Test, sC: qAlphaStuClassroomsFormated[],
+    test: Test,
+    sC: qAlphaStuClassroomsFormated[],
     room: Classroom,
     classId: number,
     userId: number,
@@ -1208,7 +1208,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     studentClassroomId: number | null
   ) {
 
-    await this.createLinkAlphabetic(sC, test, userId, CONN)
+    const response = await this.qCreateLinkAlphabetic(sC, test, userId, sqlConn)
 
     const qTests = await this.qAlphabeticTests(
       sqlConn,
@@ -1224,10 +1224,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return {...bi, currTest: { id: test?.id, active: test?.active }}
     })
 
-    let preResultSc = await this.qStudentDisabilities(
-      sqlConn,
-      await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
-    ) as unknown as StudentClassroom[]
+    let preResultScWd = await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
+
+    let preResultSc = await this.qStudentDisabilities(sqlConn, preResultScWd) as unknown as StudentClassroom[]
 
     if(questions) {
 

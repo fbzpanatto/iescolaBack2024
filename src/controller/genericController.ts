@@ -3,7 +3,7 @@ import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
   qAlphabeticLevels,
-  qAlphaStuClassrooms,
+  qAlphaStuClassrooms, qAlphaStuClassroomsFormated,
   qAlphaStudentsFormated,
   qAlphaTests,
   qClassroom,
@@ -149,7 +149,7 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT DISTINCT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt,
+        SELECT DISTINCT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt, sc.classroomId,
                s.id AS student_id,
                p.id AS person_id, p.name AS person_name
         FROM student_classroom AS sc
@@ -542,6 +542,35 @@ export class GenericController<T> {
     return this.formatTestQuestions(queryResult as qTestQuestions[])
   }
 
+  async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {
+
+    // async createLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
+    //   for(let studentClassroom of studentClassrooms) {
+    //     const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
+    //     if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom.student.id }, test } ) }
+    //   }
+    // }
+
+    for(let element of studentClassrooms) {
+
+      const query = `
+        SELECT *
+        FROM alphabetic AS alpha
+        INNER JOIN test AS tt ON alpha.testId = tt.id
+        INNER JOIN student AS stu ON alpha.studentId = stu.id
+        WHERE tt.id = ? AND stu.id = ?
+      `
+      const [ queryResult ] = await conn.query(format(query), [test.id, element.student.id])
+
+      const response = (queryResult as { [key: string]: any }[])[0]
+
+      if(!response) {
+        const insertQuery = `INSERT INTO alphabetic (createdAt, createdByUser, studentId, testId ) VALUES (?, ?, ?, ?)`
+        const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), userId, element.student.id, test.id])
+      }
+    }
+  }
+
   async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
     const query =
 
@@ -615,38 +644,6 @@ export class GenericController<T> {
 
   async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number, studentClassroomId: number | null) {
 
-    let query =
-
-      `
-        SELECT
-          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
-          student.id AS studentId, student.active,
-          person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor, alphabetic.observation,
-          test.id AS testId, test.name AS testName,
-          period.id AS periodId,
-          bim.id AS bimesterId,
-          year.id AS yearId
-        FROM student_classroom
-          INNER JOIN student ON student_classroom.studentId = student.id
-          INNER JOIN person ON student.personId = person.id
-          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
-          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
-          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
-          INNER JOIN test ON alphabetic.testId = test.id
-          INNER JOIN discipline ON test.disciplineId = discipline.id
-          INNER JOIN test_category ON test.categoryId = test_category.id
-          INNER JOIN period ON test.periodId = period.id
-          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
-          INNER JOIN year ON period.yearId = year.id
-          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-        WHERE
-            (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
-            (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
-            discipline.id = ? AND test_category.id
-        ORDER BY student_classroom.rosterNumber
-      `
-
     if(studentClassroomId) {
 
       let query = `
@@ -681,10 +678,44 @@ export class GenericController<T> {
       const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
 
       return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
-
     }
 
-    const [ queryResult ] = await conn.query(format(query), [test.createdAt, year, classroomId, test.discipline.id, test.category.id])
+    let query =
+
+      `
+        SELECT
+          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
+          student.id AS studentId, student.active,
+          person.id AS personId, person.name AS name,
+          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor, alphabetic.observation,
+          test.id AS testId, test.name AS testName,
+          period.id AS periodId,
+          bim.id AS bimesterId,
+          year.id AS yearId
+        FROM student_classroom
+          INNER JOIN student ON student_classroom.studentId = student.id
+          INNER JOIN person ON student.personId = person.id
+          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
+          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+          INNER JOIN test ON alphabetic.testId = test.id
+          INNER JOIN discipline ON test.disciplineId = discipline.id
+          INNER JOIN test_category ON test.categoryId = test_category.id
+          INNER JOIN period ON test.periodId = period.id
+          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
+          INNER JOIN year ON period.yearId = year.id
+          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+        WHERE
+
+            (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
+            discipline.id = ? AND test_category.id
+        ORDER BY student_classroom.rosterNumber
+      `
+
+      // (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
+    // test.createdAt
+
+    const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
 
     return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
   }

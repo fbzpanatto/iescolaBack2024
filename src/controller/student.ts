@@ -72,7 +72,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           .leftJoinAndSelect("studentClassroom.year", "year")
           .where("studentClassroom.endedAt IS NOT NULL")
           .andWhere("student.active = 1")
-          .andWhere( new Brackets((qb) => { qb.where("person.name LIKE :search", { search: `%${ request.query.search} %` }).orWhere("student.ra LIKE :search", { search: `%${ request.query.search }%` })}))
+          .andWhere( new Brackets((qb) => {
+            qb.where("person.name LIKE :search", { search: `%${ request.query.search} %` })
+              .orWhere("student.ra LIKE :search", { search: `%${ request.query.search }%` })
+              .orWhere("school.shortName LIKE :search", { search: `%${ request.query.search }%` })
+              .orWhere("school.name LIKE :search", { search: `%${ request.query.search }%` })
+          }))
           .andWhere("year.name = :yearName", { yearName: request.params.year })
           .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}` })
           .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})` })

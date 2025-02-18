@@ -1,9 +1,10 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
+import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
 import {
   qAlphabeticLevels,
-  qAlphaStuClassrooms, qAlphaStuClassroomsFormated,
+  qAlphaStuClassrooms,
+  qAlphaStuClassroomsFormated,
   qAlphaStudentsFormated,
   qAlphaTests,
   qClassroom,
@@ -13,7 +14,8 @@ import {
   qSchools,
   qState,
   qStudentClassroomFormated,
-  qStudentsClassroomsForTest, qStudentTests,
+  qStudentsClassroomsForTest,
+  qStudentTests,
   qTeacherClassrooms,
   qTeacherDisciplines,
   qTeacherRelationShip,
@@ -26,12 +28,12 @@ import {
   qYear,
   SavePerson
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { PoolConnection } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
-import { Transfer } from "../model/Transfer";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {PoolConnection} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -128,6 +130,29 @@ export class GenericController<T> {
     })
   }
 
+  async qLastRegister(conn: PoolConnection, studentId: number, yearId: number ) {
+    const query =
+
+      `
+        SELECT stu.id AS studentId, per.name AS personName, sc.id AS studentClassroomId, sc.rosterNumber, sc.startedAt, sc.endedAt, sc.classroomId, sc.yearId, sc.studentId AS studentIdSc
+        FROM student AS stu
+        INNER JOIN person AS per ON stu.personId = per.id
+        INNER JOIN student_classroom AS sc ON stu.id = sc.studentId
+        INNER JOIN classroom AS clas ON sc.classroomId = clas.id
+        INNER JOIN school AS sch ON clas.schoolId = sch.id
+        INNER JOIN year AS y ON sc.yearId = y.id
+        WHERE 
+          sc.endedAt IS NOT NULL AND
+          stu.id = ? AND
+          y.id = ? AND
+          sc.endedAt = (SELECT MAX(sc2.endedAt) FROM student_classroom AS sc2 WHERE sc2.studentId = stu.id AND sc2.yearId = ?)
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId, yearId, yearId])
+
+    return (queryResult as { [key: string]: any }[])
+  }
+
   async qStudentDisabilities(conn: PoolConnection, arr: qAlphaStudentsFormated[]) {
     for(let item of arr) {
 
@@ -179,6 +204,42 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query))
     return (queryResult as qYear[])[0]
+  }
+
+  async qActiveSc(conn: PoolConnection, studentId: number) {
+    const query =
+
+      `
+        SELECT p.name AS personName, c.shortName AS classroomName, s.shortName AS schoolName, y.name AS yearName
+        FROM student_classroom AS sc
+        INNER JOIN classroom AS c ON sc.classroomId = c.id
+        INNER JOIN school AS s ON c.schoolId = s.id
+        INNER JOIN year AS y ON sc.yearId = y.id
+        INNER JOIN student AS stu ON sc.studentId = stu.id
+        INNER JOIN person AS p ON stu.personId = p.id
+        WHERE stu.id = ? AND sc.endedAt IS NULL
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId])
+    return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
+  }
+
+  async qNewStudentClassroom(conn: PoolConnection, studentId: number, classroomId: number, yearId: number, createdByUser: number) {
+    const insertQuery = `
+        INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    `
+    const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, 99, new Date(), createdByUser])
+    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+  }
+
+  async qNewTransfer(conn: PoolConnection, requesterId: number, requestedClassroomId: number, currentClassroomId: number, receiverId: number, studentId: number, yearId: number, createdByUser: number) {
+    const insertQuery = `
+        INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+    const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), new Date(), requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
+    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
   }
 
   async qTeacherDisciplines(conn: PoolConnection, userId: number) {

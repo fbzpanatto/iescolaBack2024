@@ -24,6 +24,10 @@ StudentRouter.get("/:id", ID_PARAM, havePermission, async (req: Request, res: Re
   const response = await controller.findOneStudentById(req); return res.status(response.status).json(response)
 })
 
+StudentRouter.post("/inactive/list", havePermission, async (req: Request, res: Response) => {
+  const response = await controller.setInactiveNewClassroomList(req.body); return res.status(response.status).json(response)
+})
+
 StudentRouter.post("/inactive", havePermission, async (req: Request, res: Response) => {
   const response = await controller.setInactiveNewClassroom(req.body); return res.status(response.status).json(response)
 })

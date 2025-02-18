@@ -8,7 +8,7 @@ import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn } from "../interfaces/interfaces";
+import {GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn, UserInterface} from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -22,6 +22,8 @@ import { Teacher } from "../model/Teacher";
 import { transferStatus } from "../utils/transferStatus";
 import getTimeZone from "../utils/getTimeZone";
 import {dbConn} from "../services/db";
+import {PoolConnection} from "mysql2/promise";
+import {isJSON} from "class-validator";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -95,7 +97,52 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async setInactiveNewClassroom(body: InactiveNewClassroom) {
+  async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[], user: UserInterface }) {
+    let sqlConnection = await dbConn()
+    try {
+
+      const currentYear = await this.qCurrentYear(sqlConnection)
+      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+
+      const lastYearName = Number(currentYear.name) - 1
+      const lastYearDB = await this.qYearByName(sqlConnection, String(lastYearName))
+
+      if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
+
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+      for(let item of body.list) {
+        const oldYearDB = await this.qYearById(sqlConnection, item.oldYear)
+        if (!oldYearDB) { throw new Error(JSON.stringify({ status: 404, message: 'Não foi possível encontrar o ano letivo informado.' }))}
+
+        const el = await this.qActiveSc(sqlConnection, item.student.id)
+        if (el) { throw new Error(JSON.stringify({ status: 400, message: `O aluno ${el?.personName} está matriculado na sala ${el?.classroomName} ${el?.schoolName} em ${el?.yearName}. Solicite sua transferência através do menu Matrículas Ativas` }))}
+
+        const result = await this.qLastRegister(sqlConnection, item.student.id, lastYearDB.id)
+        if (result && result.length > 1 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { throw new Error(JSON.stringify({ status: 409, message: `O aluno ${item.student.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` }))}
+
+        const classroom = await this.qClassroom(sqlConnection, item.newClassroom.id)
+        const oldClassInDb = await this.qClassroom(sqlConnection, item.oldClassroom.id)
+
+        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { throw new Error(JSON.stringify({ status: 400, message: 'Regressão de sala não é permitido.' }))}
+
+        const newStudentResult = await this.qNewStudentClassroom(sqlConnection, item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id)
+
+        const newTransfer = await this.qNewTransfer(sqlConnection, qUserTeacher.person.user.id, classroom.id, oldClassInDb.id, qUserTeacher.person.user.id, item.student.id, currentYear.id, qUserTeacher.person.user.id)
+
+        if(newTransfer.affectedRows !== 1 && newStudentResult.affectedRows !== 1) { throw new Error(JSON.stringify({ status: 400, message: 'Algum aluno selecionado está' + ' impedindo esta operação. Tente realizar a passagem de forma individual afim de detectar' + ' qual não é possível.' })) }
+      }
+      return { status: 200, data: {} };
+    }
+    catch (error: any) {
+      if(!isJSON(error.message)) { return { status: 500, message: error.message } }
+      const parsedError = JSON.parse(error.message) as { status: number; message: string }
+      return { status: parsedError.status, message: parsedError.message }
+    }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
+  async setInactiveNewClassroom(body: InactiveNewClassroom, sqlConnectionParam?: PoolConnection) {
 
     // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
 

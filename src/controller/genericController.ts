@@ -206,6 +206,33 @@ export class GenericController<T> {
     return (queryResult as qYear[])[0]
   }
 
+  async qNotTestIncluded(conn: PoolConnection, yearName: string, classroomId: number, testId: number) {
+    const query = `
+        SELECT sc.id AS id, st.id AS student_id, st.ra AS ra, st.dv AS dv, per.name AS name
+        FROM student_classroom AS sc
+                 INNER JOIN student AS st ON sc.studentId = st.id
+                 INNER JOIN person AS per ON st.personId = per.id
+                 INNER JOIN year AS yr ON sc.yearId = yr.id
+                 INNER JOIN classroom AS cl ON sc.classroomId = cl.id
+        WHERE
+            yr.name = ?
+          AND cl.id = ?
+          AND sc.endedAt IS NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM student_test_status AS sts
+            WHERE sts.studentClassroomId = sc.id
+              AND sts.testId = ?
+        )
+    `;
+
+    const [queryResult] = await conn.query(format(query), [testId, yearName, classroomId, testId]);
+    return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
+  }
+
+
+
+
   async qActiveSc(conn: PoolConnection, studentId: number) {
     const query =
 

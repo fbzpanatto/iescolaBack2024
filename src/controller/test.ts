@@ -653,6 +653,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const testId = request?.params.id
     const classroomId = request?.params.classroom
     const yearName = request.params.year
+
+    const sqlConnection = await dbConn()
+
     try {
       return await AppDataSource.transaction(async (CONN) => {
         const test = await this.getTest(Number(testId), Number(yearName), CONN)
@@ -674,13 +677,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
-            data = await this.notTestIncluded(test, Number(classroomId), Number(yearName), CONN)
+            data = await this.qNotTestIncluded(sqlConnection, yearName, Number(classroomId), test.id )
             break;
           }
         }
         return { status: 200, data };
       })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async testQuestLink(withTestStatus: boolean, studentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
@@ -757,9 +762,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
-            const stClassrooms = await this.notTestIncluded(test, body.classroom.id, body.year, CONN)
+            const stClassrooms = await this.qNotTestIncluded(sqlConnection, String(body.year), body.classroom.id, test.id )
+
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
-            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id)) as unknown as StudentClassroom[]
+            const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
             await this.testQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN)
             break;

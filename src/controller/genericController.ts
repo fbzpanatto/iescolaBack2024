@@ -1021,6 +1021,7 @@ export class GenericController<T> {
       id: qTest.id,
       name: qTest.name,
       createdAt: qTest.createdAt,
+      active: qTest.active,
       category: { id: qTest.test_category_id, name: qTest.test_category_name },
       period: {
         id: qTest.period_id,

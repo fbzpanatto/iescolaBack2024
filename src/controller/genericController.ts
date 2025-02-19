@@ -226,7 +226,7 @@ export class GenericController<T> {
         )
     `;
 
-    const [queryResult] = await conn.query(format(query), [testId, yearName, classroomId, testId]);
+    const [queryResult] = await conn.query(format(query), [yearName, classroomId, testId]);
     return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
   }
 

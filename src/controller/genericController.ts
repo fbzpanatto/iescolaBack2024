@@ -230,9 +230,6 @@ export class GenericController<T> {
     return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
   }
 
-
-
-
   async qActiveSc(conn: PoolConnection, studentId: number) {
     const query =
 

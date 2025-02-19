@@ -678,8 +678,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.TEST_4_9: {
             data = await this.qNotTestIncluded(sqlConnection, yearName, Number(classroomId), test.id )
-
-            console.log('data', data)
             break;
           }
         }

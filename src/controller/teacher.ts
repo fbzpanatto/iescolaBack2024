@@ -130,7 +130,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           .andWhere("studentClassroom.endedAt IS NULL")
           .andWhere("transfers.endedAt IS NULL")
           .andWhere("transfers.status = :status", { status: transferStatus.PENDING })
-          .getCount();
+          .getCount()
 
         return { status: 200, data: studentClassrooms }
       })

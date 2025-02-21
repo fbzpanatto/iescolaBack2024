@@ -250,6 +250,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
 
+    teacher.school = { id: Number(body.school) } as School
     await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
   }
 

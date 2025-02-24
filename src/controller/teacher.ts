@@ -201,8 +201,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, sqlConnection: PoolConnection, CONN: EntityManager) {
 
     const managerToTeacher = Number(body.category) === Number(pc.PROF) && Number(teacher.person.category.id) === Number(pc.COOR)
+    const teacherToManager = Number(body.category) === Number(pc.COOR) && Number(teacher.person.category.id) === Number(pc.PROF)
 
-    if(managerToTeacher) {
+    if(managerToTeacher && !teacherToManager) {
 
       teacher.person.category = { id: Number(body.category) } as PersonCategory
 
@@ -210,7 +211,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       await this.updateTeacherClassesAndDisciplines(teacher, CONN, sqlConnection, body)
     }
 
-    if(!managerToTeacher && (Number(body.school) != Number(teacher.school.id))) {
+    if((!managerToTeacher && (Number(body.school) != Number(teacher.school.id))) || teacherToManager) {
+
+      if(teacherToManager) { teacher.person.category = { id: Number(body.category) } as PersonCategory }
 
       await this.qEndAllTeacherRelations(sqlConnection, teacher.id)
 
@@ -239,6 +242,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async updateTeacherClassesAndDisciplines(teacher: Teacher, CONN: EntityManager, sqlConnection: PoolConnection, body: TeacherBody) {
+
+    const teacherToManager = Number(body.category) === Number(pc.COOR) && Number(teacher.person.category.id) === Number(pc.PROF)
+
+    if(teacherToManager) { return await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN) }
 
     const qDbRelationShip = (await this.qTeacherRelationship(sqlConnection, teacher.id)).teacherClassesDisciplines
 

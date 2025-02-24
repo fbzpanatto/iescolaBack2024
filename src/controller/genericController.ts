@@ -321,7 +321,7 @@ export class GenericController<T> {
     return (queryResult as qTransferStatus[])[0]
   }
 
-  async qChangeMasterTeacherSchool(conn: PoolConnection, teacherId: number) {
+  async qEndAllTeacherRelations(conn: PoolConnection, teacherId: number) {
 
     const updateQuery =
       `

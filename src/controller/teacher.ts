@@ -202,7 +202,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     if(Number(body.school) != Number(teacher.school.id)) {
 
-      await this.qChangeMasterTeacherSchool(sqlConnection, teacher.id)
+      await this.qEndAllTeacherRelations(sqlConnection, teacher.id)
 
       teacher.school = { id: Number(body.school) } as School
 

@@ -200,7 +200,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, sqlConnection: PoolConnection, CONN: EntityManager) {
 
-    if(Number(body.school) != Number(teacher.school.id)) {
+    const managerToTeacher = Number(body.category) === Number(pc.PROF) && Number(teacher.person.category.id) === Number(pc.COOR)
+
+    if(managerToTeacher) {
+
+      teacher.person.category = { id: Number(body.category) } as PersonCategory
+
+      await this.qEndAllTeacherRelations(sqlConnection, teacher.id)
+      await this.updateTeacherClassesAndDisciplines(teacher, CONN, sqlConnection, body)
+    }
+
+    if(!managerToTeacher && (Number(body.school) != Number(teacher.school.id))) {
 
       await this.qEndAllTeacherRelations(sqlConnection, teacher.id)
 

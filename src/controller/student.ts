@@ -667,6 +667,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .orderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .addOrderBy("studentClassroom.rosterNumber", "ASC")
+        .addOrderBy("person.name", "ASC")
         .limit(limit)
         .offset(offset)
         .getRawMany();

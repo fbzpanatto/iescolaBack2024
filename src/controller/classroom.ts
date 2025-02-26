@@ -28,6 +28,9 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
           const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
           const tClasses = await this.qTeacherClassrooms(sqlConnection, request?.body.user.user)
+
+          const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218]
+
           const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
           return await alternative.getRepository(Classroom)
@@ -38,7 +41,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
             .leftJoin("classroom.school", "school")
             .where(
               new Brackets((qb) => {
-                if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms }) }
+                if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: allClassrooms }) }
                 else { qb.where("classroom.id > 0") }
               }),
             )
@@ -51,6 +54,8 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const tClasses = await this.qTeacherClassrooms(sqlConnection, request?.body.user.user)
 
+      const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218]
+
       masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
 
       const data = await CONN.getRepository(Classroom)
@@ -61,7 +66,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
         .leftJoin("classroom.school", "school")
         .where(
           new Brackets((qb) => {
-            if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: tClasses.classrooms }) }
+            if (!masterUser) { qb.where("classroom.id IN (:...ids)", { ids: allClassrooms }) }
             else { qb.where("classroom.id > 0") }
           }),
         )

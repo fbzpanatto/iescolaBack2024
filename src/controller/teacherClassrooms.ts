@@ -65,7 +65,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
       }
       else {
 
-        const classrooms = await CONN.getRepository(TeacherClassDiscipline)
+        let classrooms = await CONN.getRepository(TeacherClassDiscipline)
           .createQueryBuilder('teacherClassDiscipline')
           .select(fields)
           .leftJoin('teacherClassDiscipline.classroom', 'classroom')
@@ -75,6 +75,26 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
           .andWhere(new Brackets(qb => { if(!masterUser) { qb.andWhere('teacherClassDiscipline.endedAt IS NULL') } }))
           .groupBy( 'classroom.id')
           .getRawMany() as { id: number, name: string, school: string }[]
+
+        const OtherClassrooms = [
+          {
+            id: 1216,
+            name: 'OUTRA REDE PEBI',
+            school: 'OUTRA REDE DE ENSINO'
+          },
+          {
+            id: 1217,
+            name: 'OUTRA REDE PEBII',
+            school: 'OUTRA REDE DE ENSINO'
+          },
+          {
+            id: 1218,
+            name: 'EJA',
+            school: 'EJA'
+          }
+        ]
+
+        classrooms = [...classrooms!, ...OtherClassrooms]
 
         return { status: 200, data: classrooms };
       }

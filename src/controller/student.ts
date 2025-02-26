@@ -8,7 +8,7 @@ import { pc } from "../utils/personCategories";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import {GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn, UserInterface} from "../interfaces/interfaces";
+import { GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
 import { ISOWNER } from "../utils/owner";
@@ -21,9 +21,9 @@ import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
 import { transferStatus } from "../utils/transferStatus";
 import getTimeZone from "../utils/getTimeZone";
-import {dbConn} from "../services/db";
-import {PoolConnection} from "mysql2/promise";
-import {isJSON} from "class-validator";
+import { dbConn} from "../services/db";
+import { PoolConnection } from "mysql2/promise";
+import { isJSON } from "class-validator";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -525,7 +525,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const newNumber: number = Number(bodyClass.shortName.replace(/\D/g, ""))
           const oldNumber: number  = Number(stClass.classroom.shortName.replace(/\D/g, ""))
 
-          if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
+          if(!isNaN(newNumber) && !isNaN(oldNumber) && ![1216, 1217, 1218].includes(bodyClass.id)) {
+            if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
+          }
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id });
 

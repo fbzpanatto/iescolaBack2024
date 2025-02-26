@@ -13,7 +13,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
   async getAllClassrooms( request: Request, teacherForm: boolean, CONN?: EntityManager ) {
 
-    const { body } = request as { body: TeacherBody };
+    const { body } = request as { body: TeacherBody }
 
     let result: Classroom[] | null = null
 

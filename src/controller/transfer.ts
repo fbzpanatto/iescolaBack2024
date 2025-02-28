@@ -146,11 +146,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
         }
 
-        if(body.reject && ![pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.reject && ![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência.' }
         }
 
-        if(body.accept && ![pc.ADMN, pc.SUPE, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.accept && ![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência.' }
         }
 

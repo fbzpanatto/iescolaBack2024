@@ -201,7 +201,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const classroom = await CONN.findOne(Classroom, { where: { id: newClassroom.id } }) as Classroom
         const oldClassInDb = await CONN.findOne(Classroom, { where: { id: oldClassroom.id } }) as Classroom
 
-        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
+        const outsidersClassrooms = [1216, 1217, 1218]
+
+        if(!outsidersClassrooms.includes(classroom.id)) {
+          if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
+        }
 
         const newStudentClassroom = await CONN.save(StudentClassroom, {
           student: student,

@@ -1321,17 +1321,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const allStudentQuestions = studentClassroomsBi.flatMap(sc => sc.student.studentQuestions )
       const testQuestions = bim.testQuestions?.map(tQ => {
 
+        // let aux = 0;
+
         if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
         const studentQuestions = allStudentQuestions.filter(sQ => { return sQ.testQuestion?.id === tQ?.id })
 
         const counter = studentQuestions.reduce((acc, sQ) => {
 
+          // if((sQ.answer.length < 1) && (sQ.answer === '' || sQ.answer === ' ')) {
+          //   aux += 1
+          //   return acc
+          // }
+
           if(sQ.rClassroom?.id != classId){ return acc }
 
           if (sQ.rClassroom?.id === classId && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
         }, 0)
 
+        // return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / (studentClassroomsBi.length - aux)) * 10000) / 100 : 0 }
         return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100 : 0 }
       })
 

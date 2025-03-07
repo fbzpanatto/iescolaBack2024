@@ -161,6 +161,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         teacher.person.name = body.name;
         teacher.person.birth = body.birth;
+        teacher.register = body.register;
         teacher.updatedAt = new Date();
         teacher.updatedByUser = qUserTeacher.person.user.id;
         teacher.observation = body.observation;

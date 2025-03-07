@@ -248,12 +248,12 @@ export class GenericController<T> {
     return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
   }
 
-  async qNewStudentClassroom(conn: PoolConnection, studentId: number, classroomId: number, yearId: number, createdByUser: number) {
+  async qNewStudentClassroom(conn: PoolConnection, studentId: number, classroomId: number, yearId: number, createdByUser: number, rosterNumber: number) {
     const insertQuery = `
         INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) 
         VALUES (?, ?, ?, ?, ?, ?)
     `
-    const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, 99, new Date(), createdByUser])
+    const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, new Date(), createdByUser])
     return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
   }
 

@@ -126,7 +126,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { throw new Error(JSON.stringify({ status: 400, message: 'Regressão de sala não é permitido.' }))}
 
-        const newStudentResult = await this.qNewStudentClassroom(sqlConnection, item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id)
+        const newStudentResult = await this.qNewStudentClassroom(sqlConnection, item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id, item.rosterNumber)
 
         const newTransfer = await this.qNewTransfer(sqlConnection, qUserTeacher.person.user.id, classroom.id, oldClassInDb.id, qUserTeacher.person.user.id, item.student.id, currentYear.id, qUserTeacher.person.user.id)
 

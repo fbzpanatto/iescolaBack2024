@@ -1249,9 +1249,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
       }
 
-      headers = headers.map(bi => {
-        return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions }
-      })
+      headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
       // TODO: implement studentClassroomId filter here
       const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId, studentClassroomId)

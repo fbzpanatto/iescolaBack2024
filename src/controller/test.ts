@@ -1342,6 +1342,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     })
 
+    // TODO: remove this on 2026
     studentClassrooms = studentClassrooms
       .sort((a, b) => a.student.person.name.localeCompare(b.student.person.name))
       .sort((a, b) => a.rosterNumber - b.rosterNumber)

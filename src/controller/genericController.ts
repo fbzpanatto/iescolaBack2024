@@ -794,7 +794,7 @@ export class GenericController<T> {
 
             (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
             discipline.id = ? AND test_category.id
-        ORDER BY student_classroom.rosterNumber
+        ORDER BY student_classroom.rosterNumber, name
       `
 
       // (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND

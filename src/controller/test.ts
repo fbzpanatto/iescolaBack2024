@@ -1018,11 +1018,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await CONN.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
         if(!test) return { status: 404, message: "Teste não encontrado" }
         if(qUserTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+
         test.name = req.body.name
         test.active = req.body.active
         test.updatedAt = new Date()
         test.updatedByUser = userId
         await CONN.save(Test, test)
+
         if(req.body.testQuestions.length){
           const bodyTq = req.body.testQuestions as TestQuestion[]
           const dataTq = await this.getTestQuestions(test.id, CONN)
@@ -1216,12 +1218,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const response = await this.qCreateLinkAlphabetic(sC, test, userId, sqlConn)
 
-    const qTests = await this.qAlphabeticTests(
-      sqlConn,
-      test.category.id,
-      test.discipline.id,
-      test.period.year.name
-    ) as unknown as Test[]
+    const qTests = await this.qAlphabeticTests(sqlConn, test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
     let headers = aHeaders.map(bi => {
 
@@ -1240,10 +1237,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for(let test of qTests) {
 
-        const testQuestions = await this.qTestQuestions(
-          sqlConn,
-          test.id
-        ) as unknown as TestQuestion[]
+        const testQuestions = await this.qTestQuestions(sqlConn, test.id) as unknown as TestQuestion[]
 
         test.testQuestions = testQuestions
 
@@ -1252,14 +1246,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           ...testQuestions.map(testQuestion => testQuestion.id)
         ]
 
-        await this.testQuestLink(
-          false,
-          preResultSc,
-          test,
-          testQuestions,
-          userId,
-          CONN
-        )
+        await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
       }
 
       headers = headers.map(bi => {
@@ -1356,6 +1343,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
         levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100 : 0}))
       }
     })
+
+    studentClassrooms = studentClassrooms
+      .sort((a, b) => a.student.person.name.localeCompare(b.student.person.name))
+      .sort((a, b) => a.rosterNumber - b.rosterNumber)
 
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }

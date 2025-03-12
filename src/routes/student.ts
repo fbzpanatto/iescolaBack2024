@@ -1,10 +1,11 @@
 import { Request, Response, Router } from "express";
 import { stController as controller } from "../controller/student";
-import { BODY_VALIDATION_USER, ID_PARAM, VALIDATE_USER, YEAR_NAME_PARAM } from "../middleware/validators";
+import { BODY_VALIDATION_USER, BODY_VALIDATION_USER_FIRST_LEVEL, ID_PARAM, VALIDATE_USER, VALIDATE_USER_FIRST_LEVEL, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CREATE_VALIDATORS = [VALIDATE_USER, BODY_VALIDATION_USER];
 const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_USER, BODY_VALIDATION_USER];
+const UPDATE_VALIDATORS_FIRST_LEVEL = [ID_PARAM, VALIDATE_USER_FIRST_LEVEL, BODY_VALIDATION_USER_FIRST_LEVEL];
 
 export const StudentRouter = Router();
 
@@ -42,6 +43,10 @@ StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Reques
 
 StudentRouter.put("/:id/graduate", ID_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.graduate(req.params.id, req.body); return res.status(response.status).json(response)
+})
+
+StudentRouter.put("/:id/first-level", ...UPDATE_VALIDATORS_FIRST_LEVEL, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.setFirstLevel(req.body); return res.status(response.status).json(response)
 })
 
 StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {

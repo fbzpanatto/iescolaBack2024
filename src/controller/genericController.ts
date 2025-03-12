@@ -671,6 +671,18 @@ export class GenericController<T> {
     return  this.formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
   }
 
+  async qSetFirstLevel(conn: PoolConnection, studentId: number, levelId: number, userId: number) {
+
+    const query = `
+      INSERT INTO alphabetic_first (studentId, alphabeticFirstId, createdByUser, updatedByUser, createdAt, updatedAt) 
+      VALUES (?, ?, ?, ?, ?, ?) 
+      ON DUPLICATE KEY UPDATE alphabeticFirstId = VALUES(alphabeticFirstId), updatedByUser = VALUES(updatedByUser), updatedAt = VALUES(updatedAt)
+    `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId, new Date(), new Date()])
+    return queryResult as any
+  }
+
   async qTeacherRelationship(conn: PoolConnection, teacherId: number | string) {
     const qTeacher =
 
@@ -740,9 +752,14 @@ export class GenericController<T> {
           test.id AS testId, test.name AS testName,
           period.id AS periodId,
           bim.id AS bimesterId,
-          year.id AS yearId
+          year.id AS yearId,
+          al.id AS alphaFirstLevelId,
+          al.shortName AS alphaFirstLevelShortName,
+          al.name AS alphaFirstLevelName
         FROM student_classroom
           INNER JOIN student ON student_classroom.studentId = student.id
+          LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
+          LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
           INNER JOIN person ON student.personId = person.id
           LEFT JOIN alphabetic ON student.id = alphabetic.studentId
           LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
@@ -776,9 +793,14 @@ export class GenericController<T> {
           test.id AS testId, test.name AS testName,
           period.id AS periodId,
           bim.id AS bimesterId,
-          year.id AS yearId
+          year.id AS yearId,
+          al.id AS alphaFirstLevelId,
+          al.shortName AS alphaFirstLevelShortName,
+          al.name AS alphaFirstLevelName
         FROM student_classroom
           INNER JOIN student ON student_classroom.studentId = student.id
+          LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
+          LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
           INNER JOIN person ON student.personId = person.id
           LEFT JOIN alphabetic ON student.id = alphabetic.studentId
           LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
@@ -937,7 +959,8 @@ export class GenericController<T> {
             person: {
               id: prev.personId,
               name: prev.name
-            }
+            },
+            alphabeticFirst: { id: prev.alphaFirstLevelId, shortName: prev.alphaFirstLevelShortName, name: prev.alphaFirstLevelName }
           }
         }
         acc.push(studentClassroom)

@@ -462,6 +462,16 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     finally { if(sqlConnection) { sqlConnection.release()} }
   }
 
+  async setFirstLevel(body: any) {
+    let sqlConnection = await dbConn()
+    try {
+      await this.qSetFirstLevel(sqlConnection, Number(body.student.id), Number(body.level.id), Number(body.user.user))
+      return { status: 200, data: { message: 'done' } };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
   override async updateId(studentId: number | string, body: any) {
 
     let sqlConnection = await dbConn()

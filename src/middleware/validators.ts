@@ -6,6 +6,7 @@ import { TEACHER_SCHEMA } from "../schemas/teacher";
 import { invalidValues, unexpectedFn } from "../utils/bodyValidations";
 import { TEST_SCHEMA } from '../schemas/test';
 import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '../schemas/studentQuestion';
+import {STUDENT_FIRST_LEVEL_SCHEMA} from "../schemas/first-level";
 
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
@@ -41,6 +42,12 @@ export const BODY_VALIDATION_TEACHER = (req: Request, res: Response, next: NextF
 export const VALIDATE_USER = checkSchema(STUDENT_SCHEMA)
 export const BODY_VALIDATION_USER = (req: Request, res: Response, next: NextFunction) => {
   return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, STUDENT_SCHEMA)
+}
+
+//USER-FIRST-LEVEL
+export const VALIDATE_USER_FIRST_LEVEL = checkSchema(STUDENT_FIRST_LEVEL_SCHEMA)
+export const BODY_VALIDATION_USER_FIRST_LEVEL = (req: Request, res: Response, next: NextFunction) => {
+  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, STUDENT_FIRST_LEVEL_SCHEMA)
 }
 
 //YEAR

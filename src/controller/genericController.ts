@@ -356,6 +356,50 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
+  async qAllTeachersForSuperUser(conn: PoolConnection, search: string){
+
+    const personSearch = `%${search.toString().toUpperCase()}%`
+
+    const query =
+      `
+          SELECT t.id, t.email, t.register,
+                 p.id AS pId, p.name, p.birth,
+                 pc.id AS pcId, pc.name AS catName, pc.active
+          FROM teacher AS t
+                   LEFT JOIN person AS p ON t.personId = p.id
+                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+          WHERE EXISTS (
+              SELECT 1
+              FROM teacher_class_discipline AS tcd
+              WHERE tcd.teacherId = t.id
+          )
+            AND p.name LIKE ?
+          ORDER BY p.name;
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [personSearch])
+
+    let result = queryResult as { [key: string]: any }[]
+
+    return result.map(el => {
+      return {
+        id: el.id,
+        email: el.email,
+        register: el.register,
+        person: {
+          id: el.pId,
+          name: el.name,
+          birth: el.birth,
+          category: {
+            id: el.pcId,
+            name: el.catName,
+            active: el.active
+          }
+        }
+      }
+    })
+  }
+
   async qTeacherThatBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
 
     const personSearch = `%${search.toString().toUpperCase()}%`

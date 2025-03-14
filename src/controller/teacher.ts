@@ -62,10 +62,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(sqlConnection, (search as string) ?? '') } : { status: 200, data: [] }
       }
 
-      if([pc.MONI, pc.PROF].includes(qUserTeacher.person.category.id)) {
-        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(sqlConnection, (search as string) ?? '') } : { status: 200, data: [] }
-      }
-
       if(option === 1) {
         response = await this.qTeacherThatBelongs(sqlConnection, qTeacherClasses.classrooms, (search as string) ?? '')
       }

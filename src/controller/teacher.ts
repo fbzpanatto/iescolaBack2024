@@ -37,6 +37,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         let personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
         let schools = await CONN.getRepository(School).find();
 
+        classrooms = classrooms?.filter(classroom => ![1216, 1217, 1218].includes(classroom.id))
+
         return { status: 200, data: { disciplines, classrooms, personCategories, schools } }
       })
     } catch (error: any) { return { status: 500, message: error.message } }

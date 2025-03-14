@@ -102,13 +102,18 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     try {
       const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+      const qUserTeacherClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+
       const cannotChange = [pc.MONI, pc.PROF];
 
       if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
       const qTeacher = await this.qTeacherRelationship(sqlConnection, id)
-
       if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
+      const qTeacherClassrooms = qTeacher.teacherClassesDisciplines.map(el => el.classroomId)
+
+      const condition = qUserTeacherClasses.classrooms.some(el => qTeacherClassrooms.includes(el))
+      if(!condition) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
       return { status: 200, data: qTeacher };
     }

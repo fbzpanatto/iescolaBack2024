@@ -4,7 +4,7 @@ import { Brackets, EntityManager, EntityTarget } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
-import { TeacherBody } from "../interfaces/interfaces";
+import {TeacherBody, UserInterface} from "../interfaces/interfaces";
 import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
@@ -53,46 +53,23 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     let sqlConnection = await dbConn()
 
     try {
+      const qTeacherClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+      let response;
 
-      return await AppDataSource.transaction(async(CONN)=> {
+      if(option === 1) {
+        response = await this.qTeacherThatBelongs(sqlConnection, qTeacherClasses.classrooms, (search as string) ?? '')
+      }
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
-        const qTeacherClasses = await this.qTeacherClassrooms(sqlConnection, body.user.user)
+      if(option === 2) {
+        response = await this.qTeacherThatNotBelongs(sqlConnection, qTeacherClasses.classrooms, (search as string) ?? '')
+      }
 
-        const notInCategories = [pc.ADMN, pc.SUPE, pc.FORM];
-
-        const newResult = await CONN.getRepository(Teacher)
-          .createQueryBuilder("teacher")
-          .leftJoinAndSelect("teacher.person", "person")
-          .leftJoinAndSelect("person.category", "category")
-          .leftJoin("teacher.teacherClassDiscipline", "teacherClassDiscipline")
-          .leftJoin("teacherClassDiscipline.classroom", "classroom")
-          .where(
-            new Brackets((qb) => {
-              if (qUserTeacher.person.category.id === pc.PROF || qUserTeacher.person.category.id === pc.MONI) { qb.where("teacher.id = :teacherId", { teacherId: qUserTeacher.id }); return }
-              if (qUserTeacher.person.category.id != pc.ADMN && qUserTeacher.person.category.id != pc.SUPE && qUserTeacher.person.category.id != pc.FORM) {
-                qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
-                  .andWhere(new Brackets((qb) => {
-                    option === 1 ?
-                      qb.where("classroom.id IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms }):
-                      qb.where("classroom.id NOT IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms })
-                        .andWhere("category.id = :id", { id: pc.PROF })
-                  }))
-                  .andWhere("teacherClassDiscipline.endedAt IS NULL");
-                return;
-              }
-            }),
-          )
-          .andWhere("person.name LIKE :search", { search: `%${search}%` })
-          .groupBy("teacher.id")
-          .addOrderBy('category.id', 'DESC')
-          .addOrderBy('person.name', 'ASC')
-          .getMany();
-
-        return { status: 200, data: newResult };
-      })
+      return { status: 200, data: response };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
@@ -114,8 +91,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
       const qTeacherClassrooms = qTeacher.teacherClassesDisciplines.map(el => el.classroomId)
 
-      const condition = qUserTeacherClasses.classrooms.some(el => qTeacherClassrooms.includes(el))
-      if(!condition) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
+      if(![pc.ADMN, pc.FORM, pc.SUPE].includes(qUserTeacher.person.category.id) ) {
+        const condition = qUserTeacherClasses.classrooms.some(el => qTeacherClassrooms.includes(el))
+        if(!condition) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
+      }
 
       return { status: 200, data: qTeacher };
     }
@@ -203,6 +182,28 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         return await methods[teacher.person.category.id]()
       })
+    }
+    catch ( error: any ) {
+      console.error( error );
+      return { status: 500, message: error.message }
+    }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
+  async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}) {
+
+    let sqlConnection = await dbConn()
+
+    try {
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+      const classroom = await this.qClassroom(sqlConnection, body.classroom.id)
+      const discipline = await this.qDiscipline(sqlConnection, body.discipline.id)
+      const teacher = await this.qTeacher(sqlConnection, body.teacher.id)
+
+      let response
+      if(qUserTeacher && classroom && discipline && teacher) { response = await this.qSingleRel(sqlConnection, body.teacher.id, body.classroom.id, body.discipline.id) }
+
+      return { status: 200, data: { message: 'done.' } }
     }
     catch ( error: any ) {
       console.error( error );

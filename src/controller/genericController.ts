@@ -34,6 +34,8 @@ import {PoolConnection} from "mysql2/promise";
 import {format} from "mysql2";
 import {Test} from "../model/Test";
 import {Transfer} from "../model/Transfer";
+import {Discipline} from "../model/Discipline";
+import {Teacher} from "../model/Teacher";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -354,6 +356,98 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
+  async qTeacherThatBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
+
+    const personSearch = `%${search.toString().toUpperCase()}%`
+
+    const query =
+      `
+          SELECT t.id, t.email, t.register,
+                 p.id AS pId, p.name, p.birth,
+                 pc.id AS pcId, pc.name AS catName, pc.active
+          FROM teacher AS t
+                   LEFT JOIN person AS p ON t.personId = p.id
+                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+          WHERE EXISTS (
+              SELECT 1
+              FROM teacher_class_discipline AS tcd
+              WHERE tcd.teacherId = t.id AND tcd.classroomId IN (?) AND tcd.endedAt IS NULL
+          )
+            AND p.name LIKE ?
+          ORDER BY p.name;
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomsIds, personSearch])
+
+    let result = queryResult as { [key: string]: any }[]
+
+    return result.map(el => {
+      return {
+        id: el.id,
+        email: el.email,
+        register: el.register,
+        person: {
+          id: el.pId,
+          name: el.name,
+          birth: el.birth,
+          category: {
+            id: el.pcId,
+            name: el.catName,
+            active: el.active
+          }
+        }
+      }
+    })
+  }
+
+  async qTeacherThatNotBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
+
+    const personSearch = `%${search.toString().toUpperCase()}%`
+
+    const query =
+      `
+          SELECT t.id, t.email, t.register,
+                 p.id AS pId, p.name, p.birth,
+                 pc.id AS pcId, pc.name AS catName, pc.active
+          FROM teacher AS t
+                   LEFT JOIN person AS p ON t.personId = p.id
+                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+          WHERE NOT EXISTS (
+              SELECT 1
+              FROM teacher_class_discipline AS tcd
+              WHERE tcd.teacherId = t.id
+                AND tcd.classroomId IN (?)
+                AND tcd.endedAt IS NULL -- Apenas aqueles que ainda têm vínculo devem ser excluídos
+          )
+            AND pc.id = ?
+            AND p.name LIKE ?
+          ORDER BY p.name;
+
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [classroomsIds, 8, personSearch])
+
+    let result = queryResult as { [key: string]: any }[]
+
+    return result.map(el => {
+      return {
+        id: el.id,
+        email: el.email,
+        register: el.register,
+        person: {
+          id: el.pId,
+          name: el.name,
+          birth: el.birth,
+          category: {
+            id: el.pcId,
+            name: el.catName,
+            active: el.active
+          }
+        }
+      }
+    })
+  }
+
   async qState(conn: PoolConnection, stateId: number) {
     const query =
 
@@ -448,6 +542,15 @@ export class GenericController<T> {
     return (queryResult as qYear[])[0]
   }
 
+  async qSingleRel(conn: PoolConnection, teacherId: number, classroomId: number, disciplineId: number) {
+    const insertQuery = `
+        INSERT INTO teacher_class_discipline (startedAt, teacherId, classroomId, disciplineId) 
+        VALUES (?, ?, ?, ?)
+    `
+    const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), teacherId, classroomId, disciplineId])
+    return queryResult
+  }
+
   async qClassroom(conn: PoolConnection, classroomId: number) {
     const query =
 
@@ -468,6 +571,34 @@ export class GenericController<T> {
       shortName: res.shortName,
       school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
     } as Classroom
+  }
+
+  async qDiscipline(conn: PoolConnection, disciplineId: number) {
+    const query =
+
+      `
+        SELECT *
+        FROM discipline AS d
+        WHERE d.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [disciplineId])
+
+    return (queryResult as Discipline[])[0]
+  }
+
+  async qTeacher(conn: PoolConnection, teacherId: number) {
+    const query =
+
+      `
+        SELECT *
+        FROM teacher AS t
+        WHERE t.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [teacherId])
+
+    return (queryResult as Teacher[])[0]
   }
 
   async qSchools(conn: PoolConnection, testId: number) {

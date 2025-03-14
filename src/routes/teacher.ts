@@ -28,6 +28,10 @@ TeacherRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Reques
   const response = await controller.saveTeacher(req.body); return res.status(response.status as number).json(response)
 });
 
+TeacherRouter.put('/:id/single-rel', havePermission, async (req: Request, res: Response) => {
+  const response = await controller.updateTeacherSingleRel(req.params.id, req.body); return res.status(response.status).json(response)
+})
+
 TeacherRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.updateTeacher(req.params.id, req.body); return res.status(response.status).json(response)
 })

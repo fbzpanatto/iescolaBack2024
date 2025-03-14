@@ -74,7 +74,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
                     option === 1 ?
                       qb.where("classroom.id IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms }):
                       qb.where("classroom.id NOT IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms })
-                        .andWhere("category.id = :id", { id: 8 })
+                        .andWhere("category.id = :id", { id: pc.PROF })
                   }))
                   .andWhere("teacherClassDiscipline.endedAt IS NULL");
                 return;

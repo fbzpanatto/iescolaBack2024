@@ -291,12 +291,13 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms
+        SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms, pc.id AS categoryId
         FROM teacher AS t
           INNER JOIN person AS p ON t.personId = p.id
           INNER JOIN user AS u ON p.id = u.personId
           INNER JOIN teacher_class_discipline AS tcd ON t.id = tcd.teacherId
           INNER JOIN classroom AS c ON tcd.classroomId = c.id
+          INNER JOIN person_category AS pc ON p.categoryId = pc.id
         WHERE u.id = ? AND tcd.endedAt IS NULL
         GROUP BY t.id
       `
@@ -305,7 +306,7 @@ export class GenericController<T> {
 
     const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
 
-    return { id: qTeacherClassrooms?.id, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
+    return { id: qTeacherClassrooms?.id, personCategoryId: qTeacherClassrooms?.categoryId, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
   }
 
   async qTransferStatus(conn: PoolConnection, statusId: number) {

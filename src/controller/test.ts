@@ -842,10 +842,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return AppDataSource.transaction(async(CONN) => {
 
-        const yearName = req.params.year
         const search = req.query.search as string
         const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
         const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+
+        let yearName = req.params.year
+
+        if(yearName.length != 4) {
+          // const currentYear = await this.qCurrentYear(sqlConnection)
+          // yearName = currentYear.name
+          return { status: 404, message: "Nenhum ano letivo foi localizado." }
+        }
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
 

@@ -16,12 +16,11 @@ import { pc } from "../utils/personCategories";
 import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../utils/email.service";
 import { generatePassword } from "../utils/generatePassword";
-
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
-import {School} from "../model/School";
-import {Discipline} from "../model/Discipline";
-import {Classroom} from "../model/Classroom";
+import { School} from "../model/School";
+import { Discipline } from "../model/Discipline";
+import { Classroom } from "../model/Classroom";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -47,6 +46,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
+    const option = Number(request?.query.option)
 
     let sqlConnection = await dbConn()
 
@@ -70,7 +70,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
               if (qUserTeacher.person.category.id === pc.PROF || qUserTeacher.person.category.id === pc.MONI) { qb.where("teacher.id = :teacherId", { teacherId: qUserTeacher.id }); return }
               if (qUserTeacher.person.category.id != pc.ADMN && qUserTeacher.person.category.id != pc.SUPE && qUserTeacher.person.category.id != pc.FORM) {
                 qb.where("category.id NOT IN (:...categoryIds)", { categoryIds: notInCategories })
-                  .andWhere("classroom.id IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms })
+                  .andWhere(new Brackets((qb) => {
+                    option === 1 ?
+                      qb.where("classroom.id IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms }):
+                      qb.where("classroom.id NOT IN (:...classroomIds)", { classroomIds: qTeacherClasses.classrooms })
+                        .andWhere("category.id = :id", { id: 8 })
+                  }))
                   .andWhere("teacherClassDiscipline.endedAt IS NULL");
                 return;
               }

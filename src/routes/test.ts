@@ -12,31 +12,31 @@ export const TestRouter = Router();
 
 TestRouter.get('/form', havePermission, async (req: Request, res: Response) => {
   const response = await controller.getFormData(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.findAllByYear(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getStudents(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getGraphic(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getAllToInsert(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: Response) => {
   const response = await controller.getById(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: Response) => {
   const response = await controller.insertStudents(req); return res.status(response.status).json(response)
-})
+});
 
 TestRouter.post('/', havePermission, async (req: Request, res: Response) => {
   const response = await controller.saveTest(req.body); return res.status(response.status).json(response)

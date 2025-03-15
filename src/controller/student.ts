@@ -465,6 +465,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async setFirstLevel(body: any) {
     let sqlConnection = await dbConn()
     try {
+
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+      if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        return { status: 403, message: 'Você não tem permissão para modificar este registro.' }
+      }
+
       await this.qSetFirstLevel(sqlConnection, Number(body.student.id), Number(body.level.id), Number(body.user.user))
       return { status: 200, data: { message: 'done' } };
     }

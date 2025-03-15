@@ -27,7 +27,7 @@ export interface qStudentsClassroomsForTest { student_classroom_id: number, stud
 export interface qAlphaStuClassroomsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string, student: { id: number, person: { id: number, name: string } } }
 export interface qAlphaStuClassrooms { id: number, rosterNumber: number, startedAt: string, endedAt: string, student_id: number, person_id: number, person_name: string, alphabetic_id: number, alphabeticLevel: number, test_id: number }
 export interface qTransferStatus { id: number, name: string }
-export interface qUserTeacher { id: number, email: string, register: string, person: { id: number, name: string, category: { id: number, name: string }, user: { id: number, username: string, email: string } } }
+export interface qUserTeacher { id: number, email: string, school: { id: number }, register: string, person: { id: number, name: string, category: { id: number, name: string }, user: { id: number, username: string, email: string } } }
 export interface qState { id: number, name: string, acronym: string }
 export interface qClassroom { id: number, name: string, shortName: string, school_id: number, school_name: string, school_shortName: string }
 export interface qUser { userId: number, categoryId: number }

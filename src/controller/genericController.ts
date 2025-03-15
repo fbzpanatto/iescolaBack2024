@@ -339,7 +339,7 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT teacher.id, teacher.email, teacher.register,
+        SELECT teacher.id, teacher.email, teacher.register, teacher.schoolId,
                p.id AS person_id, p.name AS person_name,
                pc.id AS person_category_id, pc.name AS person_category_name,
                u.id AS user_id, u.username AS user_name, u.email AS user_email
@@ -1244,6 +1244,9 @@ export class GenericController<T> {
       id: el.id,
       email: el.email,
       register: el.register,
+      school: {
+        id: el.schoolId
+      },
       person: {
         id: el.person_id,
         name: el.person_name,

@@ -695,12 +695,12 @@ export class GenericController<T> {
             SELECT 1 
             FROM classroom AS c
               INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
-            WHERE tc.testId = ? AND s.id = c.schoolId
+            WHERE tc.testId = ? AND s.id = c.schoolId AND s.id NOT IN (?)
           )
         ORDER BY s.shortName
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId])
+    const [ queryResult ] = await conn.query(format(query), [testId, [28, 29]])
     return queryResult as qSchools[]
   }
 
@@ -711,10 +711,10 @@ export class GenericController<T> {
         SELECT c.id, c.shortName 
         FROM classroom AS c
           INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
-        WHERE schoolId = ? AND tc.testId = ?
+        WHERE schoolId = ? AND tc.testId = ? AND c.id NOT IN (?)
       `
 
-    const [ queryResult ] = await conn.query(format(query), [schoolId, testId])
+    const [ queryResult ] = await conn.query(format(query), [schoolId, testId, [1216, 1217, 1218]])
     return queryResult as qClassrooms[]
   }
 

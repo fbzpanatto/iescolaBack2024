@@ -70,6 +70,8 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
             else { qb.where("classroom.id > 0") }
           }),
         )
+        .orderBy("school.shortName", "ASC")
+        .addOrderBy("classroom.shortName", "ASC")
         .getRawMany() as Classroom[]
 
       return { status: 200, data }

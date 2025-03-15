@@ -311,7 +311,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const classrooms = (await classroomController.getAllClassrooms(req, false, CONN)).data
+        let classrooms = (await classroomController.getAllClassrooms(req, false, CONN)).data
+
+        classrooms = classrooms?.filter(el => ![1216,1217,1218].includes(el.id))
+
         const disciplines = await CONN.find(Discipline)
         const bimesters = await CONN.find(Bimester)
         const testCategories = await CONN.find(TestCategory)
@@ -1155,6 +1158,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
+      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("testQuestion.test = :testId", { testId })
@@ -1190,6 +1194,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
+      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("readingFluency.test = :testId", { testId })
@@ -1402,6 +1407,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }))
 
+      .andWhere("school.id NOT IN (:...schoolsIds)", { schoolsIds: [28, 29] })
+      .andWhere("classrooms.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
       .andWhere("alphaTestDiscipline.id = :alphaTestDiscipline", { alphaTestDiscipline: test.discipline?.id ?? test.discipline_id })
       .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
       .andWhere("alphaTestYear.name = :yearName", { yearName })

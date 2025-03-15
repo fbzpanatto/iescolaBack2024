@@ -32,7 +32,11 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     let sqlConnection = await dbConn()
 
     try {
-      if(!CONN) { return await AppDataSource.transaction(async(CONN) => { return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)})}
+      if(!CONN) {
+        return await AppDataSource.transaction(async(CONN) => {
+          return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)
+        })
+      }
       return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)
     } catch (error: any) {
       console.log('error', error)
@@ -143,33 +147,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
 
         let preResult = await testController.alphaQuestions(qTest.year_name, qTest, testQuestionsIds, CONN)
-
-        // -------------------------------------------------
-        // let localSchools = await this.qSchools(sqlConnection, qTest.id)
-        // for(let school of localSchools) {
-        //
-        //   school.classrooms = await this.qClassroomsByTestId(sqlConnection, school.id, qTest.id)
-        //
-        //   for(let classroom of school.classrooms) {
-        //
-        //     classroom.studentsClassrooms = testController
-        //       .duplicatedStudents(await this.qStudentClassrooms(sqlConnection, classroom.id, Number(qTest.year_id)))
-        //       .filter((el:any) => !el.ignore)
-        //
-        //     for(let studentClassroom of classroom.studentsClassrooms) {
-        //
-        //
-        //
-        //     }
-        //   }
-        // }
-        //
-        // const arr1 = preResult.flatMap(sc => sc.classrooms.flatMap(c => c.studentClassrooms.map(item => item.id)))
-        // const arr2 = localSchools.flatMap(sc => sc.classrooms.flatMap(c => c.studentsClassrooms.map(item => item.id)))
-        //
-        // const difference = arr1.filter(element => !arr2.includes(element));
-        // console.log('preResult: ', arr1.length, 'localSchools: ', arr2.length, 'difference: ', difference)
-        // -------------------------------------------------
 
         let mappedSchools = preResult.map(school => {
           const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
@@ -404,6 +381,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("test.period", "period")
       .leftJoinAndSelect("period.year", "periodYear")
       .where("test.id = :testId", { testId })
+      .andWhere("school.id NOT IN (:...schoolsIds)", { schoolsIds: [28, 29] })
+      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
       .andWhere("studentClassroomYear.id = :yearId", { yearId: year.id })
       .andWhere("periodYear.id = :yearId", { yearId: year.id })
       .orderBy("questionGroup.id", "ASC")

@@ -832,9 +832,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         let yearName = req.params.year
 
         if(yearName.length != 4) {
-          // const currentYear = await this.qCurrentYear(sqlConnection)
-          // yearName = currentYear.name
-          return { status: 404, message: "Nenhum ano letivo foi localizado." }
+          const currentYear = await this.qCurrentYear(sqlConnection)
+          yearName = currentYear.name
         }
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)

@@ -784,26 +784,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async notTestIncluded(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
-
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoin("test.category", "testCategory")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoin("student.studentQuestions", "studentQuestions")
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere("studentClassroom.startedAt > :testCreatedAt", { testCreatedAt: test.createdAt })
-      .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("year.name = :yearName", { yearName })
-      .andWhere("studentQuestions.id IS NULL")
-      .getRawMany() as unknown as notIncludedInterface[]
-  }
-
   async notIncludedRF(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
     return await CONN.getRepository(StudentClassroom)
       .createQueryBuilder("studentClassroom")

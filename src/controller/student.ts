@@ -655,7 +655,15 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return await AppDataSource.transaction(async(CONN) => {
 
       const isOwner = options.owner === ISOWNER.OWNER;
-      const yearName = options.year ?? (await this.qCurrentYear(sqlConnection)).name;
+
+      let yearName: string | undefined = ''
+
+      yearName = options?.year
+
+      if(yearName?.length != 4) {
+        const response = await this.qCurrentYear(sqlConnection)
+        yearName = response.name
+      }
 
       let allClassrooms: Classroom[] = [];
 

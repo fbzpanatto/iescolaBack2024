@@ -942,6 +942,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
 
+        if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) {
+          return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' }
+        }
+
         if(!qUserTeacher) return { status: 404, message: "Usuário inexistente" }
 
         const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })

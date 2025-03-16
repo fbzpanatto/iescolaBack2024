@@ -4,6 +4,7 @@ interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: bo
 
 const onlyGET: Permission = { GET: true, POST: false, PUT: false, DELETE: false }
 const getPostPut: Permission = { GET: true, POST: true, PUT: true, DELETE: false }
+const getPost: Permission = { GET: true, POST: true, PUT: false, DELETE: false }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
   {
@@ -97,7 +98,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.SECR,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: onlyGET },
+      { entity: "test", methods: getPost },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
@@ -125,7 +126,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.MONI,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: onlyGET },
+      { entity: "test", methods: getPost },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },

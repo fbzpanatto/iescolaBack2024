@@ -55,11 +55,11 @@ export const STUDENT_SCHEMA: Schema = {
   },
   observationOne: {
     optional: true,
-    isString: true,
+    escape: true
   },
   observationTwo: {
     optional: true,
-    isString: true
+    escape: true
   },
   ra: {
     optional: true,

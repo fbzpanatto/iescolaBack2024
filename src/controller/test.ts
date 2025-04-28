@@ -22,7 +22,16 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, TestBodySave } from "../interfaces/interfaces";
+import {
+  AllClassrooms,
+  AlphaHeaders, CityHall,
+  insertStudentsBody, notIncludedInterface,
+  qAlphaStuClassroomsFormated,
+  qReadingFluenciesHeaders,
+  qStudentClassroomFormated,
+  qStudentsClassroomsForTest, ReadingHeaders,
+  TestBodySave, Totals
+} from "../interfaces/interfaces";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
@@ -30,14 +39,6 @@ import { Disability } from "../model/Disability";
 import { dbConn } from "../services/db";
 import { Person } from "../model/Person";
 import { PoolConnection } from "mysql2/promise";
-
-interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
-interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
-interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
-interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
-interface AllClassrooms { id: number, name: string, shortName: string, school: School, totals: { bimesterCounter: number, testQuestions: { counter: number, counterPercentage: number, id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup } | {}[] | undefined, levels: any[], id: number, name: string, periods: Period[] }[] }
-interface CityHall { id: number, name: string, shortName: string, school: string, totals: { bimesterCounter: number, id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }[] }
-export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -546,21 +547,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .leftJoin("studentClassroom.student", "student")
-      .addSelect(['student.id'])
-      .leftJoin("student.studentQuestions", "studentQuestions")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-        qb.orWhere("studentQuestions.id IS NOT NULL")
-      }))
-      .andWhere("studentClassroomYear.name = :yearName", { yearName })
-      .getMany();
-  }
+  // async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
+  //   return await CONN.getRepository(StudentClassroom)
+  //     .createQueryBuilder("studentClassroom")
+  //     .leftJoin("studentClassroom.year", "studentClassroomYear")
+  //     .leftJoin("studentClassroom.student", "student")
+  //     .addSelect(['student.id'])
+  //     .leftJoin("student.studentQuestions", "studentQuestions")
+  //     .where("studentClassroom.classroom = :classroomId", { classroomId })
+  //     .andWhere(new Brackets(qb => {
+  //       qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
+  //       qb.orWhere("studentQuestions.id IS NOT NULL")
+  //     }))
+  //     .andWhere("studentClassroomYear.name = :yearName", { yearName })
+  //     .getMany();
+  // }
 
   async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let row of studentClassrooms) {

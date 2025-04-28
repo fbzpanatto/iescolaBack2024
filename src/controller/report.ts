@@ -8,7 +8,8 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { AlphaHeaders, testController } from "./test";
+import { testController } from "./test";
+import { AlphaHeaders } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
@@ -44,19 +45,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
-  async getTestQuestions(testId: number, CONN: EntityManager) {
-    return await CONN.getRepository(TestQuestion)
-      .createQueryBuilder("testQuestion")
-      .leftJoinAndSelect("testQuestion.question", "question")
-      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-      .leftJoin("testQuestion.test", "test")
-      .where("testQuestion.test = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .getMany();
-  }
-
   async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
+    // TODO: MAKE MYSQL2
     return await CONN.getRepository(QuestionGroup)
       .createQueryBuilder("questionGroup")
       .select(["questionGroup.id AS id", "questionGroup.name AS name"])
@@ -81,6 +71,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const teacherClasses = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
         const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
 
+        // TODO: MAKE MYSQL2
         let data = await CONN.getRepository(Test)
           .createQueryBuilder("test")
           .leftJoinAndSelect("test.person", "person")
@@ -101,7 +92,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .getMany();
 
         data = data.map(el => {
-          if([1, 2, 3].includes(el.category.id)) { return { ...el, period: { ...el.period, bimester: { ...el.period.bimester, name: el.period.bimester.testName } } } }
+          if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) { return { ...el, period: { ...el.period, bimester: { ...el.period.bimester, name: el.period.bimester.testName } } } }
           return { ...el }
         })
 
@@ -365,6 +356,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     return { status: 200, data }
   }
 
+  // TODO: MAKE MYSQL2
   async getTestForGraphic(testId: string, testQuestionsIds: number[], year: Year,  CONN: EntityManager) {
     return await CONN.getRepository(School)
       .createQueryBuilder("school")

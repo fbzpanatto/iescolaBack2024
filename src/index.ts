@@ -51,7 +51,6 @@ route.use("/descriptor", DescriptorRouter);
 route.use("/disability", authorization, DisabilityRouter);
 route.use("/discipline", authorization, DisciplineRouter);
 route.use("/initial-configs", InitialConfigsRouter);
-route.use("/login", LoginRouter);
 route.use("/person", authorization, PersonRouter);
 route.use("/person-category", authorization, PeCatRouter);
 route.use("/question", authorization, QuesR);
@@ -77,7 +76,7 @@ route.use("/reset-password", PasswordRouter);
 
 route.use("/initial-configs", InitialConfigsRouter);
 
-route.use("/", (_, res) => { return res.json({ message: "OK" }) });
+route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 

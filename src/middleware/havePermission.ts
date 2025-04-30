@@ -1,8 +1,8 @@
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request } from "express";
 
 import permissions from '../utils/permissions'
 
-export default (req: Request, res: Response, next: NextFunction) => {
+export default (req: Request, res: any, next: NextFunction) => {
   try {
     const { user } = req.body
     const entity = req.baseUrl.split('/')[1].split('-').join('')

@@ -444,45 +444,6 @@ export class GenericController<T> {
     })
   }
 
-  async qOnlyOneTeacher(conn: PoolConnection, teacherId:number, search: string){
-
-    const personSearch = `%${search.toString().toUpperCase()}%`
-
-    const query =
-      `
-          SELECT t.id, t.email, t.register,
-                 p.id AS pId, p.name, p.birth,
-                 pc.id AS pcId, pc.name AS catName, pc.active
-          FROM teacher AS t 
-              LEFT JOIN person AS p ON t.personId = p.id
-              LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-          WHERE t.id = ? AND p.name LIKE ?
-          ORDER BY p.name;
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [teacherId, personSearch])
-
-    let result = queryResult as { [key: string]: any }[]
-
-    return result.map(el => {
-      return {
-        id: el.id,
-        email: el.email,
-        register: el.register,
-        person: {
-          id: el.pId,
-          name: el.name,
-          birth: el.birth,
-          category: {
-            id: el.pcId,
-            name: el.catName,
-            active: el.active
-          }
-        }
-      }
-    })
-  }
-
   async qTeacherThatNotBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
 
     const personSearch = `%${search.toString().toUpperCase()}%`
@@ -828,10 +789,11 @@ export class GenericController<T> {
         SELECT 
             tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
             qt.id AS question_id,
-            qg.id AS question_group_id, qg.name AS question_group_name
-                
+            qg.id AS question_group_id, qg.name AS question_group_name,
+            sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description
         FROM test_question AS tq
         INNER JOIN question AS qt ON tq.questionId = qt.id
+            LEFT JOIN skill AS sk ON qt.skillId = sk.id
         INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
         INNER JOIN test AS tt ON tq.testId = tt.id
         WHERE tt.id = ?
@@ -843,13 +805,6 @@ export class GenericController<T> {
   }
 
   async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {
-
-    // async createLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, CONN: EntityManager) {
-    //   for(let studentClassroom of studentClassrooms) {
-    //     const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: studentClassroom.student?.id } } } )
-    //     if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: userId, student: { id: studentClassroom.student.id }, test } ) }
-    //   }
-    // }
 
     for(let element of studentClassrooms) {
 
@@ -959,37 +914,47 @@ export class GenericController<T> {
     if(studentClassroomId) {
 
       let query = `
-        SELECT
-          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
-          student.id AS studentId, student.active,
-          person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor, alphabetic.observation,
-          test.id AS testId, test.name AS testName,
-          period.id AS periodId,
-          bim.id AS bimesterId,
-          year.id AS yearId,
-          al.id AS alphaFirstLevelId,
-          al.shortName AS alphaFirstLevelShortName,
-          al.name AS alphaFirstLevelName
-        FROM student_classroom
-          INNER JOIN student ON student_classroom.studentId = student.id
-          LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
-          LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
-          INNER JOIN person ON student.personId = person.id
-          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
-          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
-          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
-          INNER JOIN test ON alphabetic.testId = test.id
-          INNER JOIN discipline ON test.disciplineId = discipline.id
-          INNER JOIN test_category ON test.categoryId = test_category.id
-          INNER JOIN period ON test.periodId = period.id
-          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
-          INNER JOIN year ON period.yearId = year.id
-          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-          WHERE 
-              student_classroom.id = ? AND
-              (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
-              discipline.id = ? AND test_category.id
+          SELECT student_classroom.id,
+                 student_classroom.rosterNumber,
+                 student_classroom.startedAt,
+                 student_classroom.endedAt,
+                 student.id       AS studentId,
+                 student.active,
+                 person.id        AS personId,
+                 person.name      AS name,
+                 alphabetic.id    AS alphabeticId,
+                 alphabetic.alphabeticLevelId,
+                 alphabetic.rClassroomId,
+                 alphaLevel.color AS alphabeticLevelColor,
+                 alphabetic.observation,
+                 test.id          AS testId,
+                 test.name        AS testName,
+                 period.id        AS periodId,
+                 bim.id           AS bimesterId,
+                 year.id          AS yearId,
+                 al.id            AS alphaFirstLevelId,
+                 al.shortName     AS alphaFirstLevelShortName,
+                 al.name          AS alphaFirstLevelName
+          FROM student_classroom
+                   INNER JOIN student ON student_classroom.studentId = student.id
+                   LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
+                   LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
+                   INNER JOIN person ON student.personId = person.id
+                   LEFT JOIN alphabetic ON student.id = alphabetic.studentId
+                   LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+                   LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+                   INNER JOIN test ON alphabetic.testId = test.id
+                   INNER JOIN discipline ON test.disciplineId = discipline.id
+                   INNER JOIN test_category ON test.categoryId = test_category.id
+                   INNER JOIN period ON test.periodId = period.id
+                   INNER JOIN bimester AS bim ON period.bimesterId = bim.id
+                   INNER JOIN year ON period.yearId = year.id
+                   INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+          WHERE student_classroom.id = ?
+            AND (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?)
+            AND discipline.id = ?
+            AND test_category.id
+          ORDER BY student_classroom.rosterNumber, person.name
       `
 
       const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
@@ -1033,9 +998,6 @@ export class GenericController<T> {
             discipline.id = ? AND test_category.id
         ORDER BY student_classroom.rosterNumber, name
       `
-
-      // (student_classroom.startedAt < ? OR alphabetic.id IS NOT NULL) AND
-    // test.createdAt
 
     const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
 
@@ -1205,21 +1167,14 @@ export class GenericController<T> {
   }
 
   formatTestQuestions(arr: qTestQuestions[]) {
-    return arr.map(el => {
-      return {
-        id: el.test_question_id,
-        order: el.test_question_order,
-        answer: el.test_question_answer,
-        active: el.test_question_active,
-        question: {
-          id: el.question_id,
-        },
-        questionGroup: {
-          id: el.question_group_id,
-          name: el.question_group_name,
-        }
-      }
-    })
+    return arr.map(el => ({
+      id: el.test_question_id,
+      order: el.test_question_order,
+      answer: el.test_question_answer,
+      active: el.test_question_active,
+      question: { id: el.question_id, skill: { reference: el.skill_reference, description: el.skill_description } },
+      questionGroup: { id: el.question_group_id, name: el.question_group_name }
+    }))
   }
 
   formatAlphabeticTests(arr: qAlphaTests[]) {
@@ -1280,4 +1235,43 @@ export class GenericController<T> {
       return acc;
     }, {} as qFormatedYear)
   }
+
+  // async qOnlyOneTeacher(conn: PoolConnection, teacherId:number, search: string){
+  //
+  //   const personSearch = `%${search.toString().toUpperCase()}%`
+  //
+  //   const query =
+  //     `
+  //         SELECT t.id, t.email, t.register,
+  //                p.id AS pId, p.name, p.birth,
+  //                pc.id AS pcId, pc.name AS catName, pc.active
+  //         FROM teacher AS t
+  //             LEFT JOIN person AS p ON t.personId = p.id
+  //             LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+  //         WHERE t.id = ? AND p.name LIKE ?
+  //         ORDER BY p.name;
+  //     `
+  //
+  //   const [ queryResult ] = await conn.query(format(query), [teacherId, personSearch])
+  //
+  //   let result = queryResult as { [key: string]: any }[]
+  //
+  //   return result.map(el => {
+  //     return {
+  //       id: el.id,
+  //       email: el.email,
+  //       register: el.register,
+  //       person: {
+  //         id: el.pId,
+  //         name: el.name,
+  //         birth: el.birth,
+  //         category: {
+  //           id: el.pcId,
+  //           name: el.catName,
+  //           active: el.active
+  //         }
+  //       }
+  //     }
+  //   })
+  // }
 }

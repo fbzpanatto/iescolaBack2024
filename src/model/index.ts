@@ -34,6 +34,7 @@ import { ReadingFluency } from "./ReadingFluency";
 import { Alphabetic } from "./Alphabetic";
 import { AlphabeticLevel } from "./AlphabeticLevel";
 import { AlphabeticFirst } from "./AlphabeticFirst";
+import {Skill} from "./Skill";
 export const entities = [
   Alphabetic,
   AlphabeticLevel,
@@ -52,6 +53,7 @@ export const entities = [
   TestClassroom,
   School,
   State,
+  Skill,
   Student,
   StudentClassroom,
   StudentDisability,

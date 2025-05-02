@@ -2,6 +2,7 @@ import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "ty
 import { Descriptor } from "./Descriptor";
 import { TestQuestion } from "./TestQuestion";
 import { Person } from "./Person";
+import {Skill} from "./Skill";
 
 @Entity()
 export class Question {
@@ -14,6 +15,9 @@ export class Question {
 
   @ManyToOne(() => Descriptor, descriptor => descriptor.questions, { nullable: true })
   descriptor: Descriptor
+
+  @ManyToOne(() => Skill, skill => skill.questions, { nullable: true })
+  skill: Skill
 
   @OneToMany(() => TestQuestion, testQuestion => testQuestion.question)
   testQuestions: TestQuestion[]

@@ -20,6 +20,7 @@ import { QuesR } from "./routes/question";
 import { ReportRouter } from "./routes/report";
 import { SchoolRouter } from "./routes/school";
 import { StateRouter } from "./routes/state";
+import { SkillRouter } from "./routes/skill";
 import { StudentQuestionRouter } from "./routes/studentQuestion";
 import { StudentRouter } from "./routes/student";
 import { TeacherClassDisciplineRouter } from "./routes/teacherClassDiscipline";
@@ -67,6 +68,7 @@ route.use("/test", authorization, TestRouter);
 route.use("/history", authorization, HistoryRouter);
 route.use("/test-category", authorization, TestCategoryRouter);
 route.use("/topic", TopicRouter);
+route.use("/skill", SkillRouter);
 route.use("/transfer", authorization, TransferRouter);
 route.use("/user", authorization, UserRouter);
 route.use("/year", authorization, YearRouter)

@@ -22,29 +22,23 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import {
-  AllClassrooms,
-  AlphaHeaders, CityHall,
-  insertStudentsBody, notIncludedInterface,
-  qAlphaStuClassroomsFormated,
-  qReadingFluenciesHeaders,
-  qStudentClassroomFormated,
-  qStudentsClassroomsForTest, ReadingHeaders,
-  TestBodySave, Totals
-} from "../interfaces/interfaces";
-import { AlphabeticLevel } from "../model/AlphabeticLevel";
+import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
 import { School } from "../model/School";
 import { Disability } from "../model/Disability";
-import { dbConn } from "../services/db";
 import { Person } from "../model/Person";
 import { PoolConnection } from "mysql2/promise";
+import { Skill } from "../model/Skill";
+
+import { dbConn} from "../services/db";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
   async getStudents(req?: Request) {
+
+    console.log('getStudents')
 
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom)
@@ -181,6 +175,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
+
+            console.log('TEST_CATEGORIES_IDS.TEST_4_9')
 
             let testQuestionsIds: number[] = []
 
@@ -547,22 +543,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  // async studentClassrooms(test: Test, classroomId: number, yearName: string, CONN: EntityManager) {
-  //   return await CONN.getRepository(StudentClassroom)
-  //     .createQueryBuilder("studentClassroom")
-  //     .leftJoin("studentClassroom.year", "studentClassroomYear")
-  //     .leftJoin("studentClassroom.student", "student")
-  //     .addSelect(['student.id'])
-  //     .leftJoin("student.studentQuestions", "studentQuestions")
-  //     .where("studentClassroom.classroom = :classroomId", { classroomId })
-  //     .andWhere(new Brackets(qb => {
-  //       qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-  //       qb.orWhere("studentQuestions.id IS NOT NULL")
-  //     }))
-  //     .andWhere("studentClassroomYear.name = :yearName", { yearName })
-  //     .getMany();
-  // }
-
   async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let row of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: row.id } }}
@@ -614,6 +594,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .addOrderBy("person.name", "ASC")
       .getMany();
 
     return this.duplicatedStudents(studentClassrooms).map((sc: StudentClassroom) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) })) as StudentClassroom[]
@@ -917,7 +898,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     let sqlConnection = await dbConn()
 
     try {
-
       return await AppDataSource.transaction(async (CONN) => {
 
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
@@ -980,13 +960,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(haveQuestions.includes(body.category.id)) {
 
-          const tQts = body.testQuestions!.map((el: any) => ({
-            ...el,
-            createdAt: new Date(),
-            createdByUser: qUserTeacher.person.user.id,
-            question: { ...el.question, person: el.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id },
-            test: test
-          }))
+          const tQts = body.testQuestions!.map((el: any) => {
+            console.log('el', el)
+            return {
+              ...el,
+              createdAt: new Date(),
+              createdByUser: qUserTeacher.person.user.id,
+              question: { ...el.question, person: el.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id },
+              test: test
+            }
+          })
 
           await CONN.save(TestQuestion, tQts)
         }
@@ -1004,7 +987,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
-
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
 
         const userId = qUserTeacher.person.user.id
@@ -1031,6 +1013,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               if (this.diffs(curr.question, next.question)) { await CONN.save(Question, {...next.question,createdAt: curr.question.createdAt,createdByUser: curr.question.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.question.descriptor, next.question.descriptor)) { await CONN.save(Descriptor, { ...next.question.descriptor, createdAt: curr.question.descriptor.createdAt, createdByUser: curr.question.descriptor.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.question.descriptor.topic, next.question.descriptor.topic)) { await CONN.save(Topic, { ...next.question.descriptor.topic, createdAt: curr.question.descriptor.topic.createdAt, createdByUser: curr.question.descriptor.topic.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
+              if (this.diffs(curr.question.skill, next.question.skill)) { await CONN.save(Skill, { ...next.question.skill, createdAt: curr.question.skill.createdAt, createdByUser: curr.question.skill.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) { await CONN.save(ClassroomCategory, { ...next.question.descriptor.topic.classroomCategory, createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.questionGroup, next.questionGroup)) { await CONN.save(QuestionGroup, { ...next.questionGroup, createdAt: curr.questionGroup.createdAt, createdByUser: curr.questionGroup.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
             }
@@ -1059,20 +1042,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "skill.id", "skill.reference", "skill.description",  "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
     return await CONN.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
       .select(selectFields ?? fields)
       .leftJoin("testQuestion.question", "question")
       .leftJoin("question.person", "person")
       .leftJoin("question.descriptor", "descriptor")
+      .leftJoin("question.skill", "skill")
       .leftJoin("descriptor.topic", "topic")
       .leftJoin("topic.classroomCategory", "classroomCategory")
       .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .where("testQuestion.test = :testId", { testId })
+      .where("testQuestion.test = :testId", {testId})
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
-      .getMany();
+      .getMany()
   }
 
   async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
@@ -1104,6 +1088,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
+      .addOrderBy("person.name", "ASC")
       .getMany()
 
     return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
@@ -1568,6 +1553,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   diffs = (original: any, current: any): boolean => {
+    if(!original || !current) return false;
     if (original === current) return false;
     if (typeof original !== 'object' || original === null || current === null) return original !== current;
     const originalKeys = Object.keys(original);

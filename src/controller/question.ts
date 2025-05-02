@@ -47,6 +47,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
           .createQueryBuilder("question")
           .leftJoinAndSelect("question.person", "person")
           .leftJoinAndSelect("question.descriptor", "descriptor")
+          .leftJoinAndSelect("question.skill", "skill")
           .leftJoinAndSelect("descriptor.topic", "topic")
           .leftJoinAndSelect("topic.discipline", "discipline")
           .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")

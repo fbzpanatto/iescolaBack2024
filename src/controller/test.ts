@@ -37,9 +37,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
 
   async getStudents(req?: Request) {
-
-    console.log('getStudents')
-
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom)
     const studentClassroomId = Number(req?.query.stc)
@@ -175,8 +172,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.TEST_4_9): {
-
-            console.log('TEST_CATEGORIES_IDS.TEST_4_9')
 
             let testQuestionsIds: number[] = []
 
@@ -961,7 +956,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(haveQuestions.includes(body.category.id)) {
 
           const tQts = body.testQuestions!.map((el: any) => {
-            console.log('el', el)
             return {
               ...el,
               createdAt: new Date(),

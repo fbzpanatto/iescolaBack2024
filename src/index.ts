@@ -71,7 +71,7 @@ route.use("/topic", TopicRouter);
 route.use("/skill", SkillRouter);
 route.use("/transfer", authorization, TransferRouter);
 route.use("/user", authorization, UserRouter);
-route.use("/year", authorization, YearRouter)
+route.use("/year", authorization, YearRouter);
 
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);

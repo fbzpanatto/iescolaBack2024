@@ -316,6 +316,26 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         if (!qCurrentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
+        const preExistsCheck = await CONN.findOne(Student, { relations: ['person'], where: { ra: body.ra }})
+
+        if (preExistsCheck) {
+
+          const date = new Date(preExistsCheck.person.birth)
+          const formattedDate = date.toISOString().slice(0, 10)
+
+          const bodyDate = new Date(body.birth)
+          const formattedDateBody = bodyDate.toISOString().slice(0, 10)
+
+          const sameBirthDate = formattedDate === formattedDateBody
+
+          const localName = preExistsCheck.person.name
+          const bodyName = body.name
+
+          if (this.isSimilar(localName, bodyName) && sameBirthDate) {
+            return { status: 409, message: `Existe um aluno com dados semelhantes ao qual está tentando cadastrar. ${preExistsCheck.person.name}, RA ${preExistsCheck.ra} e nascimento ${ formattedDateBody }. Comunique ao Administrador do sistema.` }
+          }
+        }
+
         const exists = await CONN.findOne(Student, { where: { ra: body.ra, dv: body.dv } })
 
         if (exists) {
@@ -652,6 +672,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number, sqlConnection: any) {
+
     return await AppDataSource.transaction(async(CONN) => {
 
       const isOwner = options.owner === ISOWNER.OWNER;
@@ -695,7 +716,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .andWhere( new Brackets((qb) => {
           if (!masterUser) { qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: options.teacherClasses?.classrooms } ) } else { qb.andWhere( isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id)})}
         }))
-        .orderBy("school.shortName", "ASC")
+        .orderBy("transfersStatus.id", "DESC")
+        .addOrderBy("school.shortName", "ASC")
         .addOrderBy("classroom.shortName", "ASC")
         .addOrderBy("studentClassroom.rosterNumber", "ASC")
         .addOrderBy("person.name", "ASC")
@@ -806,6 +828,53 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   getOneClassroom(array: StudentClassroom[]): StudentClassroom {
     const index: number = array.findIndex((sc: StudentClassroom): boolean => getTimeZone(sc.endedAt) === Math.max(...array.map((sc: StudentClassroom) => getTimeZone(sc.endedAt))));
     return array[index];
+  }
+
+  normalizeString(str: string): string {
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .toLowerCase()
+      .trim()
+  }
+
+  levenshtein(a: string, b: string): number {
+    const m = a.length
+    const n = b.length
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i
+    for (let j = 0; j <= n; j++) dp[0][j] = j
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (a[i - 1] === b[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1]
+        } else {
+          dp[i][j] = 1 + Math.min(
+            dp[i - 1][j],     // remoção
+            dp[i][j - 1],     // inserção
+            dp[i - 1][j - 1]  // substituição
+          )
+        }
+      }
+    }
+
+    return dp[m][n]
+  }
+
+  isSimilar(a: string, b: string, threshold = 0.8): boolean {
+    const normA = this.normalizeString(a)
+    const normB = this.normalizeString(b)
+
+    const maxLength = Math.max(normA.length, normB.length)
+    if (maxLength === 0) return true // strings vazias = iguais
+
+    const dist = this.levenshtein(normA, normB)
+    const similarity = 1 - dist / maxLength
+
+    return similarity >= threshold
   }
 
   async graduate( studentId: number | string, body: GraduateBody ) {

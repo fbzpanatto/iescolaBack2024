@@ -9,7 +9,7 @@ import {
   qAlphaTests,
   qClassroom,
   qClassrooms,
-  qFormatedYear,
+  qFormatedYear, qPendingTransfers,
   qReadingFluenciesHeaders,
   qSchools,
   qState,
@@ -1017,6 +1017,48 @@ export class GenericController<T> {
     return  queryResult as Array<Transfer>
   }
 
+  async qPendingTransferStatusBySchool(conn: PoolConnection, year: number, transferStatus: number, schoolId: number) {
+    const query =
+
+      `
+        SELECT p.name, s.ra, s.dv, c.shortName AS requestedClassroom, sh.shortName As requestedSchool, ts.name AS status, currentClassroom.shortName AS currentClassroom, currentSchool.shortName AS currentSchool
+        FROM transfer AS t
+         INNER JOIN student AS s ON t.studentId = s.id
+         INNER JOIN person AS p ON s.personId = p.id
+         INNER JOIN transfer_status AS ts ON t.statusId = ts.id
+         INNER JOIN classroom AS c ON t.requestedClassroomId = c.id
+         INNER JOIN classroom AS currentClassroom ON t.currentClassroomId = currentClassroom.id
+         INNER JOIN school AS currentSchool ON currentClassroom.schoolId = currentSchool.id
+         INNER JOIN school AS sh ON c.schoolId = sh.id
+         INNER JOIN year AS y ON t.yearId = y.id
+        WHERE y.id = ? AND ts.id = ? AND currentSchool.id = ?;
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [year, transferStatus, schoolId])
+    return  queryResult as Array<qPendingTransfers>
+  }
+
+  async qAllPendingTransferStatusBySchool(conn: PoolConnection, year: number, transferStatus: number) {
+    const query =
+
+      `
+        SELECT p.name, s.ra, s.dv, c.shortName AS requestedClassroom, sh.shortName As requestedSchool, ts.name AS status, currentClassroom.shortName AS currentClassroom, currentSchool.shortName AS currentSchool
+        FROM transfer AS t
+         INNER JOIN student AS s ON t.studentId = s.id
+         INNER JOIN person AS p ON s.personId = p.id
+         INNER JOIN transfer_status AS ts ON t.statusId = ts.id
+         INNER JOIN classroom AS c ON t.requestedClassroomId = c.id
+         INNER JOIN classroom AS currentClassroom ON t.currentClassroomId = currentClassroom.id
+         INNER JOIN school AS currentSchool ON currentClassroom.schoolId = currentSchool.id
+         INNER JOIN school AS sh ON c.schoolId = sh.id
+         INNER JOIN year AS y ON t.yearId = y.id
+        WHERE y.id = ? AND ts.id = ?
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [year, transferStatus])
+    return  queryResult as Array<qPendingTransfers>
+  }
+
   async qCurrentTeacherStudents(conn: PoolConnection, classrooms: number[], student: string | number, masterTeacher: boolean, limit: number, offset: number) {
 
     const studentSearch = `%${student.toString().toUpperCase()}%`
@@ -1235,43 +1277,4 @@ export class GenericController<T> {
       return acc;
     }, {} as qFormatedYear)
   }
-
-  // async qOnlyOneTeacher(conn: PoolConnection, teacherId:number, search: string){
-  //
-  //   const personSearch = `%${search.toString().toUpperCase()}%`
-  //
-  //   const query =
-  //     `
-  //         SELECT t.id, t.email, t.register,
-  //                p.id AS pId, p.name, p.birth,
-  //                pc.id AS pcId, pc.name AS catName, pc.active
-  //         FROM teacher AS t
-  //             LEFT JOIN person AS p ON t.personId = p.id
-  //             LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-  //         WHERE t.id = ? AND p.name LIKE ?
-  //         ORDER BY p.name;
-  //     `
-  //
-  //   const [ queryResult ] = await conn.query(format(query), [teacherId, personSearch])
-  //
-  //   let result = queryResult as { [key: string]: any }[]
-  //
-  //   return result.map(el => {
-  //     return {
-  //       id: el.id,
-  //       email: el.email,
-  //       register: el.register,
-  //       person: {
-  //         id: el.pId,
-  //         name: el.name,
-  //         birth: el.birth,
-  //         category: {
-  //           id: el.pcId,
-  //           name: el.catName,
-  //           active: el.active
-  //         }
-  //       }
-  //     }
-  //   })
-  // }
 }

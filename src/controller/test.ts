@@ -702,6 +702,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
+  async deleteStudentFromTest(req: Request) {
+
+    let sqlConnection = await dbConn()
+
+    try {
+
+      const { classroom, studentClassroomId } = req.params
+
+      await this.qDeleteStudentFromTest(sqlConnection, Number(classroom), Number(studentClassroomId))
+
+      return { status: 200, data: {} };
+    }
+    catch (error: any) {
+      console.log('deleteStudent', error)
+      return { status: 500, message: error.message }
+    }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
   async insertStudents(req: Request) {
 
     let sqlConnection = await dbConn()

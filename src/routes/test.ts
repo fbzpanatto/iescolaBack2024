@@ -1,6 +1,6 @@
 import { Router, Request } from "express"
 import { testController as controller } from "../controller/test"
-import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
+import {VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID} from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]
@@ -35,6 +35,10 @@ TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: any) 
 
 TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: any) => {
   const response = await controller.insertStudents(req); return res.status(response.status).json(response)
+});
+
+TestRouter.delete('/:id/:classroom/delete/:studentClassroomId', [...CHECK_ID_CLASS, STUDENT_CLASSROOM_ID], havePermission, async (req: Request, res: any) => {
+  const response = await controller.deleteStudentFromTest(req); return res.status(response.status).json(response)
 });
 
 TestRouter.post('/', havePermission, async (req: Request, res: any) => {

@@ -356,6 +356,34 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
+  async qDeleteStudentFromTest(conn: PoolConnection, classroomId: number, studentClassroomId: number) {
+    try {
+      // Inicia a transação
+      await conn.beginTransaction();
+
+      // Primeiro, exclui o status de teste do aluno
+      await conn.query(
+        `DELETE FROM student_test_status WHERE studentClassroomId = ?`,
+        [studentClassroomId]
+      );
+
+      // Depois, exclui o vínculo do aluno com a sala
+      const [result] = await conn.query(
+        `DELETE FROM student_classroom WHERE id = ? AND classroomId = ?`,
+        [studentClassroomId, classroomId]
+      );
+
+      // Finaliza a transação com sucesso
+      await conn.commit();
+      return result;
+
+    } catch (error) {
+      // Reverte qualquer alteração em caso de erro
+      await conn.rollback();
+      throw error;
+    }
+  }
+
   async qAllTeachersForSuperUser(conn: PoolConnection, search: string){
 
     const personSearch = `%${search.toString().toUpperCase()}%`

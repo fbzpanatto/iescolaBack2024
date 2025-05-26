@@ -281,7 +281,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
               .filter((item: any) => !item.ignore);
 
 
-            return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id,
+            return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0,
               totals: qTestQuestions.map(tQ => {
 
                 if(!tQ.active) {
@@ -336,7 +336,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }
         }
 
-        const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults }
+        const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults, schoolAvg: 0 }
 
         const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
@@ -348,7 +348,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           }))
         }))
 
-        data = { ...formatedTest, schools: [...schools, cityHall], testQuestions: qTestQuestions, questionGroups, answersLetters };
+        const mappedSchools = [...schools, cityHall].map((school) => {
+
+          const tNumberTotal = school.totals.reduce((acc, item) => acc + item.tNumber, 0);
+          const tPercentTotal = school.totals.reduce((acc, item) => acc + item.tPercent, 0);
+
+          return { ...school, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
+        })
+
+        data = { ...formatedTest, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters };
 
         break;
       }

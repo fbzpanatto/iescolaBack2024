@@ -821,6 +821,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return AppDataSource.transaction(async(CONN) => {
 
+        const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null
         const search = req.query.search as string
         const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
         const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
@@ -857,6 +858,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if (!masterTeacher) {
               qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
               qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: disciplines });
+            }
+            if(bimesterId) {
+              qb.andWhere("bimester.id = :bimesterId", { bimesterId })
             }
           }))
           .andWhere("year.name = :yearName", { yearName })

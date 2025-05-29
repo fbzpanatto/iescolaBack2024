@@ -62,6 +62,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
     const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
     const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null
+    const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null
 
     let sqlConnection = await dbConn()
 
@@ -87,9 +88,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             if (!masterUser) {
               qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
             }
-            if(bimesterId) {
-              qb.andWhere("bimester.id = :bimesterId", { bimesterId })
-            }
+            if(bimesterId) { qb.andWhere("bimester.id = :bimesterId", { bimesterId }) }
+            if(disciplineId) { qb.andWhere("discipline.id = :disciplineId", { disciplineId }) }
           }))
           .andWhere("year.name = :yearName", { yearName: req.params.year as string })
           .andWhere("test.name LIKE :search", { search: `%${ req.query.search as string }%` })

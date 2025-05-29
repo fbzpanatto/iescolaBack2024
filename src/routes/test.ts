@@ -1,6 +1,6 @@
 import { Router, Request } from "express"
 import { testController as controller } from "../controller/test"
-import {VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID} from "../middleware/validators";
+import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]

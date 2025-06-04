@@ -6,6 +6,16 @@ import { ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 
 export const ReportRouter = Router();
 
+ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, res: any) => {
+  const data: Data = await controller.getAggregate(req);
+  return res.status(data.status).json(data);
+})
+
+ReportRouter.get('/aggregate/:classroom/:bimester/:year', havePermission, async (req: Request, res: any) => {
+  const data: Data = await controller.aggregatedTestResult(req);
+  return res.status(data.status).json(data);
+})
+
 ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) =>
   { const data: Data = await controller.reportFindAll(req); return res.status(data.status).json(data) }
 )

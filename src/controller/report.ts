@@ -111,6 +111,75 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
+  async aggregatedTestResult(req: Request) {
+    const sqlConnection = await dbConn();
+
+    try {
+      const localTests = (await this.getAggregate(req)).data;
+      const response: any = {
+        headers: [],
+        schools: []
+      };
+
+      if (!localTests?.length) {
+        return { status: 200, data: response };
+      }
+
+      const schoolMap = new Map<number, any>();
+
+      for (const el of localTests) {
+        const { data: test } = await AppDataSource.transaction(async (CONN) =>
+          this.wrapper(CONN, sqlConnection, el.id.toString(), req.params.year)
+        );
+
+        response.headers.push(el.disciplineName);
+        response.testName ??= el.category;
+        response.classroom ??= `${req.params.classroom}° anos`;
+        response.bimester ??= el.bimester;
+        response.year ??= req.params.year;
+
+        for (const school of test!.schools) {
+          if (!schoolMap.has(school.id)) {
+            const schoolData = {
+              id: school.id,
+              name: school.name,
+              shortName: school.shortName,
+              schoolAvg: [(school as any).schoolAvg]
+            };
+            schoolMap.set(school.id, schoolData);
+            response.schools.push(schoolData);
+          } else {
+            schoolMap.get(school.id).schoolAvg.push((school as any).schoolAvg);
+          }
+        }
+      }
+      return { status: 200, data: response };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { sqlConnection?.release() }
+  }
+
+  async getAggregate(req: Request) {
+
+    let sqlConnection = await dbConn()
+
+    const classroom = req.query.classroom ?? req.params.classroom
+    const bimester = req.query.bimester ?? req.params.bimester
+    const year = req.params.year as string
+
+    try {
+
+      if(!classroom || !bimester) { return { status: 400, message: "Parâmetros inválidos. É necessário informar o ID da turma e do bimestre." } }
+
+      let data = await this.qAggregateTest(sqlConnection, year, Number(classroom as string), Number(bimester as string))
+
+      return { status: 200, data };
+
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
   async wrapper(CONN: EntityManager, sqlConnection: PoolConnection, testId: string, yearName: string) {
 
     let data;
@@ -288,7 +357,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
               .map(item => duplicatedStudentIds.has(item.id) ? { ...item, ignore: true } : item)
               .filter((item: any) => !item.ignore);
 
-
             return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0,
               totals: qTestQuestions.map(tQ => {
 
@@ -395,6 +463,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       .andWhere("periodYear.id = :yearId", { yearId: year.id })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
+      .addOrderBy("school.shortName", "ASC")
       .getMany()
   }
 }

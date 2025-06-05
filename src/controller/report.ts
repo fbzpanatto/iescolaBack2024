@@ -155,7 +155,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       }
       return { status: 200, data: response };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log('aggregatedTestResult', error)
+      return { status: 500, message: error.message }
+    }
     finally { sqlConnection?.release() }
   }
 
@@ -176,7 +179,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       return { status: 200, data };
 
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log('getAggregate', error)
+      return { status: 500, message: error.message }
+    }
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 

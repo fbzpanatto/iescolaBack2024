@@ -277,7 +277,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const totalCityHallColumn: any[] = []
         const examTotalCityHall = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
-        const localSchoolsAllSchools = localSchools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[] }[], school) => {
+        const localSchoolsAllSchools = localSchools.reduce((acc: { id: number, name: string, shortName: string, percentTotalByColumn: number[], totalByColumn: number[] }[], school) => {
 
           let totalNuColumn: any[] = []
           const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
@@ -305,9 +305,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             examTotalCityHall[hD.readingFluencyExamId] += value
           }
 
+          const totalByColumn = totalNuColumn.map((el: any) => el.total)
           const percentTotalByColumn = totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
 
-          acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn })
+          acc.push({ id: school.id, name: school.name, shortName: school.shortName, percentTotalByColumn, totalByColumn })
 
           return acc
         }, [])
@@ -316,10 +317,11 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           id: 999,
           name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
           shortName: 'ITATIBA',
+          totalByColumn: totalCityHallColumn.map(item => item.total),
           percentTotalByColumn: totalCityHallColumn.map(item => item.total = Math.floor((item.total / examTotalCityHall[item.readingFluencyExamId]) * 10000) / 100)
         }
 
-        data = { ...formatedTest, fluencyHeaders, schools: [...localSchoolsAllSchools, cityHall], localSchools }
+        data = { ...formatedTest, fluencyHeaders, schools: [...localSchoolsAllSchools, cityHall] }
 
         break;
       }

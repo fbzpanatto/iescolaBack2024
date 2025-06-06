@@ -435,7 +435,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           const tNumberTotal = school.totals.reduce((acc, item) => acc + item.tNumber, 0);
           const tPercentTotal = school.totals.reduce((acc, item) => acc + item.tPercent, 0);
 
-          return { ...school, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
+          return { ...school, tNumberTotal, tPercentTotal, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
         })
 
         data = { ...formatedTest, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters };

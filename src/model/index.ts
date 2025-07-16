@@ -36,6 +36,8 @@ import { AlphabeticLevel } from "./AlphabeticLevel";
 import { AlphabeticFirst } from "./AlphabeticFirst";
 import { Skill } from "./Skill";
 import { Training } from "./Training";
+import { TrainingSchedule } from "./TrainingSchedule";
+
 export const entities = [
   Alphabetic,
   AlphabeticLevel,
@@ -53,6 +55,7 @@ export const entities = [
   QuestionGroup,
   TestClassroom,
   Training,
+  TrainingSchedule,
   School,
   State,
   Skill,

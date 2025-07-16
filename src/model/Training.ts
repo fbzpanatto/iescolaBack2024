@@ -1,7 +1,8 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Length } from "class-validator";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
+import { TrainingSchedule } from "./TrainingSchedule";
 
 @Entity()
 export class Training {
@@ -18,6 +19,9 @@ export class Training {
 
   @Column({ length: 100, nullable: true })
   observation: string
+
+  @OneToMany(() => TrainingSchedule, trainingSchedule => trainingSchedule.training)
+  trainingSchedules: TrainingSchedule[]
 
   @ManyToOne(() => ClassroomCategory, category => category.trainings, { nullable: false })
   category: ClassroomCategory

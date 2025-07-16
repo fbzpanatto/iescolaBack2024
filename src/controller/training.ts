@@ -3,6 +3,7 @@ import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { dbConn } from "../services/db";
 import { GenericController } from "./genericController";
+import { TrainingAndSchedulesBody } from "../interfaces/interfaces";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
   constructor() { super(Training) }
@@ -21,13 +22,19 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async saveTraining(body: {[key: string]: any}) {
+  async saveTraining(body: TrainingAndSchedulesBody) {
 
     let sqlConnection = await dbConn()
 
     try {
 
-      console.log('body', body)
+      const { name, classroom, discipline, category, observation } = body
+
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+
+      const training = await this.qNewTraining(sqlConnection, name, category, classroom, qUserTeacher.person.user.id, discipline, observation)
+
+      console.log(training)
 
       return { status: 201, data: {} }
     }

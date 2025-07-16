@@ -101,6 +101,15 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
+  async qNewTraining(conn: PoolConnection, name: string, category: number, classroom: number, createdByUser: number, discipline?: number, observation?: string) {
+    const insertQuery = `
+        INSERT INTO training (name, categoryId, classroom, createdByUser, updatedByUser, disciplineId, observation)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `
+    const [ queryResult ] = await conn.query(format(insertQuery), [name, category, classroom, createdByUser, createdByUser, discipline, observation])
+    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+  }
+
   async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
     const qYear =
 

@@ -32,6 +32,6 @@ export class Training {
   @Column({ nullable: false, select: false })
   createdByUser: number
 
-  @Column({ nullable: false, select: false })
+  @Column({ nullable: true, select: false })
   updatedByUser: number
 }

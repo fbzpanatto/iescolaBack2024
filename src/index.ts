@@ -19,6 +19,7 @@ import { QGroupR } from "./routes/questionGroup";
 import { QuesR } from "./routes/question";
 import { ReportRouter } from "./routes/report";
 import { SchoolRouter } from "./routes/school";
+import { TrainingRouter } from "./routes/training";
 import { StateRouter } from "./routes/state";
 import { SkillRouter } from "./routes/skill";
 import { StudentQuestionRouter } from "./routes/studentQuestion";
@@ -33,7 +34,6 @@ import { TopicRouter } from "./routes/topic";
 import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
-
 import { PasswordRouter } from "./routes/password";
 
 const app: Application = express();
@@ -60,6 +60,7 @@ route.use("/report", authorization, ReportRouter);
 route.use("/school", authorization, SchoolRouter);
 route.use("/state", authorization, StateRouter);
 route.use("/student", authorization, StudentRouter);
+route.use("/training", authorization, TrainingRouter);
 route.use("/student-question", authorization, StudentQuestionRouter);
 route.use("/teacher", authorization, TeacherRouter);
 route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRouter );

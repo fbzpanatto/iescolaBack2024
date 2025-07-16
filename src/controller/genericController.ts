@@ -36,6 +36,7 @@ import {Test} from "../model/Test";
 import {Transfer} from "../model/Transfer";
 import {Discipline} from "../model/Discipline";
 import {Teacher} from "../model/Teacher";
+import {ClassroomCategory} from "../model/ClassroomCategory";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1063,6 +1064,32 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [year, status])
     return  queryResult as Array<Transfer>
+  }
+
+  async qClassroomCategories(conn: PoolConnection) {
+    const query = `SELECT id, name FROM classroom_category`
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<ClassroomCategory>
+  }
+
+  async qDisciplines(conn: PoolConnection) {
+    const query = `SELECT id, name FROM discipline`
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<Discipline>
+  }
+
+  async qNumberClassrooms(conn: PoolConnection) {
+    const query =
+      `
+          SELECT DISTINCT CAST(LEFT(shortName, 1) AS UNSIGNED) AS classroom_number, cc.id AS categoryId, cc.name AS categoryName
+          FROM classroom AS c
+                   INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+          WHERE c.active = 1
+            AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) BETWEEN 1 AND 9
+          ORDER BY classroom_number
+      `
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<any>
   }
 
   async qPendingTransferStatusBySchool(conn: PoolConnection, year: number, transferStatus: number, schoolId: number) {

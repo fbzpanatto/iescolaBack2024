@@ -1,0 +1,49 @@
+import { Schema } from "express-validator";
+import { USER_SCHEMA } from "./user";
+
+export const TRAINING_SCHEMA: Schema = {
+  id: {
+    optional: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  name: {
+    exists: true,
+    escape: true,
+    isString: true
+  },
+  category: {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  discipline: {
+    optional: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  disciplineName: {
+    optional: true,
+    escape: true,
+    isString: true
+  },
+  observation: {
+    optional: true,
+    escape: true,
+    isString: true
+  },
+  classroom: {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  trainingSchedules: {
+    optional: true,
+  },
+  user: { optional: true },
+  ...USER_SCHEMA,
+}

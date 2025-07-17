@@ -1,8 +1,9 @@
-import {Entity, Column, PrimaryGeneratedColumn, OneToMany, Index} from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany, Index } from "typeorm"
 import { Length } from "class-validator";
 import { Period } from "./Period";
-import {StudentClassroom} from "./StudentClassroom";
-import {Transfer} from "./Transfer";
+import { StudentClassroom } from "./StudentClassroom";
+import { Transfer } from "./Transfer";
+import { Training } from "./Training";
 
 @Entity()
 export class Year {
@@ -26,6 +27,9 @@ export class Year {
 
   @OneToMany(() => Period, p => p.year)
   periods: Period[]
+
+  @OneToMany(() => Training, t => t.year)
+  trainings: Training[]
 
   @OneToMany(() => StudentClassroom, sc => sc.year)
   studentClassrooms: StudentClassroom[]

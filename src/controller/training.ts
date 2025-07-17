@@ -11,19 +11,22 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
   async getAll(req: Request) {
 
-    let sqlConnection: PoolConnection | null = null;
+    let conn: PoolConnection | null = null;
 
     const { year } = req.params;
     const { search, peb, limit, offset } = req.query;
 
-    console.log(year, search, peb, limit, offset);
-
     try {
-      sqlConnection = await dbConn();
-      return { status: 200, data: [] };
+      conn = await dbConn();
+
+      const qYear = await this.qYearByName(conn, year);
+
+      const trainings = await this.qTrainings(conn, qYear.id, search as string, parseInt(peb as string), parseInt(limit as string), parseInt(offset as string));
+
+      return { status: 200, data: trainings };
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    finally { if(conn) { conn.release() } }
   }
 
   async trainingForm(req: Request) {
@@ -42,51 +45,40 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
   async saveTraining(body: TrainingAndSchedulesBody) {
 
-    let sqlConnection = await dbConn();
+    let conn = await dbConn();
 
     try {
 
       const { name, classroom, discipline, category, observation, trainingSchedules } = body;
 
-      await sqlConnection.beginTransaction();
+      await conn.beginTransaction();
 
-      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user);
+      const currentYear = await this.qCurrentYear(conn);
 
-      const training = await this.qNewTraining(
-        sqlConnection,
-        name,
-        category,
-        classroom,
-        qUserTeacher.person.user.id,
-        discipline,
-        observation
-      );
+      const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      await this.qNewTrainingSchedules(
-        sqlConnection,
-        training.insertId,
-        qUserTeacher.person.user.id,
-        trainingSchedules
-      );
+      const training = await this.qNewTraining(conn, currentYear.id, name, category, classroom, teacher.person.user.id, discipline, observation);
 
-      await sqlConnection.commit();
+      await this.qNewTrainingSchedules(conn, training.insertId, teacher.person.user.id, trainingSchedules);
+
+      await conn.commit();
 
       return { status: 201, data: { message: 'OK', trainingId: training.insertId } };
     }
-    catch (error: any) { if(sqlConnection){ await sqlConnection.rollback() } return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) { if(conn){ await conn.rollback() } return { status: 500, message: error.message } }
+    finally { if(conn) { conn.release() } }
   }
 
   async updateTraining(id: string, body: {[key: string]: any }) {
 
-    let sqlConnection = await dbConn()
+    let conn = await dbConn()
 
     try {
 
       return { status: 204, data: { message: 'done.' } }
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    finally { if(conn) { conn.release() } }
 
   }
 }

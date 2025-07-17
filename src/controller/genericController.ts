@@ -101,13 +101,13 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async qNewTraining(conn: PoolConnection, name: string, category: number, classroom: number, createdByUser: number, discipline?: number, observation?: string ) {
+  async qNewTraining(conn: PoolConnection, yearId: number, name: string, category: number, classroom: number, createdByUser: number, discipline?: number, observation?: string ) {
     const insertQuery = `
-        INSERT INTO training (name, categoryId, classroom, createdByUser, updatedByUser, disciplineId, observation)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO training (name, yearId, categoryId, classroom, createdByUser, updatedByUser, disciplineId, observation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [name, category, classroom, createdByUser, createdByUser, discipline || null, observation || null])
+    const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [name, yearId, category, classroom, createdByUser, createdByUser, discipline || null, observation || null])
     return queryResult;
   }
 
@@ -1085,6 +1085,50 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [year, status])
     return  queryResult as Array<Transfer>
+  }
+
+  async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
+
+    const trainingSearch = `%${search.toString().toUpperCase()}%`
+
+    const query =
+      `
+          SELECT
+              t.id AS id,
+              t.name AS name,
+              t.classroom AS classroom,
+              t.observation AS observation,
+              d.name AS discipline,
+              cc.name AS category,
+              y.name AS year,
+              p.name AS createdBy,
+              COUNT(DISTINCT ts.id) AS availability
+          FROM training AS t
+                   INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                   INNER JOIN year AS y ON t.yearId = y.id
+                   INNER JOIN user AS u ON t.createdByUser = u.id
+                   INNER JOIN person AS p ON u.personId = p.id
+                   LEFT JOIN discipline AS d ON t.disciplineId = d.id
+                   LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
+          WHERE t.yearId = ? AND UPPER(t.name) LIKE ? AND t.categoryId = ?
+          GROUP BY t.id, t.name, t.classroom, t.observation, d.name, cc.name, y.name, p.name
+          LIMIT ?
+          OFFSET ?
+      `
+
+    const [ queryResult ] = await conn.query(query, [yearId, trainingSearch, peb, limit, offset])
+
+    return queryResult as Array<{
+      id: number,
+      name: string,
+      classroom: string,
+      observation: string,
+      discipline: string,
+      category: string,
+      year: string,
+      createdBy: string,
+      availability: number
+    }>
   }
 
   async qClassroomCategories(conn: PoolConnection) {

@@ -3,6 +3,7 @@ import { Length } from "class-validator";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
 import { TrainingSchedule } from "./TrainingSchedule";
+import { Year } from "./Year";
 
 @Entity()
 export class Training {
@@ -25,6 +26,9 @@ export class Training {
 
   @ManyToOne(() => ClassroomCategory, category => category.trainings, { nullable: false })
   category: ClassroomCategory
+
+  @ManyToOne(() => Year, year => year.trainings, { nullable: false })
+  year: Year
 
   @ManyToOne(() => Discipline, discipline => discipline.trainings, { nullable: true })
   discipline: Discipline

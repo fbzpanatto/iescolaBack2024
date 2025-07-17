@@ -20,15 +20,10 @@ export const TRAINING_SCHEMA: Schema = {
     toInt: true
   },
   discipline: {
-    optional: true,
-    escape: true,
-    isInt: true,
-    toInt: true
+    optional: true
   },
   disciplineName: {
-    optional: true,
-    escape: true,
-    isString: true
+    optional: true
   },
   observation: {
     optional: true,

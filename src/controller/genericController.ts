@@ -30,7 +30,7 @@ import {
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
-import {PoolConnection} from "mysql2/promise";
+import {PoolConnection, ResultSetHeader} from "mysql2/promise";
 import {format} from "mysql2";
 import {Test} from "../model/Test";
 import {Transfer} from "../model/Transfer";
@@ -101,13 +101,25 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async qNewTraining(conn: PoolConnection, name: string, category: number, classroom: number, createdByUser: number, discipline?: number, observation?: string) {
+  async qNewTraining(conn: PoolConnection, name: string, category: number, classroom: number, createdByUser: number, discipline?: number, observation?: string ) {
     const insertQuery = `
         INSERT INTO training (name, categoryId, classroom, createdByUser, updatedByUser, disciplineId, observation)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    `
-    const [ queryResult ] = await conn.query(format(insertQuery), [name, category, classroom, createdByUser, createdByUser, discipline, observation])
-    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+    `;
+
+    const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [name, category, classroom, createdByUser, createdByUser, discipline || null, observation || null])
+    return queryResult;
+  }
+
+  async qNewTrainingSchedules(conn: PoolConnection, trainingId: number, createdByUser: number, trainingSchedules: Array<{ id: number | null, trainingId: number | null, dateTime: string, active: boolean }>) {
+    const insertQuery = `
+    INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+    for (const item of trainingSchedules) {
+      await conn.query(format(insertQuery), [trainingId, item.dateTime, item.active, createdByUser, createdByUser]);
+    }
   }
 
   async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {

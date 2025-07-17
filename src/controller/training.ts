@@ -4,9 +4,27 @@ import { EntityTarget } from "typeorm";
 import { dbConn } from "../services/db";
 import { GenericController } from "./genericController";
 import { TrainingAndSchedulesBody } from "../interfaces/interfaces";
+import { PoolConnection } from "mysql2/promise";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
   constructor() { super(Training) }
+
+  async getAll(req: Request) {
+
+    let sqlConnection: PoolConnection | null = null;
+
+    const { year } = req.params;
+    const { search, peb, limit, offset } = req.query;
+
+    console.log(year, search, peb, limit, offset);
+
+    try {
+      sqlConnection = await dbConn();
+      return { status: 200, data: [] };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
 
   async trainingForm(req: Request) {
 
@@ -24,21 +42,38 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
   async saveTraining(body: TrainingAndSchedulesBody) {
 
-    let sqlConnection = await dbConn()
+    let sqlConnection = await dbConn();
 
     try {
 
-      const { name, classroom, discipline, category, observation } = body
+      const { name, classroom, discipline, category, observation, trainingSchedules } = body;
 
-      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+      await sqlConnection.beginTransaction();
 
-      const training = await this.qNewTraining(sqlConnection, name, category, classroom, qUserTeacher.person.user.id, discipline, observation)
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user);
 
-      console.log(training)
+      const training = await this.qNewTraining(
+        sqlConnection,
+        name,
+        category,
+        classroom,
+        qUserTeacher.person.user.id,
+        discipline,
+        observation
+      );
 
-      return { status: 201, data: {} }
+      await this.qNewTrainingSchedules(
+        sqlConnection,
+        training.insertId,
+        qUserTeacher.person.user.id,
+        trainingSchedules
+      );
+
+      await sqlConnection.commit();
+
+      return { status: 201, data: { message: 'OK', trainingId: training.insertId } };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) { if(sqlConnection){ await sqlConnection.rollback() } return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
@@ -48,7 +83,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      return { status: 201, data: { message: 'done.' } }
+      return { status: 204, data: { message: 'done.' } }
     }
     catch (error: any) { return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }

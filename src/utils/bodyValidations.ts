@@ -11,6 +11,5 @@ export const invalidValues = (res: any, _: Request) => {
 export const unexpectedFn = (req: Request, res: any, next: NextFunction, schema: Object) => {
   const msg = 'Campo(s) inesperado(s) no corpo da requisição.'
   const unexpectedFields = Object.keys(req.body).filter(key => !schema.hasOwnProperty(key));
-  console.log(unexpectedFields)
   return unexpectedFields.length ? res.status(400).json(ojbRes(400, msg)) : next()
 }

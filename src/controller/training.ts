@@ -92,6 +92,9 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
+      console.log(id);
+      console.log(body);
+
       return { status: 204, data: { message: 'done.' } }
     }
     catch (error: any) { return { status: 500, message: error.message } }

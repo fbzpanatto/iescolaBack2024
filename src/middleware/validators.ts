@@ -42,7 +42,6 @@ export const BODY_VALIDATION_TEACHER = (req: Request, res: Response, next: NextF
 //TRAINING
 export const VALIDATE_TRAINING = checkSchema(TRAINING_SCHEMA)
 export const BODY_VALIDATION_TRAINING = (req: Request, res: Response, next: NextFunction) => {
-  console.log(validationResult(req))
   return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, TRAINING_SCHEMA)
 }
 

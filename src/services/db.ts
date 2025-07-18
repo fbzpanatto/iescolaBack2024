@@ -14,7 +14,12 @@ export const connectionPool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  dateStrings: true
+  dateStrings: true,
+  timezone: '-03:00'
 });
 
-export async function dbConn() { return await connectionPool.getConnection() }
+export async function dbConn() {
+  const connection = await connectionPool.getConnection();
+  await connection.query("SET time_zone = '-03:00'");
+  return connection;
+}

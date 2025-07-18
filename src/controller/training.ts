@@ -3,7 +3,7 @@ import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { dbConn } from "../services/db";
 import { GenericController } from "./genericController";
-import { TrainingAndSchedulesBody } from "../interfaces/interfaces";
+import {TrainingAndSchedulesBody, TrainingBody} from "../interfaces/interfaces";
 import { PoolConnection } from "mysql2/promise";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
@@ -86,20 +86,72 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
-  async updateTraining(id: string, body: {[key: string]: any }) {
+  async updateTraining(id: string, body: TrainingAndSchedulesBody) {
 
-    let conn = await dbConn()
+    let conn = await dbConn();
 
     try {
 
-      console.log(id);
-      console.log(body);
+      // Validações básicas
+      const trainingId = parseInt(id);
+      if (isNaN(trainingId)) {
+        return { status: 400, message: 'ID inválido' };
+      }
 
-      return { status: 204, data: { message: 'done.' } }
+      const { name, classroom, discipline, category, observation, trainingSchedules } = body;
+
+      if (!name || !classroom || !category) {
+        return { status: 400, message: 'Dados obrigatórios não fornecidos' };
+      }
+
+      // Verifica se o training existe
+      const existingTraining = await this.qOneTraining(conn, trainingId);
+      if (!existingTraining) {
+        return { status: 404, message: 'Training não encontrado' };
+      }
+
+      // Inicia transação
+      await conn.beginTransaction();
+
+      // Busca o usuário que está fazendo a atualização
+      const teacher = await this.qTeacherByUser(conn, body.user.user);
+
+      // Atualiza o training
+      await this.qUpdateTraining(
+        conn,
+        trainingId,
+        name,
+        category,
+        classroom,
+        teacher.person.user.id,
+        discipline,
+        observation
+      );
+
+      // Atualiza os schedules
+      await this.qUpdateTrainingSchedules(
+        conn,
+        trainingId,
+        teacher.person.user.id,
+        trainingSchedules
+      );
+
+      await conn.commit();
+
+      return { status: 200, data: { message: 'Training atualizado com sucesso' } };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(conn) { conn.release() } }
-
+    catch (error: any) {
+      if (conn) {
+        await conn.rollback();
+      }
+      console.error('Erro ao atualizar training:', error);
+      return { status: 500, message: error.message };
+    }
+    finally {
+      if (conn) {
+        conn.release();
+      }
+    }
   }
 }
 

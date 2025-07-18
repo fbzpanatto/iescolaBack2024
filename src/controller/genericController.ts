@@ -377,6 +377,106 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
+  async qUpdateTraining(
+    conn: PoolConnection,
+    id: number,
+    name: string,
+    category: number,
+    classroom: number,
+    updatedByUser: number,
+    discipline?: number,
+    observation?: string
+  ) {
+    const updateQuery = `
+    UPDATE training 
+    SET 
+      name = ?, 
+      categoryId = ?, 
+      classroom = ?, 
+      disciplineId = ?, 
+      observation = ?, 
+      updatedByUser = ?
+    WHERE id = ?
+  `;
+
+    const [queryResult] = await conn.query<ResultSetHeader>(
+      updateQuery,
+      [name, category, classroom, discipline || null, observation || null, updatedByUser, id]
+    );
+
+    return queryResult;
+  }
+
+  async qUpdateTrainingSchedules(
+    conn: PoolConnection,
+    trainingId: number,
+    updatedByUser: number,
+    trainingSchedules: Array<{
+      id: number | null,
+      trainingId: number | null,
+      dateTime: string,
+      active: boolean
+    }>
+  ) {
+    // Busca schedules existentes
+    const [existingSchedules] = await conn.query(
+      'SELECT id FROM training_schedule WHERE trainingId = ?',
+      [trainingId]
+    );
+
+    const existingIds = (existingSchedules as any[]).map(s => s.id);
+    const receivedIds = trainingSchedules
+      .filter(s => s.id !== null)
+      .map(s => s.id);
+
+    // IDs para deletar (existem no banco mas não foram enviados)
+    const idsToDelete = existingIds.filter(id => !receivedIds.includes(id));
+
+    // Deleta schedules removidos
+    if (idsToDelete.length > 0) {
+      await conn.query(
+        'DELETE FROM training_schedule WHERE id IN (?) AND trainingId = ?',
+        [idsToDelete, trainingId]
+      );
+    }
+
+    // Processa cada schedule
+    for (const schedule of trainingSchedules) {
+      // Validação de data
+      if (!schedule.dateTime || isNaN(Date.parse(schedule.dateTime))) {
+        throw new Error(`Data inválida: ${schedule.dateTime}`);
+      }
+
+      if (schedule.id) {
+        // Atualiza schedule existente
+        const updateQuery = `
+        UPDATE training_schedule 
+        SET 
+          dateTime = ?, 
+          active = ?, 
+          updatedByUser = ?
+        WHERE id = ? AND trainingId = ?
+      `;
+
+        await conn.query(
+          updateQuery,
+          [schedule.dateTime, schedule.active ? 1 : 0, updatedByUser, schedule.id, trainingId]
+        );
+      } else {
+        // Insere novo schedule
+        const insertQuery = `
+        INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
+        VALUES (?, ?, ?, ?, ?)
+      `;
+
+        await conn.query(
+          insertQuery,
+          [trainingId, schedule.dateTime, schedule.active ? 1 : 0, updatedByUser, updatedByUser]
+        );
+      }
+    }
+  }
+
   async qAggregateTest(conn: PoolConnection, yearName: string, classroom: number, bimesterId: number) {
 
     const likeClassroom = `%${classroom}%`

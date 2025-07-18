@@ -57,4 +57,5 @@ export interface qStudentTests { studentClassroomId: number,studentId: number,st
 export interface qPendingTransfers { name: string, ra: string, dv: number | string, requestedClassroom: string, requestedSchool: string, status: string, currentClassroom: string, currentSchool: string }
 
 export interface TrainingScheduleResult { id: number, trainingId: number, dateTime: Date | string, active: boolean }
-export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null,  category: number, trainingSchedules: TrainingScheduleResult[] }
+export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, trainingSchedules: TrainingScheduleResult[] }
+export interface TrainingBody { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName: string | null, category: number, trainingSchedules: TrainingScheduleResult[], user: UserInterface }

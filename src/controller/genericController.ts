@@ -1142,7 +1142,7 @@ export class GenericController<T> {
             cc.id AS category,
             ts.id AS trainingScheduleId,
             ts.trainingId AS training,
-            ts.dateTime AS dateTime,
+            DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS dateTime,
             ts.active AS active
         FROM training AS t
                  INNER JOIN classroom_category AS cc ON t.categoryId = cc.id

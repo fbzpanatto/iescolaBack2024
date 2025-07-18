@@ -55,3 +55,21 @@ export interface qReadingFluency { id: number, readingFluencyExamId: number, rea
 export interface qTeacherRelationShip { id: number, teacherId: number, classroomId: number, disciplineId: number, classroomName: string, schoolName: string, disciplineName: string, active: boolean  }
 export interface qStudentTests { studentClassroomId: number,studentId: number,studentName: string,testId: number,testName: string,bimesterName: string,bimesterTestName: string,yearName: string, classroomId: string, classroomName: string, schoolName: string, testCategoryId: number, ra: string, dv: string }
 export interface qPendingTransfers { name: string, ra: string, dv: number | string, requestedClassroom: string, requestedSchool: string, status: string, currentClassroom: string, currentSchool: string }
+
+
+interface TrainingScheduleResult {
+  id: number;
+  trainingId: number;
+  dateTime: Date | string;
+  active: boolean;
+}
+
+export interface TrainingResult {
+  id: number;
+  name: string;
+  classroom: number;
+  observation: string | null;
+  discipline: number | null;  // Mudado para number (id)
+  category: number;           // Mudado para number (id)
+  trainingSchedules: TrainingScheduleResult[];
+}

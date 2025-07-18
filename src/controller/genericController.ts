@@ -26,7 +26,7 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson
+  SavePerson, TrainingResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
@@ -1129,6 +1129,62 @@ export class GenericController<T> {
       createdBy: string,
       availability: number
     }>
+  }
+
+  async qOneTraining(conn: PoolConnection, id: number): Promise<TrainingResult | null> {
+    const query = `
+        SELECT
+            t.id AS id,
+            t.name AS name,
+            t.classroom AS classroom,
+            t.observation AS observation,
+            d.id AS discipline,
+            cc.id AS category,
+            ts.id AS trainingScheduleId,
+            ts.trainingId AS training,
+            ts.dateTime AS dateTime,
+            ts.active AS active
+        FROM training AS t
+                 INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                 INNER JOIN year AS y ON t.yearId = y.id
+                 INNER JOIN user AS u ON t.createdByUser = u.id
+                 INNER JOIN person AS p ON u.personId = p.id
+                 LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
+                 LEFT JOIN discipline AS d ON t.disciplineId = d.id
+        WHERE t.id = ?
+    `;
+
+    const [queryResult] = await conn.query(query, [id]);
+    const rows = queryResult as any[];
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const firstRow = rows[0];
+    const training: TrainingResult = {
+      id: firstRow.id,
+      name: firstRow.name,
+      classroom: firstRow.classroom,
+      observation: firstRow.observation,
+      discipline: firstRow.discipline,
+      category: firstRow.category,
+      trainingSchedules: []
+    };
+
+    // Adiciona todos os schedules
+    rows.forEach(row => {
+      if (row.trainingScheduleId) {
+        training.trainingSchedules.push({
+          id: row.trainingScheduleId,
+          trainingId: row.training,
+          dateTime: row.dateTime,
+          active: row.active === 1
+        });
+      }
+    });
+
+    return training;
   }
 
   async qClassroomCategories(conn: PoolConnection) {

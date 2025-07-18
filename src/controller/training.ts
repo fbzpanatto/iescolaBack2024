@@ -29,6 +29,23 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
+  async getOne(req: Request) {
+
+    let conn: PoolConnection | null = null;
+
+    const { id } = req.params;
+
+    try {
+      conn = await dbConn();
+
+      const result = await this.qOneTraining(conn, parseInt(id));
+
+      return { status: 200, data: result };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(conn) { conn.release() } }
+  }
+
   async trainingForm(req: Request) {
 
     let sqlConnection = await dbConn()

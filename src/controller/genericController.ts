@@ -1172,8 +1172,7 @@ export class GenericController<T> {
       trainingSchedules: []
     };
 
-    // Adiciona todos os schedules
-    rows.forEach(row => {
+    for(let row of rows) {
       if (row.trainingScheduleId) {
         training.trainingSchedules.push({
           id: row.trainingScheduleId,
@@ -1182,7 +1181,7 @@ export class GenericController<T> {
           active: row.active === 1
         });
       }
-    });
+    }
 
     return training;
   }

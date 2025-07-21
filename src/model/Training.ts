@@ -4,6 +4,7 @@ import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
 import { TrainingSchedule } from "./TrainingSchedule";
 import { Year } from "./Year";
+import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
 
 @Entity()
 export class Training {
@@ -26,6 +27,9 @@ export class Training {
 
   @ManyToOne(() => ClassroomCategory, category => category.trainings, { nullable: false })
   category: ClassroomCategory
+
+  @ManyToOne(() => TrainingSchedulesMonthsReferences, t => t.trainings, { nullable: false })
+  monthReference: TrainingSchedulesMonthsReferences
 
   @ManyToOne(() => Year, year => year.trainings, { nullable: false })
   year: Year

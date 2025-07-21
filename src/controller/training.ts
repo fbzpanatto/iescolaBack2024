@@ -46,6 +46,23 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
+  async presence(req: Request) {
+
+    let conn: PoolConnection | null = null;
+
+    const { id } = req.params;
+
+    try {
+      conn = await dbConn();
+
+      const result = {}
+
+      return { status: 200, data: result };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(conn) { conn.release() } }
+  }
+
   async trainingForm(_: Request) {
 
     let sqlConnection = await dbConn()
@@ -53,8 +70,9 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     try {
       const classroomCategories = await this.qClassroomCategories(sqlConnection);
       const disciplines = await this.qDisciplines(sqlConnection);
+      const months = await this.qTraningSchedulesMonthReference(sqlConnection);
       const classrooms = await this.qNumberClassrooms(sqlConnection)
-      return { status: 200, data: { classrooms, classroomCategories, disciplines } };
+      return { status: 200, data: { classrooms, classroomCategories, disciplines, months } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }
@@ -92,62 +110,32 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      // Validações básicas
       const trainingId = parseInt(id);
-      if (isNaN(trainingId)) {
-        return { status: 400, message: 'ID inválido' };
-      }
+      if (isNaN(trainingId)) { return { status: 400, message: 'ID inválido' } }
 
       const { name, classroom, discipline, category, observation, trainingSchedules } = body;
 
-      // Verifica se o training existe
       const existingTraining = await this.qOneTraining(conn, trainingId);
-      if (!existingTraining) {
-        return { status: 404, message: 'Training não encontrado' };
-      }
+      if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
 
-      // Inicia transação
       await conn.beginTransaction();
 
-      // Busca o usuário que está fazendo a atualização
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      // Atualiza o training
-      await this.qUpdateTraining(
-        conn,
-        trainingId,
-        name,
-        category,
-        classroom,
-        teacher.person.user.id,
-        discipline,
-        observation
-      );
+      await this.qUpdateTraining(conn, trainingId, name, category, classroom, teacher.person.user.id, discipline, observation);
 
-      // Atualiza os schedules
-      await this.qUpdateTrainingSchedules(
-        conn,
-        trainingId,
-        teacher.person.user.id,
-        trainingSchedules
-      );
+      await this.qUpdateTrainingSchedules(conn, trainingId, teacher.person.user.id, trainingSchedules);
 
       await conn.commit();
 
       return { status: 200, data: { message: 'Training atualizado com sucesso' } };
     }
     catch (error: any) {
-      if (conn) {
-        await conn.rollback();
-      }
+      if (conn) { await conn.rollback() }
       console.error('Erro ao atualizar training:', error);
       return { status: 500, message: error.message };
     }
-    finally {
-      if (conn) {
-        conn.release();
-      }
-    }
+    finally { if (conn) { conn.release() } }
   }
 }
 

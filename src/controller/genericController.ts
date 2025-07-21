@@ -1280,6 +1280,12 @@ export class GenericController<T> {
     return  queryResult as Array<Discipline>
   }
 
+  async qTraningSchedulesMonthReference(conn: PoolConnection) {
+    const query = `SELECT id, name FROM training_schedules_months_references ORDER BY id`
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<{ id: number, name: string }>
+  }
+
   async qNumberClassrooms(conn: PoolConnection) {
     const query =
       `

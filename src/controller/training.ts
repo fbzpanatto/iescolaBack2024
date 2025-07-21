@@ -3,7 +3,7 @@ import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { dbConn } from "../services/db";
 import { GenericController } from "./genericController";
-import {TrainingAndSchedulesBody, TrainingBody} from "../interfaces/interfaces";
+import { TrainingAndSchedulesBody } from "../interfaces/interfaces";
 import { PoolConnection } from "mysql2/promise";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
@@ -46,7 +46,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
-  async trainingForm(req: Request) {
+  async trainingForm(_: Request) {
 
     let sqlConnection = await dbConn()
 
@@ -99,10 +99,6 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       }
 
       const { name, classroom, discipline, category, observation, trainingSchedules } = body;
-
-      if (!name || !classroom || !category) {
-        return { status: 400, message: 'Dados obrigatórios não fornecidos' };
-      }
 
       // Verifica se o training existe
       const existingTraining = await this.qOneTraining(conn, trainingId);

@@ -26,7 +26,7 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, TrainingResult
+  SavePerson, TrainingResult, TrainingScheduleResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
@@ -407,39 +407,8 @@ export class GenericController<T> {
     return queryResult;
   }
 
-  async qUpdateTrainingSchedules(
-    conn: PoolConnection,
-    trainingId: number,
-    updatedByUser: number,
-    trainingSchedules: Array<{
-      id: number | null,
-      trainingId: number | null,
-      dateTime: string,
-      active: boolean
-    }>
+  async qUpdateTrainingSchedules(conn: PoolConnection, trainingId: number, updatedByUser: number, trainingSchedules: Array<TrainingScheduleResult>
   ) {
-    // Busca schedules existentes
-    const [existingSchedules] = await conn.query(
-      'SELECT id FROM training_schedule WHERE trainingId = ?',
-      [trainingId]
-    );
-
-    const existingIds = (existingSchedules as any[]).map(s => s.id);
-    const receivedIds = trainingSchedules
-      .filter(s => s.id !== null)
-      .map(s => s.id);
-
-    // IDs para deletar (existem no banco mas não foram enviados)
-    const idsToDelete = existingIds.filter(id => !receivedIds.includes(id));
-
-    // Deleta schedules removidos
-    if (idsToDelete.length > 0) {
-      await conn.query(
-        'DELETE FROM training_schedule WHERE id IN (?) AND trainingId = ?',
-        [idsToDelete, trainingId]
-      );
-    }
-
     // Processa cada schedule
     for (const schedule of trainingSchedules) {
       // Validação de data
@@ -448,31 +417,44 @@ export class GenericController<T> {
       }
 
       if (schedule.id) {
-        // Atualiza schedule existente
-        const updateQuery = `
-        UPDATE training_schedule 
-        SET 
-          dateTime = ?, 
-          active = ?, 
-          updatedByUser = ?
-        WHERE id = ? AND trainingId = ?
-      `;
+        // Se é um schedule existente e está marcado como inativo, deleta
+        if (!schedule.active) {
+          const deleteQuery = `
+          DELETE FROM training_schedule 
+          WHERE id = ? AND trainingId = ?
+        `;
 
-        await conn.query(
-          updateQuery,
-          [schedule.dateTime, schedule.active ? 1 : 0, updatedByUser, schedule.id, trainingId]
-        );
+          await conn.query(deleteQuery, [schedule.id, trainingId]);
+        } else {
+          // Atualiza schedule existente que está ativo
+          const updateQuery = `
+          UPDATE training_schedule 
+          SET 
+            dateTime = ?, 
+            active = ?, 
+            updatedByUser = ?
+          WHERE id = ? AND trainingId = ?
+        `;
+
+          await conn.query(
+            updateQuery,
+            [schedule.dateTime, 1, updatedByUser, schedule.id, trainingId]
+          );
+        }
       } else {
-        // Insere novo schedule
-        const insertQuery = `
-        INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
-        VALUES (?, ?, ?, ?, ?)
-      `;
+        // Insere novo schedule apenas se estiver ativo
+        if (schedule.active) {
+          const insertQuery = `
+          INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
+          VALUES (?, ?, ?, ?, ?)
+        `;
 
-        await conn.query(
-          insertQuery,
-          [trainingId, schedule.dateTime, schedule.active ? 1 : 0, updatedByUser, updatedByUser]
-        );
+          await conn.query(
+            insertQuery,
+            [trainingId, schedule.dateTime, 1, updatedByUser, updatedByUser]
+          );
+        }
+        // Se for novo e inativo, simplesmente ignora (não insere)
       }
     }
   }
@@ -991,7 +973,7 @@ export class GenericController<T> {
 
       if(!response) {
         const insertQuery = `INSERT INTO alphabetic (createdAt, createdByUser, studentId, testId ) VALUES (?, ?, ?, ?)`
-        const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), userId, element.student.id, test.id])
+        await conn.query(format(insertQuery), [new Date(), userId, element.student.id, test.id])
       }
     }
   }

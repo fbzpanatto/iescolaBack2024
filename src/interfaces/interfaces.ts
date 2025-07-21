@@ -27,7 +27,6 @@ export interface ReadingHeaders { exam_id: number, exam_name: string, exam_color
 export interface AllClassrooms { id: number, name: string, shortName: string, school: School, totals: { bimesterCounter: number, testQuestions: { counter: number, counterPercentage: number, id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup } | {}[] | undefined, levels: any[], id: number, name: string, periods: Period[] }[] }
 export interface CityHall { id: number, name: string, shortName: string, school: string, totals: { bimesterCounter: number, id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }[] }
 export interface AlphaHeaders { id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }
-export interface TrainingAndSchedulesBody { id?: number, name: string, category: number, discipline?: number, disciplineName?: string, classroom: number, trainingSchedules: { id: number | null, trainingId: number | null, dateTime: string, active: boolean }[], observation?: string, user: UserInterface }
 
 export interface qStudentClassroomFormated { id: number, rosterNumber: number, classroomId: number, startedAt: string, endedAt: string | null, student: { id: number, person: { id: number, name: string }, readingFluency?: qReadingFluency[] }}
 export interface qReadingFluenciesHeaders { id: number, readingFluencyLevelId: number, readingFluencyLevelName: string, readingFluencyLevelColor: string, readingFluencyExamId: number, readingFluencyExamName: string, readingFluencyExamColor: string  }
@@ -56,6 +55,7 @@ export interface qTeacherRelationShip { id: number, teacherId: number, classroom
 export interface qStudentTests { studentClassroomId: number,studentId: number,studentName: string,testId: number,testName: string,bimesterName: string,bimesterTestName: string,yearName: string, classroomId: string, classroomName: string, schoolName: string, testCategoryId: number, ra: string, dv: string }
 export interface qPendingTransfers { name: string, ra: string, dv: number | string, requestedClassroom: string, requestedSchool: string, status: string, currentClassroom: string, currentSchool: string }
 
-export interface TrainingScheduleResult { id: number, trainingId: number, dateTime: Date | string, active: boolean }
+export interface TrainingAndSchedulesBody { id?: number, name: string, category: number, discipline?: number, disciplineName?: string, classroom: number, trainingSchedules: TrainingScheduleResult[], observation?: string, user: UserInterface }
+
+export interface TrainingScheduleResult { id: number | null, trainingId: number | null, dateTime: string, active: boolean }
 export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, trainingSchedules: TrainingScheduleResult[] }
-export interface TrainingBody { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName: string | null, category: number, trainingSchedules: TrainingScheduleResult[], user: UserInterface }

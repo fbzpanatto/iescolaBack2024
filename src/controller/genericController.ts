@@ -382,6 +382,7 @@ export class GenericController<T> {
     id: number,
     name: string,
     category: number,
+    month: number,
     classroom: number,
     updatedByUser: number,
     discipline?: number,
@@ -392,6 +393,7 @@ export class GenericController<T> {
     SET 
       name = ?, 
       categoryId = ?, 
+      monthReferenceId = ?,
       classroom = ?, 
       disciplineId = ?, 
       observation = ?, 
@@ -401,7 +403,7 @@ export class GenericController<T> {
 
     const [queryResult] = await conn.query<ResultSetHeader>(
       updateQuery,
-      [name, category, classroom, discipline || null, observation || null, updatedByUser, id]
+      [name, category, month, classroom, discipline || null, observation || null, updatedByUser, id]
     );
 
     return queryResult;

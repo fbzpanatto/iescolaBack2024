@@ -113,7 +113,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const trainingId = parseInt(id);
       if (isNaN(trainingId)) { return { status: 400, message: 'ID inválido' } }
 
-      const { name, classroom, discipline, category, observation, trainingSchedules } = body;
+      const { name, classroom, discipline, category, observation, trainingSchedules, month } = body;
 
       const existingTraining = await this.qOneTraining(conn, trainingId);
       if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
@@ -122,7 +122,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      await this.qUpdateTraining(conn, trainingId, name, category, classroom, teacher.person.user.id, discipline, observation);
+      await this.qUpdateTraining(conn, trainingId, name, category, month, classroom, teacher.person.user.id, discipline, observation);
 
       await this.qUpdateTrainingSchedules(conn, trainingId, teacher.person.user.id, trainingSchedules);
 

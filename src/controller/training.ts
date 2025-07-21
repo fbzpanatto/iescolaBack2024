@@ -84,7 +84,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      const { name, classroom, discipline, category, observation, trainingSchedules } = body;
+      const { name, classroom, discipline, category, observation, trainingSchedules, month } = body;
 
       await conn.beginTransaction();
 
@@ -92,7 +92,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      const training = await this.qNewTraining(conn, currentYear.id, name, category, classroom, teacher.person.user.id, discipline, observation);
+      const training = await this.qNewTraining(conn, currentYear.id, name, category, month, classroom, teacher.person.user.id, discipline, observation);
 
       await this.qNewTrainingSchedules(conn, training.insertId, teacher.person.user.id, trainingSchedules);
 

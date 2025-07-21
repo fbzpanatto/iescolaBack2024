@@ -19,6 +19,15 @@ export const TRAINING_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
+  month: {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  monthName: {
+    optional: true
+  },
   discipline: {
     optional: true
   },

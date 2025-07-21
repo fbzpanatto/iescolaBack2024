@@ -1224,12 +1224,14 @@ export class GenericController<T> {
             t.observation AS observation,
             d.id AS discipline,
             cc.id AS category,
+            tsc.id AS month,
             ts.id AS trainingScheduleId,
             ts.trainingId AS training,
             DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS dateTime,
             ts.active AS active
         FROM training AS t
                  INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                 INNER JOIN training_schedules_months_references AS tsc ON t.monthReferenceId = tsc.id
                  INNER JOIN year AS y ON t.yearId = y.id
                  INNER JOIN user AS u ON t.createdByUser = u.id
                  INNER JOIN person AS p ON u.personId = p.id
@@ -1253,6 +1255,7 @@ export class GenericController<T> {
       observation: firstRow.observation,
       discipline: firstRow.discipline,
       category: firstRow.category,
+      month: firstRow.month,
       trainingSchedules: []
     };
 

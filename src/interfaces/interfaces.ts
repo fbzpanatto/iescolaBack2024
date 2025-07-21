@@ -58,4 +58,4 @@ export interface qPendingTransfers { name: string, ra: string, dv: number | stri
 export interface TrainingAndSchedulesBody { id?: number, name: string, category: number, month: number, discipline?: number, disciplineName?: string, classroom: number, trainingSchedules: TrainingScheduleResult[], observation?: string, user: UserInterface }
 
 export interface TrainingScheduleResult { id: number | null, trainingId: number | null, dateTime: string, active: boolean }
-export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, trainingSchedules: TrainingScheduleResult[] }
+export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, month: number, trainingSchedules: TrainingScheduleResult[] }

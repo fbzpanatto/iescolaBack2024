@@ -47,25 +47,33 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
   }
 
   async presence(req: Request) {
-
     let conn: PoolConnection | null = null;
-
-    const { reference } = req.query
+    const { reference } = req.query;
 
     try {
       conn = await dbConn();
 
-      const referenceTraining = await this.qPresence(conn, parseInt(reference as string))
+      const referenceTraining = await this.qPresence(conn, parseInt(reference as string));
 
-      const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining)
+      if (!referenceTraining) {
+        return { status: 404, message: 'Training não encontrado' };
+      }
 
-      return { status: 200, data: [] };
+      const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining);
+
+      console.log('All referenced trainings:', allReferencedTrainings);
+
+      return { status: 200, data: allReferencedTrainings };
     }
     catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
+      console.log(error);
+      return { status: 500, message: error.message };
     }
-    finally { if(conn) { conn.release() } }
+    finally {
+      if (conn) {
+        conn.release();
+      }
+    }
   }
 
   async trainingForm(_: Request) {

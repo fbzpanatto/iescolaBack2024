@@ -26,7 +26,7 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, Training, TrainingResult, TrainingScheduleResult
+  SavePerson, Training, TrainingResult, TrainingScheduleResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
@@ -1184,42 +1184,89 @@ export class GenericController<T> {
   }
 
   async qAllReferencedTrainings(conn: PoolConnection, referencedTraining: Training) {
+    let query = '';
 
-    let query = ''
-
-    if(!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
+    if (!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
       query = `
-        SELECT t.id, t.classroom, cc.name AS category, y.name AS year, tm.name AS meeting
-        FROM training AS t
-                 INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
-                 INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
-                 INNER JOIN year AS y ON t.yearId = y.id
-                
-        WHERE 
-            t.yearId = ? AND
-            t.categoryId = ? AND
-            t.classroom = ?
-    `;
+          SELECT
+              t.id,
+              t.classroom,
+              cc.id AS categoryId,
+              cc.name AS categoryName,
+              y.id AS yearId,
+              y.name AS yearName,
+              tm.id AS meetingId,
+              tm.name AS meetingName,
+              tmr.id AS monthId,
+              tmr.name AS monthName,
+              d.id AS disciplineId,
+              d.name AS disciplineName,
+              ts.id AS scheduleId,
+              DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS scheduleDateTime,
+              ts.active AS scheduleActive
+          FROM training AS t
+                   INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
+                   INNER JOIN training_schedules_months_references AS tmr ON t.monthReferenceId = tmr.id
+                   INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                   INNER JOIN year AS y ON t.yearId = y.id
+                   LEFT JOIN discipline AS d ON t.disciplineId = d.id
+                   LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
+          WHERE
+              t.yearId = ? AND
+              t.categoryId = ? AND
+              t.classroom = ?
+          ORDER BY t.id, ts.dateTime
+      `;
 
-      const [queryResult] = await conn.query(format(query), [referencedTraining.yearId, referencedTraining.categoryId, referencedTraining.classroom]);
-      return (queryResult as Array<Training>)[0]
+      const [queryResult] = await conn.query(query, [
+        referencedTraining.yearId,
+        referencedTraining.categoryId,
+        referencedTraining.classroom
+      ]);
+
+      return this.formatTrainingsWithSchedules(queryResult as any[]);
     }
 
     query = `
-        SELECT t.id, t.classroom, cc.name AS category, y.name AS year, tm.name AS meeting
+        SELECT
+            t.id,
+            t.classroom,
+            cc.id AS categoryId,
+            cc.name AS categoryName,
+            y.id AS yearId,
+            y.name AS yearName,
+            tm.id AS meetingId,
+            tm.name AS meetingName,
+            tmr.id AS monthId,
+            tmr.name AS monthName,
+            d.id AS disciplineId,
+            d.name AS disciplineName,
+            ts.id AS scheduleId,
+            DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS scheduleDateTime,
+            ts.active AS scheduleActive
         FROM training AS t
                  INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
+                 INNER JOIN training_schedules_months_references AS tmr ON t.monthReferenceId = tmr.id
                  INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
                  INNER JOIN year AS y ON t.yearId = y.id
-        WHERE 
+                 LEFT JOIN discipline AS d ON t.disciplineId = d.id
+                 LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
+        WHERE
             t.yearId = ? AND
             t.categoryId = ? AND
             t.classroom = ? AND
             t.disciplineId = ?
-      `;
+        ORDER BY t.id, ts.dateTime
+    `;
 
-    const [queryResult] = await conn.query(format(query), [referencedTraining.yearId, referencedTraining.categoryId, referencedTraining.classroom, referencedTraining.disciplineId]);
-    return (queryResult as Array<Training>)
+    const [queryResult] = await conn.query(query, [
+      referencedTraining.yearId,
+      referencedTraining.categoryId,
+      referencedTraining.classroom,
+      referencedTraining.disciplineId
+    ]);
+
+    return this.formatTrainingsWithSchedules(queryResult as any[]);
   }
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
@@ -1495,6 +1542,54 @@ export class GenericController<T> {
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
+
+  formatTrainingsWithSchedules(queryResult: any[]): TrainingWithSchedulesResult[] {
+    return queryResult.reduce((acc: any[], row) => {
+      // Procura se o training já existe no acumulador
+      let training = acc.find(t => t.id === row.id);
+
+      if (!training) {
+        // Se não existe, cria um novo training
+        training = {
+          id: row.id,
+          classroom: row.classroom,
+          category: {
+            id: row.categoryId,
+            name: row.categoryName
+          },
+          year: {
+            id: row.yearId,
+            name: row.yearName
+          },
+          meeting: {
+            id: row.meetingId,
+            name: row.meetingName
+          },
+          month: {
+            id: row.monthId,
+            name: row.monthName
+          },
+          discipline: row.disciplineId ? {
+            id: row.disciplineId,
+            name: row.disciplineName
+          } : null,
+          trainingSchedules: []
+        };
+        acc.push(training);
+      }
+
+      // Se existe um schedule, adiciona ao array
+      if (row.scheduleId) {
+        training.trainingSchedules.push({
+          id: row.scheduleId,
+          dateTime: row.scheduleDateTime,
+          active: row.scheduleActive === 1 // Converte para boolean
+        });
+      }
+
+      return acc;
+    }, []);
+  }
 
   formatStudentClassroom(arr: any[]) {
     return arr.map(el => {

@@ -1173,7 +1173,7 @@ export class GenericController<T> {
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
 
-    const trainingSearch = `%${search.toString().toUpperCase()}%`
+    // const trainingSearch = `%${search.toString().toUpperCase()}%`
 
     const query =
       `
@@ -1197,13 +1197,13 @@ export class GenericController<T> {
                    INNER JOIN person AS p ON u.personId = p.id
                    LEFT JOIN discipline AS d ON t.disciplineId = d.id
                    LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
-          WHERE t.yearId = ? LIKE ? AND t.categoryId = ?
+          WHERE t.yearId = ? AND t.categoryId = ?
           GROUP BY t.id, tm.name, t.classroom, t.observation, d.name, cc.name, y.name, p.name
           LIMIT ?
           OFFSET ?
       `
 
-    const [ queryResult ] = await conn.query(query, [yearId, trainingSearch, peb, limit, offset])
+    const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
 
     return queryResult as Array<{
       id: number,
@@ -1222,7 +1222,7 @@ export class GenericController<T> {
     const query = `
         SELECT
             t.id AS id,
-            tm.name AS meeting,
+            tm.id AS meeting,
             t.classroom AS classroom,
             t.observation AS observation,
             d.id AS discipline,

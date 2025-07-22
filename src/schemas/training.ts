@@ -8,11 +8,6 @@ export const TRAINING_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
-  name: {
-    exists: true,
-    escape: true,
-    isString: true
-  },
   category: {
     exists: true,
     escape: true,

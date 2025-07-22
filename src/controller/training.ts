@@ -59,9 +59,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining);
 
-      console.log('All referenced trainings:', allReferencedTrainings);
-
-      return { status: 200, data: allReferencedTrainings };
+      return { status: 200, data: { allReferencedTrainings } };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
     finally { if (conn) { conn.release() }

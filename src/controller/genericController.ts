@@ -1273,6 +1273,7 @@ export class GenericController<T> {
     const query =
       `
         SELECT 
+            t.id,
             p.name, 
             'POLIVANTE' AS discipline,
             CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
@@ -1293,6 +1294,7 @@ export class GenericController<T> {
     const [ queryResult ] = await conn.query(query, [referencedTraining.categoryId, referencedTraining.classroom])
 
     return queryResult as Array<{
+      id: number,
       name: string,
       discipline: string,
       classroom: number,

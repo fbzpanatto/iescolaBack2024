@@ -38,6 +38,7 @@ import { Skill } from "./Skill";
 import { Training } from "./Training";
 import { TrainingSchedule } from "./TrainingSchedule";
 import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
+import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 
 export const entities = [
   Alphabetic,
@@ -58,6 +59,7 @@ export const entities = [
   Training,
   TrainingSchedule,
   TrainingSchedulesMonthsReferences,
+  TrainingSchedulesMeeting,
   School,
   State,
   Skill,

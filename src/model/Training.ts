@@ -1,20 +1,16 @@
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Length } from "class-validator";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
 import { TrainingSchedule } from "./TrainingSchedule";
 import { Year } from "./Year";
 import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
+import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 
 @Entity()
 export class Training {
 
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ length: 100, nullable: false })
-  @Length(3, 100, { message: "Name must be between 3 and 100 characters." })
-  name: string;
 
   @Column({ nullable: false })
   classroom: number
@@ -30,6 +26,9 @@ export class Training {
 
   @ManyToOne(() => TrainingSchedulesMonthsReferences, t => t.trainings, { nullable: false })
   monthReference: TrainingSchedulesMonthsReferences
+
+  @ManyToOne(() => TrainingSchedulesMeeting, m => m.trainings, { nullable: false })
+  meeting: TrainingSchedulesMeeting
 
   @ManyToOne(() => Year, year => year.trainings, { nullable: false })
   year: Year

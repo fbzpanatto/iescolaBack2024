@@ -70,9 +70,10 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     try {
       const classroomCategories = await this.qClassroomCategories(sqlConnection);
       const disciplines = await this.qDisciplines(sqlConnection);
-      const months = await this.qTraningSchedulesMonthReference(sqlConnection);
-      const classrooms = await this.qNumberClassrooms(sqlConnection)
-      return { status: 200, data: { classrooms, classroomCategories, disciplines, months } };
+      const months = await this.qTrainingSchedulesMonthReference(sqlConnection);
+      const classrooms = await this.qNumberClassrooms(sqlConnection);
+      const meetings = await this.qTrainingSchedulesMeetings(sqlConnection);
+      return { status: 200, data: { classrooms, classroomCategories, disciplines, months, meetings } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
     finally { if(sqlConnection) { sqlConnection.release() } }
@@ -84,7 +85,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      const { name, classroom, discipline, category, observation, trainingSchedules, month } = body;
+      const { classroom, discipline, category, observation, trainingSchedules, month, meeting } = body;
 
       await conn.beginTransaction();
 
@@ -92,7 +93,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      const training = await this.qNewTraining(conn, currentYear.id, name, category, month, classroom, teacher.person.user.id, discipline, observation);
+      const training = await this.qNewTraining(conn, currentYear.id, category, month, meeting, classroom, teacher.person.user.id, discipline, observation);
 
       await this.qNewTrainingSchedules(conn, training.insertId, teacher.person.user.id, trainingSchedules);
 
@@ -113,7 +114,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const trainingId = parseInt(id);
       if (isNaN(trainingId)) { return { status: 400, message: 'ID inválido' } }
 
-      const { name, classroom, discipline, category, observation, trainingSchedules, month } = body;
+      const { classroom, discipline, category, observation, trainingSchedules, month, meeting } = body;
 
       const existingTraining = await this.qOneTraining(conn, trainingId);
       if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
@@ -122,7 +123,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      await this.qUpdateTraining(conn, trainingId, name, category, month, classroom, teacher.person.user.id, discipline, observation);
+      await this.qUpdateTraining(conn, trainingId, meeting, category, month, classroom, teacher.person.user.id, discipline, observation);
 
       await this.qUpdateTrainingSchedules(conn, trainingId, teacher.person.user.id, trainingSchedules);
 

@@ -19,6 +19,9 @@ export const TRAINING_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
+  categoryName: {
+    optional: true
+  },
   month: {
     exists: true,
     escape: true,
@@ -26,6 +29,15 @@ export const TRAINING_SCHEMA: Schema = {
     toInt: true
   },
   monthName: {
+    optional: true
+  },
+  meeting: {
+    exists: true,
+    escape: true,
+    isInt: true,
+    toInt: true
+  },
+  meetingName: {
     optional: true
   },
   discipline: {
@@ -44,6 +56,9 @@ export const TRAINING_SCHEMA: Schema = {
     escape: true,
     isInt: true,
     toInt: true
+  },
+  classroomName: {
+    optional: true
   },
   trainingSchedules: {
     optional: true,

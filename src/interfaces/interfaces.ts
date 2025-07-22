@@ -55,7 +55,7 @@ export interface qTeacherRelationShip { id: number, teacherId: number, classroom
 export interface qStudentTests { studentClassroomId: number,studentId: number,studentName: string,testId: number,testName: string,bimesterName: string,bimesterTestName: string,yearName: string, classroomId: string, classroomName: string, schoolName: string, testCategoryId: number, ra: string, dv: string }
 export interface qPendingTransfers { name: string, ra: string, dv: number | string, requestedClassroom: string, requestedSchool: string, status: string, currentClassroom: string, currentSchool: string }
 
-export interface TrainingAndSchedulesBody { id?: number, name: string, category: number, month: number, discipline?: number, disciplineName?: string, classroom: number, trainingSchedules: TrainingScheduleResult[], observation?: string, user: UserInterface }
+export interface TrainingAndSchedulesBody { id?: number, name: string, category: number, categoryName?: string, month: number, monthName?: string, meeting: number, meetingName?: string, discipline?: number, disciplineName?: string, classroom: number, classroomName?: string, trainingSchedules: TrainingScheduleResult[], observation?: string, user: UserInterface }
 
 export interface TrainingScheduleResult { id: number | null, trainingId: number | null, dateTime: string, active: boolean }
-export interface TrainingResult { id: number,  name: string,  classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, month: number, trainingSchedules: TrainingScheduleResult[] }
+export interface TrainingResult { id: number, classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, month: number, meeting: number, trainingSchedules: TrainingScheduleResult[] }

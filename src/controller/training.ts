@@ -50,10 +50,12 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     let conn: PoolConnection | null = null;
 
-    const { id } = req.params;
+    const { reference } = req.query
 
     try {
       conn = await dbConn();
+
+      console.log('presence', reference);
 
       const result = {}
 

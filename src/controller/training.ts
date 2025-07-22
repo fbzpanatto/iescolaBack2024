@@ -55,9 +55,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const referenceTraining = await this.qPresence(conn, parseInt(reference as string));
 
-      if (!referenceTraining) {
-        return { status: 404, message: 'Training não encontrado' };
-      }
+      if (!referenceTraining) { return { status: 404, message: 'Training não encontrado' } }
 
       const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining);
 
@@ -65,14 +63,8 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       return { status: 200, data: allReferencedTrainings };
     }
-    catch (error: any) {
-      console.log(error);
-      return { status: 500, message: error.message };
-    }
-    finally {
-      if (conn) {
-        conn.release();
-      }
+    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() }
     }
   }
 

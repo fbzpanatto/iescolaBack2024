@@ -55,13 +55,16 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     try {
       conn = await dbConn();
 
-      console.log('presence', reference);
+      const referenceTraining = await this.qPresence(conn, parseInt(reference as string))
 
-      const result = {}
+      const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining)
 
-      return { status: 200, data: result };
+      return { status: 200, data: [] };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log(error)
+      return { status: 500, message: error.message }
+    }
     finally { if(conn) { conn.release() } }
   }
 

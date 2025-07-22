@@ -26,7 +26,7 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, TrainingResult, TrainingScheduleResult
+  SavePerson, Training, TrainingResult, TrainingScheduleResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
@@ -1169,6 +1169,57 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [year, status])
     return  queryResult as Array<Transfer>
+  }
+
+  async qPresence(conn: PoolConnection, trainingId: number) {
+
+    const query = `
+        SELECT *
+        FROM training AS t
+        WHERE t.id = ?
+    `;
+
+    const [queryResult] = await conn.query(format(query), [trainingId]);
+    return (queryResult as Array<Training>)[0]
+  }
+
+  async qAllReferencedTrainings(conn: PoolConnection, referencedTraining: Training) {
+
+    let query = ''
+
+    if(!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
+      query = `
+        SELECT t.id, t.classroom, cc.name AS category, y.name AS year, tm.name AS meeting
+        FROM training AS t
+                 INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
+                 INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                 INNER JOIN year AS y ON t.yearId = y.id
+                
+        WHERE 
+            t.yearId = ? AND
+            t.categoryId = ? AND
+            t.classroom = ?
+    `;
+
+      const [queryResult] = await conn.query(format(query), [referencedTraining.yearId, referencedTraining.categoryId, referencedTraining.classroom]);
+      return (queryResult as Array<Training>)[0]
+    }
+
+    query = `
+        SELECT t.id, t.classroom, cc.name AS category, y.name AS year, tm.name AS meeting
+        FROM training AS t
+                 INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
+                 INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
+                 INNER JOIN year AS y ON t.yearId = y.id
+        WHERE 
+            t.yearId = ? AND
+            t.categoryId = ? AND
+            t.classroom = ? AND
+            t.disciplineId = ?
+      `;
+
+    const [queryResult] = await conn.query(format(query), [referencedTraining.yearId, referencedTraining.categoryId, referencedTraining.classroom, referencedTraining.disciplineId]);
+    return (queryResult as Array<Training>)
   }
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {

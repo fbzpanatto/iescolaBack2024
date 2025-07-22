@@ -1269,6 +1269,37 @@ export class GenericController<T> {
     return this.formatTrainingsWithSchedules(queryResult as any[]);
   }
 
+  async qAllReferencedTeachers(conn: PoolConnection, referencedTraining: Training) {
+    const query =
+      `
+        SELECT 
+            p.name, 
+            'POLIVANTE' AS discipline,
+            CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
+            s.shortName
+        FROM teacher_class_discipline AS tcd
+            INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+            INNER JOIN teacher AS t ON tcd.teacherId = t.id
+            INNER JOIN person AS p ON t.personId = p.id
+            INNER JOIN person_category AS pc ON p.categoryId = pc.id
+            INNER JOIN classroom AS c ON tcd.classroomId = c.id
+            INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+            INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE d.id NOT IN (6, 7, 8, 9) AND cc.id = ? AND pc.id = 8 AND tcd.endedAt IS NULL AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ?
+        GROUP BY p.id, p.name, c.id, c.shortName, s.id, s.shortName
+        ORDER BY s.shortName, classroom, p.name
+      `
+
+    const [ queryResult ] = await conn.query(query, [referencedTraining.categoryId, referencedTraining.classroom])
+
+    return queryResult as Array<{
+      name: string,
+      discipline: string,
+      classroom: number,
+      shortName: string
+    }>
+  }
+
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
 
     // const trainingSearch = `%${search.toString().toUpperCase()}%`

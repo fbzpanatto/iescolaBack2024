@@ -38,6 +38,7 @@ import {Discipline} from "../model/Discipline";
 import {Teacher} from "../model/Teacher";
 import {ClassroomCategory} from "../model/ClassroomCategory";
 import {Contract} from "../model/Contract";
+import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1419,6 +1420,12 @@ export class GenericController<T> {
     const query = `SELECT id, name FROM contract ORDER BY id DESC`
     const [ queryResult ] = await conn.query(format(query))
     return  queryResult as Array<Contract>
+  }
+
+  async qTrainingTeacherStatus(conn: PoolConnection) {
+    const query = `SELECT id, name FROM training_teacher_status WHERE active = 1`
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<TrainingTeacherStatus>
   }
 
   async qDisciplines(conn: PoolConnection) {

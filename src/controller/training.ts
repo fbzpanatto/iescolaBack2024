@@ -63,7 +63,9 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const contracts = await this.qContracts(conn);
 
-      return { status: 200, data: { allReferencedTrainings, allReferencedTeachers, contracts } };
+      const status = await this.qTrainingTeacherStatus(conn);
+
+      return { status: 200, data: { allReferencedTrainings, allReferencedTeachers, contracts, status } };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
     finally { if (conn) { conn.release() }

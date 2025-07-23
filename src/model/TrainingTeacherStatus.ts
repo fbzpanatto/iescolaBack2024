@@ -1,5 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
-import { TrainingTeacher } from "./TrainingTeacher";
+import { Entity, Column, PrimaryGeneratedColumn } from "typeorm"
 
 @Entity()
 export class TrainingTeacherStatus {
@@ -12,7 +11,4 @@ export class TrainingTeacherStatus {
 
   @Column({ default: true, nullable: false })
   active: boolean
-
-  @OneToMany(() => TrainingTeacher, trainingTeacher => trainingTeacher.status)
-  trainingTeachers: TrainingTeacher[]
 }

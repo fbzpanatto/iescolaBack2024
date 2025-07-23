@@ -1,5 +1,4 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm"
-import { TrainingTeacherStatus } from "./TrainingTeacherStatus"
 import { TrainingSchedule } from "./TrainingSchedule"
 import { Teacher } from "./Teacher"
 
@@ -15,8 +14,8 @@ export class TrainingTeacher {
   @ManyToOne(() => TrainingSchedule, { nullable: false })
   trainingSchedule: TrainingSchedule
 
-  @ManyToOne(() => TrainingTeacherStatus, { nullable: false })
-  status: TrainingTeacherStatus
+  @Column({ unique: true, length: 30 })
+  status: string
 
   @Column({ nullable: false, select: false })
   createdAt: Date

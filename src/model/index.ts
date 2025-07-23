@@ -39,6 +39,9 @@ import { Training } from "./Training";
 import { TrainingSchedule } from "./TrainingSchedule";
 import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
 import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
+import { Contract } from "./Contract";
+import { TrainingTeacher } from "./TrainingTeacher";
+import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
 
 export const entities = [
   Alphabetic,
@@ -46,6 +49,7 @@ export const entities = [
   AlphabeticFirst,
   Bimester,
   Classroom,
+  Contract,
   ClassroomCategory,
   Descriptor,
   Discipline,
@@ -58,6 +62,8 @@ export const entities = [
   TestClassroom,
   Training,
   TrainingSchedule,
+  TrainingTeacher,
+  TrainingTeacherStatus,
   TrainingSchedulesMonthsReferences,
   TrainingSchedulesMeeting,
   School,

@@ -37,6 +37,7 @@ import {Transfer} from "../model/Transfer";
 import {Discipline} from "../model/Discipline";
 import {Teacher} from "../model/Teacher";
 import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Contract} from "../model/Contract";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1412,6 +1413,12 @@ export class GenericController<T> {
     const query = `SELECT id, name FROM classroom_category`
     const [ queryResult ] = await conn.query(format(query))
     return  queryResult as Array<ClassroomCategory>
+  }
+
+  async qContracts(conn: PoolConnection) {
+    const query = `SELECT id, name FROM contract ORDER BY id DESC`
+    const [ queryResult ] = await conn.query(format(query))
+    return  queryResult as Array<Contract>
   }
 
   async qDisciplines(conn: PoolConnection) {

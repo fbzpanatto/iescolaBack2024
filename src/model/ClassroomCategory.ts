@@ -1,8 +1,8 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
 import { Classroom } from "./Classroom";
-import {Topic} from "./Topic";
-import {Skill} from "./Skill";
-import {Training} from "./Training";
+import { Topic } from "./Topic";
+import { Skill } from "./Skill";
+import { Training } from "./Training";
 
 @Entity()
 export class ClassroomCategory {

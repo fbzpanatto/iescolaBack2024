@@ -4,6 +4,7 @@ import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
 import { IsEmail, Max } from "class-validator";
 import {School} from "./School";
+import {TrainingTeacher} from "./TrainingTeacher";
 
 @Entity()
 export class Teacher {
@@ -27,6 +28,9 @@ export class Teacher {
 
   @OneToMany(() => TeacherClassDiscipline, (teacherClassDiscipline) => teacherClassDiscipline.teacher )
   teacherClassDiscipline: TeacherClassDiscipline[];
+
+  @OneToMany(() => TrainingTeacher, trainingTeacher => trainingTeacher.teacher)
+  trainingTeachers: TrainingTeacher[]
 
   @OneToMany(() => Transfer, (transfer) => transfer.requester)
   requester: Transfer[];

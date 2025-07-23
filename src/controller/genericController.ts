@@ -379,6 +379,30 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
+  async qUpsertTrainingTeacher(
+    conn: PoolConnection,
+    teacherId: number,
+    trainingId: number,
+    status: string,
+    userId: number
+  ) {
+    const query = `
+        INSERT INTO training_teacher (teacherId, trainingId, status, createdAt, createdByUser, updatedAt, updatedByUser)
+        VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
+        ON DUPLICATE KEY UPDATE
+                             status = VALUES(status),
+                             updatedAt = NOW(),
+                             updatedByUser = VALUES(updatedByUser)
+    `;
+
+    const [result] = await conn.query<ResultSetHeader>(
+      query,
+      [teacherId, trainingId, status, userId, userId]
+    );
+
+    return result;
+  }
+
   async qUpdateTraining(
     conn: PoolConnection,
     id: number,

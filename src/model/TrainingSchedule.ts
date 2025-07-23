@@ -1,6 +1,5 @@
-import {Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Training } from "./Training";
-import {TrainingTeacher} from "./TrainingTeacher";
 
 @Entity()
 export class TrainingSchedule {
@@ -12,17 +11,14 @@ export class TrainingSchedule {
   dateTime: Date;
 
   @ManyToOne(() => Training, training => training.trainingSchedules, { nullable: false })
-  training: Training
-
-  @OneToMany(() => TrainingTeacher, trainingTeacher => trainingTeacher.trainingSchedule)
-  trainingTeachers: TrainingTeacher[]
+  training: Training;
 
   @Column({ default: true, nullable: false })
-  active: boolean
+  active: boolean;
 
   @Column({ nullable: false, select: false })
-  createdByUser: number
+  createdByUser: number;
 
   @Column({ nullable: false, select: false })
-  updatedByUser: number
+  updatedByUser: number;
 }

@@ -3,7 +3,7 @@ import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { dbConn } from "../services/db";
 import { GenericController } from "./genericController";
-import { TrainingAndSchedulesBody } from "../interfaces/interfaces";
+import {TrainingAndSchedulesBody, UserInterface} from "../interfaces/interfaces";
 import { PoolConnection } from "mysql2/promise";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
@@ -143,6 +143,40 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) {
       if (conn) { await conn.rollback() }
       console.error('Erro ao atualizar training:', error);
+      return { status: 500, message: error.message };
+    }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async updateTeacherTraining(body: { user: UserInterface, teacherId: number, statusId: number | string, trainingId: number }) {
+
+    let conn = await dbConn();
+
+    try {
+
+      const existingTraining = await this.qOneTraining(conn, body.trainingId);
+      if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
+
+      await conn.beginTransaction();
+
+      const teacher = await this.qTeacherByUser(conn, body.user.user);
+
+      // Usa INSERT ... ON DUPLICATE KEY UPDATE
+      await this.qUpsertTrainingTeacher(
+        conn,
+        body.teacherId,
+        body.trainingId,
+        String(body.statusId),
+        teacher.person.user.id
+      );
+
+      await conn.commit();
+
+      return { status: 200, data: { message: 'Status do professor no training atualizado com sucesso' } };
+    }
+    catch (error: any) {
+      if (conn) { await conn.rollback() }
+      console.error('Erro ao atualizar training teacher:', error);
       return { status: 500, message: error.message };
     }
     finally { if (conn) { conn.release() } }

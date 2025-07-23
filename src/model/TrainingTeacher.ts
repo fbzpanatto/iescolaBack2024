@@ -1,31 +1,32 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm"
-import { TrainingSchedule } from "./TrainingSchedule"
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, Index } from "typeorm"
 import { Teacher } from "./Teacher"
+import { Training } from "./Training";
 
+@Index(["teacher", "training"], { unique: true })
 @Entity()
 export class TrainingTeacher {
 
   @PrimaryGeneratedColumn()
-  id: number
+  id: number;
 
   @ManyToOne(() => Teacher, { nullable: false })
-  teacher: Teacher
+  teacher: Teacher;
 
-  @ManyToOne(() => TrainingSchedule, { nullable: false })
-  trainingSchedule: TrainingSchedule
+  @ManyToOne(() => Training, { nullable: false })
+  training: Training;
 
-  @Column({ unique: true, length: 30 })
-  status: string
-
-  @Column({ nullable: false, select: false })
-  createdAt: Date
+  @Column()
+  status: string;
 
   @Column({ nullable: false, select: false })
-  createdByUser: number
+  createdAt: Date;
+
+  @Column({ nullable: false, select: false })
+  createdByUser: number;
 
   @Column({ nullable: true, select: false })
-  updatedAt: Date
+  updatedAt: Date;
 
   @Column({ nullable: true, select: false })
-  updatedByUser: number
+  updatedByUser: number;
 }

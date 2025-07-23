@@ -33,6 +33,11 @@ TrainingRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Reque
   return res.status(response.status as number).json(response)
 })
 
+TrainingRouter.put('/teacher-presence/:id', havePermission, async (req: Request, res: any) => {
+  const response = await trainingController.updateTeacherTraining(req.body)
+  return res.status(response.status as number).json(response)
+})
+
 TrainingRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
   const response = await trainingController.updateTraining(req.params.id, req.body)
   return res.status(response.status as number).json(response)

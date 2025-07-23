@@ -161,14 +161,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      // Usa INSERT ... ON DUPLICATE KEY UPDATE
-      await this.qUpsertTrainingTeacher(
-        conn,
-        body.teacherId,
-        body.trainingId,
-        String(body.statusId),
-        teacher.person.user.id
-      );
+      await this.qUpsertTrainingTeacher(conn, body.teacherId, body.trainingId, String(body.statusId), teacher.person.user.id );
 
       await conn.commit();
 

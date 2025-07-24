@@ -118,17 +118,6 @@ export class GenericController<T> {
     return queryResult;
   }
 
-  async qNewTrainingSchedules(conn: PoolConnection, trainingId: number, createdByUser: number, trainingSchedules: Array<{ id: number | null, trainingId: number | null, dateTime: string, active: boolean }>) {
-    const insertQuery = `
-    INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
-    VALUES (?, ?, ?, ?, ?)
-  `;
-
-    for (const item of trainingSchedules) {
-      await conn.query(format(insertQuery), [trainingId, item.dateTime, item.active, createdByUser, createdByUser]);
-    }
-  }
-
   async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
     const qYear =
 
@@ -384,26 +373,17 @@ export class GenericController<T> {
     return this.formatUserTeacher(data)
   }
 
-  async qUpsertTrainingTeacher(
-    conn: PoolConnection,
-    teacherId: number,
-    trainingId: number,
-    status: string,
-    userId: number
-  ) {
+  async qUpsertTrainingTeacher(conn: PoolConnection, teacherId: number, trainingId: number, statusId: number, userId: number ) {
     const query = `
-        INSERT INTO training_teacher (teacherId, trainingId, status, createdAt, createdByUser, updatedAt, updatedByUser)
+        INSERT INTO training_teacher (teacherId, trainingId, statusId, createdAt, createdByUser, updatedAt, updatedByUser)
         VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
         ON DUPLICATE KEY UPDATE
-                             status = VALUES(status),
+                             statusId = VALUES(statusId),
                              updatedAt = NOW(),
                              updatedByUser = VALUES(updatedByUser)
     `;
 
-    const [result] = await conn.query<ResultSetHeader>(
-      query,
-      [teacherId, trainingId, status, userId, userId]
-    );
+    const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, statusId, userId, userId]);
 
     return result;
   }
@@ -438,58 +418,6 @@ export class GenericController<T> {
     );
 
     return queryResult;
-  }
-
-  async qUpdateTrainingSchedules(conn: PoolConnection, trainingId: number, updatedByUser: number, trainingSchedules: Array<TrainingScheduleResult>
-  ) {
-    // Processa cada schedule
-    for (const schedule of trainingSchedules) {
-      // Validação de data
-      if (!schedule.dateTime || isNaN(Date.parse(schedule.dateTime))) {
-        throw new Error(`Data inválida: ${schedule.dateTime}`);
-      }
-
-      if (schedule.id) {
-        // Se é um schedule existente e está marcado como inativo, deleta
-        if (!schedule.active) {
-          const deleteQuery = `
-          DELETE FROM training_schedule 
-          WHERE id = ? AND trainingId = ?
-        `;
-
-          await conn.query(deleteQuery, [schedule.id, trainingId]);
-        } else {
-          // Atualiza schedule existente que está ativo
-          const updateQuery = `
-          UPDATE training_schedule 
-          SET 
-            dateTime = ?, 
-            active = ?, 
-            updatedByUser = ?
-          WHERE id = ? AND trainingId = ?
-        `;
-
-          await conn.query(
-            updateQuery,
-            [schedule.dateTime, 1, updatedByUser, schedule.id, trainingId]
-          );
-        }
-      } else {
-        // Insere novo schedule apenas se estiver ativo
-        if (schedule.active) {
-          const insertQuery = `
-          INSERT INTO training_schedule (trainingId, dateTime, active, createdByUser, updatedByUser) 
-          VALUES (?, ?, ?, ?, ?)
-        `;
-
-          await conn.query(
-            insertQuery,
-            [trainingId, schedule.dateTime, 1, updatedByUser, updatedByUser]
-          );
-        }
-        // Se for novo e inativo, simplesmente ignora (não insere)
-      }
-    }
   }
 
   async qAggregateTest(conn: PoolConnection, yearName: string, classroom: number, bimesterId: number) {
@@ -1333,25 +1261,23 @@ export class GenericController<T> {
     }>
   }
 
-  async qAllTrainingTeachersRelationships(conn: PoolConnection, teachers: { id: number, name: string, discipline: string, classroom: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, status: number | string }[] }[], trainingIds: number[]) {
+  async qAllTrainingTeachersRelationships(conn: PoolConnection, teachers: { id: number, name: string, discipline: string, classroom: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, statusId: number | string }[] }[], trainingIds: number[]) {
 
     const query = `
-      SELECT tt.id, tt.teacherId, tt.trainingId, tt.status
+      SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId
       FROM training_teacher AS tt
       WHERE tt.trainingId IN (?) AND tt.teacherId = ?
     `
 
     for(let teacher of teachers) {
       const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id])
-      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, status: number | string }>
+      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string }>
     }
 
     return teachers
   }
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
-
-    // const trainingSearch = `%${search.toString().toUpperCase()}%`
 
     const query =
       `
@@ -1364,8 +1290,7 @@ export class GenericController<T> {
               tm.name AS meeting,
               tsc.id AS month,
               y.name AS year,
-              p.name AS createdBy,
-              COUNT(DISTINCT ts.id) AS availability
+              p.name AS createdBy
           FROM training AS t
                    INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
                    INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
@@ -1374,7 +1299,6 @@ export class GenericController<T> {
                    INNER JOIN user AS u ON t.createdByUser = u.id
                    INNER JOIN person AS p ON u.personId = p.id
                    LEFT JOIN discipline AS d ON t.disciplineId = d.id
-                   LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
           WHERE t.yearId = ? AND t.categoryId = ?
           GROUP BY t.id, tm.name, t.classroom, t.observation, d.name, cc.name, y.name, p.name
           LIMIT ?
@@ -1391,8 +1315,7 @@ export class GenericController<T> {
       discipline: string,
       category: string,
       year: string,
-      createdBy: string,
-      availability: number
+      createdBy: string
     }>
   }
 

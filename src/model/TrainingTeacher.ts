@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, Index } from "typeorm"
 import { Teacher } from "./Teacher"
 import { Training } from "./Training";
+import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
 
 @Index(["teacher", "training"], { unique: true })
 @Entity()
@@ -15,8 +16,8 @@ export class TrainingTeacher {
   @ManyToOne(() => Training, { nullable: false })
   training: Training;
 
-  @Column()
-  status: string;
+  @ManyToOne(() => TrainingTeacherStatus, { nullable: false })
+  status: TrainingTeacherStatus;
 
   @Column({ nullable: false, select: false })
   createdAt: Date;

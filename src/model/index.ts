@@ -36,7 +36,6 @@ import { AlphabeticLevel } from "./AlphabeticLevel";
 import { AlphabeticFirst } from "./AlphabeticFirst";
 import { Skill } from "./Skill";
 import { Training } from "./Training";
-import { TrainingSchedule } from "./TrainingSchedule";
 import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
 import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 import { Contract } from "./Contract";
@@ -61,7 +60,6 @@ export const entities = [
   QuestionGroup,
   TestClassroom,
   Training,
-  TrainingSchedule,
   TrainingTeacher,
   TrainingTeacherStatus,
   TrainingSchedulesMonthsReferences,

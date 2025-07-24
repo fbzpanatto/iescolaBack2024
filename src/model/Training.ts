@@ -1,7 +1,6 @@
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
-import { TrainingSchedule } from "./TrainingSchedule";
 import { Year } from "./Year";
 import { TrainingSchedulesMonthsReferences } from "./TrainingSchedulesMonthsReferences";
 import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
@@ -18,9 +17,6 @@ export class Training {
 
   @Column({ length: 100, nullable: true })
   observation: string
-
-  @OneToMany(() => TrainingSchedule, trainingSchedule => trainingSchedule.training)
-  trainingSchedules: TrainingSchedule[]
 
   @OneToMany(() => TrainingTeacher, t => t.training)
   trainingTeachers: TrainingTeacher[]

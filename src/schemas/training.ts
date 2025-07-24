@@ -42,9 +42,7 @@ export const TRAINING_SCHEMA: Schema = {
     optional: true
   },
   observation: {
-    optional: true,
-    escape: true,
-    isString: true
+    optional: true
   },
   classroom: {
     exists: true,

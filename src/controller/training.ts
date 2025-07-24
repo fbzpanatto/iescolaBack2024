@@ -98,7 +98,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      const { classroom, discipline, category, observation, trainingSchedules, month, meeting } = body;
+      const { classroom, discipline, category, observation, month, meeting } = body;
 
       await conn.beginTransaction();
 
@@ -107,8 +107,6 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
       const training = await this.qNewTraining(conn, currentYear.id, category, month, meeting, classroom, teacher.person.user.id, discipline, observation);
-
-      await this.qNewTrainingSchedules(conn, training.insertId, teacher.person.user.id, trainingSchedules);
 
       await conn.commit();
 
@@ -127,7 +125,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const trainingId = parseInt(id);
       if (isNaN(trainingId)) { return { status: 400, message: 'ID inválido' } }
 
-      const { classroom, discipline, category, observation, trainingSchedules, month, meeting } = body;
+      const { classroom, discipline, category, observation, month, meeting } = body;
 
       const existingTraining = await this.qOneTraining(conn, trainingId);
       if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
@@ -137,8 +135,6 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
       await this.qUpdateTraining(conn, trainingId, meeting, category, month, classroom, teacher.person.user.id, discipline, observation);
-
-      await this.qUpdateTrainingSchedules(conn, trainingId, teacher.person.user.id, trainingSchedules);
 
       await conn.commit();
 
@@ -152,7 +148,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherTraining(body: { user: UserInterface, teacherId: number, statusId: number | string, trainingId: number }) {
+  async updateTeacherTraining(body: { user: UserInterface, teacherId: number, statusId: number, trainingId: number }) {
 
     let conn = await dbConn();
 
@@ -165,7 +161,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      await this.qUpsertTrainingTeacher(conn, body.teacherId, body.trainingId, String(body.statusId), teacher.person.user.id );
+      await this.qUpsertTrainingTeacher(conn, body.teacherId, body.trainingId, body.statusId, teacher.person.user.id );
 
       await conn.commit();
 

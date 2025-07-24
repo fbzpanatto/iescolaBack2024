@@ -9,7 +9,8 @@ import {
   qAlphaTests,
   qClassroom,
   qClassrooms,
-  qFormatedYear, qPendingTransfers,
+  qFormatedYear,
+  qPendingTransfers,
   qReadingFluenciesHeaders,
   qSchools,
   qState,
@@ -26,7 +27,11 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, Training, TrainingResult, TrainingScheduleResult, TrainingWithSchedulesResult
+  SavePerson,
+  Training,
+  TrainingResult,
+  TrainingScheduleResult,
+  TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
@@ -1326,6 +1331,22 @@ export class GenericController<T> {
       classroom: number,
       shortName: string
     }>
+  }
+
+  async qAllTrainingTeachersRelationships(conn: PoolConnection, teachers: { id: number, name: string, discipline: string, classroom: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, status: number | string }[] }[], trainingIds: number[]) {
+
+    const query = `
+      SELECT tt.id, tt.teacherId, tt.trainingId, tt.status
+      FROM training_teacher AS tt
+      WHERE tt.trainingId IN (?) AND tt.teacherId = ?
+    `
+
+    for(let teacher of teachers) {
+      const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id])
+      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, status: number | string }>
+    }
+
+    return teachers
   }
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {

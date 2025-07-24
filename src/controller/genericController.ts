@@ -388,6 +388,21 @@ export class GenericController<T> {
     return result;
   }
 
+  async qUpsertTrainingTeacherObs(conn: PoolConnection, teacherId: number, trainingId: number, observation: string, userId: number ) {
+    const query = `
+        INSERT INTO training_teacher (teacherId, trainingId, observation, createdAt, createdByUser, updatedAt, updatedByUser)
+        VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
+        ON DUPLICATE KEY UPDATE
+                             observation = VALUES(observation),
+                             updatedAt = NOW(),
+                             updatedByUser = VALUES(updatedByUser)
+    `;
+
+    const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, observation, userId, userId]);
+
+    return result;
+  }
+
   async qUpdateTraining(
     conn: PoolConnection,
     id: number,
@@ -1264,14 +1279,14 @@ export class GenericController<T> {
   async qAllTrainingTeachersRelationships(conn: PoolConnection, teachers: { id: number, name: string, discipline: string, classroom: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, statusId: number | string }[] }[], trainingIds: number[]) {
 
     const query = `
-      SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId
+      SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
       FROM training_teacher AS tt
       WHERE tt.trainingId IN (?) AND tt.teacherId = ?
     `
 
     for(let teacher of teachers) {
       const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id])
-      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string }>
+      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string, observation: string | null }>;
     }
 
     return teachers
@@ -1288,7 +1303,7 @@ export class GenericController<T> {
               d.name AS discipline,
               cc.name AS category,
               tm.name AS meeting,
-              tsc.id AS month,
+              tsc.name AS month,
               y.name AS year,
               p.name AS createdBy
           FROM training AS t
@@ -1309,13 +1324,14 @@ export class GenericController<T> {
 
     return queryResult as Array<{
       id: number,
-      meeting: string,
       classroom: string,
       observation: string,
       discipline: string,
       category: string,
+      meeting: string,
+      month: string,
       year: string,
-      createdBy: string
+      createdBy: string,
     }>
   }
 

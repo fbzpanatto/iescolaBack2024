@@ -148,7 +148,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherTraining(body: { user: UserInterface, teacherId: number, statusId: number, trainingId: number }) {
+  async updateTeacherTrainingStatus(body: { user: UserInterface, teacherId: number, statusId: number, trainingId: number }) {
 
     let conn = await dbConn();
 
@@ -162,6 +162,33 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
       await this.qUpsertTrainingTeacher(conn, body.teacherId, body.trainingId, body.statusId, teacher.person.user.id );
+
+      await conn.commit();
+
+      return { status: 200, data: { message: 'Status do professor no training atualizado com sucesso' } };
+    }
+    catch (error: any) {
+      if (conn) { await conn.rollback() }
+      console.error('Erro ao atualizar training teacher:', error);
+      return { status: 500, message: error.message };
+    }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async updateTeacherTrainingObservation(body: { user: UserInterface, teacherId: number, observation: string, trainingId: number }) {
+
+    let conn = await dbConn();
+
+    try {
+
+      const existingTraining = await this.qOneTraining(conn, body.trainingId);
+      if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
+
+      await conn.beginTransaction();
+
+      const teacher = await this.qTeacherByUser(conn, body.user.user);
+
+      await this.qUpsertTrainingTeacherObs(conn, body.teacherId, body.trainingId, body.observation, teacher.person.user.id );
 
       await conn.commit();
 

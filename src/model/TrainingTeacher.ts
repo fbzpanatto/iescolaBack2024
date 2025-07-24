@@ -16,8 +16,11 @@ export class TrainingTeacher {
   @ManyToOne(() => Training, { nullable: false })
   training: Training;
 
-  @ManyToOne(() => TrainingTeacherStatus, { nullable: false })
+  @ManyToOne(() => TrainingTeacherStatus, { nullable: true })
   status: TrainingTeacherStatus;
+
+  @Column({ nullable: true, length: 100 })
+  observation: string
 
   @Column({ nullable: false, select: false })
   createdAt: Date;

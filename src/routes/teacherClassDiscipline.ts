@@ -16,6 +16,10 @@ TeacherClassDisciplineRouter.post('/', async (req: Request, res: any) => {
   const response = await teacherRelationController.save(req.body, {}); return res.status(response.status).json(response)
 });
 
+TeacherClassDisciplineRouter.put('/contract/:id', ID_PARAM, async (req: Request, res: any) => {
+  const response = await teacherRelationController.updateContract(req.body); return res.status(response.status).json(response)
+});
+
 TeacherClassDisciplineRouter.put('/:id', ID_PARAM, async (req: Request, res: any) => {
   const response = await teacherRelationController.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

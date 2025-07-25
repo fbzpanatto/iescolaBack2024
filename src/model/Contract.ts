@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
+import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 @Entity()
 export class Contract {
 
@@ -7,6 +8,9 @@ export class Contract {
 
   @Column({ unique: true, length: 100 })
   name: string
+
+  @OneToMany(() => TeacherClassDiscipline, t => t.contract )
+  contracts: TeacherClassDiscipline[];
 
   @Column({ default: true })
   active: boolean

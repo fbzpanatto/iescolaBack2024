@@ -14,7 +14,7 @@ TrainingRouter.get('/form', havePermission, async (req: Request, res: any) => {
 })
 
 TrainingRouter.get('/presence', havePermission, async (req: Request, res: any) => {
-  const response = await trainingController.presence(req)
+  const response = await trainingController.presenceFundI(req)
   return res.status(response.status as number).json(response)
 })
 

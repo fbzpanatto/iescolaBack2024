@@ -30,7 +30,6 @@ import {
   SavePerson,
   Training,
   TrainingResult,
-  TrainingScheduleResult,
   TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import {Classroom} from "../model/Classroom";
@@ -1174,22 +1173,18 @@ export class GenericController<T> {
               tmr.id AS monthId,
               tmr.name AS monthName,
               d.id AS disciplineId,
-              d.name AS disciplineName,
-              ts.id AS scheduleId,
-              DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS scheduleDateTime,
-              ts.active AS scheduleActive
+              d.name AS disciplineName
           FROM training AS t
                    INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
                    INNER JOIN training_schedules_months_references AS tmr ON t.monthReferenceId = tmr.id
                    INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
                    INNER JOIN year AS y ON t.yearId = y.id
                    LEFT JOIN discipline AS d ON t.disciplineId = d.id
-                   LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
           WHERE
               t.yearId = ? AND
               t.categoryId = ? AND
               t.classroom = ?
-          ORDER BY t.id, ts.dateTime
+          ORDER BY t.id
       `;
 
       const [queryResult] = await conn.query(query, [
@@ -1214,23 +1209,19 @@ export class GenericController<T> {
             tmr.id AS monthId,
             tmr.name AS monthName,
             d.id AS disciplineId,
-            d.name AS disciplineName,
-            ts.id AS scheduleId,
-            DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS scheduleDateTime,
-            ts.active AS scheduleActive
+            d.name AS disciplineName
         FROM training AS t
                  INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
                  INNER JOIN training_schedules_months_references AS tmr ON t.monthReferenceId = tmr.id
                  INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
                  INNER JOIN year AS y ON t.yearId = y.id
                  LEFT JOIN discipline AS d ON t.disciplineId = d.id
-                 LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
         WHERE
             t.yearId = ? AND
             t.categoryId = ? AND
             t.classroom = ? AND
             t.disciplineId = ?
-        ORDER BY t.id, ts.dateTime
+        ORDER BY t.id
     `;
 
     const [queryResult] = await conn.query(query, [
@@ -1243,46 +1234,110 @@ export class GenericController<T> {
     return this.formatTrainingsWithSchedules(queryResult as any[]);
   }
 
-  async qAllReferencedTeachers(conn: PoolConnection, referencedTraining: Training) {
+  async updateTeacherContractCurrentYear(conn: PoolConnection, body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
     const query =
       `
-        SELECT 
-            t.id,
-            p.name, 
-            'POLIVANTE' AS discipline,
-            CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
-            s.shortName
-        FROM teacher_class_discipline AS tcd
-            INNER JOIN discipline AS d ON tcd.disciplineId = d.id
-            INNER JOIN teacher AS t ON tcd.teacherId = t.id
-            INNER JOIN person AS p ON t.personId = p.id
-            INNER JOIN person_category AS pc ON p.categoryId = pc.id
-            INNER JOIN classroom AS c ON tcd.classroomId = c.id
-            INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
-            INNER JOIN school AS s ON c.schoolId = s.id
-        WHERE d.id NOT IN (6, 7, 8, 9) AND cc.id = ? AND pc.id = 8 AND tcd.endedAt IS NULL AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ?
-        GROUP BY p.id, p.name, c.id, c.shortName, s.id, s.shortName
-        ORDER BY s.shortName, classroom, p.name
+          UPDATE teacher_class_discipline AS tcd
+              INNER JOIN classroom AS c ON tcd.classroomId = c.id
+              INNER JOIN school AS s ON c.schoolId = s.id
+          SET tcd.contractId = ?
+          WHERE
+              tcd.teacherId = ? AND
+              s.id = ? AND
+              CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+              c.categoryId = ? AND
+              tcd.endedAt IS NULL
       `
 
-    const [ queryResult ] = await conn.query(query, [referencedTraining.categoryId, referencedTraining.classroom])
+    const [ queryResult ] = await conn.query(query, [body.contractId, body.teacherId, body.schoolId, body.classroom, body.categoryId])
+    return queryResult
+  }
+
+  async updateTeacherContractOtherYear(conn: PoolConnection, body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
+
+  }
+
+  async qFundITeachers(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string) {
+
+    const query =
+      `
+          SELECT
+              t.id,
+              p.name,
+              'POLIVANTE' AS discipline,
+              CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
+              s.id AS schoolId,
+              s.shortName
+          FROM teacher_class_discipline AS tcd
+                   INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+                   INNER JOIN teacher AS t ON tcd.teacherId = t.id
+                   INNER JOIN person AS p ON t.personId = p.id
+                   INNER JOIN person_category AS pc ON p.categoryId = pc.id
+                   INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                   INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+                   INNER JOIN school AS s ON c.schoolId = s.id
+          WHERE d.id NOT IN (6, 7, 8, 9) AND cc.id = ? AND pc.id = 8 AND
+              (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
+              CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ?
+          GROUP BY p.id, p.name, c.id, c.shortName, s.id, s.shortName
+          ORDER BY s.shortName, classroom, p.name
+      `
+
+    const [ queryResult ] = await conn.query(query, [
+      referencedTraining.categoryId,
+      isCurrentYear,
+      isCurrentYear,
+      referencedTrainingYear,
+      referencedTraining.classroom
+    ])
 
     return queryResult as Array<{
       id: number,
       name: string,
       discipline: string,
       classroom: number,
+      schoolId: number,
       shortName: string
     }>
   }
 
-  async qAllTrainingTeachersRelationships(conn: PoolConnection, teachers: { id: number, name: string, discipline: string, classroom: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, statusId: number | string }[] }[], trainingIds: number[]) {
+  async qTeacherTrainings (
+    conn: PoolConnection,
+    teachers: { id: number, name: string, disciplineId?: number | null, discipline: string, contract?: number | null, classroom: number, schoolId: number, shortName: string, trainingTeachers?: { id: number, teacherId: number, trainingId: number, statusId: number | string }[] }[],
+    trainingIds: number[],
+    categoryId: number,
+    isCurrentYear: boolean,
+    referencedTrainingYear: string
+  ) {
 
     const query = `
       SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
       FROM training_teacher AS tt
       WHERE tt.trainingId IN (?) AND tt.teacherId = ?
     `
+
+    const contractQuery =
+      `
+        SELECT tcd.id, tcd.teacherId, tcd.contractId
+        FROM teacher_class_discipline AS tcd
+          INNER JOIN classroom AS c ON tcd.classroomId = c.id     
+          INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE
+          tcd.teacherId = ? AND     
+          s.id = ? AND
+          CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+          c.categoryId = ? AND
+          tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
+          (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?)
+        LIMIT 1
+      `
+
+    for(let teacher of teachers) {
+
+      const [ queryResult ] = await conn.query(contractQuery, [teacher.id, teacher.schoolId, teacher.classroom, categoryId, teacher.disciplineId, isCurrentYear, isCurrentYear, referencedTrainingYear])
+      const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0]
+      teacher.contract = result.contractId
+    }
 
     for(let teacher of teachers) {
       const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id])
@@ -1344,11 +1399,7 @@ export class GenericController<T> {
             t.observation AS observation,
             d.id AS discipline,
             cc.id AS category,
-            tsc.id AS month,
-            ts.id AS trainingScheduleId,
-            ts.trainingId AS training,
-            DATE_FORMAT(ts.dateTime, '%d/%m/%Y %H:%i') AS dateTime,
-            ts.active AS active
+            tsc.id AS month
         FROM training AS t
                  INNER JOIN training_schedules_meeting AS tm ON t.meetingId = tm.id
                  INNER JOIN classroom_category AS cc ON t.categoryId = cc.id
@@ -1356,7 +1407,6 @@ export class GenericController<T> {
                  INNER JOIN year AS y ON t.yearId = y.id
                  INNER JOIN user AS u ON t.createdByUser = u.id
                  INNER JOIN person AS p ON u.personId = p.id
-                 LEFT JOIN training_schedule AS ts ON t.id = ts.trainingId AND ts.active = true
                  LEFT JOIN discipline AS d ON t.disciplineId = d.id
         WHERE t.id = ?
     `;
@@ -1406,7 +1456,7 @@ export class GenericController<T> {
     return  queryResult as Array<Contract>
   }
 
-  async qTrainingTeacherStatus(conn: PoolConnection) {
+  async qTeacherTrainingStatus(conn: PoolConnection) {
     const query = `SELECT id, name FROM training_teacher_status WHERE active = 1`
     const [ queryResult ] = await conn.query(format(query))
     return  queryResult as Array<TrainingTeacherStatus>

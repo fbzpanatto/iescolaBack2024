@@ -1,7 +1,8 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm"
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Discipline } from "./Discipline";
 import { Teacher } from "./Teacher";
 import { Classroom } from "./Classroom";
+import { Contract } from "./Contract";
 
 @Entity()
 export class TeacherClassDiscipline {
@@ -18,10 +19,12 @@ export class TeacherClassDiscipline {
   @ManyToOne(() => Classroom, classroom => classroom.teacherClassDiscipline)
   classroom: Classroom
 
+  @ManyToOne(() => Contract, c => c.contracts, { nullable: true })
+  contract: Contract
+
   @Column({ nullable: false})
   startedAt: Date
 
   @Column({ nullable: true })
   endedAt: Date
-  // newTeacherRelations: { id: any; person: { id: any; name: any; birth: any; }; teacherClasses: any; teacherDisciplines: any; };
 }

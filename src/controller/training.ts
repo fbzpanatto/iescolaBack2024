@@ -46,30 +46,34 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
-  async presence(req: Request) {
+  async presenceFundI(req: Request) {
     let conn: PoolConnection | null = null;
     const { reference } = req.query;
 
     try {
       conn = await dbConn();
 
-      const referenceTraining = await this.qPresence(conn, parseInt(reference as string));
+      const cYear = await this.qCurrentYear(conn)
 
-      if (!referenceTraining) { return { status: 404, message: 'Training não encontrado' } }
+      const refTraining = await this.qPresence(conn, parseInt(reference as string));
 
-      const allReferencedTrainings = await this.qAllReferencedTrainings(conn, referenceTraining);
+      if (!refTraining) { return { status: 404, message: 'Training não encontrado' } }
 
-      const trainingIds = allReferencedTrainings.map(t => t.id);
+      const refTrainingYear = await this.qYearById(conn, refTraining.id);
 
-      const pre = await this.qAllReferencedTeachers(conn, referenceTraining);
+      const allTrainings = await this.qAllReferencedTrainings(conn, refTraining);
+
+      const trainingIds = allTrainings.map(t => t.id);
+
+      const preFundI = await this.qFundITeachers(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name);
 
       const contracts = await this.qContracts(conn);
 
-      const status = await this.qTrainingTeacherStatus(conn);
+      const status = await this.qTeacherTrainingStatus(conn);
 
-      const allReferencedTeachers = await this.qAllTrainingTeachersRelationships(conn, pre, trainingIds)
+      const allReferencedTeachers = await this.qTeacherTrainings(conn, preFundI, trainingIds, refTraining.categoryId, cYear.id === refTraining.yearId, refTrainingYear.name)
 
-      return { status: 200, data: { allReferencedTrainings, allReferencedTeachers, contracts, status } };
+      return { status: 200, data: { allReferencedTrainings: allTrainings, allReferencedTeachers, contracts, status } };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
     finally { if (conn) { conn.release() }

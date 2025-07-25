@@ -1265,7 +1265,7 @@ export class GenericController<T> {
               t.id,
               p.name,
               'POLIVANTE' AS discipline,
-              CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
+              CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
               s.id AS schoolId,
               s.shortName
           FROM teacher_class_discipline AS tcd
@@ -1279,7 +1279,7 @@ export class GenericController<T> {
           WHERE d.id NOT IN (6, 7, 8, 9) AND cc.id = ? AND pc.id = 8 AND
               (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
               CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ?
-          GROUP BY p.id, p.name, c.id, c.shortName, s.id, s.shortName
+          GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED)
           ORDER BY s.shortName, classroom, p.name
       `
 

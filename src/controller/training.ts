@@ -49,9 +49,12 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
   async presenceTeachersByCategory(req: Request) {
     let conn: PoolConnection | null = null;
     const { reference } = req.query;
+    const body = req.body
 
     try {
       conn = await dbConn();
+
+      const teacher = await this.qTeacherByUser(conn, body.user.user);
 
       const cYear = await this.qCurrentYear(conn)
 
@@ -65,7 +68,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const trainingIds = allTrainings.map(t => t.id);
 
-      const preFundI = await this.qTeachersByCategory(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name);
+      const preFundI = await this.qTeachersByCategory(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name, teacher);
 
       const contracts = await this.qContracts(conn);
 

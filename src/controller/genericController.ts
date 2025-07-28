@@ -1257,7 +1257,7 @@ export class GenericController<T> {
 
   }
 
-  async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string) {
+  async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
 
     const query = `
         SELECT
@@ -1284,9 +1284,9 @@ export class GenericController<T> {
             (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
             CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
             (
-                (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
-                (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
-                )
+              (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
+              (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
+            )
         GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
                  CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
         ORDER BY s.shortName, classroom, p.name

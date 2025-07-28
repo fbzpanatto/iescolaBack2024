@@ -1282,58 +1282,61 @@ export class GenericController<T> {
     return queryResult
   }
 
-  async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+  async qTeachersByCategory(
+    conn: PoolConnection,
+    referencedTraining: Training,
+    isCurrentYear: boolean,
+    referencedTrainingYear: string,
+    teacher: qUserTeacher
+  ) {
+    // Determina se deve filtrar por escola
+    const shouldFilterBySchool =
+      teacher.school?.id !== null &&
+      ![1, 2, 10].includes(teacher.person.category.id);
 
     const query = `
-      SELECT
-          t.id,
-          p.name,
-          CASE
-              WHEN cc.id = 1 THEN 'POLIVALENTE'
-              ELSE d.name
-              END AS discipline,
-          CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
-          s.id AS schoolId,
-          s.shortName
-      FROM teacher_class_discipline AS tcd
-               INNER JOIN discipline AS d ON tcd.disciplineId = d.id
-               INNER JOIN teacher AS t ON tcd.teacherId = t.id
-               INNER JOIN person AS p ON t.personId = p.id
-               INNER JOIN person_category AS pc ON p.categoryId = pc.id
-               INNER JOIN classroom AS c ON tcd.classroomId = c.id
-               INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
-               INNER JOIN school AS s ON c.schoolId = s.id
-               ${!isCurrentYear ? `
-               INNER JOIN training_teacher AS tt ON tt.teacherId = t.id
-               INNER JOIN training AS tr ON tt.trainingId = tr.id
-               INNER JOIN year AS y ON tr.yearId = y.id
-               ` : ''}
-      WHERE
-          cc.id = ? AND
-          pc.id = 8 AND
-          ${isCurrentYear
-      ? 'tcd.endedAt IS NULL'
-      : 'y.name = ?'
-    } AND
-          CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
-          (
-            (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
-            (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
-          )
-      GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
-               CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
-      ORDER BY s.shortName, classroom, p.name
+    SELECT
+        t.id,
+        p.name,
+        CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END AS discipline,
+        CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
+        s.id AS schoolId,
+        s.shortName
+    FROM teacher_class_discipline AS tcd
+         INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+         INNER JOIN teacher AS t ON tcd.teacherId = t.id
+         INNER JOIN person AS p ON t.personId = p.id
+         INNER JOIN person_category AS pc ON p.categoryId = pc.id
+         INNER JOIN classroom AS c ON tcd.classroomId = c.id
+         INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+         INNER JOIN school AS s ON c.schoolId = s.id
+         ${!isCurrentYear ? `
+         INNER JOIN training_teacher AS tt ON tt.teacherId = t.id
+         INNER JOIN training AS tr ON tt.trainingId = tr.id
+         INNER JOIN year AS y ON tr.yearId = y.id
+         ` : ''}
+    WHERE
+        cc.id = ? AND
+        pc.id = 8 AND
+        ${ isCurrentYear ? 'tcd.endedAt IS NULL' : 'y.name = ?' } AND
+        CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+        ${ shouldFilterBySchool ? 'c.schoolId = ? AND' : '' }
+        ( (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId)) )
+    GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
+             CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
+    ORDER BY s.shortName, classroom, p.name
   `;
 
-    // Ajusta os parâmetros com base em isCurrentYear
+    // Ajusta os parâmetros com base nas condições
     const queryParams = [
       referencedTraining.categoryId,
       ...(isCurrentYear ? [] : [referencedTrainingYear]),
       referencedTraining.classroom,
-      referencedTraining.disciplineId // Será null para PEB I
+      ...(shouldFilterBySchool ? [teacher.school.id] : []),
+      referencedTraining.disciplineId
     ];
 
-    const [ queryResult ] = await conn.query(query, queryParams);
+    const [queryResult] = await conn.query(query, queryParams);
 
     return queryResult as Array<{
       id: number,
@@ -1344,6 +1347,7 @@ export class GenericController<T> {
       shortName: string
     }>;
   }
+
 
   async qTeacherTrainings (
     conn: PoolConnection,

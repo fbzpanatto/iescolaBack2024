@@ -1254,52 +1254,86 @@ export class GenericController<T> {
   }
 
   async updateTeacherContractOtherYear(conn: PoolConnection, body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
+    const query = `
+    UPDATE teacher_class_discipline AS tcd
+    INNER JOIN classroom AS c ON tcd.classroomId = c.id
+    INNER JOIN school AS s ON c.schoolId = s.id
+    INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
+    INNER JOIN training AS tr ON tt.trainingId = tr.id
+    INNER JOIN year AS y ON tr.yearId = y.id
+    SET tcd.contractId = ?
+    WHERE
+      tcd.teacherId = ? AND
+      s.id = ? AND
+      CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+      c.categoryId = ? AND
+      y.name = ?
+  `
 
+    const [ queryResult ] = await conn.query(query, [
+      body.contractId,
+      body.teacherId,
+      body.schoolId,
+      body.classroom,
+      body.categoryId,
+      body.yearName
+    ])
+
+    return queryResult
   }
 
   async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
 
     const query = `
-        SELECT
-            t.id,
-            p.name,
-            CASE
-                WHEN cc.id = 1 THEN 'POLIVALENTE'
-                ELSE d.name
-                END AS discipline,
-            CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
-            s.id AS schoolId,
-            s.shortName
-        FROM teacher_class_discipline AS tcd
-                 INNER JOIN discipline AS d ON tcd.disciplineId = d.id
-                 INNER JOIN teacher AS t ON tcd.teacherId = t.id
-                 INNER JOIN person AS p ON t.personId = p.id
-                 INNER JOIN person_category AS pc ON p.categoryId = pc.id
-                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
-                 INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
-                 INNER JOIN school AS s ON c.schoolId = s.id
-        WHERE
-            cc.id = ? AND
-            pc.id = 8 AND
-            (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
-            CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
-            (
-              (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
-              (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
-            )
-        GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
-                 CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
-        ORDER BY s.shortName, classroom, p.name
-    `;
+      SELECT
+          t.id,
+          p.name,
+          CASE
+              WHEN cc.id = 1 THEN 'POLIVALENTE'
+              ELSE d.name
+              END AS discipline,
+          CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
+          s.id AS schoolId,
+          s.shortName
+      FROM teacher_class_discipline AS tcd
+               INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+               INNER JOIN teacher AS t ON tcd.teacherId = t.id
+               INNER JOIN person AS p ON t.personId = p.id
+               INNER JOIN person_category AS pc ON p.categoryId = pc.id
+               INNER JOIN classroom AS c ON tcd.classroomId = c.id
+               INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+               INNER JOIN school AS s ON c.schoolId = s.id
+               ${!isCurrentYear ? `
+               INNER JOIN training_teacher AS tt ON tt.teacherId = t.id
+               INNER JOIN training AS tr ON tt.trainingId = tr.id
+               INNER JOIN year AS y ON tr.yearId = y.id
+               ` : ''}
+      WHERE
+          cc.id = ? AND
+          pc.id = 8 AND
+          ${isCurrentYear
+      ? 'tcd.endedAt IS NULL'
+      : 'y.name = ?'
+    } AND
+          CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+          (
+            (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
+            (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
+          )
+      GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
+               CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
+      ORDER BY s.shortName, classroom, p.name
+  `;
 
-    const [ queryResult ] = await conn.query(query, [
+    // Ajusta os parâmetros com base em isCurrentYear
+    const queryParams = [
       referencedTraining.categoryId,
-      isCurrentYear,
-      isCurrentYear,
-      referencedTrainingYear,
+      ...(isCurrentYear ? [] : [referencedTrainingYear]),
       referencedTraining.classroom,
       referencedTraining.disciplineId // Será null para PEB I
-    ]);
+    ];
+
+    const [ queryResult ] = await conn.query(query, queryParams);
 
     return queryResult as Array<{
       id: number,
@@ -1321,40 +1355,59 @@ export class GenericController<T> {
   ) {
 
     const query = `
-      SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
-      FROM training_teacher AS tt
-      WHERE tt.trainingId IN (?) AND tt.teacherId = ?
+        SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
+        FROM training_teacher AS tt
+        WHERE tt.trainingId IN (?) AND tt.teacherId = ?
     `
 
-    const contractQuery =
-      `
+    const contractQuery = `
         SELECT tcd.id, tcd.teacherId, tcd.contractId
         FROM teacher_class_discipline AS tcd
-          INNER JOIN classroom AS c ON tcd.classroomId = c.id     
-          INNER JOIN school AS s ON c.schoolId = s.id
+                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                 INNER JOIN school AS s ON c.schoolId = s.id
+            ${!isCurrentYear ? `
+      INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
+      INNER JOIN training AS tr ON tt.trainingId = tr.id
+      INNER JOIN year AS y ON tr.yearId = y.id
+      ` : ''}
         WHERE
-          tcd.teacherId = ? AND     
-          s.id = ? AND
-          CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
-          c.categoryId = ? AND
-          tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
-          (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?)
+            tcd.teacherId = ? AND
+            s.id = ? AND
+            CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+            c.categoryId = ? AND
+            tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
+            ${isCurrentYear
+                    ? 'tcd.endedAt IS NULL'
+                    : 'y.name = ?'
+            }
         LIMIT 1
-      `
+    `
 
+    // Busca contratos
     for(let teacher of teachers) {
+      const queryParams = [
+        teacher.id,
+        teacher.schoolId,
+        teacher.classroom,
+        categoryId,
+        teacher.disciplineId,
+        ...(isCurrentYear ? [] : [referencedTrainingYear])
+      ];
 
-      const [ queryResult ] = await conn.query(contractQuery, [teacher.id, teacher.schoolId, teacher.classroom, categoryId, teacher.disciplineId, isCurrentYear, isCurrentYear, referencedTrainingYear])
-      const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0]
-      teacher.contract = result.contractId
+      const [ queryResult ] = await conn.query(contractQuery, queryParams);
+      const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0];
+
+      // Verifica se existe resultado antes de acessar a propriedade
+      teacher.contract = result ? result.contractId : null;
     }
 
+    // Busca treinamentos dos professores
     for(let teacher of teachers) {
-      const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id])
+      const [ queryResult ] = await conn.query(query, [trainingIds, teacher.id]);
       teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string, observation: string | null }>;
     }
 
-    return teachers
+    return teachers;
   }
 
   async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {

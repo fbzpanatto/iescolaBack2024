@@ -20,8 +20,7 @@ class TeacherClassDisciplineController extends GenericController<EntityTarget<Te
 
       if(isCurrentYear){
 
-        const result = await this.updateTeacherContractCurrentYear(conn, body)
-        console.log('result', result)
+        await this.updateTeacherContractCurrentYear(conn, body)
         await conn.commit();
 
         return { status: 200, data: { message: 'Contrato atualizado com sucesso' } };

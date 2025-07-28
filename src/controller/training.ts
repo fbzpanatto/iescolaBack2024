@@ -46,7 +46,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     finally { if(conn) { conn.release() } }
   }
 
-  async presenceFundI(req: Request) {
+  async presenceTeachersByCategory(req: Request) {
     let conn: PoolConnection | null = null;
     const { reference } = req.query;
 
@@ -59,13 +59,13 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       if (!refTraining) { return { status: 404, message: 'Training não encontrado' } }
 
-      const refTrainingYear = await this.qYearById(conn, refTraining.id);
+      const refTrainingYear = await this.qYearById(conn, refTraining.yearId);
 
       const allTrainings = await this.qAllReferencedTrainings(conn, refTraining);
 
       const trainingIds = allTrainings.map(t => t.id);
 
-      const preFundI = await this.qFundITeachers(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name);
+      const preFundI = await this.qTeachersByCategory(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name);
 
       const contracts = await this.qContracts(conn);
 

@@ -1257,39 +1257,49 @@ export class GenericController<T> {
 
   }
 
-  async qFundITeachers(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string) {
+  async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string) {
 
-    const query =
-      `
-          SELECT
-              t.id,
-              p.name,
-              'POLIVANTE' AS discipline,
-              CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
-              s.id AS schoolId,
-              s.shortName
-          FROM teacher_class_discipline AS tcd
-                   INNER JOIN discipline AS d ON tcd.disciplineId = d.id
-                   INNER JOIN teacher AS t ON tcd.teacherId = t.id
-                   INNER JOIN person AS p ON t.personId = p.id
-                   INNER JOIN person_category AS pc ON p.categoryId = pc.id
-                   INNER JOIN classroom AS c ON tcd.classroomId = c.id
-                   INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
-                   INNER JOIN school AS s ON c.schoolId = s.id
-          WHERE d.id NOT IN (6, 7, 8, 9) AND cc.id = ? AND pc.id = 8 AND
-              (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
-              CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ?
-          GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED)
-          ORDER BY s.shortName, classroom, p.name
-      `
+    const query = `
+        SELECT
+            t.id,
+            p.name,
+            CASE
+                WHEN cc.id = 1 THEN 'POLIVALENTE'
+                ELSE d.name
+                END AS discipline,
+            CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom,
+            s.id AS schoolId,
+            s.shortName
+        FROM teacher_class_discipline AS tcd
+                 INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+                 INNER JOIN teacher AS t ON tcd.teacherId = t.id
+                 INNER JOIN person AS p ON t.personId = p.id
+                 INNER JOIN person_category AS pc ON p.categoryId = pc.id
+                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                 INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+                 INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE
+            cc.id = ? AND
+            pc.id = 8 AND
+            (? = true AND tcd.endedAt IS NULL OR ? = false AND YEAR(tcd.endedAt) = ?) AND
+            CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+            (
+                (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
+                (cc.id = 2 AND tcd.disciplineId = COALESCE(?, tcd.disciplineId))
+                )
+        GROUP BY t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED),
+                 CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END
+        ORDER BY s.shortName, classroom, p.name
+    `;
 
     const [ queryResult ] = await conn.query(query, [
       referencedTraining.categoryId,
       isCurrentYear,
       isCurrentYear,
       referencedTrainingYear,
-      referencedTraining.classroom
-    ])
+      referencedTraining.classroom,
+      referencedTraining.disciplineId // Será null para PEB I
+    ]);
 
     return queryResult as Array<{
       id: number,
@@ -1298,7 +1308,7 @@ export class GenericController<T> {
       classroom: number,
       schoolId: number,
       shortName: string
-    }>
+    }>;
   }
 
   async qTeacherTrainings (

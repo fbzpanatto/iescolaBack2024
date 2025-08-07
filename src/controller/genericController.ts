@@ -455,6 +455,23 @@ export class GenericController<T> {
     return queryResult as { id: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
   }
 
+  async qTestQuestionsGroups(testId: number, connection: any) {
+    const query = `
+    SELECT 
+      qg.id AS id,
+      qg.name AS name,
+      COUNT(tq.id) AS questionsCount
+    FROM question_group qg
+    LEFT JOIN test_question tq ON qg.id = tq.questionGroupId
+    WHERE tq.testId = ?
+    GROUP BY qg.id, qg.name
+    ORDER BY qg.id
+  `;
+
+    const result = await connection.execute(query, [testId]);
+    return result[0];
+  }
+
   async qDeleteStudentFromTest(conn: PoolConnection, classroomId: number, studentClassroomId: number) {
     try {
       // Inicia a transação

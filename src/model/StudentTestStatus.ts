@@ -1,7 +1,8 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn} from "typeorm";
 import { StudentClassroom } from "./StudentClassroom";
 import { Test } from "./Test";
 
+@Index(["studentClassroom", "test"])
 @Entity()
 export class StudentTestStatus {
 

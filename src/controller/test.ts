@@ -178,7 +178,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const qTestQuestions = await this.qTestQuestions(sqlConn, test.id) as TestQuestion[]
 
             testQuestionsIds = [ ...testQuestionsIds, ...qTestQuestions.map(testQuestion => testQuestion.id) ]
-            const questionGroups = await this.getTestQuestionsGroups(testId, appCONN)
+            const questionGroups = await this.qTestQuestionsGroups(testId, sqlConn)
 
             let classroomPoints = 0
             let classroomPercent = 0

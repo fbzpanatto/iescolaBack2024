@@ -83,7 +83,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
       const expiresIn = decoded.exp;
       const role = decoded.category;
 
-      return { status: 200, data: { token, expiresIn, role, person: student.name } }
+      return { status: 200, data: { token, expiresIn, role, person: student.name, studentId: student.id } }
 
     }
     catch (error: any) { return { status: 500, message: error.message } }

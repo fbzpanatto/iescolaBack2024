@@ -35,6 +35,7 @@ import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 import { PasswordRouter } from "./routes/password";
+import { StudentTestRouter } from "./routes/studentTest";
 
 const app: Application = express();
 const route = Router();
@@ -60,6 +61,7 @@ route.use("/report", authorization, ReportRouter);
 route.use("/school", authorization, SchoolRouter);
 route.use("/state", authorization, StateRouter);
 route.use("/student", authorization, StudentRouter);
+route.use("/student-test", authorization, StudentTestRouter);
 route.use("/training", authorization, TrainingRouter);
 route.use("/student-question", authorization, StudentQuestionRouter);
 route.use("/teacher", authorization, TeacherRouter);

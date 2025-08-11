@@ -135,7 +135,10 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const { classroom, discipline, category, observation, month, meeting } = body;
 
       const existingTraining = await this.qOneTraining(conn, trainingId);
-      if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
+
+      if (!existingTraining) {
+        return { status: 404, message: 'Formação não localizada.' }
+      }
 
       await conn.beginTransaction();
 

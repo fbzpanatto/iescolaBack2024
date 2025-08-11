@@ -5,6 +5,7 @@ interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: bo
 const onlyGET: Permission = { GET: true, POST: false, PUT: false, DELETE: false }
 const getPostPut: Permission = { GET: true, POST: true, PUT: true, DELETE: false }
 const getPost: Permission = { GET: true, POST: true, PUT: false, DELETE: false }
+const getPut: Permission = { GET: true, POST: false, PUT: true, DELETE: false }
 const allMethods: Permission = { GET: true, POST: true, PUT: true, DELETE: true }
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
@@ -144,6 +145,14 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "transfer", methods: onlyGET },
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET }
+    ]
+  },
+  {
+    category: pc.ALUN,
+    permissions: [
+      { entity: "year", methods: onlyGET },
+      { entity: "student", methods: onlyGET },
+      { entity: "test", methods: getPut },
     ]
   },
 ]

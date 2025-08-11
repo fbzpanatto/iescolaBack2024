@@ -43,6 +43,7 @@ import {Teacher} from "../model/Teacher";
 import {ClassroomCategory} from "../model/ClassroomCategory";
 import {Contract} from "../model/Contract";
 import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import {Student} from "../model/Student";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -350,6 +351,21 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(updateQuery), [new Date(), teacherId])
     return queryResult
+  }
+
+  async qStudentByRa(conn: PoolConnection, ra: string, dv: string) {
+    const query =
+      `
+        SELECT student.*, perc.id AS categoryId, per.name AS name
+        FROM student
+        INNER JOIN person per ON student.personId = per.id
+        INNER JOIN person_category perc ON per.categoryId = perc.id
+        WHERE student.ra = ? AND student.dv = ? 
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [ra, dv])
+
+    return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number }[])[0]
   }
 
   async qTeacherByUser(conn: PoolConnection, userId: number) {

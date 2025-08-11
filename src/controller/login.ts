@@ -61,6 +61,35 @@ class LoginController extends GenericController<EntityTarget<User>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
+  async studentLogin(req: Request) {
+
+    const { ra: fullRa } = req.body;
+
+    let sqlConnection = await dbConn()
+
+    try {
+
+      const ra = fullRa.slice(0, -1);
+      const dv = fullRa.slice(-1);
+
+      const student = await this.qStudentByRa(sqlConnection, ra, dv)
+
+      if (!student) { return { status: 404, message: "Credenciais Inválidas" } }
+
+      const payload = { user: student.id, ra: `${student.ra}${student.dv}`, category: student.categoryId };
+
+      const token = sign(payload, "SECRET", { expiresIn: 10800 })
+      const decoded = verify(token, "SECRET") as JwtPayload;
+      const expiresIn = decoded.exp;
+      const role = decoded.category;
+
+      return { status: 200, data: { token, expiresIn, role, person: student.name } }
+
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
+  }
+
   loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {
     if(pendingTransfers && pendingTransfers.length > 0) { return { status: 200, data: { token, expiresIn, role, person: user.person.name, pendingTransfers } } }
     return { status: 200, data: { token, expiresIn, role, person: user.person.name } }

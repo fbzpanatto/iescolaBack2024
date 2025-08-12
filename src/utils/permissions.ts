@@ -159,8 +159,6 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
 
 function userHasPermission(category: number, entity: string, method: string) {
 
-  console.log(category, entity, method)
-
   return !!arrayOfPermissions.find((permission) => {
     return permission.category === category && permission.permissions.find((permission) => {
       return permission.entity === entity && permission.methods[method as keyof Permission]

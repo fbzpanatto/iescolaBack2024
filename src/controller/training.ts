@@ -55,26 +55,20 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       conn = await dbConn();
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
-
       const cYear = await this.qCurrentYear(conn)
 
       const refTraining = await this.qPresence(conn, parseInt(reference as string));
-
       if (!refTraining) { return { status: 404, message: 'Training não encontrado' } }
 
       const refTrainingYear = await this.qYearById(conn, refTraining.yearId);
-
       const allTrainings = await this.qAllReferencedTrainings(conn, refTraining);
-
       const trainingIds = allTrainings.map(t => t.id);
 
       const preTeachers = await this.qTeachersByCategory(conn, refTraining, cYear.id === refTraining.yearId, refTrainingYear.name, teacher);
+      const allReferencedTeachers = await this.qTeacherTrainings(conn, preTeachers, trainingIds, refTraining.categoryId, cYear.id === refTraining.yearId, refTrainingYear.name);
 
       const contracts = await this.qContracts(conn);
-
       const status = await this.qTeacherTrainingStatus(conn);
-
-      const allReferencedTeachers = await this.qTeacherTrainings(conn, preTeachers, trainingIds, refTraining.categoryId, cYear.id === refTraining.yearId, refTrainingYear.name)
 
       return { status: 200, data: { allReferencedTrainings: allTrainings, allReferencedTeachers, contracts, status } };
     }

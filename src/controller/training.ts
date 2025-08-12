@@ -113,7 +113,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      const training = await this.qNewTraining(conn, currentYear.id, category, month, meeting, classroom, teacher.person.user.id, discipline, observation);
+      const training = await this.qNewTraining(conn, currentYear.id, category, month, meeting, teacher.person.user.id, classroom, discipline, observation);
 
       await conn.commit();
 
@@ -144,7 +144,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(conn, body.user.user);
 
-      await this.qUpdateTraining(conn, trainingId, meeting, category, month, classroom, teacher.person.user.id, discipline, observation);
+      await this.qUpdateTraining(conn, trainingId, meeting, category, month, teacher.person.user.id, classroom, discipline, observation);
 
       await conn.commit();
 

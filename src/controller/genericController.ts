@@ -108,7 +108,7 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async qNewTraining(conn: PoolConnection, yearId: number, category: number, month: number, meeting: number, classroom: number, createdByUser: number, discipline?: number, observation?: string ) {
+  async qNewTraining(conn: PoolConnection, yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string ) {
     const insertQuery = `
         INSERT INTO training (yearId, categoryId, monthReferenceId, meetingId, classroom, createdByUser, updatedByUser, disciplineId, observation)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -424,8 +424,8 @@ export class GenericController<T> {
     meeting: number,
     category: number,
     month: number,
-    classroom: number,
     updatedByUser: number,
+    classroom?: number,
     discipline?: number,
     observation?: string
   ) {

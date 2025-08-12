@@ -12,11 +12,11 @@ export class Training {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   classroom: number
 
-  @Column({ length: 100, nullable: true })
-  observation: string
+  @ManyToOne(() => Discipline, discipline => discipline.trainings, { nullable: true })
+  discipline: Discipline
 
   @OneToMany(() => TrainingTeacher, t => t.training)
   trainingTeachers: TrainingTeacher[]
@@ -33,8 +33,8 @@ export class Training {
   @ManyToOne(() => Year, year => year.trainings, { nullable: false })
   year: Year
 
-  @ManyToOne(() => Discipline, discipline => discipline.trainings, { nullable: true })
-  discipline: Discipline
+  @Column({ length: 100, nullable: true })
+  observation: string
 
   @Column({ nullable: false, select: false })
   createdByUser: number

@@ -41,16 +41,13 @@ export const TRAINING_SCHEMA: Schema = {
   disciplineName: {
     optional: true
   },
-  observation: {
+  classroom: {
     optional: true
   },
-  classroom: {
-    exists: true,
-    escape: true,
-    isInt: true,
-    toInt: true
-  },
   classroomName: {
+    optional: true
+  },
+  observation: {
     optional: true
   },
   trainingSchedules: {

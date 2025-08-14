@@ -58,5 +58,5 @@ export interface TrainingAndSchedulesBody { id?: number, name: string, category:
 export interface TrainingScheduleResult { id: number | null, trainingId: number | null, dateTime: string, active: boolean }
 export interface TrainingResult { id: number, classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, month: number, meeting: number, trainingSchedules: TrainingScheduleResult[] }
 export interface Training { id: number, classroom: number, observation: string | null, createdByUser: number, updatedByUser: number, categoryId: number, monthReferenceId: number, meetingId: number, yearId: number, disciplineId: number | null }
-
+export interface TestByStudentId { studentTestStatusId: number, studentClassroomId: number, studentId: number, testId: number, testName: string, bimesterName: string, yearName: string, classroomName: string, schoolName: string, discipline: string }
 export interface TrainingWithSchedulesResult { id: number, classroom: number, category: { id: number, name: string }, year: { id: number, name: string }, meeting: { id: number, name: string }, month: { id: number, name: string }, discipline: { id: number, name: string } | null, trainingSchedules: Array<{ id: number, dateTime: string, active: boolean }> }

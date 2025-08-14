@@ -171,7 +171,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
-          case (TEST_CATEGORIES_IDS.TEST_4_9): {
+          case (TEST_CATEGORIES_IDS.SIM_ITA): {
 
             let testQuestionsIds: number[] = []
 
@@ -451,7 +451,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
 
           case TEST_CATEGORIES_IDS.AVL_ITA:
-          case TEST_CATEGORIES_IDS.TEST_4_9: {
+          case TEST_CATEGORIES_IDS.SIM_ITA: {
 
             const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN, sqlConnection)
 
@@ -656,7 +656,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
           case TEST_CATEGORIES_IDS.AVL_ITA:
-          case TEST_CATEGORIES_IDS.TEST_4_9: {
+          case TEST_CATEGORIES_IDS.SIM_ITA: {
             data = await this.qNotTestIncluded(sqlConnection, yearName, Number(classroomId), test.id )
             break;
           }
@@ -760,7 +760,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
-          case (TEST_CATEGORIES_IDS.TEST_4_9): {
+          case (TEST_CATEGORIES_IDS.SIM_ITA): {
             const stClassrooms = await this.qNotTestIncluded(sqlConnection, String(body.year), body.classroom.id, test.id )
 
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
@@ -974,7 +974,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.TEST_4_9, TEST_CATEGORIES_IDS.AVL_ITA]
+        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.SIM_ITA, TEST_CATEGORIES_IDS.AVL_ITA]
 
         if(haveQuestions.includes(body.category.id)) {
 

@@ -4,6 +4,6 @@ export const TEST_CATEGORIES_IDS = {
   LITE_3: 3,
   READ_2: 4,
   READ_3: 5,
-  TEST_4_9: 6,
+  SIM_ITA: 6,
   AVL_ITA: 7,
 }

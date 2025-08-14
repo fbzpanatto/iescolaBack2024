@@ -327,7 +327,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       }
 
       case(TEST_CATEGORIES_IDS.AVL_ITA):
-      case(TEST_CATEGORIES_IDS.TEST_4_9): {
+      case(TEST_CATEGORIES_IDS.SIM_ITA): {
 
         let formatedTest = this.formatedTest(qTest)
 

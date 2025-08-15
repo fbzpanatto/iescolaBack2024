@@ -5,6 +5,10 @@ import havePermission from "../middleware/havePermission";
 
 export const StudentTestRouter = Router()
 
+StudentTestRouter.get("/test/:id", YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
+  const response = await controller.getTest(req.body, req.params, req.query); return res.status(response.status as number).json(response)
+})
+
 StudentTestRouter.get("/:year", YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
   const response = await controller.allStudents(req.body, req.params, req.query); return res.status(response.status as number).json(response)
 })

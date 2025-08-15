@@ -1006,6 +1006,29 @@ export class GenericController<T> {
     return this.formatTestQuestions(queryResult as qTestQuestions[])
   }
 
+  async qTestQuestionsWithTitle(conn: PoolConnection, testId: number | string) {
+
+    const query =
+      `
+        SELECT 
+            tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
+            qt.id AS question_id,
+            qt.title AS question_title,
+            qg.id AS question_group_id, qg.name AS question_group_name,
+            sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description
+        FROM test_question AS tq
+        INNER JOIN question AS qt ON tq.questionId = qt.id
+            LEFT JOIN skill AS sk ON qt.skillId = sk.id
+        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+        INNER JOIN test AS tt ON tq.testId = tt.id
+        WHERE tt.id = ?
+        ORDER BY qg.id, tq.order
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [testId])
+    return this.formatTestQuestions(queryResult as qTestQuestions[])
+  }
+
   async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {
 
     for(let element of studentClassrooms) {
@@ -1921,7 +1944,7 @@ export class GenericController<T> {
       order: el.test_question_order,
       answer: el.test_question_answer,
       active: el.test_question_active,
-      question: { id: el.question_id, skill: { reference: el.skill_reference, description: el.skill_description } },
+      question: { id: el.question_id, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
   }

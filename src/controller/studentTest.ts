@@ -1,7 +1,7 @@
 import { dbConn } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import {TestByStudentId, UserInterface} from "../interfaces/interfaces";
+import { TestByStudentId } from "../interfaces/interfaces";
 import { TestQuestion } from "../model/TestQuestion";
 
 class StudentTestController extends GenericController<any> {
@@ -70,7 +70,7 @@ class StudentTestController extends GenericController<any> {
       const result = await this.qFilteredTestByStudentId<TestByStudentId>(sqlConnection, Number(body.studentId), Number(body.testId))
 
       if(!result.active) {
-        return { status: 400, message: "Tentivas esgotadas." }
+        return { status: 400, message: "Tentativas esgotadas." }
       }
 
       for(let item of body.questions) {

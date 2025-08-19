@@ -328,6 +328,45 @@ export class GenericController<T> {
     return queryResult as T[]
   }
 
+  async qFilteredTestByStudentId<T>(conn: PoolConnection, studentId: number, testId: number) {
+
+    const query =
+      `
+        SELECT 
+          sts.id AS studentTestStatusId, 
+          sts.active,
+          sts.studentClassroomId, 
+          sc.studentId, 
+          sts.testId, 
+          t.name AS testName,
+          bim.name AS bimesterName, 
+          yr.name AS yearName,
+          c.id AS classroomId,
+          c.shortName AS classroomName, 
+          s.shortName AS schoolName,
+          UPPER(d.name) AS discipline
+        FROM student_test_status sts
+          INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
+          INNER JOIN test t ON sts.testId = t.id
+          INNER JOIN discipline d ON t.disciplineId = d.id
+          INNER JOIN classroom c ON sc.classroomId = c.id
+          INNER JOIN school s ON c.schoolId = s.id
+          INNER JOIN student stu ON sc.studentId = stu.id
+          INNER JOIN person per ON stu.personId = per.id
+          INNER JOIN period pri ON t.periodId = pri.id
+          INNER JOIN year yr ON pri.yearId = yr.id
+          INNER JOIN bimester bim ON pri.bimesterId = bim.id
+        WHERE 
+          sc.studentId = ?
+          AND sts.testId = ?
+          AND t.categoryId = 6
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+
+    return (queryResult as T[])[0]
+  }
+
   async qTeacherDisciplines(conn: PoolConnection, userId: number) {
     const query =
 
@@ -1027,6 +1066,23 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [testId])
     return this.formatTestQuestions(queryResult as qTestQuestions[])
+  }
+
+  async qStudentTestQuestions(conn: PoolConnection, testId: number, studentId: number) {
+
+    const query =
+      `
+        SELECT sq.id AS studentQuestionId, sq.answer, sq.testQuestionId, sq.studentId, sq.rClassroomId
+        FROM student_question sq
+          INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+          INNER JOIN question qt ON tq.questionId = qt.id
+          INNER JOIN test tt ON tq.testId = tt.id
+        WHERE studentId = ? AND tt.id = ?;
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+
+    return queryResult as Array<{ id: number, answer: string, testQuestionId: string, studentId: number, rClassroomId: number }>
   }
 
   async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {

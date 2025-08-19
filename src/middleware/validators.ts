@@ -8,6 +8,7 @@ import { TEST_SCHEMA } from '../schemas/test';
 import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '../schemas/studentQuestion';
 import {STUDENT_FIRST_LEVEL_SCHEMA} from "../schemas/first-level";
 import {TRAINING_SCHEMA} from "../schemas/training";
+import {SUBMIT_TEST_SCHEMA} from "../schemas/studentTestQuestions";
 
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
@@ -25,6 +26,12 @@ export const BODY_VALIDATION_STUDENT_ANSWER = (req: Request, res: Response, next
 export const VALIDATE_STUDENT_QUESTIONSTATUS = checkSchema(STUDENT_QUESTIONSTATUS_SCHEMA)
 export const BODY_VALIDATION_STUDENT_QUESTION = (req: Request, res: Response, next: NextFunction) => {
   return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, STUDENT_QUESTIONSTATUS_SCHEMA)
+}
+
+// STUDENT_TEST_QUESTIONS
+export const VALIDATE_STUDENT_TEST_QUESTIONS = checkSchema(SUBMIT_TEST_SCHEMA)
+export const BODY_STUDENT_TEST_QUESTIONS = (req: Request, res: Response, next: NextFunction) => {
+  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, SUBMIT_TEST_SCHEMA)
 }
 
 //TEST

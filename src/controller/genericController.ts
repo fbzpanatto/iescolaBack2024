@@ -1439,6 +1439,7 @@ export class GenericController<T> {
 
     const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
     const shouldFilterByDiscipline = referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
+    const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id)
 
     const query = `
     SELECT
@@ -1463,6 +1464,7 @@ export class GenericController<T> {
    INNER JOIN year AS y ON tr.yearId = y.id
    ` : ''}
     WHERE
+        ${ shouldFilterByTeacher? 'tcd.teacherId = ? AND': '' }
         pc.id = 8 AND
         ${ isCurrentYear ? 'tcd.endedAt IS NULL' : 'y.name = ?' } AND
         ${ shouldFilterBySchool ? 'c.schoolId = ? AND' : '' }
@@ -1475,6 +1477,7 @@ export class GenericController<T> {
 `;
 
     const queryParams = [
+      ...(shouldFilterByTeacher ? [teacher.id]: []),
       ...(isCurrentYear ? [] : [referencedTrainingYear]),
       ...(shouldFilterBySchool ? [teacher.school.id] : []),
       ...(shouldFilterByDiscipline ? [referencedTraining.disciplineId] : [])
@@ -1491,6 +1494,7 @@ export class GenericController<T> {
     const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
     const shouldFilterByClassroom = referencedTraining.categoryId === 1 && referencedTraining.classroom !== null && referencedTraining.classroom !== undefined;
     const shouldFilterByDiscipline = referencedTraining.categoryId === 2 && referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
+    const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id)
 
     // Query principal (mantém comportamento original)
     const mainQuery = `
@@ -1519,6 +1523,7 @@ export class GenericController<T> {
    INNER JOIN year AS y ON tr.yearId = y.id
    ` : ''}
         WHERE
+            ${ shouldFilterByTeacher? 'tcd.teacherId = ? AND': '' } 
             cc.id = ? AND
             pc.id = 8 AND
             ${ isCurrentYear ? 'tcd.endedAt IS NULL' : 'y.name = ?' } AND
@@ -1538,6 +1543,7 @@ export class GenericController<T> {
     `;
 
     const mainQueryParams = [
+        ...(shouldFilterByTeacher ? [teacher.id]: []),
       referencedTraining.categoryId,
       ...(isCurrentYear ? [] : [referencedTrainingYear]),
       ...(shouldFilterByClassroom ? [referencedTraining.classroom] : []),
@@ -2132,7 +2138,7 @@ export class GenericController<T> {
       email: el.email,
       register: el.register,
       school: {
-        id: el.schoolId
+        id: el.schoolId ?? null
       },
       person: {
         id: el.person_id,

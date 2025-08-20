@@ -142,7 +142,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       await conn.commit();
 
-      return { status: 200, data: { message: 'Training atualizado com sucesso' } };
+      return { status: 200, data: { message: 'Formação atualizado com sucesso.' } };
     }
     catch (error: any) {
       if (conn) { await conn.rollback() }
@@ -159,7 +159,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     try {
 
       const existingTraining = await this.qOneTraining(conn, body.trainingId);
-      if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
+      if (!existingTraining) { return { status: 404, message: 'Formação não encontrada' } }
 
       await conn.beginTransaction();
 
@@ -169,7 +169,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       await conn.commit();
 
-      return { status: 200, data: { message: 'Status do professor no training atualizado com sucesso' } };
+      return { status: 200, data: { message: 'Status do professor na formação atualizado com sucesso.' } };
     }
     catch (error: any) {
       if (conn) { await conn.rollback() }
@@ -196,7 +196,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       await conn.commit();
 
-      return { status: 200, data: { message: 'Status do professor no training atualizado com sucesso' } };
+      return { status: 200, data: { message: 'Status do professor na formação atualizado com sucesso' } };
     }
     catch (error: any) {
       if (conn) { await conn.rollback() }

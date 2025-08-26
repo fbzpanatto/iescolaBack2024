@@ -1153,7 +1153,7 @@ export class GenericController<T> {
     const qRelationships =
       `
         SELECT 
-          tcd.id, tcd.teacherId, tcd.classroomId, tcd.disciplineId, 
+          tcd.id, tcd.teacherId, tcd.classroomId, tcd.disciplineId, tcd.contractId AS contract,
           classroom.shortName AS classroomName, 
           school.shortName AS schoolName, 
           discipline.name AS disciplineName

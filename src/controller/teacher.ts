@@ -21,6 +21,7 @@ import { PoolConnection } from "mysql2/promise";
 import { School} from "../model/School";
 import { Discipline } from "../model/Discipline";
 import { Classroom } from "../model/Classroom";
+import {Contract} from "../model/Contract";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -36,10 +37,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         let classrooms = (await classroomController.getAllClassrooms(req, true, CONN)).data;
         let personCategories = (await pCatCtrl.findAllPerCat(req, CONN)).data;
         let schools = await CONN.getRepository(School).find();
+        let contracts = await CONN.getRepository(Contract).find();
 
         classrooms = classrooms?.filter(classroom => ![1216, 1217, 1218].includes(classroom.id))
 
-        return { status: 200, data: { disciplines, classrooms, personCategories, schools } }
+        return { status: 200, data: { disciplines, classrooms, personCategories, schools, contracts } }
       })
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -275,7 +277,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return dataRow.id === bodyElement.id && dataRow.teacherId === bodyElement.teacherId && dataRow.classroomId === bodyElement.classroomId && dataRow.disciplineId === bodyElement.disciplineId
       })
 
-      if(dataBaseRow && !bodyElement.active) { await CONN.getRepository(TeacherClassDiscipline).save({...dataBaseRow, endedAt: new Date()})}
+      if(bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2)) {
+        await CONN.getRepository(TeacherClassDiscipline).save({ ...dataBaseRow, contract: { id: bodyElement.contract }})
+      }
+
+      if(dataBaseRow && !bodyElement.active) {
+        await CONN.getRepository(TeacherClassDiscipline).save({...(dataBaseRow as any), endedAt: new Date()})
+      }
 
       if(bodyElement.id === null && !dataBaseRow && bodyElement.active && bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId) {
         await CONN.getRepository(TeacherClassDiscipline).save({
@@ -352,12 +360,19 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
         if(body.category.id === pc.PROF) {
           for (const rel of body.teacherClassesDisciplines) {
-            await CONN.save(TeacherClassDiscipline, {
+
+            const saveData = {
               teacher: teacher,
               classroom: { id: rel.classroomId },
               discipline: { id: rel.disciplineId },
               startedAt: new Date()
-            })
+            }
+
+            if(rel.contract && rel.contract === 1 || rel.contract === 2) {
+              Object.assign(saveData, { contract: { id: rel.contract } as Contract })
+            }
+
+            await CONN.save(TeacherClassDiscipline, saveData)
           }
 
           await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))

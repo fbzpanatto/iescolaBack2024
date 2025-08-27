@@ -265,41 +265,76 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async updateTeacherClassesAndDisciplines(teacher: Teacher, CONN: EntityManager, sqlConnection: PoolConnection, body: TeacherBody) {
 
+    // Verifica se é mudança de professor para coordenador
     const teacherToManager = Number(body.category) === Number(pc.COOR) && Number(teacher.person.category.id) === Number(pc.PROF)
+    if (teacherToManager) {
+      return await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN)
+    }
 
-    if(teacherToManager) { return await this.changeTeacherMasterSchool(body, teacher, sqlConnection, CONN) }
-
+    // Busca relacionamentos existentes no banco
     const qDbRelationShip = (await this.qTeacherRelationship(sqlConnection, teacher.id)).teacherClassesDisciplines
+    const repository = CONN.getRepository(TeacherClassDiscipline)
 
-    for(let bodyElement of body.teacherClassesDisciplines) {
+    // Processa cada elemento do body
+    for (const bodyElement of body.teacherClassesDisciplines) {
+      // Encontra linha correspondente no banco de dados
+      const dataBaseRow = qDbRelationShip.find(dataRow =>
+        dataRow.id === bodyElement.id &&
+        dataRow.teacherId === bodyElement.teacherId &&
+        dataRow.classroomId === bodyElement.classroomId &&
+        dataRow.disciplineId === bodyElement.disciplineId
+      )
 
-      const dataBaseRow = qDbRelationShip.find(dataRow => {
-        return dataRow.id === bodyElement.id && dataRow.teacherId === bodyElement.teacherId && dataRow.classroomId === bodyElement.classroomId && dataRow.disciplineId === bodyElement.disciplineId
-      })
-
-      if(bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2)) {
-        await CONN.getRepository(TeacherClassDiscipline).save({ ...dataBaseRow, contract: { id: bodyElement.contract }})
+      // Desativa relacionamento existente
+      if (dataBaseRow && !bodyElement.active) {
+        await repository.save({
+          ...(dataBaseRow as any),
+          endedAt: new Date()
+        })
       }
 
-      if(dataBaseRow && !bodyElement.active) {
-        await CONN.getRepository(TeacherClassDiscipline).save({...(dataBaseRow as any), endedAt: new Date()})
+      // Verifica se os dados básicos são válidos
+      const hasValidData = bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId
+      const hasValidContract = bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2)
+
+      // Atualiza relacionamento existente
+      if (bodyElement.id && bodyElement.active && hasValidData && dataBaseRow) {
+        const updateData = {
+          ...(dataBaseRow as any),
+          endedAt: null
+        }
+
+        if (hasValidContract) {
+          updateData.contract = { id: bodyElement.contract } as Contract
+        }
+
+        await repository.save(updateData)
       }
 
-      if(bodyElement.id === null && !dataBaseRow && bodyElement.active && bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId) {
-        await CONN.getRepository(TeacherClassDiscipline).save({
+      // Cria novo relacionamento
+      if (bodyElement.id === null && !dataBaseRow && bodyElement.active && hasValidData) {
+        const newRelationship: any = {
           teacher: { id: bodyElement.teacherId },
           discipline: { id: bodyElement.disciplineId },
           classroom: { id: bodyElement.classroomId },
-          startedAt: new Date(),
-        })
+          startedAt: new Date()
+        }
+
+        if (hasValidContract) {
+          newRelationship.contract = { id: bodyElement.contract } as Contract
+        }
+
+        await repository.save(newRelationship)
       }
     }
 
-    if(Number(body.school) != Number(teacher.school.id)) {
+    // Atualiza escola se necessário
+    if (Number(body.school) !== Number(teacher.school.id)) {
       teacher.school = { id: Number(body.school) } as School
     }
 
-    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
+    await CONN.save(Teacher, teacher)
+    return { status: 200, data: teacher }
   }
 
   async saveTeacher(body: TeacherBody) {

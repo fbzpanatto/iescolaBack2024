@@ -13,6 +13,9 @@ export class Question {
   @Column({ type: "text" })
   title: string
 
+  @Column({ default: 0, nullable: true })
+  images: number
+
   @ManyToOne(() => Descriptor, descriptor => descriptor.questions, { nullable: true })
   descriptor: Descriptor
 

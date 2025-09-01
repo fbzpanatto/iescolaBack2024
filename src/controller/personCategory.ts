@@ -4,7 +4,7 @@ import { PersonCategory } from "../model/PersonCategory";
 import { Request } from "express";
 import { pc } from "../utils/personCategories";
 import { AppDataSource } from "../data-source";
-import {dbConn} from "../services/db";
+import { dbConn } from "../services/db";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
   constructor() { super(PersonCategory) }

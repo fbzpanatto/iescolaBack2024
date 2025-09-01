@@ -23,6 +23,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
         const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
         const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
+
         return { status: 200, data: { isOwner: qUserTeacher.person.id === question?.person.id || masterUser } };
       })
     }

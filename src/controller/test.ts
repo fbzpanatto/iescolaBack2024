@@ -1059,7 +1059,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "person.id", "question.person", "skill.id", "skill.reference", "skill.description",  "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "question.images", "person.id", "question.person", "skill.id", "skill.reference", "skill.description",  "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
     return await CONN.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
       .select(selectFields ?? fields)

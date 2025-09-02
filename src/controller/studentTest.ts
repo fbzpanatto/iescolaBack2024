@@ -26,7 +26,27 @@ class StudentTestController extends GenericController<any> {
 
       const studentQuestions = await this.qStudentTestQuestions(sqlConnection, Number(testId), Number(studentId))
 
-      return { status: 200, data: { test: { ...qTest, testQuestions: qTestQuestions }, studentQuestions } }
+      const groupMap = new Map();
+
+      qTestQuestions.forEach((tQ: any) => {
+        const groupId = tQ.questionGroup.id;
+
+        if (!groupMap.has(groupId)) {
+          groupMap.set(groupId, {
+            id: groupId,
+            name: tQ.questionGroup.name,
+            questions: []
+          });
+        }
+
+        tQ.question.images = tQ.question.images > 0 ? (Array.from({ length: tQ.question.images }, (_, i) => i + 1)) : 0
+
+        groupMap.get(groupId).questions.push(tQ);
+      });
+
+      const testQuestions = Array.from(groupMap.values());
+
+      return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions } }
     }
 
     catch (error: any) { return { status: 500, message: error.message } }

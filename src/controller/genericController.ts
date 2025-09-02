@@ -1053,6 +1053,7 @@ export class GenericController<T> {
             tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
             qt.id AS question_id,
             qt.title AS question_title,
+            qt.images AS question_images,
             qg.id AS question_group_id, qg.name AS question_group_name,
             sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description
         FROM test_question AS tq
@@ -2108,7 +2109,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       order: el.test_question_order,
       answer: el.test_question_answer,
       active: el.test_question_active,
-      question: { id: el.question_id, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
+      question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
   }

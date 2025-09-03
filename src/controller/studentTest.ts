@@ -65,7 +65,7 @@ class StudentTestController extends GenericController<any> {
       const limit =  !isNaN(parseInt(l as string)) ? parseInt(l as string) : 100
       const offset =  !isNaN(parseInt(o as string)) ? parseInt(o as string) : 0
 
-      const year = params.year;
+      const year = Number(params.year);
       const studentId = body.user.user
 
       const result = await this.qTestByStudentId<TestByStudentId>(sqlConnection, studentId, year, search, limit, offset)

@@ -292,41 +292,39 @@ export class GenericController<T> {
     const query =
       `
         SELECT
-            sts.id AS studentTestStatusId,
-            sc.id AS studentClassroomId,
-            t.id AS testId,
-            sc.studentId,
-            t.name AS testName,
-            bim.name AS bimesterName,
-            yr.name AS yearName,
-            c.shortName AS classroomName,
-            s.shortName AS schoolName,
-            UPPER(d.name) AS discipline
+          sts.id AS studentTestStatusId,
+          sc.id AS studentClassroomId,
+          t.id AS testId,
+          sc.studentId,
+          t.name AS testName,
+          bim.name AS bimesterName,
+          yr.name AS yearName,
+          c.shortName AS classroomName,
+          s.shortName AS schoolName,
+          UPPER(d.name) AS discipline
         FROM test_classroom tc
-           INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
-           INNER JOIN test t ON tc.testId = t.id
-           INNER JOIN discipline d ON t.disciplineId = d.id
-           INNER JOIN classroom c ON sc.classroomId = c.id
-           INNER JOIN school s ON c.schoolId = s.id
-           INNER JOIN student stu ON sc.studentId = stu.id
-           INNER JOIN person per ON stu.personId = per.id
-           INNER JOIN period pri ON t.periodId = pri.id
-           INNER JOIN year yr ON pri.yearId = yr.id
-           INNER JOIN bimester bim ON pri.bimesterId = bim.id
-           LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
+         INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
+         INNER JOIN test t ON tc.testId = t.id
+         INNER JOIN discipline d ON t.disciplineId = d.id
+         INNER JOIN classroom c ON sc.classroomId = c.id
+         INNER JOIN school s ON c.schoolId = s.id
+         INNER JOIN student stu ON sc.studentId = stu.id
+         INNER JOIN person per ON stu.personId = per.id
+         INNER JOIN period pri ON t.periodId = pri.id
+         INNER JOIN year yr ON pri.yearId = yr.id
+         INNER JOIN bimester bim ON pri.bimesterId = bim.id
+         LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
         WHERE
-            sc.studentId = ?
-            AND yr.name = ?
-            AND t.categoryId = 6
-            AND t.name LIKE ?
-            AND sc.startedAt <= t.createdAt
-            AND (sc.endedAt IS NULL OR sc.endedAt >= t.createdAt)
-            AND YEAR(COALESCE(sts.createdAt, t.createdAt)) = ?
+          sc.studentId = ?
+          AND yr.name = ?
+          AND t.categoryId = 6
+          AND t.name LIKE ?
+          AND ((sc.startedAt <= t.createdAt AND (sc.endedAt IS NULL OR sc.endedAt >= t.createdAt)) OR sts.id IS NOT NULL)
         LIMIT ?
         OFFSET ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, yearName, limit, offset ])
+    const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, limit, offset ])
 
     return queryResult as T[]
   }

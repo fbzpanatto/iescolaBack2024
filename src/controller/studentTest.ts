@@ -103,7 +103,6 @@ class StudentTestController extends GenericController<any> {
       await sqlConnection.rollback()
       return { status: 500, message: error.message }
     }
-
     finally { if(sqlConnection) { sqlConnection.release() }
     }
   }
@@ -127,9 +126,7 @@ class StudentTestController extends GenericController<any> {
       return { status: 200, data: result }
 
     }
-
     catch (error: any) { return { status: 500, message: error.message } }
-
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
@@ -185,18 +182,10 @@ class StudentTestController extends GenericController<any> {
       for (let item of body.questions) {
         const query = `
           UPDATE student_question 
-          SET answer = ?, 
-              rClassroomId = ?,
-              updatedAt = NOW(),
-              updatedByUser = ?
+          SET answer = ?, rClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
           WHERE id = ?
         `
-        await sqlConnection.execute(query, [
-          item.answer,
-          result.classroomId,
-          body.user.user,
-          item.studentQuestionId
-        ])
+        await sqlConnection.execute(query, [ item.answer, result.classroomId, body.user.user, item.studentQuestionId ])
       }
       await sqlConnection.commit()
       return { status: 200, data: { studentTestStatusId, message: "Prova enviada com sucesso!" } }

@@ -1,9 +1,10 @@
-import {Entity, Column, PrimaryGeneratedColumn, OneToMany} from "typeorm"
-import {TeacherClassDiscipline} from "./TeacherClassDiscipline";
-import {Topic} from "./Topic";
-import {Test} from "./Test";
-import {Skill} from "./Skill";
-import {Training} from "./Training";
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
+import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
+import { Topic } from "./Topic";
+import { Test } from "./Test";
+import { Skill } from "./Skill";
+import { Training } from "./Training";
+import { Question } from "./Question";
 
 @Entity()
 export class Discipline {
@@ -22,6 +23,9 @@ export class Discipline {
 
   @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.discipline)
   teacherClassDiscipline: TeacherClassDiscipline[]
+
+  @OneToMany(() => Question, question => question.discipline)
+  questions: Question[]
 
   @OneToMany(() => Test, test => test.discipline)
   tests: Test[]

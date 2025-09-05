@@ -2,7 +2,9 @@ import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "ty
 import { Descriptor } from "./Descriptor";
 import { TestQuestion } from "./TestQuestion";
 import { Person } from "./Person";
-import {Skill} from "./Skill";
+import { Skill } from "./Skill";
+import { Discipline } from "./Discipline";
+import { ClassroomCategory } from "./ClassroomCategory";
 
 @Entity()
 export class Question {
@@ -18,6 +20,12 @@ export class Question {
 
   @ManyToOne(() => Descriptor, descriptor => descriptor.questions, { nullable: true })
   descriptor: Descriptor
+
+  @ManyToOne(() => Discipline, discipline => discipline.questions, { nullable: true })
+  discipline: Discipline
+
+  @ManyToOne(() => ClassroomCategory, c => c.questions, { nullable: true })
+  classroomCategory: ClassroomCategory
 
   @ManyToOne(() => Skill, skill => skill.questions, { nullable: true })
   skill: Skill

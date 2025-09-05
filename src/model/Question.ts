@@ -18,6 +18,9 @@ export class Question {
   @Column({ default: 0, nullable: true })
   images: number
 
+  @Column({ nullable: true })
+  classroomNumber: number
+
   @ManyToOne(() => Descriptor, descriptor => descriptor.questions, { nullable: true })
   descriptor: Descriptor
 

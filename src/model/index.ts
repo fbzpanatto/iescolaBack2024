@@ -17,8 +17,6 @@ import { Transfer } from "./Transfer";
 import { TransferStatus } from "./TransferStatus";
 import { Year } from "./Year";
 import { User } from "./User";
-import { Descriptor } from "./Descriptor";
-import { Topic } from "./Topic";
 import { Test } from "./Test";
 import { TestCategory } from "./TestCategory";
 import { Question } from "./Question";
@@ -50,7 +48,6 @@ export const entities = [
   Classroom,
   Contract,
   ClassroomCategory,
-  Descriptor,
   Discipline,
   Disability,
   Person,
@@ -81,7 +78,6 @@ export const entities = [
   Test,
   TestCategory,
   TestQuestion,
-  Topic,
   Transfer,
   TransferStatus,
   User,

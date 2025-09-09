@@ -38,60 +38,6 @@ export const TEST_QUESTIONS_SCHEMA: Schema = {
     isString: true,
     trim: true
   },
-  "question.descriptor.id": {
-    optional: true,
-    escape: true,
-    isInt: true,
-    toInt: true
-  },
-  "question.descriptor.code": {
-    optional: true,
-    escape: true,
-    isString: true,
-    trim: true
-  },
-  "question.descriptor.name": {
-    optional: true,
-    escape: true,
-    isString: true,
-    trim: true
-  },
-  "question.descriptor.topic.id": {
-    optional: true,
-    escape: true,
-    isInt: true,
-    toInt: true
-  },
-  "question.descriptor.topic.name": {
-    optional: true,
-    escape: true,
-    isString: true,
-    trim: true
-  },
-  "question.descriptor.topic.description": {
-    optional: true,
-    escape: true,
-    isString: true,
-    trim: true
-  },
-  "question.descriptor.topic.classroomCategory.id": {
-    optional: true,
-    escape: true,
-    isInt: true,
-    toInt: true
-  },
-  "question.descriptor.topic.classroomCategory.name": {
-    optional: true,
-    escape: true,
-    isString: true,
-    trim: true
-  },
-  "question.descriptor.topic.classroomCategory.active": {
-    optional: true,
-    escape: true,
-    isBoolean: true,
-    toBoolean: true
-  },
 };
 
 export const TEST_SCHEMA: Schema = {

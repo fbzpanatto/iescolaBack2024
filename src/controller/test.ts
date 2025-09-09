@@ -14,9 +14,6 @@ import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
 import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
 import { Question } from "../model/Question";
-import { Descriptor } from "../model/Descriptor";
-import { Topic } from "../model/Topic";
-import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
@@ -1028,10 +1025,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               const testQuestionCondition = this.diffs(curr, next);
               if (testQuestionCondition) { await CONN.save(TestQuestion, { ...next, createdAt: curr.createdAt, createdByUser: curr.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
               if (this.diffs(curr.question, next.question)) { await CONN.save(Question, {...next.question,createdAt: curr.question.createdAt,createdByUser: curr.question.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
-              if (this.diffs(curr.question.descriptor, next.question.descriptor)) { await CONN.save(Descriptor, { ...next.question.descriptor, createdAt: curr.question.descriptor.createdAt, createdByUser: curr.question.descriptor.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
-              if (this.diffs(curr.question.descriptor.topic, next.question.descriptor.topic)) { await CONN.save(Topic, { ...next.question.descriptor.topic, createdAt: curr.question.descriptor.topic.createdAt, createdByUser: curr.question.descriptor.topic.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.question.skill, next.question.skill)) { await CONN.save(Skill, { ...next.question.skill, createdAt: curr.question.skill.createdAt, createdByUser: curr.question.skill.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
-              if (this.diffs(curr.question.descriptor.topic.classroomCategory, next.question.descriptor.topic.classroomCategory)) { await CONN.save(ClassroomCategory, { ...next.question.descriptor.topic.classroomCategory, createdAt: curr.question.descriptor.topic.classroomCategory.createdAt, createdByUser: curr.question.descriptor.topic.classroomCategory.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
               if (this.diffs(curr.questionGroup, next.questionGroup)) { await CONN.save(QuestionGroup, { ...next.questionGroup, createdAt: curr.questionGroup.createdAt, createdByUser: curr.questionGroup.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
             }
           }
@@ -1059,16 +1053,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "question.images", "person.id", "question.person", "skill.id", "skill.reference", "skill.description",  "descriptor.id", "descriptor.code", "descriptor.name", "topic.id", "topic.name", "topic.description", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "question.images", "person.id", "question.person", "skill.id", "skill.reference", "skill.description", "discipline.id", "discipline.name", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
     return await CONN.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
       .select(selectFields ?? fields)
       .leftJoin("testQuestion.question", "question")
       .leftJoin("question.person", "person")
-      .leftJoin("question.descriptor", "descriptor")
+      .leftJoin("question.discipline", "discipline")
+      .leftJoin("question.classroomCategory", "classroomCategory")
       .leftJoin("question.skill", "skill")
-      .leftJoin("descriptor.topic", "topic")
-      .leftJoin("topic.classroomCategory", "classroomCategory")
       .leftJoin("testQuestion.questionGroup", "questionGroup")
       .where("testQuestion.test = :testId", {testId})
       .orderBy("questionGroup.id", "ASC")

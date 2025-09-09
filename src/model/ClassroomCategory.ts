@@ -1,6 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm"
 import { Classroom } from "./Classroom";
-import { Topic } from "./Topic";
 import { Skill } from "./Skill";
 import { Training } from "./Training";
 import { Question } from "./Question";
@@ -25,9 +24,6 @@ export class ClassroomCategory {
 
   @OneToMany(() => Question, question => question.classroomCategory)
   questions: Question[]
-
-  @OneToMany(() => Topic, topic => topic.classroomCategory)
-  topics: Topic[]
 
   @OneToMany(() => Skill, skill => skill.classroomCategory)
   skills: Skill[]

@@ -1,5 +1,4 @@
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Descriptor } from "./Descriptor";
 import { TestQuestion } from "./TestQuestion";
 import { Person } from "./Person";
 import { Skill } from "./Skill";
@@ -20,9 +19,6 @@ export class Question {
 
   @Column({ nullable: true })
   classroomNumber: number
-
-  @ManyToOne(() => Descriptor, descriptor => descriptor.questions, { nullable: true })
-  descriptor: Descriptor
 
   @ManyToOne(() => Discipline, discipline => discipline.questions, { nullable: true })
   discipline: Discipline

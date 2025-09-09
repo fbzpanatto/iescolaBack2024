@@ -1,4 +1,4 @@
-import {Request, Router} from "express";
+import { Request, Router } from "express";
 import { dataSourceController } from "../controller/initialConfigs";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
@@ -26,10 +26,6 @@ import { TestCategory } from "../model/TestCategory";
 import { TESTCATEGORY } from "../mock/testCategory";
 import { QUESTION_GROUP } from "../mock/questionGroup";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { Topic } from "../model/Topic";
-import { TOPIC } from "../mock/topic";
-import { DESCRIPTOR } from "../mock/descriptor";
-import { Descriptor } from "../model/Descriptor";
 import { Teacher } from "../model/Teacher";
 import { pc } from "../utils/personCategories";
 import { generatePassword } from "../utils/generatePassword";
@@ -110,8 +106,6 @@ InitialConfigsRouter.get('/', async (req: Request, res: any) => {
     const disabilitySource = new dataSourceController(Disability).entity
     const testCategorySource = new dataSourceController(TestCategory).entity
     const questionGroupSource = new dataSourceController(QuestionGroup).entity
-    const topicSource = new dataSourceController(Topic).entity
-    const descriptorSource = new dataSourceController(Descriptor).entity
     const readingFluencyExamSource = new dataSourceController(ReadingFluencyExam).entity
     const readingFluencyLevelSource = new dataSourceController(ReadingFluencyLevel).entity
     const readingFluencyGroupSource = new dataSourceController(ReadingFluencyGroup).entity
@@ -219,31 +213,6 @@ InitialConfigsRouter.get('/', async (req: Request, res: any) => {
       newPersonCategory.name = personCategory.name
       newPersonCategory.active = personCategory.active
       await personCategorySource.save(newPersonCategory)
-    }
-
-    for(let topic of TOPIC) {
-      const newTopic = new Topic()
-      newTopic.createdAt = new Date()
-      newTopic.createdByUser = 1
-      newTopic.updatedAt = new Date()
-      newTopic.updatedByUser = 1
-      newTopic.name = topic.name
-      newTopic.description = topic.description
-      newTopic.discipline = await disciplineSource.findOneBy({ id: topic.discipline.id }) as Discipline
-      newTopic.classroomCategory = await classCategorySource.findOneBy({ id: topic.classroomCategory.id }) as ClassroomCategory
-      await topicSource.save(newTopic)
-    }
-
-    for(let descriptor of DESCRIPTOR) {
-      const newDescriptor = new Descriptor()
-      newDescriptor.createdAt = new Date()
-      newDescriptor.createdByUser = 1
-      newDescriptor.updatedAt = new Date()
-      newDescriptor.updatedByUser = 1
-      newDescriptor.name = descriptor.name
-      newDescriptor.code = descriptor.code
-      newDescriptor.topic = await topicSource.findOneBy({ id: descriptor.topic.id }) as Topic
-      await descriptorSource.save(newDescriptor)
     }
 
     for(let element of READINGFLUENCYEXAM) {

@@ -47,11 +47,9 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
         const questions = await CONN.getRepository(Question)
           .createQueryBuilder("question")
           .leftJoinAndSelect("question.person", "person")
-          .leftJoinAndSelect("question.descriptor", "descriptor")
           .leftJoinAndSelect("question.skill", "skill")
-          .leftJoinAndSelect("descriptor.topic", "topic")
-          .leftJoinAndSelect("topic.discipline", "discipline")
-          .leftJoinAndSelect("topic.classroomCategory", "classroomCategory")
+          .leftJoinAndSelect("question.discipline", "discipline")
+          .leftJoinAndSelect("question.classroomCategory", "classroomCategory")
           .where("discipline.id = :disciplineId", { disciplineId: req.query.discipline })
           .getMany();
         return { status: 200, data: questions };

@@ -36,7 +36,7 @@ export interface qAlphaTests { test_id: number, test_active: number, discipline_
 export interface qAlphabeticLevels { id: number, shortName: string, color: string }
 export interface qFormatedYear { id: number, name: string, periods: { id: number, bimester: { id: number, name: string, testName: string } }[] }
 export interface qYear { id: number, name: string, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, active: boolean, createdAt: string, endedAt: string }
-export interface qStudentsClassroomsForTest { student_classroom_id: number, student_id: number, student_classroom_test_status_id: number }
+export interface qStudentsClassroomsForTest { student_classroom_id: number, student_id: number, student_classroom_test_status_id: number, endedAt: string | null }
 export interface qAlphaStuClassroomsFormated { id: number, rosterNumber: number, startedAt: string, endedAt: string, student: { id: number, person: { id: number, name: string } } }
 export interface qAlphaStuClassrooms { id: number, rosterNumber: number, startedAt: string, endedAt: string, student_id: number, person_id: number, person_name: string, alphabetic_id: number, alphabeticLevel: number, test_id: number }
 export interface qTransferStatus { id: number, name: string }

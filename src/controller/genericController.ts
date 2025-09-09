@@ -291,38 +291,44 @@ export class GenericController<T> {
 
     const query =
       `
-        SELECT
-          sts.id AS studentTestStatusId,
-          sc.id AS studentClassroomId,
-          t.id AS testId,
-          sc.studentId,
-          t.name AS testName,
-          bim.name AS bimesterName,
-          yr.name AS yearName,
-          c.shortName AS classroomName,
-          s.shortName AS schoolName,
-          UPPER(d.name) AS discipline
-        FROM test_classroom tc
-         INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
-         INNER JOIN test t ON tc.testId = t.id
-         INNER JOIN discipline d ON t.disciplineId = d.id
-         INNER JOIN classroom c ON sc.classroomId = c.id
-         INNER JOIN school s ON c.schoolId = s.id
-         INNER JOIN student stu ON sc.studentId = stu.id
-         INNER JOIN person per ON stu.personId = per.id
-         INNER JOIN period pri ON t.periodId = pri.id
-         INNER JOIN year yr ON pri.yearId = yr.id
-         INNER JOIN bimester bim ON pri.bimesterId = bim.id
-         LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
-        WHERE
-          sc.studentId = ?
-          AND yr.name = ?
-          AND t.categoryId = 6
-          AND t.name LIKE ?
-          AND ((sc.startedAt <= t.createdAt AND (sc.endedAt IS NULL OR sc.endedAt >= t.createdAt)) OR sts.id IS NOT NULL)
-        LIMIT ?
-        OFFSET ?
-      `
+      SELECT DISTINCT
+        sts.id AS studentTestStatusId,
+        sc.id AS studentClassroomId,
+        t.id AS testId,
+        sc.studentId,
+        t.name AS testName,
+        bim.name AS bimesterName,
+        yr.name AS yearName,
+        c.shortName AS classroomName,
+        s.shortName AS schoolName,
+        UPPER(d.name) AS discipline
+      FROM test_classroom tc
+       INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
+       INNER JOIN test t ON tc.testId = t.id
+       INNER JOIN discipline d ON t.disciplineId = d.id
+       INNER JOIN classroom c ON sc.classroomId = c.id
+       INNER JOIN school s ON c.schoolId = s.id
+       INNER JOIN student stu ON sc.studentId = stu.id
+       INNER JOIN person per ON stu.personId = per.id
+       INNER JOIN period pri ON t.periodId = pri.id
+       INNER JOIN year yr ON pri.yearId = yr.id
+       INNER JOIN bimester bim ON pri.bimesterId = bim.id
+       LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
+      WHERE
+        sc.studentId = ?
+        AND yr.name = ?
+        AND t.categoryId = 6
+        AND t.name LIKE ?
+        AND (
+          -- Teste já foi realizado (mostra independente da turma)
+          sts.id IS NOT NULL
+          OR
+          -- Teste não realizado E aluno está atualmente na turma
+          (sts.id IS NULL AND sc.endedAt IS NULL AND sc.startedAt <= t.createdAt)
+        )
+      LIMIT ?
+      OFFSET ?
+    `
 
     const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, limit, offset ])
 
@@ -330,6 +336,55 @@ export class GenericController<T> {
   }
 
   async qFilteredTestByStudentId<T>(conn: PoolConnection, studentId: number, testId: number) {
+
+    const query =
+      `
+          SELECT
+              sts.id AS studentTestStatusId,
+              sts.active,
+              sc.id AS studentClassroomId,
+              sc.studentId,
+              t.id AS testId,
+              t.name AS testName,
+              bim.name AS bimesterName,
+              yr.name AS yearName,
+              c.id AS classroomId,
+              c.shortName AS classroomName,
+              s.shortName AS schoolName,
+              UPPER(d.name) AS discipline
+          FROM test_classroom tc
+                   INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
+                   INNER JOIN test t ON tc.testId = t.id
+                   INNER JOIN discipline d ON t.disciplineId = d.id
+                   INNER JOIN classroom c ON sc.classroomId = c.id
+                   INNER JOIN school s ON c.schoolId = s.id
+                   INNER JOIN student stu ON sc.studentId = stu.id
+                   INNER JOIN person per ON stu.personId = per.id
+                   INNER JOIN period pri ON t.periodId = pri.id
+                   INNER JOIN year yr ON pri.yearId = yr.id
+                   INNER JOIN bimester bim ON pri.bimesterId = bim.id
+                   LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
+          WHERE
+              sc.studentId = ?
+            AND t.id = ?
+            AND t.categoryId = 6
+            AND (
+              -- Teste já foi iniciado/realizado nesta turma
+              sts.id IS NOT NULL
+                  OR
+                  -- Teste não realizado E aluno está atualmente na turma
+              (sts.id IS NULL AND sc.endedAt IS NULL AND sc.startedAt <= t.createdAt)
+              )
+          ORDER BY CASE WHEN sc.endedAt IS NULL THEN 0 ELSE 1 END, sc.endedAt DESC
+              LIMIT 1
+      `
+
+    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+
+    return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
+  }
+
+  async qFilteredTestByStudentIdTwo<T>(conn: PoolConnection, studentId: number, testId: number) {
 
     const query =
       `
@@ -368,7 +423,7 @@ export class GenericController<T> {
 
     const [ queryResult ] = await conn.query(format(query), [studentId, testId])
 
-    return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number }[])[0]
+    return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
   }
 
   async qTeacherDisciplines(conn: PoolConnection, userId: number) {
@@ -931,7 +986,7 @@ export class GenericController<T> {
     if(studentClassroomId) {
       const query =
         `
-        SELECT sc.id AS student_classroom_id, sc.startedAt,
+        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
                s.id AS student_id,
                sts.id AS student_classroom_test_status_id,
                person.name
@@ -951,7 +1006,7 @@ export class GenericController<T> {
 
     const query =
       `
-        SELECT sc.id AS student_classroom_id, sc.startedAt,
+        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
                s.id AS student_id,
                sts.id AS student_classroom_test_status_id,
                person.name

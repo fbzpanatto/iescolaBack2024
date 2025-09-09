@@ -15,10 +15,20 @@ class StudentTestController extends GenericController<any> {
     try {
       await sqlConnection.beginTransaction()
 
-      const currentYear = await this.qCurrentYear(sqlConnection)
+      const studentClassroomId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null
 
       const testId = params.id;
       const studentId = body.user.user
+
+      if(!studentClassroomId) { return { status: 400, message: "Referência inválida." } }
+
+      const studentTestInfo = await this.qFilteredTestByStudentId(sqlConnection, Number(studentId), Number(testId))
+
+      if(studentTestInfo.studentClassroomId != studentClassroomId) {
+        return { status: 400, message: `Acesse a prova através da sala: ${ studentTestInfo.classroomName } - ${ studentTestInfo.schoolName }` }
+      }
+
+      const currentYear = await this.qCurrentYear(sqlConnection)
 
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name
 
@@ -28,8 +38,6 @@ class StudentTestController extends GenericController<any> {
       let studentQuestions = await this.qStudentTestQuestions(sqlConnection, Number(testId), Number(studentId))
 
       if (!studentQuestions || studentQuestions.length === 0) {
-
-        const studentTestInfo = await this.qFilteredTestByStudentId(sqlConnection, Number(studentId), Number(testId))
 
         if (!studentTestInfo) {
           await sqlConnection.rollback()

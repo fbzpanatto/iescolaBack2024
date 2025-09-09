@@ -683,6 +683,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async qTestQuestLink(status: boolean, arr: qStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let sC of arr) {
+
+      if(test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && sC.endedAt != null) { continue; }
+
       if(status){
         const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
         const stStatus = await CONN.findOne(StudentTestStatus, options)

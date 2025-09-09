@@ -15,6 +15,7 @@ export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
 export const YEAR_NAME_PARAM = check('year').not().isEmpty().isLength({ min: 4, max: 4 })
 export const CLASSROOM_NUMBER_PARAM = check('classroomNumber').not().isEmpty().isNumeric()
 export const STUDENT_CLASSROOM_ID = check('studentClassroomId').not().isEmpty().isNumeric()
+export const STUDENT_CLASSROOM_ID_REF = check('ref').not().isEmpty().isNumeric()
 
 //STUDENT_QUESTIONANSWER
 export const VALIDATE_STUDENT_QUESTIONANSWER = checkSchema(STUDENT_QUESTIONSANSWER_SCHEMA)

@@ -910,40 +910,40 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async saveTest(body: TestBodySave) {
-
-    const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id)
-
-    let sqlConnection = await dbConn()
+    const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id);
+    let sqlConnection = await dbConn();
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
-
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user);
 
         if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) {
-          return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' }
+          return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
         }
 
-        if(!qUserTeacher) return { status: 404, message: "Usuário inexistente" }
+        if(!qUserTeacher) return { status: 404, message: "Usuário inexistente" };
 
-        const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } })
+        const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } });
+        if(!checkYear) return { status: 404, message: "Ano não encontrado" };
+        if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." };
 
-        if(!checkYear) return { status: 404, message: "Ano não encontrado" }
+        const period = await CONN.findOne(Period, {
+          relations: ["year", "bimester"],
+          where: { year: body.year, bimester: body.bimester }
+        });
+        if(!period) return { status: 404, message: "Período não encontrado" };
 
-        if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." }
-
-        const period = await CONN.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } })
-
-        if(!period) return { status: 404, message: "Período não encontrado" }
-
+        // Verifica duplicação para categorias LITE
         if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(body.category.id)) {
-
-          const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } })
-
-          if(test) { return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` } }
-
+          const test = await CONN.findOne(Test, {
+            where: { category: body.category, discipline: body.discipline, period: period }
+          });
+          if(test) {
+            return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` };
+          }
         }
 
+        // Verifica se há alunos nas turmas
         const classes = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
@@ -960,42 +960,88 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .having("COUNT(studentClassroom.id) > 0")
           .getMany();
 
-        if(!classes || classes.length < 1) return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." }
+        if(!classes || classes.length < 1) {
+          return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." };
+        }
 
-        const test = new Test()
-        test.name = body.name
-        test.category = body.category as TestCategory
-        test.discipline = body.discipline as Discipline
-        test.person = qUserTeacher.person as Person
-        test.period = period
-        test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[]
-        test.createdAt = new Date()
-        test.createdByUser = qUserTeacher.person.user.id
+        // Cria o teste
+        const test = new Test();
+        test.name = body.name;
+        test.category = body.category as TestCategory;
+        test.discipline = body.discipline as Discipline;
+        test.person = qUserTeacher.person as Person;
+        test.period = period;
+        test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[];
+        test.createdAt = new Date();
+        test.createdByUser = qUserTeacher.person.user.id;
 
         await CONN.save(Test, test);
 
-        const haveQuestions = [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.SIM_ITA, TEST_CATEGORIES_IDS.AVL_ITA]
+        // Processa questões se a categoria requer
+        const haveQuestions = [
+          TEST_CATEGORIES_IDS.LITE_2,
+          TEST_CATEGORIES_IDS.LITE_3,
+          TEST_CATEGORIES_IDS.SIM_ITA,
+          TEST_CATEGORIES_IDS.AVL_ITA
+        ];
 
-        if(haveQuestions.includes(body.category.id)) {
+        if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
+          const testQuestions = [];
 
-          const tQts = body.testQuestions!.map((el: any) => {
-            return {
-              ...el,
-              createdAt: new Date(),
-              createdByUser: qUserTeacher.person.user.id,
-              question: { ...el.question, person: el.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id },
-              test: test
+          for (const tq of body.testQuestions) {
+            let question = tq.question;
+
+            // Se a questão não tem ID, cria uma nova
+            if (!question.id) {
+              // Valida campos obrigatórios
+              if (!question.skill?.id || !question.classroomCategory?.id) {
+                return {
+                  status: 400,
+                  message: "Todas as questões devem ter habilidade e categoria definidas"
+                };
+              }
+
+              // Cria a questão primeiro
+              const newQuestion = await CONN.save(Question, {
+                title: question.title,
+                images: question.images || 0,
+                person: { id: question.person?.id || qUserTeacher.person.id },
+                discipline: body.discipline,
+                classroomCategory: { id: question.classroomCategory.id },
+                skill: { id: question.skill.id },
+                createdAt: new Date(),
+                createdByUser: qUserTeacher.person.user.id
+              });
+
+              question = newQuestion;
             }
-          })
 
-          await CONN.save(TestQuestion, tQts)
+            // Prepara a TestQuestion
+            testQuestions.push({
+              order: tq.order,
+              answer: tq.answer,
+              questionGroup: { id: tq.questionGroup.id },
+              active: tq.active,
+              question: question,
+              test: test,
+              createdAt: new Date(),
+              createdByUser: qUserTeacher.person.user.id
+            });
+          }
+
+          // Salva todas as TestQuestions
+          await CONN.save(TestQuestion, testQuestions);
         }
 
-        return { status: 201, data: test }
-      })
+        return { status: 201, data: test };
+      });
     }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) {
+      return { status: 500, message: error.message };
+    }
+    finally {
+      if(sqlConnection) { sqlConnection.release(); }
+    }
   }
 
   async updateTest(id: number | string, req: Request) {

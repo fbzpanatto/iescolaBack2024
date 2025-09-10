@@ -988,6 +988,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
           const testQuestions = [];
 
+          const classroomNumber = parseInt(classes[0].shortName.charAt(0))
+
           for (const tq of body.testQuestions) {
             let question = tq.question;
 
@@ -1007,6 +1009,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 images: question.images || 0,
                 person: { id: question.person?.id || qUserTeacher.person.id },
                 discipline: body.discipline,
+                classroomNumber: classroomNumber,
                 classroomCategory: { id: question.classroomCategory.id },
                 skill: { id: question.skill.id },
                 createdAt: new Date(),
@@ -1036,12 +1039,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 201, data: test };
       });
     }
-    catch (error: any) {
-      return { status: 500, message: error.message };
-    }
-    finally {
-      if(sqlConnection) { sqlConnection.release(); }
-    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTest(id: number | string, req: Request) {

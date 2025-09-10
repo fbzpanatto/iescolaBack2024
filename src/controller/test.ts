@@ -999,46 +999,135 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async updateTest(id: number | string, req: Request) {
-
     let sqlConnection = await dbConn()
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
         const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
-
         const userId = qUserTeacher.person.user.id
-        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
-        const test = await CONN.findOne(Test, { relations: ["person"], where: { id: Number(id) } })
-        if(!test) return { status: 404, message: "Teste não encontrado" }
-        if(qUserTeacher.person.id !== test.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+        const masterUser = qUserTeacher.person.category.id === pc.ADMN ||
+          qUserTeacher.person.category.id === pc.SUPE ||
+          qUserTeacher.person.category.id === pc.FORM;
 
+        const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
+        if(!test) return { status: 404, message: "Teste não encontrado" }
+        if(qUserTeacher.person.id !== test.person.id && !masterUser)
+          return { status: 403, message: "Você não tem permissão para editar esse teste." }
+
+        // Atualiza dados básicos do teste
         test.name = req.body.name
         test.active = req.body.active
         test.updatedAt = new Date()
         test.updatedByUser = userId
         await CONN.save(Test, test)
 
-        if(req.body.testQuestions.length){
+        if(req.body.testQuestions?.length) {
           const bodyTq = req.body.testQuestions as TestQuestion[]
           const dataTq = await this.getTestQuestions(test.id, CONN)
+
           for (let next of bodyTq) {
             const curr = dataTq.find(el => el.id === next.id);
-            if (!curr) { await CONN.save(TestQuestion, { ...next, createdAt: new Date(), createdByUser: userId, question: { ...next.question, person: next.question.person || qUserTeacher.person, createdAt: new Date(), createdByUser: userId, }, test }) }
-            else {
+
+            if (!curr) {
+              // NOVA QUESTÃO - precisa criar Question primeiro se não existir
+              let questionToSave = next.question;
+
+              // Se a questão não tem ID, é uma questão completamente nova
+              if (!questionToSave.id) {
+                // Valida campos obrigatórios
+                if (!questionToSave.skill?.id || !questionToSave.classroomCategory?.id) {
+                  return {
+                    status: 400,
+                    message: "Questão nova deve ter habilidade e categoria definidas"
+                  }
+                }
+
+                // Cria a nova questão
+                const newQuestion = await CONN.save(Question, {
+                  title: questionToSave.title,
+                  images: questionToSave.images || 0,
+                  person: { id: questionToSave.person?.id || qUserTeacher.person.id },
+                  discipline: { id: test.discipline.id },
+                  classroomCategory: { id: questionToSave.classroomCategory.id },
+                  skill: { id: questionToSave.skill.id },
+                  createdAt: new Date(),
+                  createdByUser: userId
+                });
+
+                questionToSave = newQuestion;
+              }
+
+              // Cria a TestQuestion
+              await CONN.save(TestQuestion, {
+                order: next.order,
+                answer: next.answer,
+                questionGroup: next.questionGroup,
+                active: next.active,
+                question: questionToSave,
+                test: test,
+                createdAt: new Date(),
+                createdByUser: userId
+              });
+
+            } else {
+              // QUESTÃO EXISTENTE - atualiza se houver mudanças
               const testQuestionCondition = this.diffs(curr, next);
-              if (testQuestionCondition) { await CONN.save(TestQuestion, { ...next, createdAt: curr.createdAt, createdByUser: curr.createdByUser, updatedAt: new Date(), updatedByUser: userId }) }
-              if (this.diffs(curr.question, next.question)) { await CONN.save(Question, {...next.question,createdAt: curr.question.createdAt,createdByUser: curr.question.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
-              if (this.diffs(curr.question.skill, next.question.skill)) { await CONN.save(Skill, { ...next.question.skill, createdAt: curr.question.skill.createdAt, createdByUser: curr.question.skill.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
-              if (this.diffs(curr.questionGroup, next.questionGroup)) { await CONN.save(QuestionGroup, { ...next.questionGroup, createdAt: curr.questionGroup.createdAt, createdByUser: curr.questionGroup.createdByUser, updatedAt: new Date(), updatedByUser: userId })}
+              if (testQuestionCondition) {
+                await CONN.save(TestQuestion, {
+                  ...next,
+                  createdAt: curr.createdAt,
+                  createdByUser: curr.createdByUser,
+                  updatedAt: new Date(),
+                  updatedByUser: userId
+                })
+              }
+
+              // Atualiza a Question se houver mudanças
+              if (this.diffs(curr.question, next.question)) {
+                await CONN.save(Question, {
+                  ...next.question,
+                  createdAt: curr.question.createdAt,
+                  createdByUser: curr.question.createdByUser,
+                  updatedAt: new Date(),
+                  updatedByUser: userId
+                })
+              }
+
+              // Atualiza Skill se houver mudanças
+              if (next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
+                await CONN.save(Skill, {
+                  ...next.question.skill,
+                  createdAt: curr.question.skill.createdAt,
+                  createdByUser: curr.question.skill.createdByUser,
+                  updatedAt: new Date(),
+                  updatedByUser: userId
+                })
+              }
+
+              // Atualiza QuestionGroup se houver mudanças
+              if (next.questionGroup && this.diffs(curr.questionGroup, next.questionGroup)) {
+                await CONN.save(QuestionGroup, {
+                  ...next.questionGroup,
+                  createdAt: curr.questionGroup.createdAt,
+                  createdByUser: curr.questionGroup.createdByUser,
+                  updatedAt: new Date(),
+                  updatedByUser: userId
+                })
+              }
             }
           }
         }
+
         const result = (await this.findOneById(id, req, CONN)).data
         return { status: 200, data: result };
       })
     }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) {
+      return { status: 500, message: error.message }
+    }
+    finally {
+      if(sqlConnection) { sqlConnection.release() }
+    }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {

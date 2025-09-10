@@ -987,7 +987,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
           const testQuestions = [];
-
           const classroomNumber = parseInt(classes[0].shortName.charAt(0))
 
           for (const tq of body.testQuestions) {
@@ -995,27 +994,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             // Se a questão não tem ID, cria uma nova
             if (!question.id) {
-              // Valida campos obrigatórios
-              if (!question.skill?.id || !question.classroomCategory?.id) {
+              // Valida apenas campos realmente obrigatórios
+              if (!question.classroomCategory?.id) {
                 return {
                   status: 400,
-                  message: "Todas as questões devem ter habilidade e categoria definidas"
+                  message: "Todas as questões devem ter categoria definida"
                 };
               }
 
-              // Cria a questão primeiro
-              const newQuestion = await CONN.save(Question, {
+              // Prepara o objeto da questão
+              const questionData: any = {
                 title: question.title,
                 images: question.images || 0,
                 person: { id: question.person?.id || qUserTeacher.person.id },
                 discipline: body.discipline,
                 classroomNumber: classroomNumber,
                 classroomCategory: { id: question.classroomCategory.id },
-                skill: { id: question.skill.id },
                 createdAt: new Date(),
                 createdByUser: qUserTeacher.person.user.id
-              });
+              };
 
+              // Adiciona skill apenas se existir
+              if (question.skill?.id) {
+                questionData.skill = { id: question.skill.id };
+              }
+
+              // Cria a questão
+              const newQuestion = await CONN.save(Question, questionData);
               question = newQuestion;
             }
 
@@ -1039,8 +1044,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 201, data: test };
       });
     }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) {
+      return { status: 500, message: error.message };
+    }
+    finally {
+      if(sqlConnection) { sqlConnection.release(); }
+    }
   }
 
   async updateTest(id: number | string, req: Request) {
@@ -1079,26 +1088,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
               // Se a questão não tem ID, é uma questão completamente nova
               if (!questionToSave.id) {
-                // Valida campos obrigatórios
-                if (!questionToSave.skill?.id || !questionToSave.classroomCategory?.id) {
+                // Valida apenas campos realmente obrigatórios
+                if (!questionToSave.classroomCategory?.id) {
                   return {
                     status: 400,
-                    message: "Questão nova deve ter habilidade e categoria definidas"
+                    message: "Questão nova deve ter categoria definida"
                   }
                 }
 
-                // Cria a nova questão
-                const newQuestion = await CONN.save(Question, {
+                // Prepara o objeto da questão
+                const questionData: any = {
                   title: questionToSave.title,
                   images: questionToSave.images || 0,
                   person: { id: questionToSave.person?.id || qUserTeacher.person.id },
                   discipline: { id: test.discipline.id },
                   classroomCategory: { id: questionToSave.classroomCategory.id },
-                  skill: { id: questionToSave.skill.id },
                   createdAt: new Date(),
                   createdByUser: userId
-                });
+                };
 
+                // Adiciona skill apenas se existir
+                if (questionToSave.skill?.id) {
+                  questionData.skill = { id: questionToSave.skill.id };
+                }
+
+                // Cria a nova questão
+                const newQuestion = await CONN.save(Question, questionData);
                 questionToSave = newQuestion;
               }
 
@@ -1138,7 +1153,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              // Atualiza Skill se houver mudanças
+              // Atualiza Skill apenas se existir e houver mudanças
               if (next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
                 await CONN.save(Skill, {
                   ...next.question.skill,

@@ -29,7 +29,6 @@ class StudentTestController extends GenericController<any> {
       }
 
       const currentYear = await this.qCurrentYear(sqlConnection)
-
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name
 
       const qTest = await this.qTestByIdAndYear(sqlConnection, testId, String(year))

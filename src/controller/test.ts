@@ -684,9 +684,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async qTestQuestLink(status: boolean, arr: qStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
     for(let sC of arr) {
 
-      if(test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && sC.endedAt != null) { continue; }
+      if(test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
+        // Pula alunos que já saíram da turma
+        if(sC.endedAt != null) { continue; }
+
+        // Para SIM_ITA: busca por student.id (pode estar em qualquer turma)
+        const options = { where: { test: { id: test.id }, student: { id: sC.student_id } }}
+        const stStatus = await CONN.findOne(StudentTestStatus, options)
+
+        // Se já tem status para este teste, pula
+        if(stStatus) { continue; }
+      }
 
       if(status){
+        // Para outros testes: busca por studentClassroom.id (turma específica)
         const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
         const stStatus = await CONN.findOne(StudentTestStatus, options)
         if(!stStatus) {
@@ -694,6 +705,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           await CONN.save(StudentTestStatus, el)
         }
       }
+
       for(let testQuestion of testQuestions) {
         const options = { where: { testQuestion: { id: testQuestion.id, test: { id: test.id }, question: { id: testQuestion.question.id } }, student: { id: sC.student_id } } }
         const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion

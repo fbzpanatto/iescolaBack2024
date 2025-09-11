@@ -508,6 +508,11 @@ export class GenericController<T> {
     return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number }[])[0]
   }
 
+  async qTestById(conn: PoolConnection, testId: number) {
+    const [ queryResult ] = await conn.query(format(`SELECT * FROM test WHERE id = ?`), [testId])
+    return (queryResult as Test[])[0]
+  }
+
   async qTeacherByUser(conn: PoolConnection, userId: number) {
     const query =
       `
@@ -628,32 +633,20 @@ export class GenericController<T> {
     return result[0];
   }
 
-  async qDeleteStudentFromTest(conn: PoolConnection, classroomId: number, studentClassroomId: number) {
-    try {
-      // Inicia a transação
-      await conn.beginTransaction();
+  async qSetInactiveStudentTest(conn: PoolConnection, studentClassroomId: number, testId: number, classroomId: number, userId: number) {
+    const updateQuery = `
+        UPDATE student_test_status sts
+            INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
+            SET sts.active = 0,
+                sts.updatedByUser = ?,
+                sts.updatedAt = NOW()
+        WHERE sts.studentClassroomId = ?
+          AND sts.testId = ?
+          AND sc.classroomId = ?
+    `;
 
-      // Primeiro, exclui o status de teste do aluno
-      await conn.query(
-        `DELETE FROM student_test_status WHERE studentClassroomId = ?`,
-        [studentClassroomId]
-      );
-
-      // Depois, exclui o vínculo do aluno com a sala
-      const [result] = await conn.query(
-        `DELETE FROM student_classroom WHERE id = ? AND classroomId = ?`,
-        [studentClassroomId, classroomId]
-      );
-
-      // Finaliza a transação com sucesso
-      await conn.commit();
-      return result;
-
-    } catch (error) {
-      // Reverte qualquer alteração em caso de erro
-      await conn.rollback();
-      throw error;
-    }
+    const [queryResult] = await conn.query(format(updateQuery), [userId, studentClassroomId, testId, classroomId]);
+    return queryResult;
   }
 
   async qAllTeachersForSuperUser(conn: PoolConnection, search: string){

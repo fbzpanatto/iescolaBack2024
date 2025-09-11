@@ -577,6 +577,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })
       .andWhere("period.id = :periodId", { periodId: test.period.id })
+      .andWhere("studentStatus.active = :active", { active: true })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")
@@ -748,11 +749,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     let sqlConnection = await dbConn()
 
+    const studentClassroomId = !isNaN(parseInt(req.query.studentClassroomId as string)) ? parseInt(req.query.studentClassroomId as string) : null
+    const testId = !isNaN(parseInt(req.query.testId as string)) ? parseInt(req.query.testId as string) : null
+    const classroomId = !isNaN(parseInt(req.params.classroom as string)) ? parseInt(req.params.classroom as string) : null
+
     try {
 
-      const { classroom, studentClassroomId } = req.params
+      if(studentClassroomId === null || testId === null || classroomId === null) {
+        return { status: 400, message: 'Parâmetros inválidos.' }
+      }
 
-      await this.qDeleteStudentFromTest(sqlConnection, Number(classroom), Number(studentClassroomId))
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+
+      if(![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
+      }
+
+      const qTest = await this.qTestById(sqlConnection, testId)
+
+      if(!qTest.active) {
+        return { status: 403, message: 'Não é permitido realizar modificações em avaliações encerradas.' }
+      }
+
+      if(studentClassroomId && testId && classroomId) {
+        await this.qSetInactiveStudentTest(sqlConnection, studentClassroomId, testId, classroomId, qUserTeacher.person.user.id)
+      }
 
       return { status: 200, data: {} };
     }
@@ -1339,6 +1360,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("testQuestion.test = :testId", { testId })
       .andWhere("studentStatusTest.id = :testId", { testId })
+      .andWhere("studentStatus.active = :active", { active: true })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       // .addOrderBy("studentClassroom.rosterNumber", "ASC")

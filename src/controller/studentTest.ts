@@ -33,6 +33,11 @@ class StudentTestController extends GenericController<any> {
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name
 
       const qTest = await this.qTestByIdAndYear(sqlConnection, testId, String(year))
+
+      if(!qTest.active) {
+        return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' }
+      }
+
       const qTestQuestions = await this.qTestQuestionsWithTitle(sqlConnection, testId) as TestQuestion[]
 
       let studentQuestions = await this.qStudentTestQuestions(sqlConnection, Number(testId), Number(studentId))

@@ -71,13 +71,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const sCs =
-              await this.qAlphabeticStudentsForLink(
-                sqlConn,
-                Number(classroomId),
-                test.createdAt,
-                test.period.year.name
-              )
+            const sCs = await this.qAlphabeticStudentsForLink(sqlConn, Number(classroomId), test.createdAt, test.period.year.name)
 
             const headers = await this.qAlphabeticHeaders(sqlConn, test.period.year.name) as unknown as AlphaHeaders[]
 

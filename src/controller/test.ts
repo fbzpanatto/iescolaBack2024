@@ -1504,98 +1504,117 @@ class TestController extends GenericController<EntityTarget<Test>> {
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms));
     }
 
-    let studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))
+    let studentClassrooms = preResultSc.map(el => ({
+      ...el,
+      studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
+    }))
 
-    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+    const studentCount = studentClassrooms.reduce((acc, item) => {
+      acc[item.student.id] = (acc[item.student.id] || 0) + 1;
+      return acc
+    }, {} as Record<number, number>);
 
-    const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
+    studentClassrooms = studentClassrooms.reduce((acc: any[], item: any) => {
+      const isDuplicated = studentCount[item.student.id] > 1;
+      if (isDuplicated && item.endedAt) { return acc }
 
-    studentClassrooms = studentClassrooms
-      .filter(item => !duplicatedStudents.find((d: any) => d.id === item.id && d.ignore))
-      .map(item => {
-        const duplicated = duplicatedStudents.find(d => d.id === item.id);
-        const newItem = duplicated ? { ...duplicated } : { ...item };
+      const newItem = { ...item };
 
-        newItem.student.alphabetic = newItem.student.alphabetic.map(alpha => {
-          if(item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+      newItem.student.alphabetic = newItem.student.alphabetic.map((alpha: any) => {
+        if (alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+        return alpha
+      })
 
-          if(!item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+      newItem.student.studentQuestions = newItem.student.studentQuestions?.map((sQ: any) => {
+        if (sQ.rClassroom?.id && sQ.rClassroom.id != room.id) {
+          if (item.endedAt) { return { ...sQ, answer: 'TR' } }
+          return { ...sQ, answer: 'OE' }
+        }
+        return { ...sQ }
+      })
 
-          if(alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
-          return alpha
-        })
+      acc.push(newItem);
+      return acc;
+    }, []);
 
-        newItem.student.studentQuestions = newItem.student.studentQuestions?.map(sQ => {
-
-          if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
-
-          if(!item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'OE' } }
-
-          if(sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: '-' } }
-
-          return { ...sQ }
-        })
-
-        return newItem;
-    });
-
-    const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
+    const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
 
     for(let el of studentClassrooms.flatMap(sc => sc.student.studentDisabilities)) {
       el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
     }
 
-    headers = headers.map(bim => {
+    const isValidAnswer = (answer: any) => { return answer && answer !== 'null' && answer.length > 0 && answer.trim() !== '' }
 
+    const validStudentClassrooms = studentClassrooms;
+
+    headers = headers.map((bim: any) => {
       let bimesterCounter = 0;
 
-      const studentClassroomsBi = studentClassrooms
-        .filter((el: any) => !el.ignore)
-        .filter(sc => sc.student.studentQuestions?.some(sq => (sq.rClassroom?.id === room.id) && (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+      const studentClassroomsBi = validStudentClassrooms.filter(sc =>
+        sc.student.studentQuestions?.some((sq: any) =>
+          sq.rClassroom?.id === room.id &&
+          sq.testQuestion.test.period.bimester.id === bim.id &&
+          isValidAnswer(sq.answer)
+        )
+      );
 
-      const allStudentQuestions = studentClassroomsBi.flatMap(sc => sc.student.studentQuestions )
-      const testQuestions = bim.testQuestions?.map(tQ => {
+      const relevantStudentQuestions = studentClassroomsBi.flatMap(sc =>
+        (sc.student.studentQuestions || []).filter((sq: any) =>
+          sq.rClassroom?.id === classId &&
+          sq.testQuestion.test.period.bimester.id === bim.id
+        )
+      );
 
-        // let aux = 0;
+      const questionsByTestQuestionId = new Map();
+      relevantStudentQuestions.forEach((sq: any) => {
+        const tqId = sq.testQuestion?.id;
+        if (!tqId) return;
 
-        if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
+        if (!questionsByTestQuestionId.has(tqId)) { questionsByTestQuestionId.set(tqId, []) }
+        questionsByTestQuestionId.get(tqId).push(sq);
+      });
 
-        const studentQuestions = allStudentQuestions.filter(sQ => { return sQ.testQuestion?.id === tQ?.id })
+      const testQuestions = bim.testQuestions?.map((tQ: any) => {
+        if (!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
 
-        const counter = studentQuestions.reduce((acc, sQ) => {
+        const studentQuestions = questionsByTestQuestionId.get(tQ.id) || [];
 
-          // if((sQ.answer.length < 1) && (sQ.answer === '' || sQ.answer === ' ')) {
-          //   aux += 1
-          //   return acc
-          // }
+        const counter = studentQuestions.reduce((acc: number, sQ: any) => {
+          if (isValidAnswer(sQ.answer) && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 }
+          return acc;
+        }, 0);
 
-          if(sQ.rClassroom?.id != classId){ return acc }
+        return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100 : 0 };
+      });
 
-          if (sQ.rClassroom?.id === classId && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
-        }, 0)
+      const bimesterAlphabetic = allAlphabetic.filter((alpha: any) =>
+        alpha.rClassroom?.id === classId &&
+        alpha.test.period.bimester.id === bim.id
+      );
 
-        // return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / (studentClassroomsBi.length - aux)) * 10000) / 100 : 0 }
-        return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100 : 0 }
-      })
+      const levels = bim.levels.map((level: any) => {
+        const levelCounter = bimesterAlphabetic.reduce((acc: number, prev: any) => {
+          return acc + (prev.alphabeticLevel?.id === level.id ? 1 : 0);
+        }, 0);
 
-      const levels = bim.levels.map(level => {
-        const levelCounter = allAlphabetic.reduce((acc, prev) => {
-          return acc + (prev.rClassroom?.id === classId && prev.test.period.bimester.id === bim.id && prev.alphabeticLevel?.id === level.id ? 1 : 0);
-        }, 0)
+        bimesterCounter += levelCounter;
+        return { ...level, levelCounter };
+      });
 
-        bimesterCounter += levelCounter
-        return { ...level, levelCounter }
-      })
+      const levelsWithPercentage = levels.map((level: any) => ({
+        ...level,
+        levelPercentage: bimesterCounter > 0
+          ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100
+          : 0
+      }));
 
-      return { ...bim, bimesterCounter, testQuestions,
-        levels: levels.map(level => ({ ...level, levelPercentage: bimesterCounter > 0 ? Math.floor((level.levelCounter / bimesterCounter) * 10000) / 100 : 0}))
-      }
-    })
-
-    // TODO: remove this on 2026
-    studentClassrooms = studentClassrooms
-      .sort((a, b) => a.student.person.name.localeCompare(b.student.person.name))
-      .sort((a, b) => a.rosterNumber - b.rosterNumber)
+      return {
+        ...bim,
+        bimesterCounter,
+        testQuestions,
+        levels: levelsWithPercentage
+      };
+    });
 
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }

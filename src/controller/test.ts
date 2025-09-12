@@ -1434,13 +1434,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     let headers = aHeaders.map(bi => {
       const test = testsMap.get(bi.id);
-      return {
-        ...bi,
-        currTest: {
-          id: test?.id,
-          active: test?.active
-        }
-      };
+      return { ...bi, currTest: { id: test?.id, active: test?.active } };
     });
 
     let preResultScWd = await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)

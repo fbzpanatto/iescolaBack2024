@@ -1510,31 +1510,33 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const duplicatedStudents = studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
 
-    studentClassrooms = studentClassrooms.map(item => {
-      const duplicated = duplicatedStudents.find(d => d.id === item.id);
-      const newItem = duplicated ? { ...duplicated } : { ...item };
+    studentClassrooms = studentClassrooms
+      .filter(item => !duplicatedStudents.find((d: any) => d.id === item.id && d.ignore))
+      .map(item => {
+        const duplicated = duplicatedStudents.find(d => d.id === item.id);
+        const newItem = duplicated ? { ...duplicated } : { ...item };
 
-      newItem.student.alphabetic = newItem.student.alphabetic.map(alpha => {
-        if(item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+        newItem.student.alphabetic = newItem.student.alphabetic.map(alpha => {
+          if(item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
 
-        if(!item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+          if(!item.endedAt && alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
 
-        if(alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
-        return alpha
-      })
+          if(alpha.rClassroom?.id && alpha.rClassroom.id != room.id) { return { ...alpha, gray: true } }
+          return alpha
+        })
 
-      newItem.student.studentQuestions = newItem.student.studentQuestions?.map(sQ => {
+        newItem.student.studentQuestions = newItem.student.studentQuestions?.map(sQ => {
 
-        if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
+          if(item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'TR' } }
 
-        if(!item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'OE' } }
+          if(!item.endedAt && sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: 'OE' } }
 
-        if(sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: '-' } }
+          if(sQ.rClassroom?.id && sQ.rClassroom.id != room.id) { return { ...sQ, answer: '-' } }
 
-        return { ...sQ }
-      })
+          return { ...sQ }
+        })
 
-      return newItem;
+        return newItem;
     });
 
     const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)

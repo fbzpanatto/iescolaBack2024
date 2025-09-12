@@ -1080,10 +1080,16 @@ export class GenericController<T> {
     const query =
       `
         SELECT 
-            tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
+            tq.id AS test_question_id,
+            tq.order AS test_question_order,
+            tq.answer AS test_question_answer,
+            tq.active AS test_question_active,
             qt.id AS question_id,
-            qg.id AS question_group_id, qg.name AS question_group_name,
-            sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description
+            qg.id AS question_group_id,
+            qg.name AS question_group_name,
+            sk.id AS skill_id,
+            sk.reference AS skill_reference,
+            sk.description AS skill_description
         FROM test_question AS tq
         INNER JOIN question AS qt ON tq.questionId = qt.id
             LEFT JOIN skill AS sk ON qt.skillId = sk.id

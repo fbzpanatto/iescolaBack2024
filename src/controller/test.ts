@@ -1430,12 +1430,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const qTests = await this.qAlphabeticTests(sqlConn, test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
+    const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
+
     let headers = aHeaders.map(bi => {
-
-      const test = qTests.find(test => test.period.bimester.id === bi.id)
-
-      return {...bi, currTest: { id: test?.id, active: test?.active }}
-    })
+      const test = testsMap.get(bi.id);
+      return {
+        ...bi,
+        currTest: {
+          id: test?.id,
+          active: test?.active
+        }
+      };
+    });
 
     let preResultScWd = await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
 

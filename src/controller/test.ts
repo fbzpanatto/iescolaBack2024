@@ -1441,29 +1441,67 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     let preResultSc = await this.qStudentDisabilities(sqlConn, preResultScWd) as unknown as StudentClassroom[]
 
-    if(questions) {
+    if (questions) {
+      // ========== OTIMIZAÇÃO 1: Buscar todas as questões de uma vez ==========
+      const testIds = qTests.map(t => t.id);
 
-      let testQuestionsIds: number[] = []
+      // Query única para buscar TODAS as questões
+      const batchQuery = `
+        SELECT 
+          tq.id AS test_question_id, 
+          tq.order AS test_question_order, 
+          tq.answer AS test_question_answer, 
+          tq.active AS test_question_active,
+          tq.testId AS test_id,
+          qt.id AS question_id,
+          qg.id AS question_group_id, 
+          qg.name AS question_group_name,
+          sk.id AS skill_id, 
+          sk.reference AS skill_reference, 
+          sk.description AS skill_description
+        FROM test_question AS tq
+        INNER JOIN question AS qt ON tq.questionId = qt.id
+        LEFT JOIN skill AS sk ON qt.skillId = sk.id
+        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+        INNER JOIN test AS tt ON tq.testId = tt.id
+        WHERE tt.id IN (${testIds.map(() => '?').join(',')})
+        ORDER BY tt.id, qg.id, tq.order
+      `;
 
-      for(let test of qTests) {
+      const [batchResult] = await sqlConn.query(batchQuery, testIds);
+      const allQuestionsRaw = batchResult as any
 
-        const testQuestions = await this.qTestQuestions(sqlConn, test.id) as unknown as TestQuestion[]
+      // Agrupar questões por test_id
+      const questionsByTestId = new Map<number, any[]>();
+      allQuestionsRaw.forEach((q: any) => {
+        const testId = q.test_id;
+        if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
+        questionsByTestId.get(testId)!.push(q);
+      });
 
-        test.testQuestions = testQuestions
+      // ========== OTIMIZAÇÃO 2: Processar e associar questões ==========
+      let testQuestionsIds: number[] = [];
 
-        testQuestionsIds = [
-          ...testQuestionsIds,
-          ...testQuestions.map(testQuestion => testQuestion.id)
-        ]
+      // Formatar questões para cada teste
+      for (let test of qTests) {
+        const rawQuestions = questionsByTestId.get(test.id) || [];
+        const testQuestions = this.formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
 
-        await this.testQuestLink(false, preResultSc, test, testQuestions, userId, CONN)
+        test.testQuestions = testQuestions;
+        testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
       }
 
-      headers = headers.map(bi => { return { ...bi, testQuestions: qTests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+      // ========== OTIMIZAÇÃO 3: Processar testQuestLink em paralelo ==========
+      await Promise.all(qTests.map(test => this.testQuestLink(false, preResultSc, test, test.testQuestions, userId, CONN)));
 
-      // TODO: implement studentClassroomId filter here
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId, studentClassroomId)
-      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms))
+      // ========== OTIMIZAÇÃO 4: Usar Map para lookup O(1) ==========
+      const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
+
+      headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
+
+      // Manter chamada original sem alterações
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId, studentClassroomId );
+      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms));
     }
 
     let studentClassrooms = preResultSc.map(el => ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) }))

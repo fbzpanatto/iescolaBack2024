@@ -1366,7 +1366,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("testQuestion.test = :testId", { testId })
       .andWhere("studentStatusTest.id = :testId", { testId })
-      .andWhere("studentStatus.active = :active", { active: true })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       // .addOrderBy("studentClassroom.rosterNumber", "ASC")

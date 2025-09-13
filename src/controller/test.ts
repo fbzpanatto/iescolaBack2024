@@ -262,7 +262,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
 
               return { ...sc, student: { ...sc.student, studentTotals } }
-              })
+            })
 
             for(let item of mappedResult) {
               for(let el of item.student.studentDisabilities) {

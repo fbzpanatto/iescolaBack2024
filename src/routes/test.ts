@@ -37,14 +37,14 @@ TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, as
   const response = await controller.insertStudents(req); return res.status(response.status).json(response)
 });
 
-TestRouter.delete('/:id/:classroom/delete', [...CHECK_ID_CLASS, STUDENT_CLASSROOM_ID], havePermission, async (req: Request, res: any) => {
-  const response = await controller.deleteStudentFromTest(req); return res.status(response.status).json(response)
-});
-
 TestRouter.post('/', havePermission, async (req: Request, res: any) => {
   const response = await controller.saveTest(req.body); return res.status(response.status).json(response)
 });
 
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
   const response = await controller.updateTest(req.params.id, req); return res.status(response.status as number).json(response)
+});
+
+TestRouter.delete('/:id/:classroom/delete', [...CHECK_ID_CLASS, STUDENT_CLASSROOM_ID], havePermission, async (req: Request, res: any) => {
+  const response = await controller.deleteStudentFromTest(req); return res.status(response.status).json(response)
 });

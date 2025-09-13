@@ -186,9 +186,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            const result = await this.stuQuestionsWithDuplicated(
-              test, qTestQuestions, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            let result = await this.stuQuestionsWithDuplicated(
+              test,
+              qTestQuestions,
+              Number(classroomId),
+              test.period.year.name,
+              appCONN,
+              isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
+
+            if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){ result = result.filter((sC: any) => sC.studentStatus.active) }
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -577,7 +584,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("stStatusTest.id = :testId", { testId: test.id })
       .andWhere("year.name = :yearName", { yearName })
       .andWhere("period.id = :periodId", { periodId: test.period.id })
-      .andWhere("studentStatus.active = :active", { active: true })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .addOrderBy("studentClassroom.rosterNumber", "ASC")

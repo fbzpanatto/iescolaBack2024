@@ -206,26 +206,24 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         let testQuestionsIds: number[] = []
 
         if(qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
-          // Buscar todas as questões em paralelo
-          const allTestQuestionsArrays = await Promise.all(
-            tests.map(test => this.qTestQuestions(sqlConnection, test.id))
-          )
 
-          // Usar for...of com índice manual
+          const allTqs = await Promise.all(tests.map(test => this.qTestQuestions(sqlConnection, test.id)))
+
           let index = 0
           for(const test of tests) {
-            test.testQuestions = allTestQuestionsArrays[index]
+            test.testQuestions = allTqs[index]
             testQuestionsIds.push(...test.testQuestions.map((tq: any) => tq.id))
             index++
           }
         }
 
-        headers = headers.map((bi: any) => {
-          return {
-            ...bi,
-            testQuestions: tests.find((test: any) => test.period?.bimester?.id === bi.id)?.testQuestions || []
-          }
-        })
+        const testsByBimesterId = new Map()
+        for(const test of tests) {
+          const bimesterId = test.period?.bimester?.id
+          if(bimesterId) { testsByBimesterId.set(bimesterId, test) }
+        }
+
+        headers = headers.map((bi: any) => { return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] } })
 
         let preResult = await testController.alphaQuestions(qTest.year_name, qTest, testQuestionsIds, CONN)
 
@@ -237,10 +235,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             school: school.name,
             totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
           }
-          return {
-            ...element,
-            totals: testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers))
-          }
+
+          element.totals = testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers))
+          return element
         })
 
         const cityHallName = 'PREFEITURA DO MUNICÍPIO DE ITATIBA'

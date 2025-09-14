@@ -347,47 +347,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_2:
           case TEST_CATEGORIES_IDS.LITE_3: {
 
-            let headers = await this.qAlphabeticHeaders(
-              sqlConnection,
-              year.name
-            ) as unknown as AlphaHeaders[]
+            let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as any[]
 
-            const tests = await this.qAlphabeticTests(
-              sqlConnection,
-              baseTest.category.id,
-              baseTest.discipline.id,
-              year.name
-            ) as unknown as Test[]
+            const tests = await this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as any[]
 
             let testQuestionsIds: number[] = []
 
-            if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1) {
-              for(let test of tests) {
+            if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
+              // Buscar todas as questões em paralelo
+              const allTestQuestionsArrays = await Promise.all(
+                tests.map(test => this.qTestQuestions(sqlConnection, test.id))
+              )
 
-                const testQuestions = await this.qTestQuestions(
-                  sqlConnection,
-                  test.id
-                ) as unknown as TestQuestion[]
-
-                test.testQuestions = testQuestions
-                testQuestionsIds = [
-                  ...testQuestionsIds,
-                  ...testQuestions.map(testQuestion => testQuestion.id)
-                ]
+              // Atribuir aos testes e coletar IDs usando for...of
+              let index = 0
+              for(const test of tests) {
+                test.testQuestions = allTestQuestionsArrays[index]
+                testQuestionsIds.push(...test.testQuestions.map((tq: any) => tq.id))
+                index++
               }
             }
 
-            headers = headers.map(bi => {
+            headers = headers.map((bi: any) => {
               return {
                 ...bi,
-                testQuestions: tests.find(t => t.period.bimester.id === bi.id)?.testQuestions
+                testQuestions: tests.find((t: any) => t.period?.bimester?.id === bi.id)?.testQuestions || []
               }
             })
 
             const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
             const onlyClasses = schools
-              .flatMap(school => school.classrooms)
-              .sort((a, b) => a.shortName.localeCompare(b.shortName))
+              .flatMap((school: any) => school.classrooms)
+              .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
 
             let resClassrooms;
 
@@ -396,14 +387,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
               name: 'ITATIBA',
               shortName: 'ITA',
               school: 'ITATIBA',
-              totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))
+              totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
             }
 
             let allClassrooms = this.alphabeticTotalizators(onlyClasses, headers)
 
             cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-            resClassrooms = [ ...allClassrooms.filter(c => c.school.id === qClassroom.school.id), cityHall ]
+            resClassrooms = [ ...allClassrooms.filter((c: any) => c.school?.id === qClassroom?.school?.id), cityHall ]
 
             const test = {
               id: 99,

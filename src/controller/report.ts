@@ -399,8 +399,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
               .map(item => duplicatedStudentIds.has(item.id) ? { ...item, ignore: true } : item)
               .filter((item: any) => !item.ignore);
 
-
-
             return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0,
               totals: qTestQuestions.map(tQ => {
 

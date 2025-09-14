@@ -9,7 +9,6 @@ import { School } from "../model/School";
 import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { testController } from "./test";
-import { AlphaHeaders } from "../interfaces/interfaces";
 import { Year } from "../model/Year";
 import { dbConn } from "../services/db";
 import { PoolConnection } from "mysql2/promise";
@@ -200,41 +199,76 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qTest?.year_id) return { status: 404, message: "Ano não encontrado." }
 
-        let headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as unknown as AlphaHeaders[]
+        let headers = await this.qAlphabeticHeaders(sqlConnection, yearName) as any[]
 
-        const tests = await this.qAlphabeticTests(sqlConnection, qTest.test_category_id, qTest.discipline_id, qTest.year_name) as unknown as Test[]
+        const tests = await this.qAlphabeticTests(sqlConnection, qTest.test_category_id, qTest.discipline_id, qTest.year_name) as any[]
 
-        let schools;
         let testQuestionsIds: number[] = []
 
-        if(qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1) {
+        if(qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
+          // Buscar todas as questões em paralelo
+          const allTestQuestionsArrays = await Promise.all(
+            tests.map(test => this.qTestQuestions(sqlConnection, test.id))
+          )
 
-          for(let test of tests) {
-
-            const testQuestions = await this.qTestQuestions(sqlConnection, test.id) as TestQuestion[]
-
-            test.testQuestions = testQuestions
-            testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ]
+          // Usar for...of com índice manual
+          let index = 0
+          for(const test of tests) {
+            test.testQuestions = allTestQuestionsArrays[index]
+            testQuestionsIds.push(...test.testQuestions.map((tq: any) => tq.id))
+            index++
           }
         }
 
-        headers = headers.map(bi => { return { ...bi, testQuestions: tests.find(test => test.period.bimester.id === bi.id)?.testQuestions } })
+        headers = headers.map((bi: any) => {
+          return {
+            ...bi,
+            testQuestions: tests.find((test: any) => test.period?.bimester?.id === bi.id)?.testQuestions || []
+          }
+        })
 
         let preResult = await testController.alphaQuestions(qTest.year_name, qTest, testQuestionsIds, CONN)
 
-        let mappedSchools = preResult.map(school => {
-          const element = { id: school.id, name: school.name, shortName: school.shortName, school: school.name, totals: headers.map(h => ({ ...h, bimesterCounter: 0 }))}
-          return { ...element, totals: testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers)) }
+        let mappedSchools = preResult.map((school: any) => {
+          const element = {
+            id: school.id,
+            name: school.name,
+            shortName: school.shortName,
+            school: school.name,
+            totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
+          }
+          return {
+            ...element,
+            totals: testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers))
+          }
         })
 
         const cityHallName = 'PREFEITURA DO MUNICÍPIO DE ITATIBA'
-        const cityHall = { id: 999, name: cityHallName, shortName: 'ITATIBA', school: cityHallName, totals: headers.map(h => ({ ...h, bimesterCounter: 0 })) }
+        const cityHall = {
+          id: 999,
+          name: cityHallName,
+          shortName: 'ITATIBA',
+          school: cityHallName,
+          totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
+        }
 
-        cityHall.totals = testController.aggregateResult(cityHall, testController.alphabeticTotalizators(preResult.flatMap(school => school.classrooms), headers))
+        cityHall.totals = testController.aggregateResult(
+          cityHall,
+          testController.alphabeticTotalizators(preResult.flatMap((school: any) => school.classrooms), headers)
+        )
 
-        schools = [ ...mappedSchools, cityHall ]
+        const schools = [...mappedSchools, cityHall]
 
-        const test = { id: 99, name: qTest.name, category: { id: qTest.test_category_id, name: qTest.test_category_name }, discipline: { name: qTest.discipline_name }, period: { bimester: { name: 'TODOS' }, year: { id: qTest.year_id, name: qTest.year_name, active: qTest.year_active } } }
+        const test = {
+          id: 99,
+          name: qTest.name,
+          category: { id: qTest.test_category_id, name: qTest.test_category_name },
+          discipline: { name: qTest.discipline_name },
+          period: {
+            bimester: { name: 'TODOS' },
+            year: { id: qTest.year_id, name: qTest.year_name, active: qTest.year_active }
+          }
+        }
 
         data = { alphabeticHeaders: headers, ...test, schools }
 

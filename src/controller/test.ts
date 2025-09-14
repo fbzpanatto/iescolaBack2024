@@ -195,8 +195,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
               isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
-            if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){ result = result.filter((sC: any) => sC.studentStatus.active) }
-
             const mappedResult = result.map((sc: StudentClassroom) => {
 
               const studentTotals = { rowTotal: 0, rowPercent: 0 }
@@ -577,6 +575,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere(new Brackets(qb => {
         if(studentClassroomId) {
           qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
+        }
+        if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){
+          qb.where("studentStatus.active = :active", { active: true })
         }
       }))
       .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })

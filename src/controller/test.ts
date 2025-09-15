@@ -544,6 +544,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
 
+    console.log('studentClassroomId', studentClassroomId)
+
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
     let studentClassrooms = await CONN.getRepository(StudentClassroom)
@@ -565,10 +567,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .where("studentClassroom.classroom = :classroomId", { classroomId })
       .andWhere(new Brackets(qb => {
         if(studentClassroomId) {
-          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
+          qb.andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId })
         }
         if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){
-          qb.where("studentStatus.active = :active", { active: true })
+          qb.andWhere("studentStatus.active = :active", { active: true })
         }
       }))
       .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })

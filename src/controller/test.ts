@@ -544,8 +544,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
 
-    console.log('studentClassroomId', studentClassroomId)
-
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
     let studentClassrooms = await CONN.getRepository(StudentClassroom)

@@ -122,14 +122,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     try {
       const localTests = (await this.getAggregate(req)).data;
-      const response: any = {
-        headers: [],
-        schools: []
-      };
+      const response: any = { headers: [], schools: [] };
 
-      if (!localTests?.length) {
-        return { status: 200, data: response };
-      }
+      if (!localTests?.length) { return { status: 200, data: response } }
 
       const schoolMap = new Map<number, any>();
 

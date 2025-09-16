@@ -1720,62 +1720,121 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   alphabeticTotalizators(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
-    return onlyClasses.map(c => {
+    // Função auxiliar para validar respostas
+    const isValidAnswer = (answer: any): boolean => {
+      return answer && answer !== 'null' && answer.length > 0 && answer.trim() !== '';
+    }
 
-      let studentClassrooms = c.studentClassrooms.map(el =>
-        ({ ...el, studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0) })
-      )
+    return onlyClasses.map(c => {
+      // Preparar studentClassrooms uma única vez
+      let studentClassrooms = c.studentClassrooms.map(el => ({
+        ...el,
+        studentRowTotal: el.student.alphabetic.reduce((acc, curr) =>
+          acc + (curr.alphabeticLevel?.id ? 1 : 0), 0
+        )
+      }))
 
       studentClassrooms = this.duplicatedStudents(studentClassrooms)
 
-      const allAlphabetic = studentClassrooms.filter((el: any) => !el.ignore).flatMap(el => el.student.alphabetic)
+      // Filtrar uma vez e reusar
+      const activeStudentClassrooms = studentClassrooms.filter((el: any) => !el.ignore)
+      const allAlphabetic = activeStudentClassrooms.flatMap(el => el.student.alphabetic)
 
       const totals = headers.map(bim => {
-
         let bimesterCounter = 0;
 
-        const studentClassroomsBi = studentClassrooms
-          .filter((el: any) => !el.ignore)
-          .filter(sc => sc.student.studentQuestions?.some(sq => (sq.rClassroom?.id === c.id) && (sq.testQuestion.test.period.bimester.id === bim.id) && (sq.answer && sq.answer != 'null' && sq.answer.length > 0 && sq.answer != '' && sq.answer != ' ')))
+        // Cache studentClassrooms por bimester
+        const studentClassroomsBi = activeStudentClassrooms.filter(sc =>
+          sc.student.studentQuestions?.some(sq =>
+            sq.rClassroom?.id === c.id &&
+            sq.testQuestion?.test?.period?.bimester?.id === bim.id &&
+            isValidAnswer(sq.answer)
+          )
+        )
 
-        const allStudentQuestions = studentClassroomsBi
-          .flatMap(sc => sc.student.studentQuestions )
+        // Cache todas as questões válidas do bimestre
+        const validStudentQuestions = studentClassroomsBi
+          .flatMap(sc => sc.student.studentQuestions)
+          .filter(sq => sq.rClassroom?.id === c.id && isValidAnswer(sq.answer))
 
+        // Criar Map para lookup O(1) de questões por ID
+        const questionsByTestQuestionId = new Map()
+        for (const sq of validStudentQuestions) {
+          const tqId = sq.testQuestion?.id
+          if (tqId) {
+            if (!questionsByTestQuestionId.has(tqId)) {
+              questionsByTestQuestionId.set(tqId, [])
+            }
+            questionsByTestQuestionId.get(tqId).push(sq)
+          }
+        }
+
+        // Processar testQuestions
         const testQuestions = bim.testQuestions?.map(tQ => {
+          if (!tQ.active) {
+            return { ...tQ, counter: 0, counterPercentage: 0, percentage: 0 }
+          }
 
-          if(!tQ.active) { return { ...tQ, counter: 0, counterPercentage: 0 } }
+          const studentQuestions = questionsByTestQuestionId.get(tQ.id) || []
 
-          const studentQuestions = allStudentQuestions.filter(sQ => { return sQ.testQuestion?.id === tQ?.id })
-
-          const counter = studentQuestions.reduce((acc, sQ) => {
-
-            if(sQ.rClassroom?.id != c.id){ return acc }
-
-            if (sQ.rClassroom?.id === c.id && (sQ.answer && sQ.answer != 'null' && sQ.answer.length > 0 && sQ.answer != '' && sQ.answer != ' ') && tQ.answer?.includes(sQ.answer.toUpperCase())) { return acc + 1 } return acc
+          // Contar respostas corretas
+          const counter = studentQuestions.reduce((acc: any, sQ: any) => {
+            const isCorrect = tQ.answer?.includes(sQ.answer.toUpperCase())
+            return acc + (isCorrect ? 1 : 0)
           }, 0)
 
-          return { ...tQ, counter, counterPercentage: studentClassroomsBi.length, percentage: counter > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100: 0 }
+          const percentage = studentClassroomsBi.length > 0
+            ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100
+            : 0
+
+          return {
+            ...tQ,
+            counter,
+            counterPercentage: studentClassroomsBi.length,
+            percentage
+          }
         })
 
+        // Processar levels com cache
+        const alphabeticByLevel = new Map()
+        for (const alpha of allAlphabetic) {
+          if (alpha.rClassroom?.id === c.id &&
+            alpha.test?.period?.bimester?.id === bim.id &&
+            alpha.alphabeticLevel?.id) {
+            const lvId = alpha.alphabeticLevel.id
+            alphabeticByLevel.set(lvId, (alphabeticByLevel.get(lvId) || 0) + 1)
+          }
+        }
+
         const levels = bim.levels.map(lv => {
-
-          const levelCounter = allAlphabetic.reduce((acc, prev) => {
-            return acc + (prev.rClassroom?.id === c.id && prev.test.period.bimester.id === bim.id && prev.alphabeticLevel?.id === lv.id ? 1 : 0);
-          }, 0)
-
+          const levelCounter = alphabeticByLevel.get(lv.id) || 0
           bimesterCounter += levelCounter
           return { ...lv, levelCounter }
         })
 
+        // Calcular porcentagens após ter o total
+        const levelsWithPercentage = levels.map((el: any) => ({
+          ...el,
+          levelPercentage: bimesterCounter > 0
+            ? Math.floor((el.levelCounter / bimesterCounter) * 10000) / 100
+            : 0
+        }))
+
         return {
           ...bim,
           bimesterCounter,
-          testQuestions: testQuestions,
-          levels: levels.map((el: any) => ({ ...el, levelPercentage: bimesterCounter > 0 ? Math.floor((el.levelCounter / bimesterCounter) * 10000) / 100 : 0 }))
+          testQuestions,
+          levels: levelsWithPercentage
         }
       })
 
-      return { id: c.id, name: c.name, shortName: c.shortName, school: c.school, totals }
+      return {
+        id: c.id,
+        name: c.name,
+        shortName: c.shortName,
+        school: c.school,
+        totals
+      }
     })
   }
 

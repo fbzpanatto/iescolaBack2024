@@ -368,10 +368,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             }
 
+            // Criar Map para lookup O(1) ao invés de O(n*m)
+            const testsByBimesterId = new Map()
+            for(const test of tests) {
+              const bimesterId = test.period?.bimester?.id
+              if(bimesterId) {
+                testsByBimesterId.set(bimesterId, test)
+              }
+            }
+
             headers = headers.map((bi: any) => {
               return {
                 ...bi,
-                testQuestions: tests.find((t: any) => t.period?.bimester?.id === bi.id)?.testQuestions || []
+                testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || []
               }
             })
 
@@ -379,8 +388,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const onlyClasses = schools
               .flatMap((school: any) => school.classrooms)
               .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
-
-            let resClassrooms;
 
             const cityHall = {
               id: 999,
@@ -394,7 +401,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-            resClassrooms = [ ...allClassrooms.filter((c: any) => c.school?.id === qClassroom?.school?.id), cityHall ]
+            // Validação e declaração direta
+            const schoolId = qClassroom?.school?.id
+            const resClassrooms = schoolId
+              ? [...allClassrooms.filter((c: any) => c.school?.id === schoolId), cityHall]
+              : [cityHall]
 
             const test = {
               id: 99,

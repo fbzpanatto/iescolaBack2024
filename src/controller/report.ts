@@ -44,16 +44,23 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } finally { if (sqlConnection) { sqlConnection.release() } }
   }
 
-  async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
-    // TODO: MAKE MYSQL2
-    return await CONN.getRepository(QuestionGroup)
-      .createQueryBuilder("questionGroup")
-      .select(["questionGroup.id AS id", "questionGroup.name AS name"])
-      .addSelect("COUNT(testQuestions.id)", "questionsCount")
-      .leftJoin("questionGroup.testQuestions", "testQuestions")
-      .where("testQuestions.test = :testId", { testId })
-      .groupBy("questionGroup.id")
-      .getRawMany();
+  async qTestQuestionsGroups(testId: number, conn: PoolConnection) {
+    const query =
+      `
+        SELECT 
+          qg.id,
+          qg.name,
+          COUNT(tq.id) AS questionsCount
+        FROM question_group qg
+        INNER JOIN test_question tq ON tq.questionGroupId = qg.id
+        WHERE tq.testId = ?
+        GROUP BY qg.id, qg.name
+        ORDER BY qg.id
+      `
+
+    const [result] = await conn.query(query, [testId])
+
+    return result as Array<{ id: number, name: string, questionsCount: number }>
   }
 
   async reportFindAll(req: Request) {
@@ -370,7 +377,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" }
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
 
-        const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN);
+        const questionGroups = await this.qTestQuestionsGroups(Number(testId), sqlConnection);
+
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
 
         let answersLetters: { letter: string, questions: { id: number, order: number, occurrences: number, percentage: number }[] }[] = []

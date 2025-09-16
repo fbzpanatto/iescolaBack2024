@@ -361,152 +361,352 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.SIM_ITA): {
-
         let formatedTest = this.formatedTest(qTest)
 
         const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
         const qTestQuestions = await this.qTestQuestions(sqlConnection, testId) as TestQuestion[]
-
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" }
+
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
+        const questionGroups = await this.qTestQuestionsGroups(Number(testId), sqlConnection)
+        const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, sqlConnection)
 
-        const questionGroups = await this.qTestQuestionsGroups(Number(testId), sqlConnection);
-
-        const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year, CONN)
-
-        let answersLetters: { letter: string, questions: { id: number, order: number, occurrences: number, percentage: number }[] }[] = []
+        // Maps para lookup O(1)
+        const answersLettersMap = new Map<string, Map<string, any>>()
+        const testQuestionsMap = new Map(qTestQuestions.map(tq => [tq.id, tq]))
 
         const schools = preResult
-          .filter(s => s.classrooms.some(c => c.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0))))
+          .filter(s => s.classrooms.some((c: any) =>
+            c.studentClassrooms.some((sc: any) =>
+              sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)
+            )
+          ))
           .map(s => {
+            // Identificar duplicados primeiro
+            const studentCountMap = new Map<number, number>()
+            const validStudentClassrooms: any[] = []
 
-            let filtered = s.classrooms.flatMap(c => c.studentClassrooms.filter(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0 && sq.rClassroom.id === c.id)))
-
-            const studentCount = filtered.reduce((acc, item) => {
-              acc[item.student.id] = (acc[item.student.id] || 0) + 1;
-              return acc;
-            }, {} as Record<number, number>);
-
-            const duplicatedStudentIds = new Set<number>();
-
-            for(let item of filtered) {
-              if (studentCount[item.student.id] > 1 && item.endedAt) { duplicatedStudentIds.add(item.id) }
-            }
-
-            filtered = filtered
-              .map(item => duplicatedStudentIds.has(item.id) ? { ...item, ignore: true } : item)
-              .filter((item: any) => !item.ignore);
-
-            return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0,
-              totals: qTestQuestions.map(tQ => {
-
-                if(!tQ.active) {
-                  return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
-                }
-
-                const sQuestions = filtered.flatMap(sc =>
-                  sc.student.studentQuestions.filter(sq => {
-
-                    const isValid = sq.id && sq.testQuestion.id === tQ.id && sq.answer.length > 0 && sq.rClassroom?.id === sc.classroom.id;
-                    if (!isValid) return false;
-
-                    const letter = sq.answer.trim().length ? sq.answer.toUpperCase().trim() : 'VAZIO';
-
-                    let ltItem = answersLetters.find(el => el.letter === letter);
-                    if (!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
-
-                    let letterOccurrences = ltItem.questions.find(obj => obj.id === tQ.id && obj.order === tQ.order);
-                    if (!letterOccurrences) {
-                      letterOccurrences = { id: tQ.id, order: tQ.order, occurrences: 0, percentage: 0 };
-                      ltItem.questions.push(letterOccurrences);
-                    }
-
-                    letterOccurrences.occurrences += 1;
-
-                    return true
-                  })
+            for (const c of s.classrooms) {
+              for (const sc of c.studentClassrooms) {
+                const hasValidAnswers = sc.student.studentQuestions.some((sq: any) =>
+                  sq.answer?.length > 0 && sq.rClassroom?.id === c.id
                 )
 
-                const totalSq = sQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()))
+                if (hasValidAnswers) {
+                  const count = studentCountMap.get(sc.student.id) || 0
+                  studentCountMap.set(sc.student.id, count + 1)
+                  validStudentClassrooms.push(sc)
+                }
+              }
+            }
 
-                const total = filtered.length;
-                const matchedQuestions = totalSq.length;
-                const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
+            // Filtrar duplicados
+            const filtered = validStudentClassrooms.filter(sc => {
+              const studentCount = studentCountMap.get(sc.student.id)
+              if (!studentCount) return true // Se não está no map, não é duplicado
 
-                return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate }
-              })
+              const isDuplicate = studentCount > 1 && sc.endedAt
+              return !isDuplicate
+            })
+
+            // Processar totais com cache
+            const totals = qTestQuestions.map(tQ => {
+              if (!tQ.active) {
+                return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }
+              }
+
+              let matchedCount = 0
+
+              for (const sc of filtered) {
+                for (const sq of sc.student.studentQuestions) {
+                  if (sq.testQuestion?.id === tQ.id &&
+                    sq.answer?.length > 0 &&
+                    sq.rClassroom?.id === sc.classroom.id) {
+
+                    // Processar letra para answersLetters
+                    const letter = sq.answer.trim().toUpperCase() || 'VAZIO'
+
+                    if (!answersLettersMap.has(letter)) {
+                      answersLettersMap.set(letter, new Map())
+                    }
+
+                    const letterMap = answersLettersMap.get(letter)!
+                    const key = `${tQ.id}-${tQ.order}`
+
+                    if (!letterMap.has(key)) {
+                      letterMap.set(key, {
+                        id: tQ.id,
+                        order: tQ.order,
+                        occurrences: 0,
+                        percentage: 0
+                      })
+                    }
+
+                    const occurrence = letterMap.get(key)!
+                    occurrence.occurrences++
+
+                    // Verificar se é resposta correta
+                    if (tQ.answer?.includes(letter)) {
+                      matchedCount++
+                    }
+                  }
+                }
+              }
+
+              const total = filtered.length
+              const tRate = total > 0 ? Math.floor((matchedCount / total) * 10000) / 100 : 0
+
+              return {
+                id: tQ.id,
+                order: tQ.order,
+                tNumber: matchedCount,
+                tPercent: total,
+                tRate
+              }
+            })
+
+            return {
+              id: s.id,
+              name: s.name,
+              shortName: s.shortName,
+              schoolId: s.id,
+              schoolAvg: 0,
+              totals
             }
           })
 
-        let allResults: { id: number, order: number, tNumber: number, tPercent: number, tRate: number }[] = []
-        const totalSchoolsResults = schools.flatMap(el => el.totals)
-        for(let item of totalSchoolsResults) {
-          const index = allResults.findIndex(x => x.id === item.id)
-          const element = allResults[index]
-          if(!element) {
-            allResults.push({ id: item.id, order: item.order, tNumber: item.tNumber, tPercent: item.tPercent, tRate: item.tRate })
-          } else {
-            element.tNumber += item.tNumber
-            element.tPercent += item.tPercent
-            element.tRate = Math.floor((element.tNumber / element.tPercent) * 10000) / 100;
+        // Agregar resultados totais usando Map
+        const allResultsMap = new Map<number, any>()
+
+        for (const school of schools) {
+          for (const item of school.totals) {
+            const existing = allResultsMap.get(item.id)
+            if (!existing) {
+              allResultsMap.set(item.id, { ...item })
+            } else {
+              existing.tNumber += item.tNumber
+              existing.tPercent += item.tPercent
+              existing.tRate = existing.tPercent > 0
+                ? Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100
+                : 0
+            }
           }
         }
 
-        const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults, schoolAvg: 0 }
+        const allResults = Array.from(allResultsMap.values())
+        const cityHall = {
+          id: 999,
+          name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+          shortName: 'ITATIBA',
+          totals: allResults,
+          schoolAvg: 0
+        }
 
         const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
-        answersLetters = answersLetters.map(el => ({
-          ...el,
-          questions: el.questions.map(question => ({
-            ...question,
-            percentage: firstElement > 0 ? Math.floor((question.occurrences / firstElement) * 10000) / 100 : 0
+        // Converter answersLettersMap para array
+        const answersLetters = Array.from(answersLettersMap.entries()).map(([letter, questions]) => ({
+          letter,
+          questions: Array.from(questions.values()).map(q => ({
+            ...q,
+            percentage: firstElement > 0
+              ? Math.floor((q.occurrences / firstElement) * 10000) / 100
+              : 0
           }))
         }))
 
-        const mappedSchools = [...schools, cityHall].map((school) => {
+        // Mapear escolas com totais
+        const mappedSchools = [...schools, cityHall].map(school => {
+          const tNumberTotal = school.totals.reduce((acc, item) => acc + item.tNumber, 0)
+          const tPercentTotal = school.totals.reduce((acc, item) => acc + item.tPercent, 0)
 
-          const tNumberTotal = school.totals.reduce((acc, item) => acc + item.tNumber, 0);
-          const tPercentTotal = school.totals.reduce((acc, item) => acc + item.tPercent, 0);
-
-          return { ...school, tNumberTotal, tPercentTotal, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
+          return {
+            ...school,
+            tNumberTotal,
+            tPercentTotal,
+            schoolAvg: tPercentTotal > 0
+              ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100
+              : 0
+          }
         })
 
-        data = { ...formatedTest, totalOfStudents: firstElement, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters };
+        data = {
+          ...formatedTest,
+          totalOfStudents: firstElement,
+          schools: mappedSchools,
+          testQuestions: qTestQuestions,
+          questionGroups,
+          answersLetters
+        }
 
-        break;
+        break
       }
     }
     return { status: 200, data }
   }
 
-  // TODO: MAKE MYSQL2
-  async getTestForGraphic(testId: string, testQuestionsIds: number[], year: Year,  CONN: EntityManager) {
-    return await CONN.getRepository(School)
-      .createQueryBuilder("school")
-      .leftJoinAndSelect("school.classrooms", "classroom")
-      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-      .leftJoinAndSelect("studentClassroom.classroom", "studentClassroomClassroom")
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
-      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-      .leftJoinAndSelect("testQuestion.test", "test")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.year", "periodYear")
-      .where("test.id = :testId", { testId })
-      .andWhere("school.id NOT IN (:...schoolsIds)", { schoolsIds: [28, 29] })
-      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
-      .andWhere("studentClassroomYear.id = :yearId", { yearId: year.id })
-      .andWhere("periodYear.id = :yearId", { yearId: year.id })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .addOrderBy("school.shortName", "ASC")
-      .getMany()
+  async getTestForGraphic(testId: string, testQuestionsIds: number[], year: any, conn: PoolConnection) {
+
+    const testQuestionsPlaceholders = testQuestionsIds.map(() => '?').join(',');
+
+    const query = `
+    SELECT 
+      s.id AS school_id,
+      s.name AS school_name,
+      s.shortName AS school_shortName,
+      c.id AS classroom_id,
+      c.name AS classroom_name,
+      c.shortName AS classroom_shortName,
+      sc.id AS studentClassroom_id,
+      sc.studentId AS student_id,
+      sc.rosterNumber,
+      sc.startedAt,
+      sc.endedAt,
+      st.id AS student_id_check,
+      sq.id AS studentQuestion_id,
+      sq.answer AS studentQuestion_answer,
+      sq.rClassroomId AS studentQuestion_rClassroomId,
+      tq.id AS testQuestion_id,
+      tq.order AS testQuestion_order,
+      tq.answer AS testQuestion_answer,
+      tq.active AS testQuestion_active,
+      qg.id AS questionGroup_id,
+      qg.name AS questionGroup_name,
+      t.id AS test_id,
+      t.name AS test_name
+    FROM school s
+    LEFT JOIN classroom c ON c.schoolId = s.id
+    LEFT JOIN student_classroom sc ON sc.classroomId = c.id
+    LEFT JOIN student st ON sc.studentId = st.id
+    LEFT JOIN student_question sq ON sq.studentId = st.id
+    LEFT JOIN test_question tq ON sq.testQuestionId = tq.id 
+      AND tq.id IN (${testQuestionsPlaceholders})
+    LEFT JOIN question_group qg ON tq.questionGroupId = qg.id
+    LEFT JOIN test t ON tq.testId = t.id
+    LEFT JOIN period p ON t.periodId = p.id
+    WHERE 
+      t.id = ?
+      AND s.id NOT IN (28, 29)
+      AND c.id NOT IN (1216, 1217, 1218)
+      AND sc.yearId = ?
+      AND p.yearId = ?
+    ORDER BY 
+      s.shortName ASC,
+      c.id ASC,
+      qg.id ASC,
+      tq.order ASC
+  `;
+
+    const params = [...testQuestionsIds, testId, year.id, year.id];
+    const [rows] = await conn.query(query, params);
+
+    // Processar e estruturar os dados
+    return this.formatTestGraphicData(rows as any[]);
+  }
+
+  private formatTestGraphicData(rows: any[]): any[] {
+    const schoolsMap = new Map();
+
+    for (const row of rows) {
+      // Estrutura escola
+      if (!schoolsMap.has(row.school_id)) {
+        schoolsMap.set(row.school_id, {
+          id: row.school_id,
+          name: row.school_name,
+          shortName: row.school_shortName,
+          classrooms: new Map()
+        });
+      }
+
+      const school = schoolsMap.get(row.school_id);
+
+      // Estrutura classroom
+      if (!school.classrooms.has(row.classroom_id)) {
+        school.classrooms.set(row.classroom_id, {
+          id: row.classroom_id,
+          name: row.classroom_name,
+          shortName: row.classroom_shortName,
+          studentClassrooms: new Map()
+        });
+      }
+
+      const classroom = school.classrooms.get(row.classroom_id);
+
+      // Estrutura studentClassroom
+      if (!classroom.studentClassrooms.has(row.studentClassroom_id)) {
+        classroom.studentClassrooms.set(row.studentClassroom_id, {
+          id: row.studentClassroom_id,
+          rosterNumber: row.rosterNumber,
+          startedAt: row.startedAt,
+          endedAt: row.endedAt,
+          classroom: {
+            id: row.classroom_id,
+            shortName: row.classroom_shortName
+          },
+          student: {
+            id: row.student_id,
+            studentQuestions: []
+          }
+        });
+      }
+
+      const studentClassroom = classroom.studentClassrooms.get(row.studentClassroom_id);
+
+      // Adicionar studentQuestion se existir
+      if (row.studentQuestion_id) {
+        const questionExists = studentClassroom.student.studentQuestions.some(
+          (sq: any) => sq.id === row.studentQuestion_id
+        );
+
+        if (!questionExists) {
+          studentClassroom.student.studentQuestions.push({
+            id: row.studentQuestion_id,
+            answer: row.studentQuestion_answer || '',
+            rClassroom: {
+              id: row.studentQuestion_rClassroomId
+            },
+            testQuestion: {
+              id: row.testQuestion_id,
+              order: row.testQuestion_order,
+              answer: row.testQuestion_answer,
+              active: row.testQuestion_active,
+              test: {
+                id: row.test_id,
+                period: {
+                  bimester: {
+                    id: row.questionGroup_id  // Assumindo relação
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Converter Maps para Arrays
+    const result: any[] = [];
+    for (const [, school] of schoolsMap) {
+      const classroomsArray: any[] = [];
+      for (const [, classroom] of school.classrooms) {
+        const studentClassroomsArray: any[] = [];
+        for (const [, sc] of classroom.studentClassrooms) {
+          studentClassroomsArray.push(sc);
+        }
+        classroomsArray.push({
+          ...classroom,
+          studentClassrooms: studentClassroomsArray
+        });
+      }
+      result.push({
+        ...school,
+        classrooms: classroomsArray
+      });
+    }
+
+    return result;
   }
 }
 

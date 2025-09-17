@@ -84,13 +84,6 @@ route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 
-// Log para verificar se as variáveis estão sendo carregadas
-console.log('🔍 Verificando variáveis de ambiente:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('SERVER_PORT:', process.env.SERVER_PORT);
-console.log('EMAIL configurado:', !!process.env.EMAIL);
-console.log('EMAIL_PASS configurado:', !!process.env.EMAIL_PASS);
-
 AppDataSource.initialize()
   .then(() => {
     app.listen(process.env.SERVER_PORT, () => {

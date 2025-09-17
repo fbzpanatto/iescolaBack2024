@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npx nodemon src/index.ts --watch 'src/' -e ts",
+    "dev": "NODE_ENV=development npx nodemon src/index.ts --watch 'src/' -e ts",
     "build": "rimraf ./public && tsc",
-    "start": "node ./public/index.js",
-    "pm2": "npm run build && pm2 start ./public/index.js -f"
+    "start": "NODE_ENV=production node ./public/index.js",
+    "pm2": "npm run build && NODE_ENV=production pm2 start ./public/index.js -f"
   },
   "keywords": [],
   "author": "",

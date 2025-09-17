@@ -384,7 +384,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             })
 
-            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds, CONN)
+            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds, sqlConnection)
             const onlyClasses = schools
               .flatMap((school: any) => school.classrooms)
               .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
@@ -1508,8 +1508,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
       // Manter chamada original sem alterações
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, CONN, classId, studentClassroomId );
-      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap(classroom => classroom.studentClassrooms));
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, sqlConn, classId, studentClassroomId );
+      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
     }
 
     let studentClassrooms = preResultSc.map(el => ({
@@ -1627,90 +1627,328 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 
-  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], CONN: EntityManager, classroomId?: number, studentClassroomId?: number | null) {
+  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], conn: PoolConnection, classroomId?: number, studentClassroomId?: number | null) {
 
-    const hasQuestions = !!testQuestionsIds.length
+    const hasQuestions = !!testQuestionsIds.length;
+    const testQuestionsPlaceholders = hasQuestions && testQuestionsIds.length > 0
+      ? testQuestionsIds.map(() => '?').join(',')
+      : '';
 
-    const query = CONN.getRepository(School)
-      .createQueryBuilder("school")
-      .leftJoinAndSelect('school.classrooms', 'classrooms')
-      .leftJoinAndSelect('classrooms.school', 'schoolClassrooms')
-      .leftJoin('classrooms.studentClassrooms', 'studentClassroom')
-      .addSelect(['studentClassroom.id', 'studentClassroom.rosterNumber', 'studentClassroom.endedAt'])
-      .leftJoin("studentClassroom.student", "student")
-      .addSelect(['student.id'])
+    let query = `
+    SELECT 
+      -- School
+      s.id AS school_id,
+      s.name AS school_name,
+      s.shortName AS school_shortName,
+      
+      -- Classroom
+      c.id AS classroom_id,
+      c.name AS classroom_name,
+      c.shortName AS classroom_shortName,
+      
+      -- StudentClassroom
+      sc.id AS studentClassroom_id,
+      sc.rosterNumber,
+      sc.endedAt AS studentClassroom_endedAt,
+      
+      -- Student
+      st.id AS student_id,
+      
+      -- Person
+      p.id AS person_id,
+      p.name AS person_name,
+      
+      -- AlphabeticFirst
+      af.id AS alphabeticFirst_id,
+      afl.id AS alphabeticFirst_level_id,
+      afl.name AS alphabeticFirst_level_name,
+      afl.shortName AS alphabeticFirst_level_shortName,
+      afl.color AS alphabeticFirst_level_color,
+      
+      -- Alphabetic
+      a.id AS alphabetic_id,
+      a.observation AS alphabetic_observation,
+      al.id AS alphabetic_level_id,
+      al.name AS alphabetic_level_name,
+      al.shortName AS alphabetic_level_shortName,
+      al.color AS alphabetic_level_color,
+      arc.id AS alphabetic_rClassroom_id,
+      arc.name AS alphabetic_rClassroom_name,
+      arc.shortName AS alphabetic_rClassroom_shortName,
+      at.id AS alpha_test_id,
+      at.name AS alpha_test_name,
+      atp.id AS alpha_test_period_id,
+      atb.id AS alpha_test_bimester_id,
+      atb.name AS alpha_test_bimester_name,
+      aty.id AS alpha_test_year_id,
+      aty.name AS alpha_test_year_name,
+      
+      -- StudentDisability
+      sd.id AS studentDisability_id,
+      sd.disabilityId AS disability_id,
+      d.name AS disability_name`;
 
-      .leftJoinAndSelect("student.alphabeticFirst", "alphabeticFirst")
-      .leftJoinAndSelect("alphabeticFirst.alphabeticFirst", "alphabeticFirstStudentLevel")
-
-      .leftJoinAndSelect("student.alphabetic", "alphabetic")
-      .leftJoinAndSelect("alphabetic.rClassroom", "alphabeticRClassroom")
-      .leftJoinAndSelect("alphabetic.alphabeticLevel", "alphabeticLevel")
-      .leftJoin("alphabetic.test", "alphaTest")
-      .addSelect(['alphaTest.id', 'alphaTest.name'])
-      .leftJoin("alphaTest.category", "alphaTestCategory")
-      .leftJoin("alphaTest.discipline", "alphaTestDiscipline")
-      .leftJoinAndSelect("alphaTest.period", "alphaTestPeriod")
-      .leftJoinAndSelect("alphaTestPeriod.bimester", "alphaTestBimester")
-      .leftJoin("alphaTestPeriod.year", "alphaTestYear")
-      .addSelect(['alphaTestYear.id', 'alphaTestYear.name'])
-
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .leftJoin("student.person", "person")
-      .addSelect(['person.id', 'person.name'])
-      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-
-      .where(new Brackets(qb => {
-        if(hasQuestions){
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-            .orWhere("alphabetic.id IS NOT NULL")
-            .orWhere("studentQuestion.id IS NOT NULL")
-        } else {
-          qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-            .orWhere("alphabetic.id IS NOT NULL")
-        }
-      }))
-
-      .andWhere("school.id NOT IN (:...schoolsIds)", { schoolsIds: [28, 29] })
-      .andWhere("classrooms.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
-      .andWhere("alphaTestDiscipline.id = :alphaTestDiscipline", { alphaTestDiscipline: test.discipline?.id ?? test.discipline_id })
-      .andWhere("alphaTestCategory.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
-      .andWhere("alphaTestYear.name = :yearName", { yearName })
-      .andWhere("studentClassroomYear.name = :yearName", { yearName })
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .addOrderBy('classroom.shortName', 'ASC')
-      .addOrderBy('school.shortName', 'ASC')
-
-    if(hasQuestions) {
-      query
-        .leftJoinAndSelect("student.studentQuestions", "studentQuestion")
-        .leftJoin("studentQuestion.rClassroom", "studentQuestionRClassroom")
-        .addSelect(['studentQuestionRClassroom.id'])
-        .leftJoin("studentQuestion.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-        .addSelect(['testQuestion.id', 'testQuestion.order', 'testQuestion.answer', 'testQuestion.active'])
-        .leftJoin("testQuestion.questionGroup", "questionGroup")
-
-        .leftJoin("testQuestion.test", "test")
-        .addSelect(['test.id', 'test.name'])
-        .leftJoin("test.category", "testCategory")
-        .leftJoin("test.discipline", "testDiscipline")
-        .leftJoinAndSelect("test.period", "period")
-        .leftJoinAndSelect("period.bimester", "bimester")
-        .addOrderBy("bimester.id", "ASC")
-        .addOrderBy("testQuestion.order", "ASC")
-        .leftJoin("period.year", "pYear")
-        .addSelect(['pYear.id', 'pYear.name'])
-
-        .andWhere("testCategory.id = :testCategory", { testCategory: test.category?.id ?? test.test_category_id })
-        .andWhere("testDiscipline.id = :testDiscipline", { testDiscipline: test.discipline?.id ?? test.discipline_id })
-        .andWhere("pYear.name = :yearName", { yearName })
+    if (hasQuestions) {
+      query += `,
+      -- StudentQuestion
+      sq.id AS studentQuestion_id,
+      sq.answer AS studentQuestion_answer,
+      sqrc.id AS studentQuestion_rClassroom_id,
+      tq.id AS testQuestion_id,
+      tq.order AS testQuestion_order,
+      tq.answer AS testQuestion_answer,
+      tq.active AS testQuestion_active,
+      t.id AS test_id,
+      t.name AS test_name,
+      per.id AS period_id,
+      bim.id AS bimester_id,
+      bim.name AS bimester_name,
+      py.id AS period_year_id,
+      py.name AS period_year_name`;
     }
 
-    if (classroomId) { query.andWhere("studentClassroom.classroom = :classroomId", { classroomId }) }
-    if (studentClassroomId) { query.andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId }) }
+    query += `
+    FROM school s
+    LEFT JOIN classroom c ON c.schoolId = s.id
+    LEFT JOIN student_classroom sc ON sc.classroomId = c.id
+    LEFT JOIN year scy ON sc.yearId = scy.id
+    LEFT JOIN student st ON sc.studentId = st.id
+    LEFT JOIN person p ON st.personId = p.id
+    LEFT JOIN alphabetic_first af ON af.studentId = st.id
+    LEFT JOIN alphabetic_level afl ON af.alphabeticFirstId = afl.id
+    LEFT JOIN alphabetic a ON a.studentId = st.id
+    LEFT JOIN alphabetic_level al ON a.alphabeticLevelId = al.id
+    LEFT JOIN classroom arc ON a.rClassroomId = arc.id
+    LEFT JOIN test at ON a.testId = at.id
+    LEFT JOIN test_category atc ON at.categoryId = atc.id
+    LEFT JOIN discipline atd ON at.disciplineId = atd.id
+    LEFT JOIN period atp ON at.periodId = atp.id
+    LEFT JOIN bimester atb ON atp.bimesterId = atb.id
+    LEFT JOIN year aty ON atp.yearId = aty.id
+    LEFT JOIN student_disability sd ON sd.studentId = st.id AND sd.endedAt IS NULL
+    LEFT JOIN disability d ON sd.disabilityId = d.id`;
 
-    return await query.getMany();
+    if (hasQuestions) {
+      query += `
+    LEFT JOIN student_question sq ON sq.studentId = st.id
+    LEFT JOIN classroom sqrc ON sq.rClassroomId = sqrc.id
+    LEFT JOIN test_question tq ON sq.testQuestionId = tq.id ${testQuestionsPlaceholders ? `AND tq.id IN (${testQuestionsPlaceholders})` : ''}
+    LEFT JOIN test t ON tq.testId = t.id
+    LEFT JOIN test_category tc ON t.categoryId = tc.id
+    LEFT JOIN discipline td ON t.disciplineId = td.id
+    LEFT JOIN period per ON t.periodId = per.id
+    LEFT JOIN bimester bim ON per.bimesterId = bim.id
+    LEFT JOIN year py ON per.yearId = py.id`;
+    }
+
+    query += `
+    WHERE s.id NOT IN (28, 29)
+    AND c.id NOT IN (1216, 1217, 1218)
+    AND atd.id = ?
+    AND atc.id = ?
+    AND aty.name = ?
+    AND scy.name = ?`;
+
+    if (hasQuestions) {
+      query += `
+    AND (sc.startedAt < ? OR a.id IS NOT NULL OR sq.id IS NOT NULL)
+    AND tc.id = ?
+    AND td.id = ?
+    AND py.name = ?`;
+    } else {
+      query += `
+    AND (sc.startedAt < ? OR a.id IS NOT NULL)`;
+    }
+
+    if (classroomId) query += ` AND sc.classroomId = ?`;
+    if (studentClassroomId) query += ` AND sc.id = ?`;
+
+    query += `
+    ORDER BY sc.rosterNumber ASC, c.shortName ASC, s.shortName ASC`;
+
+    if (hasQuestions) {
+      query += `, bim.id ASC, tq.order ASC`;
+    }
+
+    // Parâmetros
+    const params: any[] = [];
+    if (hasQuestions && testQuestionsIds.length > 0) {
+      params.push(...testQuestionsIds);
+    }
+
+    params.push(
+      test.discipline?.id ?? test.discipline_id,
+      test.category?.id ?? test.test_category_id,
+      yearName,
+      yearName,
+      test.createdAt
+    );
+
+    if (hasQuestions) {
+      params.push(
+        test.category?.id ?? test.test_category_id,
+        test.discipline?.id ?? test.discipline_id,
+        yearName
+      );
+    }
+
+    if (classroomId) params.push(classroomId);
+    if (studentClassroomId) params.push(studentClassroomId);
+
+    const [rows] = await conn.query(query, params);
+
+    // Formatar resultado mantendo a estrutura do TypeORM
+    const schoolsMap = new Map();
+
+    for (const row of rows as any[]) {
+      if (!row.school_id) continue;
+
+      if (!schoolsMap.has(row.school_id)) {
+        schoolsMap.set(row.school_id, {
+          id: row.school_id,
+          name: row.school_name,
+          shortName: row.school_shortName,
+          classrooms: []
+        });
+      }
+
+      const school = schoolsMap.get(row.school_id);
+      let classroom = school.classrooms.find((c: any) => c.id === row.classroom_id);
+
+      if (!classroom) {
+        classroom = {
+          id: row.classroom_id,
+          name: row.classroom_name,
+          shortName: row.classroom_shortName,
+          school: {
+            id: row.school_id,
+            name: row.school_name,
+            shortName: row.school_shortName
+          },
+          studentClassrooms: []
+        };
+        school.classrooms.push(classroom);
+      }
+
+      let studentClassroom = classroom.studentClassrooms.find((sc: any) => sc.id === row.studentClassroom_id);
+
+      if (!studentClassroom) {
+        studentClassroom = {
+          id: row.studentClassroom_id,
+          rosterNumber: row.rosterNumber,
+          endedAt: row.studentClassroom_endedAt,
+          classroom: {
+            id: row.classroom_id,
+            name: row.classroom_name,
+            shortName: row.classroom_shortName
+          },
+          student: {
+            id: row.student_id,
+            person: {
+              id: row.person_id,
+              name: row.person_name
+            },
+            alphabeticFirst: null,
+            alphabetic: [],
+            studentDisabilities: [],
+            studentQuestions: hasQuestions ? [] : undefined
+          }
+        };
+
+        if (row.alphabeticFirst_id) {
+          studentClassroom.student.alphabeticFirst = {
+            id: row.alphabeticFirst_id,
+            alphabeticFirst: row.alphabeticFirst_level_id ? {
+              id: row.alphabeticFirst_level_id,
+              name: row.alphabeticFirst_level_name,
+              shortName: row.alphabeticFirst_level_shortName,
+              color: row.alphabeticFirst_level_color
+            } : null
+          };
+        }
+
+        classroom.studentClassrooms.push(studentClassroom);
+      }
+
+      // Adicionar Alphabetic
+      if (row.alphabetic_id && !studentClassroom.student.alphabetic.find((a: any) => a.id === row.alphabetic_id)) {
+        studentClassroom.student.alphabetic.push({
+          id: row.alphabetic_id,
+          observation: row.alphabetic_observation,
+          alphabeticLevel: row.alphabetic_level_id ? {
+            id: row.alphabetic_level_id,
+            name: row.alphabetic_level_name,
+            shortName: row.alphabetic_level_shortName,
+            color: row.alphabetic_level_color
+          } : null,
+          rClassroom: row.alphabetic_rClassroom_id ? {
+            id: row.alphabetic_rClassroom_id,
+            name: row.alphabetic_rClassroom_name,
+            shortName: row.alphabetic_rClassroom_shortName
+          } : null,
+          test: {
+            id: row.alpha_test_id,
+            name: row.alpha_test_name,
+            period: {
+              id: row.alpha_test_period_id,
+              bimester: {
+                id: row.alpha_test_bimester_id,
+                name: row.alpha_test_bimester_name
+              },
+              year: {
+                id: row.alpha_test_year_id,
+                name: row.alpha_test_year_name
+              }
+            }
+          }
+        });
+      }
+
+      // Adicionar StudentDisability
+      if (row.studentDisability_id && !studentClassroom.student.studentDisabilities.find((d: any) => d.id === row.studentDisability_id)) {
+        studentClassroom.student.studentDisabilities.push({
+          id: row.studentDisability_id,
+          disability: {
+            id: row.disability_id,
+            name: row.disability_name
+          }
+        });
+      }
+
+      // Adicionar StudentQuestion se houver
+      if (hasQuestions && row.studentQuestion_id && !studentClassroom.student.studentQuestions.find((q: any) => q.id === row.studentQuestion_id)) {
+        studentClassroom.student.studentQuestions.push({
+          id: row.studentQuestion_id,
+          answer: row.studentQuestion_answer || '',
+          rClassroom: row.studentQuestion_rClassroom_id ? {
+            id: row.studentQuestion_rClassroom_id
+          } : null,
+          testQuestion: row.testQuestion_id ? {
+            id: row.testQuestion_id,
+            order: row.testQuestion_order,
+            answer: row.testQuestion_answer,
+            active: row.testQuestion_active,
+            test: {
+              id: row.test_id,
+              name: row.test_name,
+              period: {
+                id: row.period_id,
+                bimester: {
+                  id: row.bimester_id,
+                  name: row.bimester_name
+                },
+                year: {
+                  id: row.period_year_id,
+                  name: row.period_year_name
+                }
+              }
+            }
+          } : null
+        });
+      }
+    }
+
+    return Array.from(schoolsMap.values());
   }
 
   duplicatedStudents(studentClassrooms: StudentClassroom[] | qStudentClassroomFormated[]): any {

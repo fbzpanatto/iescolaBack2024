@@ -1434,7 +1434,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     studentClassroomId: number | null
   ) {
 
-    const response = await this.qCreateLinkAlphabetic(sC, test, userId, sqlConn)
+    await this.qCreateLinkAlphabetic(sC, test, userId, sqlConn)
 
     const qTests = await this.qAlphabeticTests(sqlConn, test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
@@ -1595,18 +1595,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { ...tQ, counter, counterPercentage: studentClassroomsBi.length > 0 ? Math.floor((counter / studentClassroomsBi.length) * 10000) / 100 : 0 };
       });
 
-      const bimesterAlphabetic = allAlphabetic.filter((alpha: any) =>
-        alpha.rClassroom?.id === classId &&
-        alpha.test.period.bimester.id === bim.id
+      const biAlpha = allAlphabetic.filter((a: any) =>
+        a.rClassroom?.id === classId &&
+        a.test.period.bimester.id === bim.id
       );
 
-      const levels = bim.levels.map((level: any) => {
-        const levelCounter = bimesterAlphabetic.reduce((acc: number, prev: any) => {
-          return acc + (prev.alphabeticLevel?.id === level.id ? 1 : 0);
+      const levels = bim.levels.map((l: any) => {
+        const levelCounter = biAlpha.reduce((acc: number, prev: any) => {
+          return acc + (prev.alphabeticLevel?.id === l.id ? 1 : 0);
         }, 0);
 
         bimesterCounter += levelCounter;
-        return { ...level, levelCounter };
+        return { ...l, levelCounter };
       });
 
       const levelsWithPercentage = levels.map((level: any) => ({

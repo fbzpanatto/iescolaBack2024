@@ -21,7 +21,6 @@ import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
-import { School } from "../model/School";
 import { Disability } from "../model/Disability";
 import { Person } from "../model/Person";
 import { PoolConnection } from "mysql2/promise";
@@ -186,7 +185,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            let result = await this.stuQuestionsWithDuplicated(
+            let result = await this.stuQtsDuplicated(
               test,
               qTestQuestions,
               Number(classroomId),
@@ -553,7 +552,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async stuQuestionsWithDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
+  async stuQtsDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
 
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
 
@@ -1066,16 +1065,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           for (const tq of body.testQuestions) {
             let question = tq.question;
-
             // Se a questão não tem ID, cria uma nova
             if (!question.id) {
               // Valida apenas campos realmente obrigatórios
-              if (!question.classroomCategory?.id) {
-                return {
-                  status: 400,
-                  message: "Todas as questões devem ter categoria definida"
-                };
-              }
+              if (!question.classroomCategory?.id) { return { status: 400, message: "Todas as questões devem ter categoria definida" } }
 
               // Prepara o objeto da questão
               const questionData: any = {
@@ -1090,9 +1083,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               };
 
               // Adiciona skill apenas se existir
-              if (question.skill?.id) {
-                questionData.skill = { id: question.skill.id };
-              }
+              if (question.skill?.id) { questionData.skill = { id: question.skill.id } }
 
               // Cria a questão
               const newQuestion = await CONN.save(Question, questionData);
@@ -1115,16 +1106,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
           // Salva todas as TestQuestions
           await CONN.save(TestQuestion, testQuestions);
         }
-
         return { status: 201, data: test };
       });
     }
-    catch (error: any) {
-      return { status: 500, message: error.message };
-    }
-    finally {
-      if(sqlConnection) { sqlConnection.release(); }
-    }
+    catch (error: any) { return { status: 500, message: error.message } }
+    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTest(id: number | string, req: Request) {
@@ -1132,15 +1118,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
-        const userId = qUserTeacher.person.user.id
-        const masterUser = qUserTeacher.person.category.id === pc.ADMN ||
-          qUserTeacher.person.category.id === pc.SUPE ||
-          qUserTeacher.person.category.id === pc.FORM;
+        const uTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const userId = uTeacher.person.user.id
+        const masterUser = uTeacher.person.category.id === pc.ADMN ||
+          uTeacher.person.category.id === pc.SUPE ||
+          uTeacher.person.category.id === pc.FORM;
 
         const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
         if(!test) return { status: 404, message: "Teste não encontrado" }
-        if(qUserTeacher.person.id !== test.person.id && !masterUser)
+        if(uTeacher.person.id !== test.person.id && !masterUser)
           return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
         // Atualiza dados básicos do teste
@@ -1175,7 +1161,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 const questionData: any = {
                   title: questionToSave.title,
                   images: questionToSave.images || 0,
-                  person: { id: questionToSave.person?.id || qUserTeacher.person.id },
+                  person: { id: questionToSave.person?.id || uTeacher.person.id },
                   discipline: { id: test.discipline.id },
                   classroomCategory: { id: questionToSave.classroomCategory.id },
                   createdAt: new Date(),

@@ -346,9 +346,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_2:
           case TEST_CATEGORIES_IDS.LITE_3: {
 
-            let headers = await this.qAlphabeticHeaders(sqlConnection, year.name) as any[]
-
-            const tests = await this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as any[]
+            const [preheaders, tests] = await Promise.all([
+              this.qAlphabeticHeaders(sqlConnection, year.name) as Promise<any[]>,
+              this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as Promise<any[]>
+            ])
 
             let testQuestionsIds: number[] = []
 
@@ -358,12 +359,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 tests.map(test => this.qTestQuestions(sqlConnection, test.id))
               )
 
-              // Atribuir aos testes e coletar IDs usando for...of
-              let index = 0
-              for(const test of tests) {
-                test.testQuestions = allTestQuestionsArrays[index]
-                testQuestionsIds.push(...test.testQuestions.map((tq: any) => tq.id))
-                index++
+              // Atribuir aos testes e coletar IDs
+              for(let i = 0; i < tests.length; i++) {
+                tests[i].testQuestions = allTestQuestionsArrays[i]
+                testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id))
               }
             }
 
@@ -376,7 +375,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             }
 
-            headers = headers.map((bi: any) => {
+            let headers = preheaders.map((bi: any) => {
               return {
                 ...bi,
                 testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || []
@@ -422,12 +421,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
-            const headers = await this.qReadingFluencyHeaders(sqlConnection)
+            const [headers, test] = await Promise.all([
+              this.qReadingFluencyHeaders(sqlConnection),
+              this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Promise<Test>
+            ])
+
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const test = await this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Test
-
-            let response= { ...test, fluencyHeaders }
+            let response = { ...test, fluencyHeaders }
 
             response.classrooms = this.cityHallResponse(qClassroom, response.classrooms)
 
@@ -455,19 +456,38 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
+            const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
+            const baseSchoolId = qClassroom.school.id;
+
             const classroomResults = test.classrooms
               .filter(classroom => classroom.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
               .map(classroom => {
 
                 const studentCount = classroom.studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
 
-                const duplicatedStudents = classroom.studentClassrooms.filter(item => studentCount[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
+                const duplicatedStudentsSet = new Set(
+                  classroom.studentClassrooms
+                    .filter(item => studentCount[item.student.id] > 1 && item.endedAt)
+                    .map(d => d.id)
+                );
 
-                const studentClassrooms = classroom.studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item })
+                const filtered = classroom.studentClassrooms.filter((sc: any) => {
+                  return !duplicatedStudentsSet.has(sc.id) &&
+                    sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id)
+                });
 
-                const filtered = studentClassrooms.filter((sc: any) => { return !sc.ignore && sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id )})
+                const questionMap = new Map<number, any[]>();
 
-                const filteredStudentQuestions = filtered.map(sc => sc.student.studentQuestions.filter(sq => sq.answer.length > 0 && sq.rClassroom?.id === classroom.id)).flat()
+                for (const sc of filtered) {
+                  for (const sq of sc.student.studentQuestions) {
+                    if (sq.answer.length > 0 && sq.rClassroom?.id === classroom.id) {
+                      if (!questionMap.has(sq.testQuestion.id)) {
+                        questionMap.set(sq.testQuestion.id, []);
+                      }
+                      questionMap.get(sq.testQuestion.id)!.push(sq);
+                    }
+                  }
+                }
 
                 return {
                   id: classroom.id,
@@ -475,61 +495,65 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   shortName: classroom.shortName,
                   school: classroom.school.name,
                   schoolId: classroom.school.id,
+                  clNumber: classroom.shortName.replace(/\D/g, ""),
                   totals: testQuestions.map(tQ => {
 
                     if (!tQ.active) { return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 } }
 
-                    const studentsQuestions = filteredStudentQuestions.filter(sq => sq.testQuestion.id === tQ.id );
+                    const studentsQuestions = questionMap.get(tQ.id) || [];
 
-                    const totalSq = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase()));
+                    const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
 
                     const total = filtered.length;
-                    const matchedQuestions = totalSq.length;
 
-                    const tRate = matchedQuestions > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
+                    const tRate = matchedQuestions > 0 && total > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
 
                     return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
                   })
                 }
               })
 
-            const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
-            const baseSchoolId = qClassroom.school.id;
-
             const schoolResults = classroomResults.filter(cl => {
-              const clNumber = cl.shortName.replace(/\D/g, "");
-              return cl.schoolId === baseSchoolId && clNumber === classroomNumber;
+              return cl.schoolId === baseSchoolId && cl.clNumber === classroomNumber;
             })
 
-            let allResults: { id: number, order: number, tNumber: number | string, tPercent: number | string, tRate: number | string }[] = []
-            const totalClassroomsResults = classroomResults.flatMap(el => el.totals)
+            const resultsMap = new Map<number, { id: number, order: number, tNumber: number, tPercent: number, tRate: number }>();
 
-            const resultsMap = new Map();
+            for (const classroom of classroomResults) {
+              for (const item of classroom.totals) {
+                const existing = resultsMap.get(item.id);
 
-            for (let el of allResults) { resultsMap.set(el.id, el) }
-
-            for (let item of totalClassroomsResults) {
-              const el = resultsMap.get(item.id);
-
-              if (!el) {
-                const newElement = { id: item.id, order: item.order, tNumber: Number(item.tNumber), tPercent: Number(item.tPercent), tRate: Number(item.tRate)}
-                allResults.push(newElement)
-                resultsMap.set(item.id, newElement)
-              } else {
-                el.tNumber += Number(item.tNumber);
-                el.tPercent += Number(item.tPercent);
-                el.tRate = Math.floor((el.tNumber / el.tPercent) * 10000) / 100;
+                if (!existing) {
+                  resultsMap.set(item.id, {
+                    id: item.id,
+                    order: item.order,
+                    tNumber: Number(item.tNumber),
+                    tPercent: Number(item.tPercent),
+                    tRate: Number(item.tRate)
+                  });
+                } else {
+                  existing.tNumber += Number(item.tNumber);
+                  existing.tPercent += Number(item.tPercent);
+                  existing.tRate = existing.tPercent > 0 ?
+                    Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100 : 0;
+                }
               }
             }
+
+            const allResults = Array.from(resultsMap.values());
 
             const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults }
 
             let allClassrooms = [...schoolResults.sort((a, b) => a.shortName.localeCompare(b.shortName)), cityHall]
 
             allClassrooms = allClassrooms.map(c => {
-              const tNumber = c.totals.reduce((acc, item) => acc += Number(item.tNumber), 0)
-              const tPercent = c.totals.reduce((acc, item) => acc += Number(item.tPercent), 0)
-              const tRateAvg = Math.floor((tNumber / tPercent) * 10000) / 100
+              const { tNumber, tPercent } = c.totals.reduce((acc, item) => {
+                acc.tNumber += Number(item.tNumber)
+                acc.tPercent += Number(item.tPercent)
+                return acc
+              }, { tNumber: 0, tPercent: 0 })
+
+              const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0
               return { ...c, tRateAvg }
             })
 

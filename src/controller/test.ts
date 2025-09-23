@@ -524,7 +524,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults }
 
-            data = { ...test, testQuestions, questionGroups, classrooms: [...schoolResults.sort((a, b) => a.shortName.localeCompare(b.shortName)), cityHall] }
+            let allClassrooms = [...schoolResults.sort((a, b) => a.shortName.localeCompare(b.shortName)), cityHall]
+
+            allClassrooms = allClassrooms.map(c => {
+              const tNumber = c.totals.reduce((acc, item) => acc += Number(item.tNumber), 0)
+              const tPercent = c.totals.reduce((acc, item) => acc += Number(item.tPercent), 0)
+              const tRateAvg = Math.floor((tNumber / tPercent) * 10000) / 100
+              return { ...c, tRateAvg }
+            })
+
+            data = { ...test, testQuestions, questionGroups, classrooms: allClassrooms }
             break;
           }
         }

@@ -61,7 +61,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.DIRE,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPostPut },
+      { entity: "test", methods: allMethods },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -76,7 +76,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.VICE,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPostPut },
+      { entity: "test", methods: allMethods },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -91,7 +91,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.COOR,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPostPut },
+      { entity: "test", methods: allMethods },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -106,7 +106,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: pc.SECR,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPost },
+      { entity: "test", methods: allMethods },
       { entity: "classroom", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },

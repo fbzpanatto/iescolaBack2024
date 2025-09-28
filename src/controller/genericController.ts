@@ -1146,23 +1146,41 @@ export class GenericController<T> {
 
   async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {
 
-    for(let element of studentClassrooms) {
+    if (!studentClassrooms.length) return;
 
-      const query = `
-        SELECT *
-        FROM alphabetic AS alpha
+    const studentIds = studentClassrooms.map(el => el.student.id);
+
+    const existingQuery = `
+      SELECT DISTINCT stu.id AS studentId
+      FROM alphabetic AS alpha
         INNER JOIN test AS tt ON alpha.testId = tt.id
         INNER JOIN student AS stu ON alpha.studentId = stu.id
-        WHERE tt.id = ? AND stu.id = ?
-      `
-      const [ queryResult ] = await conn.query(format(query), [test.id, element.student.id])
+      WHERE tt.id = ? AND stu.id IN (${studentIds.map(() => '?').join(',')})
+    `;
 
-      const response = (queryResult as { [key: string]: any }[])[0]
+    const [existingRecords] = await conn.query(existingQuery, [test.id, ...studentIds]);
 
-      if(!response) {
-        const insertQuery = `INSERT INTO alphabetic (createdAt, createdByUser, studentId, testId ) VALUES (?, ?, ?, ?)`
-        await conn.query(format(insertQuery), [new Date(), userId, element.student.id, test.id])
-      }
+    const existingStudentIds = new Set((existingRecords as Array<{ studentId: number }>).map(r => r.studentId));
+
+    const studentsToInsert = studentClassrooms.filter(el => !existingStudentIds.has(el.student.id))
+
+    if (!studentsToInsert.length) return;
+
+    const values = studentsToInsert.map(el => [new Date(), userId, el.student.id, test.id]);
+
+    const insertQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ?`;
+
+    try { if (values.length > 0) { await conn.query(insertQuery, [values]) } }
+    catch (error: any) {
+      if (error.code === 'ER_LOCK_WAIT_TIMEOUT') {
+        console.warn('Lock timeout detectado, tentando inserção individual com IGNORE');
+
+        for (const value of values) {
+          const singleInsertQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES (?, ?, ?, ?)`;
+          try { await conn.query(singleInsertQuery, value) }
+          catch (individualError: any) { console.error(`Erro ao inserir alphabetic para student ${value[2]}:`, individualError.message)}
+        }
+      } else { throw error }
     }
   }
 

@@ -51,7 +51,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const { classrooms } = await this.qTeacherClassrooms(sqlConn, Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
-      return await AppDataSource.transaction(async (appCONN) => {
+      return await AppDataSource.transaction(async (typeOrmConnection) => {
 
         const qTest = await this.qTestByIdAndYear(sqlConn, testId, String(req?.params.year))
 
@@ -77,14 +77,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
                 data = await this.alphabeticTest(
-                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, typeOrmConnection, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
                 )
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
                 data = await this.alphabeticTest(
-                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, appCONN, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, typeOrmConnection, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
                 )
                 break;
               }
@@ -99,13 +99,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const preStudents = await this.stuClassReadF(
-              test, Number(classroomId), test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+              test, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
-            await this.linkReading(headers, preStudents, test, tUser?.userId as number, appCONN)
+            await this.linkReading(headers, preStudents, test, tUser?.userId as number, typeOrmConnection)
 
             let studentClassrooms = await this.getReadingFluencyStudents(
-              test, classroomId, test.period.year.name, appCONN, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+              test, classroomId, test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
             studentClassrooms = studentClassrooms.map((item: any) => {
@@ -125,7 +125,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             for(let item of studentClassrooms) {
               for(let el of item.student.studentDisabilities) {
                 const options = { where: { studentDisabilities: el } }
-                el.disability = await appCONN.findOne(Disability, options) as Disability
+                el.disability = await typeOrmConnection.findOne(Disability, options) as Disability
               }
             }
 
@@ -180,7 +180,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               sqlConn, test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
-            await this.qTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, appCONN)
+            await this.qTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, typeOrmConnection)
 
             let diffOe = 0
             let validSc = 0
@@ -190,7 +190,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               qTestQuestions,
               Number(classroomId),
               test.period.year.name,
-              appCONN,
+              typeOrmConnection,
               isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
@@ -263,7 +263,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             for(let item of mappedResult) {
               for(let el of item.student.studentDisabilities) {
-                el.disability = await appCONN.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
+                el.disability = await typeOrmConnection.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
               }
             }
 
@@ -1448,7 +1448,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     room: Classroom,
     classId: number,
     userId: number,
-    CONN: EntityManager,
+    typeOrmConnection: EntityManager,
     sqlConn: PoolConnection,
     studentClassroomId: number | null
   ) {
@@ -1519,7 +1519,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
 
       // ========== OTIMIZAÇÃO 3: Processar testQuestLink em paralelo ==========
-      await Promise.all(qTests.map(test => this.testQuestLink(false, preResultSc, test, test.testQuestions, userId, CONN)));
+      await Promise.all(qTests.map(test => this.testQuestLink(false, preResultSc, test, test.testQuestions, userId, typeOrmConnection)));
 
       // ========== OTIMIZAÇÃO 4: Usar Map para lookup O(1) ==========
       const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
@@ -1567,7 +1567,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
 
     for(let el of studentClassrooms.flatMap(sc => sc.student.studentDisabilities)) {
-      el.disability = await CONN.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
+      el.disability = await typeOrmConnection.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
     }
 
     const isValidAnswer = (answer: any) => { return answer && answer !== 'null' && answer.length > 0 && answer.trim() !== '' }

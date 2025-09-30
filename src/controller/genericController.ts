@@ -172,13 +172,12 @@ export class GenericController<T> {
     return (queryResult as { [key: string]: any }[])
   }
 
-  async qStudentDisabilities(conn: PoolConnection, arr: qAlphaStudentsFormated[]) {
-    // Coletar todos os student IDs
+  async qStudentDisabilities(conn: PoolConnection, arr: { [key: string]: any }[]) {
+
     const studentIds = arr.map(item => item.student.id).filter(id => id);
 
     if (studentIds.length === 0) return arr;
 
-    // Buscar TODAS as disabilities de uma vez
     const placeholders = studentIds.map(() => '?').join(',');
     const query = `
     SELECT 
@@ -196,28 +195,19 @@ export class GenericController<T> {
 
     const [queryResult] = await conn.query(query, studentIds);
 
-    // Agrupar por studentId
-    const disabilitiesByStudent = new Map();
+    const disabilitiesByStudent = new Map()
+
     for (const row of queryResult as any[]) {
-      if (!disabilitiesByStudent.has(row.studentId)) {
-        disabilitiesByStudent.set(row.studentId, []);
-      }
+      if (!disabilitiesByStudent.has(row.studentId)) { disabilitiesByStudent.set(row.studentId, []) }
       disabilitiesByStudent.get(row.studentId).push({
         id: row.id,
         startedAt: row.startedAt,
         endedAt: row.endedAt,
-        disability: {
-          id: row.disability_id,
-          name: row.disability_name,
-          official: row.disability_official
-        }
-      });
+        disability: { id: row.disability_id, name: row.disability_name, official: row.disability_official }
+      })
     }
 
-    // Atribuir aos estudantes
-    for (const item of arr) {
-      item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [];
-    }
+    for (const item of arr) { item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [] }
 
     return arr;
   }

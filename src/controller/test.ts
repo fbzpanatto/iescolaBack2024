@@ -176,14 +176,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            let result = await this.stuQtsDuplicated(
-              test,
-              qTestQuestions,
-              Number(classroomId),
-              test.period.year.name,
-              typeOrmConnection,
-              isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
+            let result = await this.stuQtsDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+
+            result = await this.qStudentDisabilities(sqlConn, result) as unknown as StudentClassroom[]
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -251,12 +246,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
               return { ...sc, student: { ...sc.student, studentTotals } }
             })
-
-            for(let item of mappedResult) {
-              for(let el of item.student.studentDisabilities) {
-                el.disability = await typeOrmConnection.findOne(Disability, { where: {studentDisabilities: el} }) as Disability
-              }
-            }
 
             data = {
               test,
@@ -1463,7 +1452,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     for (const item of preResultSc) {
       if (item.student?.studentDisabilities && item.student.studentDisabilities.length > 0) {
-        console.log(item.student.studentDisabilities)
         studentDisabilitiesMap.set(item.student.id, item.student.studentDisabilities);
       }
     }

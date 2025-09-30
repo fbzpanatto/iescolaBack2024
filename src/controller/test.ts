@@ -98,15 +98,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const headers = await this.qReadingFluencyHeaders(sqlConn)
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
-            const preStudents = await this.stuClassReadF(
-              test, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
+            const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
             await this.linkReading(headers, preStudents, test, tUser?.userId as number, typeOrmConnection)
 
-            let studentClassrooms = await this.getReadingFluencyStudents(
-              test, classroomId, test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
+            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+
+            studentClassrooms = await this.qStudentDisabilities(sqlConn, studentClassrooms) as unknown as StudentClassroom[]
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -121,13 +119,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
               return item
             })
-
-            for(let item of studentClassrooms) {
-              for(let el of item.student.studentDisabilities) {
-                const options = { where: { studentDisabilities: el } }
-                el.disability = await typeOrmConnection.findOne(Disability, options) as Disability
-              }
-            }
 
             const totalNuColumn = []
 
@@ -568,6 +559,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
+  // TODO: Refactor this method URGENT
   async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
     for(let row of studentClassrooms) {
       const options = { where: { test: { id: test.id }, studentClassroom: { id: row.id } }}
@@ -1465,40 +1457,46 @@ class TestController extends GenericController<EntityTarget<Test>> {
     });
 
     let preResultScWd = await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
-
     let preResultSc = await this.qStudentDisabilities(sqlConn, preResultScWd) as unknown as StudentClassroom[]
 
+    const studentDisabilitiesMap = new Map<number, any[]>();
+
+    for (const item of preResultSc) {
+      if (item.student?.studentDisabilities && item.student.studentDisabilities.length > 0) {
+        console.log(item.student.studentDisabilities)
+        studentDisabilitiesMap.set(item.student.id, item.student.studentDisabilities);
+      }
+    }
+
     if (questions) {
-      // ========== OTIMIZAÇÃO 1: Buscar todas as questões de uma vez ==========
+
       const testIds = qTests.map(t => t.id);
 
-      // Query única para buscar TODAS as questões
       const batchQuery = `
-        SELECT 
-          tq.id AS test_question_id, 
-          tq.order AS test_question_order, 
-          tq.answer AS test_question_answer, 
-          tq.active AS test_question_active,
-          tq.testId AS test_id,
-          qt.id AS question_id,
-          qg.id AS question_group_id, 
-          qg.name AS question_group_name,
-          sk.id AS skill_id, 
-          sk.reference AS skill_reference, 
-          sk.description AS skill_description
-        FROM test_question AS tq
-        INNER JOIN question AS qt ON tq.questionId = qt.id
-        LEFT JOIN skill AS sk ON qt.skillId = sk.id
-        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
-        INNER JOIN test AS tt ON tq.testId = tt.id
-        WHERE tt.id IN (${testIds.map(() => '?').join(',')})
-        ORDER BY tt.id, qg.id, tq.order
-      `;
+      SELECT 
+        tq.id AS test_question_id, 
+        tq.order AS test_question_order, 
+        tq.answer AS test_question_answer, 
+        tq.active AS test_question_active,
+        tq.testId AS test_id,
+        qt.id AS question_id,
+        qg.id AS question_group_id, 
+        qg.name AS question_group_name,
+        sk.id AS skill_id, 
+        sk.reference AS skill_reference, 
+        sk.description AS skill_description
+      FROM test_question AS tq
+      INNER JOIN question AS qt ON tq.questionId = qt.id
+      LEFT JOIN skill AS sk ON qt.skillId = sk.id
+      INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+      INNER JOIN test AS tt ON tq.testId = tt.id
+      WHERE tt.id IN (${testIds.map(() => '?').join(',')})
+      ORDER BY tt.id, qg.id, tq.order
+    `;
 
       const [batchResult] = await sqlConn.query(batchQuery, testIds);
       const allQuestionsRaw = batchResult as any
 
-      // Agrupar questões por test_id
       const questionsByTestId = new Map<number, any[]>();
       allQuestionsRaw.forEach((q: any) => {
         const testId = q.test_id;
@@ -1506,10 +1504,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         questionsByTestId.get(testId)!.push(q);
       });
 
-      // ========== OTIMIZAÇÃO 2: Processar e associar questões ==========
       let testQuestionsIds: number[] = [];
 
-      // Formatar questões para cada teste
       for (let test of qTests) {
         const rawQuestions = questionsByTestId.get(test.id) || [];
         const testQuestions = this.formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
@@ -1518,17 +1514,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
       }
 
-      // ========== OTIMIZAÇÃO 3: Processar testQuestLink em paralelo ==========
       await Promise.all(qTests.map(test => this.testQuestLink(false, preResultSc, test, test.testQuestions, userId, typeOrmConnection)));
 
-      // ========== OTIMIZAÇÃO 4: Usar Map para lookup O(1) ==========
       const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 
       headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
-      // Manter chamada original sem alterações
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, sqlConn, classId, studentClassroomId );
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, sqlConn, classId, studentClassroomId);
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
+
+      for (const item of preResultSc) {
+        if (item.student && studentDisabilitiesMap.has(item.student.id)) { item.student.studentDisabilities = studentDisabilitiesMap.get(item.student.id) || [] }
+        else { item.student.studentDisabilities = [] }
+      }
     }
 
     let studentClassrooms = preResultSc.map(el => ({
@@ -1565,10 +1563,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }, []);
 
     const allAlphabetic = studentClassrooms.flatMap(el => el.student.alphabetic)
-
-    for(let el of studentClassrooms.flatMap(sc => sc.student.studentDisabilities)) {
-      el.disability = await typeOrmConnection.findOne(Disability, { where: { studentDisabilities: el } }) as Disability
-    }
 
     const isValidAnswer = (answer: any) => { return answer && answer !== 'null' && answer.length > 0 && answer.trim() !== '' }
 

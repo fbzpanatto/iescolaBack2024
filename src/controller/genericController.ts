@@ -173,20 +173,53 @@ export class GenericController<T> {
   }
 
   async qStudentDisabilities(conn: PoolConnection, arr: qAlphaStudentsFormated[]) {
-    for(let item of arr) {
+    // Coletar todos os student IDs
+    const studentIds = arr.map(item => item.student.id).filter(id => id);
 
-      const query =
-        `
-          SELECT sd.id, sd.startedAt, sd.endedAt
-          FROM student_disability AS sd 
-          WHERE sd.studentId = ?
-        `
+    if (studentIds.length === 0) return arr;
 
-      const [ queryResult ] = await conn.query(format(query), [item.student.id])
+    // Buscar TODAS as disabilities de uma vez
+    const placeholders = studentIds.map(() => '?').join(',');
+    const query = `
+    SELECT 
+      sd.id, 
+      sd.studentId,
+      sd.startedAt, 
+      sd.endedAt, 
+      d.id as disability_id,
+      d.name as disability_name,
+      d.official as disability_official
+    FROM student_disability AS sd
+    INNER JOIN disability AS d ON sd.disabilityId = d.id
+    WHERE sd.studentId IN (${placeholders}) AND sd.endedAt IS NULL
+  `;
 
-      item.student.studentDisabilities = queryResult as { id: number, startedAt: string, endedAt: string | null }[]
+    const [queryResult] = await conn.query(query, studentIds);
+
+    // Agrupar por studentId
+    const disabilitiesByStudent = new Map();
+    for (const row of queryResult as any[]) {
+      if (!disabilitiesByStudent.has(row.studentId)) {
+        disabilitiesByStudent.set(row.studentId, []);
+      }
+      disabilitiesByStudent.get(row.studentId).push({
+        id: row.id,
+        startedAt: row.startedAt,
+        endedAt: row.endedAt,
+        disability: {
+          id: row.disability_id,
+          name: row.disability_name,
+          official: row.disability_official
+        }
+      });
     }
-    return arr
+
+    // Atribuir aos estudantes
+    for (const item of arr) {
+      item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [];
+    }
+
+    return arr;
   }
 
   async qAlphabeticStudentsForLink(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){

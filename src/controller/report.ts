@@ -34,10 +34,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     try {
       if(!CONN) {
         return await AppDataSource.transaction(async(CONN) => {
-          return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)
+          return await this.wrapper(sqlConnection, request?.params.id, request?.params.year)
         })
       }
-      return await this.wrapper(CONN, sqlConnection, request?.params.id, request?.params.year)
+      return await this.wrapper(sqlConnection, request?.params.id, request?.params.year)
     } catch (error: any) {
       console.log('error', error)
       return { status: 500, message: error.message }
@@ -117,65 +117,21 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async aggregatedTestResult(req: Request) {
-    const sqlConnection = await dbConn();
-
-    try {
-      const localTests = (await this.getAggregate(req)).data;
-      const response: any = { headers: [], schools: [] };
-
-      if (!localTests?.length) { return { status: 200, data: response } }
-
-      const schoolMap = new Map<number, any>();
-
-      for (const el of localTests) {
-        const { data: test } = await AppDataSource.transaction(async (CONN) =>
-          this.wrapper(CONN, sqlConnection, el.id.toString(), req.params.year)
-        );
-
-        response.headers.push(el.disciplineName);
-        response.testName ??= el.category;
-        response.classroom ??= `${req.params.classroom}° anos`;
-        response.bimester ??= el.bimester;
-        response.year ??= req.params.year;
-
-        for (const school of test!.schools) {
-          if (!schoolMap.has(school.id)) {
-            const schoolData = {
-              id: school.id,
-              name: school.name,
-              shortName: school.shortName,
-              schoolAvg: [(school as any).schoolAvg]
-            };
-            schoolMap.set(school.id, schoolData);
-            response.schools.push(schoolData);
-          } else {
-            schoolMap.get(school.id).schoolAvg.push((school as any).schoolAvg);
-          }
-        }
-      }
-      return { status: 200, data: response };
-    }
-    catch (error: any) {
-      console.log('aggregatedTestResult', error)
-      return { status: 500, message: error.message }
-    }
-    finally { sqlConnection?.release() }
-  }
-
-  async getAggregate(req: Request) {
+  async listAggregatedTests(req: Request) {
 
     let sqlConnection = await dbConn()
 
     const classroom = req.query.classroom ?? req.params.classroom
     const bimester = req.query.bimester ?? req.params.bimester
+    const category = req.query.category ?? req.params.category
+
     const year = req.params.year as string
 
     try {
 
       if(!classroom || !bimester) { return { status: 400, message: "Parâmetros inválidos. É necessário informar o ID da turma e do bimestre." } }
 
-      let data = await this.qAggregateTest(sqlConnection, year, Number(classroom as string), Number(bimester as string))
+      let data = await this.qAggregateTest(sqlConnection, year, Number(classroom as string), Number(bimester as string), Number(category as string))
 
       return { status: 200, data };
 
@@ -187,7 +143,60 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async wrapper(CONN: EntityManager, sqlConnection: PoolConnection, testId: string, yearName: string) {
+  async aggregatedTestResultFullParallel(req: Request) {
+    const sqlConnection = await dbConn();
+
+    try {
+      const localTests = (await this.listAggregatedTests(req)).data;
+      const response: any = { headers: [], schools: [] };
+
+      if (!localTests?.length) { return { status: 200, data: response } }
+
+      const allPromises = localTests.map(async (el) => {
+        const result = await this.wrapper(sqlConnection, el.id.toString(), req.params.year)
+        return { testName: el.testName, bimester: el.bimester, data: result.data };
+      });
+
+      const allResults = await Promise.all(allPromises);
+
+      const schoolMap = new Map<number, any>();
+
+      for (const { testName, bimester, data: test } of allResults) {
+
+        if(test?.category.id === TEST_CATEGORIES_IDS.AVL_ITA){
+          response.headers.push(test.discipline.name);
+        } else {
+          response.headers.push(testName);
+        }
+
+        response.testName = response.testName || testName;
+        response.classroom = response.classroom || `${req.params.classroom}° anos`;
+        response.bimester = response.bimester || bimester;
+        response.year = response.year || req.params.year;
+        response.testCategory = test?.category.id;
+        response.categoryName = test?.category.name;
+
+        if (!test?.schools) continue;
+
+        for (const school of test.schools) {
+          if (!schoolMap.has(school.id)) {
+            const schoolData = { id: school.id, name: school.name, shortName: school.shortName, schoolAvg: [(school as any).schoolAvg] };
+            schoolMap.set(school.id, schoolData);
+            response.schools.push(schoolData);
+          }
+          else { schoolMap.get(school.id).schoolAvg.push((school as any).schoolAvg) }
+        }
+      }
+      return { status: 200, data: response };
+    }
+    catch (error: any) {
+      console.log('aggregatedTestResultFullParallel', error);
+      return { status: 500, message: error.message };
+    }
+    finally { sqlConnection?.release() }
+  }
+
+  async wrapper(sqlConnection: PoolConnection, testId: string, yearName: string) {
 
     let data;
 
@@ -363,7 +372,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.SIM_ITA): {
         let formatedTest = this.formatedTest(qTest)
 
-        const year = await CONN.findOne(Year, { where: { name: yearName } })
+        const year = await this.qYearByName(sqlConnection, yearName)
+        // const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
         const qTestQuestions = await this.qTestQuestions(sqlConnection, testId) as TestQuestion[]

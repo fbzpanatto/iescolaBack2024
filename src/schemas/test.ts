@@ -78,6 +78,11 @@ export const TEST_SCHEMA: Schema = {
     escape: true,
     toBoolean: true,
   },
+  hideAnswers: {
+    optional: true,
+    escape: true,
+    toBoolean: true,
+  },
   testQuestions: {
     optional: true
   },

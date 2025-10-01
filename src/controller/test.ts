@@ -1146,6 +1146,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         // Atualiza dados básicos do teste
         test.name = req.body.name
         test.active = req.body.active
+        test.hideAnswers = req.body.hideAnswers
         test.updatedAt = new Date()
         test.updatedByUser = userId
         await CONN.save(Test, test)
@@ -1340,7 +1341,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const test = await CONN.getRepository(Test)
       .createQueryBuilder("test")
-      .select(['test.id', 'test.name'])
+      .select(['test.id', 'test.name', 'test.hideAnswers'])
       .leftJoinAndSelect("test.period", "period")
       .leftJoinAndSelect("period.bimester", "periodBimester")
       .leftJoin("period.year", "periodYear")

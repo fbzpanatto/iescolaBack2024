@@ -22,6 +22,9 @@ export class Test {
   @Column({ default: true })
   active: boolean
 
+  @Column({ default: false })
+  hideAnswers: boolean
+
   @ManyToOne(() => Discipline, discipline => discipline.tests)
   discipline: Discipline
 

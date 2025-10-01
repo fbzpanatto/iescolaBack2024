@@ -855,7 +855,7 @@ export class GenericController<T> {
     const query =
 
       `
-        SELECT t.id, t.name, t.active, t.createdAt,
+        SELECT t.id, t.name, t.active, t.hideAnswers, t.createdAt,
                pr.id AS period_id, 
                bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName, 
                yr.id AS year_id, yr.name AS year_name, yr.active AS year_active,
@@ -2254,6 +2254,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       name: qTest.name,
       createdAt: qTest.createdAt,
       active: qTest.active,
+      hideAnswers: qTest.hideAnswers,
       category: { id: qTest.test_category_id, name: qTest.test_category_name },
       period: {
         id: qTest.period_id,

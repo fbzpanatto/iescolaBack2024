@@ -688,72 +688,93 @@ class TestController extends GenericController<EntityTarget<Test>> {
     test: Test,
     testQuestions: TestQuestion[],
     userId: number,
-    CONN: EntityManager
-  ): Promise<string[]> {
-    let added: string[] = []
+    CONN: EntityManager,
+    returnAddedNames: boolean = false
+  ): Promise<string[] | void> {
+
+    const added: string[] = [];
 
     for (let sC of arr) {
-      const studentId = sC.student?.id ?? sC.student_id
-      const studentClassroomId = sC.student_classroom_id ?? sC.id
+      // Obtém o ID do estudante de forma unificada
+      const studentId = sC.student?.id ?? sC.student_id;
 
-      // Caso SIM_ITA - verifica ANTES de criar vínculos
+      // Lógica específica para SIM_ITA
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
         // Pula alunos que já saíram da turma
         if (sC.endedAt != null) {
-          const person = await CONN.findOne(Person, {
-            where: { student: { id: studentId } }
-          })
-          if (person?.name) added.push(person.name)
-          continue
+          // Se precisa retornar nomes, busca a pessoa
+          if (returnAddedNames) {
+            const person = await CONN.findOne(Person, {
+              where: { student: { id: studentId } }
+            });
+
+            if (person?.name) {
+              added.push(person.name);
+            }
+          }
+          continue;
         }
 
-        // Busca status pelo student.id (independente da turma)
-        const stStatus = await CONN.findOne(StudentTestStatus, {
+        // Para SIM_ITA: busca por student.id (pode estar em qualquer turma)
+        const options = {
           where: {
             test: { id: test.id },
             studentClassroom: { student: { id: studentId } }
           }
-        })
+        };
+        const stStatus = await CONN.findOne(StudentTestStatus, options);
 
-        // Se já tem status, pula este aluno
+        // Se já tem status para este teste, pula
         if (stStatus) {
-          const person = await CONN.findOne(Person, {
-            where: { student: { id: studentId } }
-          })
-          if (person?.name) added.push(person.name)
-          continue
+          // Se precisa retornar nomes, busca a pessoa
+          if (returnAddedNames) {
+            const person = await CONN.findOne(Person, {
+              where: { student: { id: studentId } }
+            });
+
+            if (person?.name) {
+              added.push(person.name);
+            }
+          }
+          continue;
         }
       }
 
-      // Cria StudentTestStatus se necessário
+      // Criação do StudentTestStatus se status === true
+      // IMPORTANTE: Isso deve acontecer APÓS as verificações do SIM_ITA
+      // mas ANTES da criação das StudentQuestions
       if (status) {
-        // Para SIM_ITA, busca por student.id
-        // Para outros, busca por studentClassroom.id
-        const whereCondition = test.category.id === TEST_CATEGORIES_IDS.SIM_ITA
-          ? { test: { id: test.id }, studentClassroom: { student: { id: studentId } } }
-          : { test: { id: test.id }, studentClassroom: { id: studentClassroomId } }
+        // Determina o ID do studentClassroom baseado na estrutura do objeto
+        const studentClassroomId = sC.student_classroom_id ?? sC.id;
 
-        const stStatus = await CONN.findOne(StudentTestStatus, {
-          where: whereCondition
-        })
+        const options = {
+          where: {
+            test: { id: test.id },
+            studentClassroom: { id: studentClassroomId }
+          }
+        };
+        const stStatus = await CONN.findOne(StudentTestStatus, options);
 
         if (!stStatus) {
           const el = {
             active: true,
             test,
-            studentClassroom: { id: studentClassroomId },
+            studentClassroom: sC.student_classroom_id
+              ? { id: sC.student_classroom_id }
+              : sC, // Usa o objeto completo ou apenas o ID
             observation: '',
             createdAt: new Date(),
             createdByUser: userId
-          } as StudentTestStatus
+          } as StudentTestStatus;
 
-          await CONN.save(StudentTestStatus, el)
+          await CONN.save(StudentTestStatus, el);
         }
       }
 
-      // Cria StudentQuestion (sempre pelo studentId)
+      // Criação das StudentQuestions
+      // Isso sempre acontece por último, independente do tipo de teste
       for (let tQ of testQuestions) {
-        const sQuestion = await CONN.findOne(StudentQuestion, {
+        const options = {
           where: {
             testQuestion: {
               id: tQ.id,
@@ -762,7 +783,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
             },
             student: { id: studentId }
           }
-        }) as StudentQuestion
+        };
+
+        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion;
 
         if (!sQuestion) {
           await CONN.save(StudentQuestion, {
@@ -771,12 +794,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
             student: { id: studentId },
             createdAt: new Date(),
             createdByUser: userId
-          })
+          });
         }
       }
     }
 
-    return added
+    // Retorna o array de nomes apenas se solicitado
+    return returnAddedNames ? added : undefined;
   }
 
   async deleteStudentFromTest(req: Request) {
@@ -863,8 +887,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            const linkResult = await this.unifiedTestQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN)
-            if(linkResult.length > 0) {
+            const linkResult = await this.unifiedTestQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN, true)
+            if(linkResult && linkResult?.length > 0) {
               return { status: 400, message: `${linkResult.join(', ')} já relizou a prova.` }
             }
             break;

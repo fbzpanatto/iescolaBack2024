@@ -171,7 +171,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               sqlConn, test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
             )
 
-            await this.qTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, typeOrmConnection)
+            await this.unifiedTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, typeOrmConnection)
 
             let diffOe = 0
             let validSc = 0
@@ -682,89 +682,101 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async testQuestLink(status: boolean, arr: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
-
+  async unifiedTestQuestLink(
+    status: boolean,
+    arr: any[],
+    test: Test,
+    testQuestions: TestQuestion[],
+    userId: number,
+    CONN: EntityManager
+  ): Promise<string[]> {
     let added: string[] = []
 
-    for(let sC of arr) {
+    for (let sC of arr) {
+      const studentId = sC.student?.id ?? sC.student_id
+      const studentClassroomId = sC.student_classroom_id ?? sC.id
 
-      if(test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
+      // Caso SIM_ITA - verifica ANTES de criar vínculos
+      if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
         // Pula alunos que já saíram da turma
-        if(sC.endedAt != null) {
-
-          const person = await CONN.findOne(Person, { where: { student: { id: sC.student?.id ?? sC.student_id } } })
-
-          if(person?.name){
-            added.push(person.name)
-          }
-
-          continue;
+        if (sC.endedAt != null) {
+          const person = await CONN.findOne(Person, {
+            where: { student: { id: studentId } }
+          })
+          if (person?.name) added.push(person.name)
+          continue
         }
 
-        // Para SIM_ITA: busca por student.id (pode estar em qualquer turma)
-        const options = { where: { test: { id: test.id }, studentClassroom: { student: { id: sC.student?.id ?? sC.student_id } } }}
-        const stStatus = await CONN.findOne(StudentTestStatus, options)
-
-        // Se já tem status para este teste, pula
-        if(stStatus) {
-
-          const person = await CONN.findOne(Person, { where: { student: { id: sC.student?.id ?? sC.student_id } } })
-
-          if(person?.name){
-            added.push(person.name)
+        // Busca status pelo student.id (independente da turma)
+        const stStatus = await CONN.findOne(StudentTestStatus, {
+          where: {
+            test: { id: test.id },
+            studentClassroom: { student: { id: studentId } }
           }
+        })
 
-          continue;
+        // Se já tem status, pula este aluno
+        if (stStatus) {
+          const person = await CONN.findOne(Person, {
+            where: { student: { id: studentId } }
+          })
+          if (person?.name) added.push(person.name)
+          continue
         }
       }
 
-      if(status){
-        const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.id } }}
-        const stStatus = await CONN.findOne(StudentTestStatus, options)
-        const el = { active: true, test, studentClassroom: sC, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-        if(!stStatus) { await CONN.save(StudentTestStatus, el) }
-      }
-      for(let tQ of testQuestions) {
-        const options = { where: { testQuestion: { id: tQ.id, test: { id: test.id }, question: { id: tQ.question.id } }, student: { id: sC.student?.id ?? sC.student_id } } }
-        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
-        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: tQ, student: { id: sC.student?.id ?? sC.student_id }, createdAt: new Date(), createdByUser: userId })}
-      }
-    }
+      // Cria StudentTestStatus se necessário
+      if (status) {
+        // Para SIM_ITA, busca por student.id
+        // Para outros, busca por studentClassroom.id
+        const whereCondition = test.category.id === TEST_CATEGORIES_IDS.SIM_ITA
+          ? { test: { id: test.id }, studentClassroom: { student: { id: studentId } } }
+          : { test: { id: test.id }, studentClassroom: { id: studentClassroomId } }
 
-    return added
-  }
+        const stStatus = await CONN.findOne(StudentTestStatus, {
+          where: whereCondition
+        })
 
-  async qTestQuestLink(status: boolean, arr: qStudentsClassroomsForTest[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager) {
-    for(let sC of arr) {
+        if (!stStatus) {
+          const el = {
+            active: true,
+            test,
+            studentClassroom: { id: studentClassroomId },
+            observation: '',
+            createdAt: new Date(),
+            createdByUser: userId
+          } as StudentTestStatus
 
-      if(test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-        // Pula alunos que já saíram da turma
-        if(sC.endedAt != null) { continue; }
-
-        // Para SIM_ITA: busca por student.id (pode estar em qualquer turma)
-        const options = { where: { test: { id: test.id }, studentClassroom: { student: { id: sC.student_id } } }}
-        const stStatus = await CONN.findOne(StudentTestStatus, options)
-
-        // Se já tem status para este teste, pula
-        if(stStatus) { continue; }
-      }
-
-      if(status){
-        // Para outros testes: busca por studentClassroom.id (turma específica)
-        const options = { where: { test: { id: test.id }, studentClassroom: { id: sC.student_classroom_id } }}
-        const stStatus = await CONN.findOne(StudentTestStatus, options)
-        if(!stStatus) {
-          const el = { active: true, test, studentClassroom: { id: sC.student_classroom_id }, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
           await CONN.save(StudentTestStatus, el)
         }
       }
 
-      for(let tQ of testQuestions) {
-        const options = { where: { testQuestion: { id: tQ.id, test: { id: test.id }, question: { id: tQ.question.id } }, student: { id: sC.student_id } } }
-        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion
-        if(!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: tQ, student: { id: sC.student_id }, createdAt: new Date(), createdByUser: userId })}
+      // Cria StudentQuestion (sempre pelo studentId)
+      for (let tQ of testQuestions) {
+        const sQuestion = await CONN.findOne(StudentQuestion, {
+          where: {
+            testQuestion: {
+              id: tQ.id,
+              test: { id: test.id },
+              question: { id: tQ.question.id }
+            },
+            student: { id: studentId }
+          }
+        }) as StudentQuestion
+
+        if (!sQuestion) {
+          await CONN.save(StudentQuestion, {
+            answer: '',
+            testQuestion: tQ,
+            student: { id: studentId },
+            createdAt: new Date(),
+            createdByUser: userId
+          })
+        }
       }
     }
+
+    return added
   }
 
   async deleteStudentFromTest(req: Request) {
@@ -851,7 +863,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            const linkResult = await this.testQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN)
+            const linkResult = await this.unifiedTestQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN)
             if(linkResult.length > 0) {
               return { status: 400, message: `${linkResult.join(', ')} já relizou a prova.` }
             }
@@ -1020,10 +1032,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       // Adicionar ordenação e paginação
       query += `
       ORDER BY 
+        t.name ASC,
         s.shortName ASC,
         c.shortName ASC,
-        t.name ASC,
-        d.name ASC,
         b.name DESC
       LIMIT ? OFFSET ?
     `;
@@ -1090,28 +1101,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       // Converter Map para Array e aplicar paginação
       let testClasses = Array.from(testsMap.values());
-
-      // Ordenar os testes finais mantendo a mesma ordem do TypeORM
-      testClasses.sort((a, b) => {
-        // Ordenar por nome da escola da primeira classroom
-        const schoolA = a.classrooms[0]?.school.shortName || '';
-        const schoolB = b.classrooms[0]?.school.shortName || '';
-        if (schoolA !== schoolB) return schoolA.localeCompare(schoolB);
-
-        // Ordenar por shortName da primeira classroom
-        const classA = a.classrooms[0]?.shortName || '';
-        const classB = b.classrooms[0]?.shortName || '';
-        if (classA !== classB) return classA.localeCompare(classB);
-
-        // Ordenar por nome do teste
-        if (a.name !== b.name) return a.name.localeCompare(b.name);
-
-        // Ordenar por nome da disciplina
-        if (a.discipline.name !== b.discipline.name) return a.discipline.name.localeCompare(b.discipline.name);
-
-        // Ordenar por bimestre (DESC)
-        return b.period.bimester.name.localeCompare(a.period.bimester.name);
-      });
 
       return { status: 200, data: testClasses };
     }
@@ -1654,7 +1643,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
       }
 
-      await Promise.all(qTests.map(test => this.testQuestLink(false, preResultSc, test, test.testQuestions, userId, typeOrmConnection)));
+      await Promise.all(qTests.map(test => this.unifiedTestQuestLink(false, preResultSc, test, test.testQuestions, userId, typeOrmConnection)));
 
       const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 

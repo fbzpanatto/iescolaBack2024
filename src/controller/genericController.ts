@@ -543,34 +543,14 @@ export class GenericController<T> {
     return result;
   }
 
-  async qUpdateTraining(
-    conn: PoolConnection,
-    id: number,
-    meeting: number,
-    category: number,
-    month: number,
-    updatedByUser: number,
-    classroom?: number,
-    discipline?: number,
-    observation?: string
-  ) {
+  async qUpdateTraining(conn: PoolConnection, id: number, meeting: number, category: number, month: number, updatedByUser: number, classroom?: number, discipline?: number, observation?: string) {
     const updateQuery = `
-    UPDATE training 
-    SET
-      meetingId = ?, 
-      categoryId = ?, 
-      monthReferenceId = ?,
-      classroom = ?, 
-      disciplineId = ?, 
-      observation = ?, 
-      updatedByUser = ?
-    WHERE id = ?
-  `;
+      UPDATE training 
+      SET meetingId = ?, categoryId = ?, monthReferenceId = ?, classroom = ?, disciplineId = ?, observation = ?, updatedByUser = ?
+      WHERE id = ?
+    `;
 
-    const [queryResult] = await conn.query<ResultSetHeader>(
-      updateQuery,
-      [meeting, category, month, classroom, discipline || null, observation || null, updatedByUser, id]
-    );
+    const [queryResult] = await conn.query<ResultSetHeader>(updateQuery, [meeting, category, month, classroom, discipline || null, observation || null, updatedByUser, id]);
 
     return queryResult;
   }
@@ -580,16 +560,16 @@ export class GenericController<T> {
     const likeClassroom = `%${classroom}%`
 
     const query = `
-        SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName
-        FROM test_classroom AS tc
-           INNER JOIN classroom AS c ON tc.classroomId = c.id
-           INNER JOIN test AS t ON tc.testId = t.id
-           INNER JOIN discipline AS d ON t.disciplineId = d.id
-           INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
-           INNER JOIN period AS p ON t.periodId = p.id
-           INNER JOIN bimester AS b ON p.bimesterId = b.id
-           INNER JOIN year AS y ON p.yearId = y.id
-        WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ? AND tcat.id = ?;    
+      SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName
+      FROM test_classroom AS tc
+      INNER JOIN classroom AS c ON tc.classroomId = c.id
+      INNER JOIN test AS t ON tc.testId = t.id
+      INNER JOIN discipline AS d ON t.disciplineId = d.id
+      INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
+      INNER JOIN period AS p ON t.periodId = p.id
+      INNER JOIN bimester AS b ON p.bimesterId = b.id
+      INNER JOIN year AS y ON p.yearId = y.id
+      WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ? AND tcat.id = ?;    
     `
 
     const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId, categoryId])
@@ -598,16 +578,13 @@ export class GenericController<T> {
 
   async qTestQuestionsGroups(testId: number, connection: any) {
     const query = `
-    SELECT 
-      qg.id AS id,
-      qg.name AS name,
-      COUNT(tq.id) AS questionsCount
-    FROM question_group qg
-    LEFT JOIN test_question tq ON qg.id = tq.questionGroupId
-    WHERE tq.testId = ?
-    GROUP BY qg.id, qg.name
-    ORDER BY qg.id
-  `;
+      SELECT qg.id AS id, qg.name AS name, COUNT(tq.id) AS questionsCount
+      FROM question_group qg
+      LEFT JOIN test_question tq ON qg.id = tq.questionGroupId
+      WHERE tq.testId = ?
+      GROUP BY qg.id, qg.name
+      ORDER BY qg.id
+    `;
 
     const result = await connection.execute(query, [testId]);
     return result[0];

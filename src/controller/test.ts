@@ -913,8 +913,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100;
       const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0;
 
-      console.log('findAllByYear', { bimesterId, disciplineId, search, limit, offset })
-
       let yearName = req.params.year;
 
       // Validar ano

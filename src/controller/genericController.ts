@@ -1,11 +1,10 @@
-import {DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
 import {
   qAlphabeticLevels,
   qAlphaStuClassrooms,
   qAlphaStuClassroomsFormated,
-  qAlphaStudentsFormated,
   qAlphaTests,
   qClassroom,
   qClassrooms,
@@ -32,17 +31,17 @@ import {
   TrainingResult,
   TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {PoolConnection, ResultSetHeader} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
-import {Transfer} from "../model/Transfer";
-import {Discipline} from "../model/Discipline";
-import {Teacher} from "../model/Teacher";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Contract} from "../model/Contract";
-import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { PoolConnection, ResultSetHeader } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
+import { Transfer } from "../model/Transfer";
+import { Discipline } from "../model/Discipline";
+import { Teacher } from "../model/Teacher";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Contract } from "../model/Contract";
+import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -400,48 +399,6 @@ export class GenericController<T> {
               )
           ORDER BY CASE WHEN sc.endedAt IS NULL THEN 0 ELSE 1 END, sc.endedAt DESC
               LIMIT 1
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
-
-    return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
-  }
-
-  async qFilteredTestByStudentIdTwo<T>(conn: PoolConnection, studentId: number, testId: number) {
-
-    const query =
-      `
-          SELECT
-              sts.id AS studentTestStatusId,
-              sts.active,
-              sc.id AS studentClassroomId,  -- Mudança importante: pegar direto de sc
-              sc.studentId,
-              t.id AS testId,  -- Mudança: pegar direto de t
-              t.name AS testName,
-              bim.name AS bimesterName,
-              yr.name AS yearName,
-              c.id AS classroomId,
-              c.shortName AS classroomName,
-              s.shortName AS schoolName,
-              UPPER(d.name) AS discipline
-          FROM test_classroom tc
-                   INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
-                   INNER JOIN test t ON tc.testId = t.id
-                   INNER JOIN discipline d ON t.disciplineId = d.id
-                   INNER JOIN classroom c ON sc.classroomId = c.id
-                   INNER JOIN school s ON c.schoolId = s.id
-                   INNER JOIN student stu ON sc.studentId = stu.id
-                   INNER JOIN person per ON stu.personId = per.id
-                   INNER JOIN period pri ON t.periodId = pri.id
-                   INNER JOIN year yr ON pri.yearId = yr.id
-                   INNER JOIN bimester bim ON pri.bimesterId = bim.id
-                   LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
-          WHERE
-              sc.studentId = ?
-            AND t.id = ?
-            AND t.categoryId = 6
-            AND sc.startedAt <= t.createdAt
-            AND (sc.endedAt IS NULL OR sc.endedAt >= t.createdAt)
       `
 
     const [ queryResult ] = await conn.query(format(query), [studentId, testId])

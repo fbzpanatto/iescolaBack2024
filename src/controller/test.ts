@@ -903,76 +903,229 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async findAllByYear(req: Request) {
-
-    let sqlConnection = await dbConn()
+    let sqlConnection = await dbConn();
 
     try {
-      return AppDataSource.transaction(async(CONN) => {
+      // Extrair parâmetros
+      const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
+      const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null;
+      const search = req.query.search as string || '';
+      const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100;
+      const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0;
 
-        const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null
-        const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null
-        const search = req.query.search as string
-        const limit = !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
-        const offset = !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+      console.log('findAllByYear', { bimesterId, disciplineId, search, limit, offset })
 
-        let yearName = req.params.year
+      let yearName = req.params.year;
 
-        if(yearName.length != 4) {
-          const currentYear = await this.qCurrentYear(sqlConnection)
-          yearName = currentYear.name
+      // Validar ano
+      if (yearName.length != 4) {
+        const currentYear = await this.qCurrentYear(sqlConnection);
+        yearName = currentYear.name;
+      }
+
+      // Buscar dados do professor
+      const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user);
+
+      const masterTeacher =
+        qUserTeacher.person.category.id === pc.ADMN ||
+        qUserTeacher.person.category.id === pc.SUPE ||
+        qUserTeacher.person.category.id === pc.FORM;
+
+      const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user);
+      const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user.user);
+
+      // Construir query SQL principal
+      let query = `
+      SELECT DISTINCT
+        t.id AS test_id,
+        t.name AS test_name,
+        
+        -- Period
+        p.id AS period_id,
+        
+        -- Category
+        tc.id AS category_id,
+        tc.name AS category_name,
+        
+        -- Year
+        y.id AS year_id,
+        y.name AS year_name,
+        y.active AS year_active,
+        
+        -- Bimester
+        b.id AS bimester_id,
+        b.name AS bimester_name,
+        b.testName AS bimester_test_name,
+        
+        -- Discipline
+        d.id AS discipline_id,
+        d.name AS discipline_name,
+        
+        -- Classroom (para agrupamento posterior)
+        c.id AS classroom_id,
+        c.name AS classroom_name,
+        c.shortName AS classroom_shortName,
+        
+        -- School
+        s.id AS school_id,
+        s.name AS school_name,
+        s.shortName AS school_shortName
+      FROM test t
+      INNER JOIN period p ON t.periodId = p.id
+      INNER JOIN test_category tc ON t.categoryId = tc.id
+      INNER JOIN year y ON p.yearId = y.id
+      INNER JOIN bimester b ON p.bimesterId = b.id
+      INNER JOIN discipline d ON t.disciplineId = d.id
+      INNER JOIN test_classroom test_c ON t.id = test_c.testId
+      INNER JOIN classroom c ON test_c.classroomId = c.id
+      INNER JOIN school s ON c.schoolId = s.id
+      WHERE y.name = ?
+    `;
+
+      const params: any[] = [yearName];
+
+      // Adicionar filtros condicionais
+      if (!masterTeacher && classrooms.length > 0) {
+        const classroomPlaceholders = classrooms.map(() => '?').join(',');
+        query += ` AND c.id IN (${classroomPlaceholders})`;
+        params.push(...classrooms);
+      }
+
+      if (!masterTeacher && disciplines.length > 0) {
+        const disciplinePlaceholders = disciplines.map(() => '?').join(',');
+        query += ` AND d.id IN (${disciplinePlaceholders})`;
+        params.push(...disciplines);
+      }
+
+      if (bimesterId) {
+        query += ` AND b.id = ?`;
+        params.push(bimesterId);
+      }
+
+      if (disciplineId) {
+        query += ` AND d.id = ?`;
+        params.push(disciplineId);
+      }
+
+      // Adicionar busca por texto
+      if (search && search.trim() !== '') {
+        query += ` AND (
+        t.name LIKE ? OR
+        c.shortName LIKE ? OR
+        s.name LIKE ? OR
+        s.shortName LIKE ?
+      )`;
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      }
+
+      // Adicionar ordenação e paginação
+      query += `
+      ORDER BY 
+        s.shortName ASC,
+        c.shortName ASC,
+        t.name ASC,
+        d.name ASC,
+        b.name DESC
+      LIMIT ? OFFSET ?
+    `;
+
+      params.push(limit, offset);
+
+      // Executar query principal
+      const [results] = await sqlConnection.query(query, params);
+      const rows = results as any[];
+
+      // Agrupar resultados por teste
+      const testsMap = new Map<number, any>();
+
+      for (const row of rows) {
+        const testId = row.test_id;
+
+        if (!testsMap.has(testId)) {
+          testsMap.set(testId, {
+            id: testId,
+            name: row.test_name,
+            period: {
+              id: row.period_id,
+              year: {
+                id: row.year_id,
+                name: row.year_name,
+                active: row.year_active
+              },
+              bimester: {
+                id: row.bimester_id,
+                name: row.bimester_name,
+                testName: row.bimester_test_name
+              }
+            },
+            category: {
+              id: row.category_id,
+              name: row.category_name
+            },
+            discipline: {
+              id: row.discipline_id,
+              name: row.discipline_name
+            },
+            classrooms: []
+          });
         }
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const test = testsMap.get(testId);
 
-        const masterTeacher =
-          qUserTeacher.person.category.id === pc.ADMN ||
-          qUserTeacher.person.category.id === pc.SUPE ||
-          qUserTeacher.person.category.id === pc.FORM
+        // Adicionar classroom se ainda não existir
+        const existingClassroom = test.classrooms.find((c: any) => c.id === row.classroom_id);
 
-        const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
-
-        const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user.user);
-
-        const testClasses = await CONN.getRepository(Test)
-          .createQueryBuilder("test")
-          .select([ 'test.id', 'test.name' ])
-          .leftJoinAndSelect("test.period", "period")
-          .leftJoinAndSelect("test.category", "category")
-          .leftJoinAndSelect("period.year", "year")
-          .leftJoinAndSelect("period.bimester", "bimester")
-          .leftJoinAndSelect("test.discipline", "discipline")
-          .leftJoinAndSelect("test.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.school", "school")
-          .where(new Brackets(qb => {
-            if (!masterTeacher) {
-              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: classrooms });
-              qb.andWhere("discipline.id IN (:...teacherDisciplines)", { teacherDisciplines: disciplines });
+        if (!existingClassroom) {
+          test.classrooms.push({
+            id: row.classroom_id,
+            name: row.classroom_name,
+            shortName: row.classroom_shortName,
+            school: {
+              id: row.school_id,
+              name: row.school_name,
+              shortName: row.school_shortName
             }
-            if(bimesterId) { qb.andWhere("bimester.id = :bimesterId", { bimesterId }) }
-            if(disciplineId) { qb.andWhere("discipline.id = :disciplineId", { disciplineId }) }
-          }))
-          .andWhere("year.name = :yearName", { yearName })
-          .andWhere( new Brackets((qb) => {
-            qb.where("test.name LIKE :search", { search: `%${ search }%` })
-              .orWhere("classroom.shortName LIKE :search", { search: `%${ search }%` })
-              .orWhere("school.name LIKE :search", { search: `%${ search }%` })
-              .orWhere("school.shortName LIKE :search", { search: `%${ search }%` })
-          }))
-          .addOrderBy('school.shortName')
-          .addOrderBy('classroom.shortName')
-          .addOrderBy('test.name')
-          .addOrderBy('discipline.name')
-          .addOrderBy('bimester.name', 'DESC')
-          .take(limit)
-          .skip(offset)
-          .groupBy('test.id, classroom.id, category.id, period.id, discipline.id, school.id')
-          .getMany();
+          });
+        }
+      }
 
-        return { status: 200, data: testClasses };
-      })
+      // Converter Map para Array e aplicar paginação
+      let testClasses = Array.from(testsMap.values());
+
+      // Ordenar os testes finais mantendo a mesma ordem do TypeORM
+      testClasses.sort((a, b) => {
+        // Ordenar por nome da escola da primeira classroom
+        const schoolA = a.classrooms[0]?.school.shortName || '';
+        const schoolB = b.classrooms[0]?.school.shortName || '';
+        if (schoolA !== schoolB) return schoolA.localeCompare(schoolB);
+
+        // Ordenar por shortName da primeira classroom
+        const classA = a.classrooms[0]?.shortName || '';
+        const classB = b.classrooms[0]?.shortName || '';
+        if (classA !== classB) return classA.localeCompare(classB);
+
+        // Ordenar por nome do teste
+        if (a.name !== b.name) return a.name.localeCompare(b.name);
+
+        // Ordenar por nome da disciplina
+        if (a.discipline.name !== b.discipline.name) return a.discipline.name.localeCompare(b.discipline.name);
+
+        // Ordenar por bimestre (DESC)
+        return b.period.bimester.name.localeCompare(a.period.bimester.name);
+      });
+
+      return { status: 200, data: testClasses };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) {
+      console.error('Error in findAllByYear:', error);
+      return { status: 500, message: error.message };
+    }
+    finally {
+      if (sqlConnection) {
+        sqlConnection.release();
+      }
+    }
   }
 
   async getById(req: Request) {

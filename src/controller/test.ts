@@ -682,77 +682,40 @@ class TestController extends GenericController<EntityTarget<Test>> {
     finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async unifiedTestQuestLink(
-    status: boolean,
-    arr: any[],
-    test: Test,
-    testQuestions: TestQuestion[],
-    userId: number,
-    CONN: EntityManager,
-    returnAddedNames: boolean = false
-  ): Promise<string[] | void> {
+  async unifiedTestQuestLink(createStatus: boolean, arr: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager, returnAddedNames: boolean = false): Promise<string[] | void> {
 
     const added: string[] = [];
 
     for (let sC of arr) {
-      // Obtém o ID do estudante de forma unificada
+
       const studentId = sC.student?.id ?? sC.student_id;
 
-      // Lógica específica para SIM_ITA
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-        // Pula alunos que já saíram da turma
-        if (sC.endedAt != null) {
-          // Se precisa retornar nomes, busca a pessoa
-          if (returnAddedNames) {
-            const person = await CONN.findOne(Person, {
-              where: { student: { id: studentId } }
-            });
 
-            if (person?.name) {
-              added.push(person.name);
-            }
+        if (sC.endedAt != null) {
+          if (returnAddedNames) {
+            const person = await CONN.findOne(Person, { where: { student: { id: studentId } } });
+            if (person?.name) { added.push(person.name) }
           }
           continue;
         }
 
-        // Para SIM_ITA: busca por student.id (pode estar em qualquer turma)
-        const options = {
-          where: {
-            test: { id: test.id },
-            studentClassroom: { student: { id: studentId } }
-          }
-        };
+        const options = { where: { test: { id: test.id }, studentClassroom: { student: { id: studentId } } } };
         const stStatus = await CONN.findOne(StudentTestStatus, options);
 
-        // Se já tem status para este teste, pula
         if (stStatus) {
-          // Se precisa retornar nomes, busca a pessoa
           if (returnAddedNames) {
-            const person = await CONN.findOne(Person, {
-              where: { student: { id: studentId } }
-            });
-
-            if (person?.name) {
-              added.push(person.name);
-            }
+            const person = await CONN.findOne(Person, { where: { student: { id: studentId } } });
+            if (person?.name) { added.push(person.name) }
           }
           continue;
         }
       }
 
-      // Criação do StudentTestStatus se status === true
-      // IMPORTANTE: Isso deve acontecer APÓS as verificações do SIM_ITA
-      // mas ANTES da criação das StudentQuestions
-      if (status) {
-        // Determina o ID do studentClassroom baseado na estrutura do objeto
+      if (createStatus) {
         const studentClassroomId = sC.student_classroom_id ?? sC.id;
 
-        const options = {
-          where: {
-            test: { id: test.id },
-            studentClassroom: { id: studentClassroomId }
-          }
-        };
+        const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroomId } } };
         const stStatus = await CONN.findOne(StudentTestStatus, options);
 
         if (!stStatus) {
@@ -771,35 +734,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }
 
-      // Criação das StudentQuestions
-      // Isso sempre acontece por último, independente do tipo de teste
       for (let tQ of testQuestions) {
-        const options = {
-          where: {
-            testQuestion: {
-              id: tQ.id,
-              test: { id: test.id },
-              question: { id: tQ.question.id }
-            },
-            student: { id: studentId }
-          }
-        };
-
+        const options = { where: { testQuestion: { id: tQ.id, test: { id: test.id }, question: { id: tQ.question.id }}, student: { id: studentId } } };
         const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion;
-
-        if (!sQuestion) {
-          await CONN.save(StudentQuestion, {
-            answer: '',
-            testQuestion: tQ,
-            student: { id: studentId },
-            createdAt: new Date(),
-            createdByUser: userId
-          });
-        }
+        if (!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: tQ, student: { id: studentId }, createdAt: new Date(), createdByUser: userId}) }
       }
     }
 
-    // Retorna o array de nomes apenas se solicitado
     return returnAddedNames ? added : undefined;
   }
 

@@ -19,7 +19,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
@@ -306,6 +306,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const qClassroom = await this.qClassroom(Number(classroomId))
         if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
 
+        const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
+
         switch (baseTest.category?.id) {
           case TEST_CATEGORIES_IDS.LITE_1:
           case TEST_CATEGORIES_IDS.LITE_2:
@@ -320,13 +322,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
               // Buscar todas as questões em paralelo
-              const allTestQuestionsArrays = await Promise.all(
-                tests.map(test => this.qTestQuestions(test.id))
-              )
+              const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
 
               // Atribuir aos testes e coletar IDs
               for(let i = 0; i < tests.length; i++) {
-                tests[i].testQuestions = allTestQuestionsArrays[i]
+                tests[i].testQuestions = testQuestionsArr[i]
                 testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id))
               }
             }
@@ -347,7 +347,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             })
 
-            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds)
+            const schools = await this.alphaQuestions(serieFilter, year.name, baseTest, testQuestionsIds)
             const onlyClasses = schools
               .flatMap((school: any) => school.classrooms)
               .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
@@ -364,11 +364,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
 
-            // Validação e declaração direta
             const schoolId = qClassroom?.school?.id
-            const resClassrooms = schoolId
-              ? [...allClassrooms.filter((c: any) => c.school?.id === schoolId), cityHall]
-              : [cityHall]
+            const resClassrooms = schoolId ? [...allClassrooms.filter((c: any) => c.school?.id === schoolId), cityHall] : [cityHall]
 
             const test = {
               id: 99,
@@ -1429,7 +1426,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
+      const qClassroom = await this.qClassroom(Number(classId))
+      if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
+
+      const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
+
+      const currentResult = await this.alphaQuestions(serieFilter, test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
 
       for (const item of preResultSc) {

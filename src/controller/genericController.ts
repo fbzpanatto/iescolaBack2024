@@ -2640,7 +2640,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], classroomId?: number, studentClassroomId?: number | null) {
+  async alphaQuestions(serieFilter: number | string, yearName: string, test: any, testQuestionsIds: number[], classroomId?: number, studentClassroomId?: number | null) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2759,6 +2759,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       query += `
     WHERE s.id NOT IN (28, 29)
     AND c.id NOT IN (1216, 1217, 1218)
+    ${serieFilter ? 'AND c.shortName LIKE ?' : ''}
     AND atd.id = ?
     AND atc.id = ?
     AND aty.name = ?
@@ -2790,6 +2791,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
       if (hasQuestions && testQuestionsIds.length > 0) {
         params.push(...testQuestionsIds);
       }
+
+      if (serieFilter) { params.push(serieFilter) }
 
       params.push(
         test.discipline?.id ?? test.discipline_id,

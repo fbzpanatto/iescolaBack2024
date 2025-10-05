@@ -12,7 +12,6 @@ import { Student} from "../model/Student";
 import { Classroom } from "../model/Classroom";
 import { UserInterface } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { dbConn } from "../services/db";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -23,16 +22,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { body, query } = req
     const { year } = query
 
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-        const cY = await this.qCurrentYear(sqlConnection)
+        const cY = await this.qCurrentYear()
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -64,11 +61,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         return { status: 201, data }
       })
     }
-    catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
-    finally { if(sqlConnection) { sqlConnection.release() } }
+    catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
   async updateAlphabetic(req: Request){
@@ -76,16 +69,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { body, query } = req
     const { year } = query
 
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-        const cY = await this.qCurrentYear(sqlConnection)
+        const cY = await this.qCurrentYear()
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -122,21 +113,18 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateAlphabeticFirstLevel(req: Request){
 
     const { body } = req
 
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
         const student = body.student
         const alphabeticFirst = body.alphabeticFirst
@@ -156,19 +144,16 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateQuestion(req: Request, body: ObjectLiteral) {
 
     const { year } = req.query
 
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
-        const cY = await this.qCurrentYear(sqlConnection)
+        const cY = await this.qCurrentYear()
         if(!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' }}
         if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -191,7 +176,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
           return { status: 403, message: 'Informe uma letra válida entre: [A, B, C, D, E]' }
         }
 
-        const updatedBy = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const updatedBy = await this.qTeacherByUser(body.user.user)
 
         sQ.rClassroom = body.classroom; sQ.answer = body.answer; sQ.updatedByUser = updatedBy.id; sQ.updatedAt = new Date()
 
@@ -201,11 +186,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         return { status: 200, data: mappedRes };
       })
     }
-    catch (error: any) {
-      console.log(error)
-      return { status: 500, message: error.message }
-    }
-    finally { if (sqlConnection) { sqlConnection.release() } }
+    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
   async updateTestStatus(id: number | string, body: ObjectLiteral) {
@@ -224,14 +205,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
 
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user!.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user!.user)
 
         delete body.user
 
@@ -239,27 +218,16 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         if(body.id) {
           delete body.rClassroom;
-          newBody = {
-            ...body,
-            updatedAt: new Date(),
-            updatedByUser: qUserTeacher.person.user.id
-          }
+          newBody = { ...body, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id }
         }
 
-        else {
-          newBody = {
-            ...body,
-            createdAt: new Date(),
-            createdByUser: qUserTeacher.person.user.id
-          }
-        }
+        else { newBody = { ...body, createdAt: new Date(), createdByUser: qUserTeacher.person.user.id } }
 
         let data = await CONN.save(Alphabetic, newBody)
         return { status: 200, data }
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

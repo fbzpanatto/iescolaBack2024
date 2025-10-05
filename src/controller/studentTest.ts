@@ -1,4 +1,4 @@
-import { dbConn } from "../services/db";
+import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
 import { TestByStudentId } from "../interfaces/interfaces";
@@ -10,10 +10,11 @@ class StudentTestController extends GenericController<any> {
 
   async getTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
 
-    let sqlConnection = await dbConn()
+    let conn;
 
     try {
-      await sqlConnection.beginTransaction()
+      conn = await connectionPool.getConnection()
+      await conn.beginTransaction()
 
       const studentClassroomId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null
 
@@ -22,31 +23,28 @@ class StudentTestController extends GenericController<any> {
 
       if(!studentClassroomId) { return { status: 400, message: "Referência inválida." } }
 
-      const studentTestInfo = await this.qFilteredTestByStudentId(sqlConnection, Number(studentId), Number(testId))
+      const studentTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId))
 
       if(studentTestInfo.studentClassroomId != studentClassroomId) {
         return { status: 400, message: `Acesse a prova através da sala: ${ studentTestInfo.classroomName } - ${ studentTestInfo.schoolName }` }
       }
 
-      const currentYear = await this.qCurrentYear(sqlConnection)
+      const currentYear = await this.qCurrentYear()
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name
 
-      const qTest = await this.qTestByIdAndYear(sqlConnection, testId, String(year))
+      const qTest = await this.qTestByIdAndYear(testId, String(year))
 
       if(!qTest.active) {
         return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' }
       }
 
-      const qTestQuestions = await this.qTestQuestionsWithTitle(sqlConnection, testId) as TestQuestion[]
+      const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[]
 
-      let studentQuestions = await this.qStudentTestQuestions(sqlConnection, Number(testId), Number(studentId))
+      let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId))
 
       if (!studentQuestions || studentQuestions.length === 0) {
 
-        if (!studentTestInfo) {
-          await sqlConnection.rollback()
-          return { status: 404, message: "Teste não disponível para este aluno." }
-        }
+        if (!studentTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
         let studentTestStatusId = studentTestInfo.studentTestStatusId
 
@@ -57,7 +55,7 @@ class StudentTestController extends GenericController<any> {
             VALUES (?, ?, 1, '', NOW(), ?)
           `
 
-          const [statusResult] = await sqlConnection.execute(insertStatusQuery, [
+          const [statusResult] = await conn.execute(insertStatusQuery, [
             studentTestInfo.studentClassroomId,
             testId,
             studentId // Usando o ID do estudante como createdByUser
@@ -79,13 +77,13 @@ class StudentTestController extends GenericController<any> {
             VALUES ?
           `
 
-          await sqlConnection.query(insertQuestionsQuery, [studentQuestionsToInsert])
+          await conn.query(insertQuestionsQuery, [studentQuestionsToInsert])
         }
 
-        studentQuestions = await this.qStudentTestQuestions(sqlConnection, Number(testId), Number(studentId))
+        studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId))
       }
 
-      await sqlConnection.commit()
+      await conn.commit()
 
       const groupMap = new Map();
 
@@ -112,17 +110,18 @@ class StudentTestController extends GenericController<any> {
 
     catch (error: any) {
       console.log(error)
-      await sqlConnection.rollback()
+      if(conn) { await conn.rollback() }
       return { status: 500, message: error.message }
     }
-    finally { if(sqlConnection) { sqlConnection.release() }
+    finally { if(conn) { conn.release() }
     }
   }
 
-  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
-
-    let sqlConnection = await dbConn()
-
+  async allFilteredStudentTest(
+    body: { user: { user: number, ra: string, category: number } },
+    params: { [key: string]: any },
+    query: { [key: string]: any }
+  ) {
     try {
 
       const { search, limit: l, offset: o } = query;
@@ -133,13 +132,11 @@ class StudentTestController extends GenericController<any> {
       const year = Number(params.year);
       const studentId = body.user.user
 
-      const result = await this.qTestByStudentId<TestByStudentId>(sqlConnection, studentId, year, search, limit, offset)
+      const result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
 
       return { status: 200, data: result }
-
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateStudentAnswers(body: {
@@ -155,12 +152,13 @@ class StudentTestController extends GenericController<any> {
     }[]
   }) {
 
-    let sqlConnection = await dbConn()
+    let sqlConnection;
 
     try {
+      sqlConnection = await connectionPool.getConnection()
       await sqlConnection.beginTransaction()
 
-      const result = await this.qFilteredTestByStudentId<TestByStudentId>(sqlConnection, Number(body.studentId), Number(body.testId))
+      const result = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId))
 
       if (!result) {
         await sqlConnection.rollback()
@@ -202,7 +200,7 @@ class StudentTestController extends GenericController<any> {
       await sqlConnection.commit()
       return { status: 200, data: { studentTestStatusId, message: "Prova enviada com sucesso!" } }
     }
-    catch (error: any) { await sqlConnection.rollback(); return { status: 500, message: error.message } }
+    catch (error: any) { if(sqlConnection) await sqlConnection.rollback(); return { status: 500, message: error.message } }
     finally { if (sqlConnection) { sqlConnection.release() } }
   }
 }

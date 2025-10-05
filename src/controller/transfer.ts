@@ -11,8 +11,7 @@ import { Teacher } from "../model/Teacher";
 import { transferEmail } from "../utils/email.service";
 import { Student } from "../model/Student";
 import { pc } from "../utils/personCategories";
-import {dbConn} from "../services/db";
-import {Year} from "../model/Year";
+import { Year } from "../model/Year";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -62,13 +61,10 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   }
 
   override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
-
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
         const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}})
 
@@ -110,27 +106,23 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.endedAt = body.endedAt;
         transfer.requester = qUserTeacher as Teacher;
         transfer.requestedClassroom = body.classroom;
-        transfer.year = await this.qCurrentYear(sqlConnection) as unknown as Year
+        transfer.year = await this.qCurrentYear() as unknown as Year
         transfer.currentClassroom = body.currentClassroom;
         transfer.createdByUser = qUserTeacher.person.user.id;
-        transfer.status = await this.qTransferStatus(sqlConnection, transferStatus.PENDING) as TransferStatus
+        transfer.status = await this.qTransferStatus(transferStatus.PENDING) as TransferStatus
         const result = await CONN.save(Transfer, transfer)
 
         return { status: 201, data: result }
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   override async updateId(transferId: number | string, body: ObjectLiteral) {
-
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
         const currTransfer = await CONN.findOne(Transfer, {
           relations: ['status', 'requester.person', 'requestedClassroom'],
@@ -154,7 +146,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         }
 
         if (body.cancel) {
-          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.CANCELED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(transferStatus.CANCELED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -164,7 +156,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         if (body.reject) {
 
-          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.REFUSED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(transferStatus.REFUSED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -180,7 +172,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           if (!stClass) { return { status: 404, message: 'Registro não encontrado.' } }
 
-          const currentYear = await this.qCurrentYear(sqlConnection)
+          const currentYear = await this.qCurrentYear()
 
           const lastRosterNumber = await CONN.find(StudentClassroom, { relations: ['classroom', 'year'], where: { year: { id: currentYear.id }, classroom: { id: currTransfer.requestedClassroom.id }}, order: { rosterNumber: 'DESC' }, take: 1 })
 
@@ -193,12 +185,12 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
             startedAt: new Date(),
             rosterNumber: last,
             createdByUser: qUserTeacher.person.user.id,
-            year: await this.qCurrentYear(sqlConnection)
+            year: await this.qCurrentYear()
           }) as StudentClassroom
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 
-          currTransfer.status = await this.qTransferStatus(sqlConnection, transferStatus.ACCEPTED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(transferStatus.ACCEPTED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
 
@@ -210,7 +202,6 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 }
 

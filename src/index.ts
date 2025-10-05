@@ -13,7 +13,6 @@ import { CassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
 import { DisabilityRouter } from "./routes/disability";
 import { DisciplineRouter } from "./routes/discipline";
-import { InitialConfigsRouter } from "./routes/initialConfigs";
 import { LoginRouter } from "./routes/login";
 import { PeCatRouter } from "./routes/personCategory";
 import { PersonRouter } from "./routes/person";
@@ -52,7 +51,6 @@ route.use("/classroom", authorization, ClassroomRouter);
 route.use("/classroom-category", authorization, CassroomCategoryRouter);
 route.use("/disability", authorization, DisabilityRouter);
 route.use("/discipline", authorization, DisciplineRouter);
-route.use("/initial-configs", InitialConfigsRouter);
 route.use("/person", authorization, PersonRouter);
 route.use("/person-category", authorization, PeCatRouter);
 route.use("/question", authorization, QuesR);
@@ -77,8 +75,6 @@ route.use("/year", authorization, YearRouter);
 
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);
-
-route.use("/initial-configs", InitialConfigsRouter);
 
 route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
 

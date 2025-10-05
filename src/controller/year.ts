@@ -7,7 +7,6 @@ import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { pc } from "../utils/personCategories";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { dbConn } from "../services/db";
 import { transferStatus } from "../utils/transferStatus";
 import { Transfer } from "../model/Transfer";
 import { Teacher } from "../model/Teacher";
@@ -27,13 +26,10 @@ class YearController extends GenericController<EntityTarget<Year>> {
   }
 
   override async save(body: any) {
-
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN)=> {
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
         const canCreate = [pc.ADMN]
         if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
         const yearExists = await this.checkIfExists(body, CONN)
@@ -52,13 +48,9 @@ class YearController extends GenericController<EntityTarget<Year>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateId(id: any, body: any) {
-
-    const sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
@@ -85,9 +77,9 @@ class YearController extends GenericController<EntityTarget<Year>> {
             .getMany()
           for (let register of allStudentsClassroomsYear) { await CONN.getRepository(StudentClassroom).save({ ...register, endedAt: new Date() }) }
 
-          const qPendingTransferStatus = await this.qPendingTransferStatus(sqlConnection, data.id, transferStatus.PENDING)
+          const qPendingTransferStatus = await this.qPendingTransferStatus(data.id, transferStatus.PENDING)
 
-          const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+          const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
           for(let item of qPendingTransferStatus) {
 

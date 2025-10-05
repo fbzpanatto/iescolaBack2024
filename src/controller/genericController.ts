@@ -1,10 +1,17 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
+import {
+  DeepPartial,
+  EntityManager,
+  EntityTarget,
+  FindManyOptions,
+  FindOneOptions,
+  ObjectLiteral,
+  SaveOptions
+} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
 import {
   qAlphabeticLevels,
   qAlphaStuClassrooms,
-  qAlphaStuClassroomsFormated,
   qAlphaTests,
   qClassroom,
   qClassrooms,
@@ -26,22 +33,28 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, TeacherParam,
+  SavePerson,
+  TeacherParam,
   Training,
   TrainingResult,
   TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { PoolConnection, ResultSetHeader } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
-import { Transfer } from "../model/Transfer";
-import { Discipline } from "../model/Discipline";
-import { Teacher } from "../model/Teacher";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Contract } from "../model/Contract";
-import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {ResultSetHeader} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
+import {Discipline} from "../model/Discipline";
+import {Teacher} from "../model/Teacher";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Contract} from "../model/Contract";
+import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import {TestQuestion} from "../model/TestQuestion";
+import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
+import {connectionPool} from "../services/db";
+import {PersonCategory} from "../model/PersonCategory";
+import {pc} from "../utils/personCategories";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -106,52 +119,181 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async qNewTraining(conn: PoolConnection, yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string ) {
-    const insertQuery = `
+  async unifiedTestQuestLinkSql(createStatus: boolean, arrOfStudentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, returnAddedNames: boolean = false): Promise<string[] | void> {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      if (!arrOfStudentClassrooms || arrOfStudentClassrooms.length === 0) {
+        // Se não há nada a fazer, ainda é um "sucesso", então commitamos a transação vazia.
+        await conn.commit();
+        return returnAddedNames ? [] : undefined;
+      }
+
+      const studentIds = arrOfStudentClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
+      const studentClassroomIds = arrOfStudentClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
+      const testQuestionIds = testQuestions.map(tq => tq.id);
+
+      if (studentIds.length === 0 || testQuestionIds.length === 0) {
+        await conn.commit();
+        return returnAddedNames ? [] : undefined;
+      }
+
+      let existingStatusScIds = new Set<number>();
+      let existingAlphabeticStudentIds = new Set<number>();
+      const alphabeticCategories = new Set([1, 2, 3]);
+
+      if (alphabeticCategories.has(test.category.id)) {
+        const [existingAlphabeticRows]: [any[], any] = await conn.query(
+          `SELECT studentId FROM alphabetic WHERE testId = ? AND studentId IN (?)`,
+          [test.id, studentIds]
+        );
+        existingAlphabeticStudentIds = new Set(existingAlphabeticRows.map((row: any) => row.studentId));
+      } else {
+        const [existingStatusesRows]: [any[], any] = await conn.query(
+          `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?)`,
+          [test.id, studentClassroomIds]
+        );
+        existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
+      }
+
+      const [existingQuestionsRows]: [any[], any] = await conn.query(
+        `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`,
+        [studentIds, testQuestionIds]
+      );
+      const existingQuestionKeys = new Set(existingQuestionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
+
+      let personNamesMap = new Map<number, string>();
+      if (returnAddedNames) {
+        const [personsRows]: [any[], any] = await conn.query(
+          `SELECT p.name, p.student_id FROM person p WHERE p.student_id IN (?)`,
+          [studentIds]
+        );
+        personsRows.forEach((row: any) => personNamesMap.set(row.student_id, row.name));
+      }
+
+      const addedNames: string[] = [];
+      const statusesToSave: any[] = [];
+      const alphabeticLinksToSave: any[] = [];
+      const questionsToSave: any[] = [];
+      const now = new Date();
+
+      for (const sC of arrOfStudentClassrooms) {
+        const studentId = sC.student?.id ?? sC.student_id;
+        const studentClassroomId = sC.student_classroom_id ?? sC.id;
+
+        if (alphabeticCategories.has(test.category.id)) {
+          if (!existingAlphabeticStudentIds.has(studentId)) {
+            alphabeticLinksToSave.push([now, userId, studentId, test.id]);
+            existingAlphabeticStudentIds.add(studentId);
+          }
+        } else {
+          if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
+            if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
+              if (returnAddedNames) addedNames.push(personNamesMap.get(studentId) || '');
+              continue;
+            }
+          }
+          if (createStatus && !existingStatusScIds.has(studentClassroomId)) {
+            statusesToSave.push([true, test.id, studentClassroomId, '', now, userId]);
+            existingStatusScIds.add(studentClassroomId);
+          }
+        }
+
+        for (const tQ of testQuestions) {
+          const uniqueKey = `${studentId}-${tQ.id}`;
+          if (!existingQuestionKeys.has(uniqueKey)) {
+            questionsToSave.push(['', tQ.id, studentId, now, userId]);
+            existingQuestionKeys.add(uniqueKey);
+          }
+        }
+      }
+
+      if (alphabeticLinksToSave.length > 0) {
+        const alphabeticQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ?`;
+        await conn.query(alphabeticQuery, [alphabeticLinksToSave]);
+      }
+      if (statusesToSave.length > 0) {
+        const statusQuery = `INSERT INTO student_test_status (active, testId, studentClassroomId, observation, createdAt, createdByUser) VALUES ?`;
+        await conn.query(statusQuery, [statusesToSave]);
+      }
+      if (questionsToSave.length > 0) {
+        const questionQuery = `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser) VALUES ?`;
+        await conn.query(questionQuery, [questionsToSave]);
+      }
+
+      await conn.commit();
+
+      return returnAddedNames ? addedNames.filter(name => name) : undefined;
+
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qNewTraining(yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string ) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+      const insertQuery = `
         INSERT INTO training (yearId, categoryId, monthReferenceId, meetingId, classroom, createdByUser, updatedByUser, disciplineId, observation)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-
-    const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [yearId, category, month, meeting, classroom, createdByUser, createdByUser, discipline || null, observation || null])
-    return queryResult;
+      const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [yearId, category, month, meeting, classroom, createdByUser, createdByUser, discipline || null, observation || null])
+      await conn.commit();
+      return queryResult;
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticHeaders(conn: PoolConnection, yearName: string) {
-    const qYear =
+  async qAlphabeticHeaders(yearName: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
 
-      `
+      // As duas queries são independentes, então podem rodar em paralelo
+      const qYear = `
         SELECT year.id, year.name, period.id AS period_id, bimester.id AS bimester_id, bimester.name AS bimester_name, bimester.testName AS bimester_testName
         FROM year
             INNER JOIN period ON period.yearId = year.id
             INNER JOIN bimester ON period.bimesterId = bimester.id
         WHERE year.name = ?
-      `
-
-    const [qYearResult] = await conn.query(format(qYear), [yearName]);
-    let year = this.formatAlphabeticYearHeader(qYearResult as qYear[])
-
-    const qAlphabeticLevels =
-
-      `
+      `;
+      const qAlphabeticLevels = `
         SELECT al.id, al.shortName, al.color
         FROM alphabetic_level AS al
-      `
+      `;
 
-    const [qAlphaLevelsResult] = await conn.query(format(qAlphabeticLevels), []);
-    const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[]
+      // Executa as duas queries ao mesmo tempo na mesma conexão
+      const [
+        [qYearResult],
+        [qAlphaLevelsResult]
+      ] = await Promise.all([
+        conn.query(format(qYear), [yearName]),
+        conn.query(format(qAlphabeticLevels), [])
+      ]);
 
-    return year.periods.flatMap(period => {
-      return {
-        ...period.bimester,
-        levels: alphabeticLevels,
-      }
-    })
+      // O processamento dos resultados continua o mesmo
+      let year = this.formatAlphabeticYearHeader(qYearResult as qYear[]);
+      const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[];
+
+      return year.periods.flatMap(period => ({ ...period.bimester, levels: alphabeticLevels }));
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qLastRegister(conn: PoolConnection, studentId: number, yearId: number ) {
-    const query =
+  async qLastRegister(studentId: number, yearId: number ) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT stu.id AS studentId, per.name AS personName, sc.id AS studentClassroomId, sc.rosterNumber, sc.startedAt, sc.endedAt, sc.classroomId, sc.yearId, sc.studentId AS studentIdSc
         FROM student AS stu
         INNER JOIN person AS per ON stu.personId = per.id
@@ -166,55 +308,67 @@ export class GenericController<T> {
           sc.endedAt = (SELECT MAX(sc2.endedAt) FROM student_classroom AS sc2 WHERE sc2.studentId = stu.id AND sc2.yearId = ?)
       `
 
-    const [ queryResult ] = await conn.query(format(query), [studentId, yearId, yearId])
+      const [ queryResult ] = await conn.query(format(query), [studentId, yearId, yearId])
 
-    return (queryResult as { [key: string]: any }[])
-  }
-
-  async qStudentDisabilities(conn: PoolConnection, arr: { [key: string]: any }[]) {
-
-    const studentIds = arr.map(item => item.student.id).filter(id => id);
-
-    if (studentIds.length === 0) return arr;
-
-    const placeholders = studentIds.map(() => '?').join(',');
-    const query = `
-    SELECT 
-      sd.id, 
-      sd.studentId,
-      sd.startedAt, 
-      sd.endedAt, 
-      d.id as disability_id,
-      d.name as disability_name,
-      d.official as disability_official
-    FROM student_disability AS sd
-    INNER JOIN disability AS d ON sd.disabilityId = d.id
-    WHERE sd.studentId IN (${placeholders}) AND sd.endedAt IS NULL
-  `;
-
-    const [queryResult] = await conn.query(query, studentIds);
-
-    const disabilitiesByStudent = new Map()
-
-    for (const row of queryResult as any[]) {
-      if (!disabilitiesByStudent.has(row.studentId)) { disabilitiesByStudent.set(row.studentId, []) }
-      disabilitiesByStudent.get(row.studentId).push({
-        id: row.id,
-        startedAt: row.startedAt,
-        endedAt: row.endedAt,
-        disability: { id: row.disability_id, name: row.disability_name, official: row.disability_official }
-      })
+      return (queryResult as { [key: string]: any }[])
     }
-
-    for (const item of arr) { item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [] }
-
-    return arr;
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticStudentsForLink(conn: PoolConnection, classroomId: number, testCreatedAt: Date | string, yearName: string){
-    const query =
+  async qStudentDisabilities(arr: { [key: string]: any }[]) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const studentIds = arr.map(item => item.student.id).filter(id => id);
 
-      `
+      if (studentIds.length === 0) {
+        return arr;
+      }
+
+      const placeholders = studentIds.map(() => '?').join(',');
+      const query = `
+      SELECT 
+        sd.id, sd.studentId, sd.startedAt, sd.endedAt, 
+        d.id as disability_id, d.name as disability_name, d.official as disability_official
+      FROM student_disability AS sd
+      INNER JOIN disability AS d ON sd.disabilityId = d.id
+      WHERE sd.studentId IN (${placeholders}) AND sd.endedAt IS NULL
+    `;
+
+      const [queryResult] = await conn.query(query, studentIds);
+
+      const disabilitiesByStudent = new Map();
+
+      for (const row of queryResult as any[]) {
+        if (!disabilitiesByStudent.has(row.studentId)) {
+          disabilitiesByStudent.set(row.studentId, []);
+        }
+        disabilitiesByStudent.get(row.studentId).push({
+          id: row.id,
+          startedAt: row.startedAt,
+          endedAt: row.endedAt,
+          disability: { id: row.disability_id, name: row.disability_name, official: row.disability_official }
+        });
+      }
+
+      for (const item of arr) {
+        item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [];
+      }
+
+      return arr;
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qAlphabeticStudentsForLink(classroomId: number, testCreatedAt: Date | string, yearName: string){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+
+        `
         SELECT DISTINCT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt, sc.classroomId,
                s.id AS student_id,
                p.id AS person_id, p.name AS person_name
@@ -229,26 +383,38 @@ export class GenericController<T> {
           AND y.name = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
+      const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
 
-    return this.formatStudentClassroom(queryResult as qAlphaStuClassrooms[])
+      return this.formatStudentClassroom(queryResult as qAlphaStuClassrooms[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qCurrentYear(conn: PoolConnection) {
-    const query =
+  async qCurrentYear() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT *
         FROM year
         WHERE year.endedAt IS NULL AND year.active = 1
       `
 
-    const [ queryResult ] = await conn.query(format(query))
-    return (queryResult as qYear[])[0]
+      const [ queryResult ] = await conn.query(format(query))
+      return (queryResult as qYear[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qNotTestIncluded(conn: PoolConnection, yearName: string, classroomId: number, testId: number) {
-    const query = `
+  async qNotTestIncluded(yearName: string, classroomId: number, testId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
         SELECT sc.id AS id, st.id AS student_id, st.ra AS ra, st.dv AS dv, per.name AS name
         FROM student_classroom AS sc
                  INNER JOIN student AS st ON sc.studentId = st.id
@@ -267,14 +433,20 @@ export class GenericController<T> {
         )
     `;
 
-    const [queryResult] = await conn.query(format(query), [yearName, classroomId, testId]);
-    return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
+      const [queryResult] = await conn.query(format(query), [yearName, classroomId, testId]);
+      return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qActiveSc(conn: PoolConnection, studentId: number) {
-    const query =
+  async qActiveSc(studentId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT p.name AS personName, c.shortName AS classroomName, s.shortName AS schoolName, y.name AS yearName
         FROM student_classroom AS sc
         INNER JOIN classroom AS c ON sc.classroomId = c.id
@@ -285,34 +457,52 @@ export class GenericController<T> {
         WHERE stu.id = ? AND sc.endedAt IS NULL
       `
 
-    const [ queryResult ] = await conn.query(format(query), [studentId])
-    return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
+      const [ queryResult ] = await conn.query(format(query), [studentId])
+      return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qNewStudentClassroom(conn: PoolConnection, studentId: number, classroomId: number, yearId: number, createdByUser: number, rosterNumber: number) {
-    const insertQuery = `
-        INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) 
-        VALUES (?, ?, ?, ?, ?, ?)
-    `
-    const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, new Date(), createdByUser])
-    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+  async qNewStudentClassroom(studentId: number, classroomId: number, yearId: number, createdByUser: number, rosterNumber: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+      const insertQuery = `INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`
+      const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, new Date(), createdByUser])
+      conn.commit()
+      return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qNewTransfer(conn: PoolConnection, requesterId: number, requestedClassroomId: number, currentClassroomId: number, receiverId: number, studentId: number, yearId: number, createdByUser: number) {
-    const insertQuery = `
+  async qNewTransfer(requesterId: number, requestedClassroomId: number, currentClassroomId: number, receiverId: number, studentId: number, yearId: number, createdByUser: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+      const insertQuery = `
         INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
-    const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), new Date(), requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
-    return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+      const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), new Date(), requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
+      conn.commit()
+      return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestByStudentId<T>(conn: PoolConnection, studentId: number, yearName: number | string, search: string, limit: number, offset: number) {
+  async qTestByStudentId<T>(studentId: number, yearName: number | string, search: string, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const testSearch = `%${search.toString().toUpperCase()}%`
 
-    const testSearch = `%${search.toString().toUpperCase()}%`
-
-    const query =
-      `
+      const query =
+        `
       SELECT DISTINCT
         sts.id AS studentTestStatusId,
         sc.id AS studentClassroomId,
@@ -352,15 +542,20 @@ export class GenericController<T> {
       OFFSET ?
     `
 
-    const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, limit, offset ])
+      const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, limit, offset ])
 
-    return queryResult as T[]
+      return queryResult as T[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qFilteredTestByStudentId<T>(conn: PoolConnection, studentId: number, testId: number) {
-
-    const query =
-      `
+  async qFilteredTestByStudentId<T>(studentId: number, testId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
           SELECT
               sts.id AS studentTestStatusId,
               sts.active,
@@ -401,15 +596,21 @@ export class GenericController<T> {
               LIMIT 1
       `
 
-    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+      const [ queryResult ] = await conn.query(format(query), [studentId, testId])
 
-    return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
+      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherDisciplines(conn: PoolConnection, userId: number) {
-    const query =
+  async qTeacherDisciplines(userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT t.id, GROUP_CONCAT(DISTINCT d.id ORDER BY d.id ASC) AS disciplines
         FROM teacher AS t
           INNER JOIN person AS p ON t.personId = p.id
@@ -420,17 +621,23 @@ export class GenericController<T> {
         GROUP BY t.id
       `
 
-    const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(format(query), [userId])
 
-    const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
+      const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
 
-    return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
+      return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherClassrooms(conn: PoolConnection, userId: number) {
-    const query =
+  async qTeacherClassrooms(userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT t.id, GROUP_CONCAT(DISTINCT c.id ORDER BY c.id ASC) AS classrooms, pc.id AS categoryId
         FROM teacher AS t
           INNER JOIN person AS p ON t.personId = p.id
@@ -442,40 +649,57 @@ export class GenericController<T> {
         GROUP BY t.id
       `
 
-    const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(format(query), [userId])
 
-    const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
+      const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
 
-    return { id: qTeacherClassrooms?.id, personCategoryId: qTeacherClassrooms?.categoryId, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
+      return { id: qTeacherClassrooms?.id, personCategoryId: qTeacherClassrooms?.categoryId, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTransferStatus(conn: PoolConnection, statusId: number) {
-    const query =
+  async qTransferStatus(statusId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
           SELECT *
           FROM transfer_status AS ts
           WHERE ts.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [statusId])
-    return (queryResult as qTransferStatus[])[0]
+      const [ queryResult ] = await conn.query(format(query), [statusId])
+      return (queryResult as qTransferStatus[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qEndAllTeacherRelations(conn: PoolConnection, teacherId: number) {
-
-    const updateQuery =
-      `
+  async qEndAllTeacherRelations(teacherId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const updateQuery =
+        `
         UPDATE teacher_class_discipline SET endedAt = ? where teacherId = ?;
       `
 
-    const [ queryResult ] = await conn.query(format(updateQuery), [new Date(), teacherId])
-    return queryResult
+      const [ queryResult ] = await conn.query(format(updateQuery), [new Date(), teacherId])
+      return queryResult
+    }
+    catch (error) { if(conn) conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentByRa(conn: PoolConnection, ra: string, dv: string) {
-    const query =
-      `
+  async qStudentByRa(ra: string, dv: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
         SELECT student.*, perc.id AS categoryId, per.name AS name
         FROM student
         INNER JOIN person per ON student.personId = per.id
@@ -483,19 +707,31 @@ export class GenericController<T> {
         WHERE student.ra = ? AND student.dv = ? 
       `
 
-    const [ queryResult ] = await conn.query(format(query), [ra, dv])
+      const [ queryResult ] = await conn.query(format(query), [ra, dv])
 
-    return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number }[])[0]
+      return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number }[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestById(conn: PoolConnection, testId: number) {
-    const [ queryResult ] = await conn.query(format(`SELECT * FROM test WHERE id = ?`), [testId])
-    return (queryResult as Test[])[0]
+  async qTestById(testId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const [ queryResult ] = await conn.query(format(`SELECT * FROM test WHERE id = ?`), [testId])
+      return (queryResult as Test[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherByUser(conn: PoolConnection, userId: number) {
-    const query =
-      `
+  async qTeacherByUser(userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
         SELECT teacher.id, teacher.email, teacher.register, teacher.schoolId,
                p.id AS person_id, p.name AS person_name,
                pc.id AS person_category_id, pc.name AS person_category_name,
@@ -507,14 +743,21 @@ export class GenericController<T> {
         WHERE u.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [userId])
-    const data = (queryResult as any[])[0]
+      const [ queryResult ] = await conn.query(format(query), [userId])
+      const data = (queryResult as any[])[0]
 
-    return this.formatUserTeacher(data)
+      return this.formatUserTeacher(data)
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qUpsertTrainingTeacher(conn: PoolConnection, teacherId: number, trainingId: number, statusId: number, userId: number ) {
-    const query = `
+  async qUpsertTrainingTeacher(teacherId: number, trainingId: number, statusId: number, userId: number ) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      conn.beginTransaction();
+      const query = `
         INSERT INTO training_teacher (teacherId, trainingId, statusId, createdAt, createdByUser, updatedAt, updatedByUser)
         VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
         ON DUPLICATE KEY UPDATE
@@ -523,13 +766,20 @@ export class GenericController<T> {
                              updatedByUser = VALUES(updatedByUser)
     `;
 
-    const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, statusId, userId, userId]);
+      const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, statusId, userId, userId]);
 
-    return result;
+      return result;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qUpsertTrainingTeacherObs(conn: PoolConnection, teacherId: number, trainingId: number, observation: string, userId: number ) {
-    const query = `
+  async qUpsertTrainingTeacherObs(teacherId: number, trainingId: number, observation: string, userId: number ) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      await conn.beginTransaction();
+      const query = `
         INSERT INTO training_teacher (teacherId, trainingId, observation, createdAt, createdByUser, updatedAt, updatedByUser)
         VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
         ON DUPLICATE KEY UPDATE
@@ -538,28 +788,40 @@ export class GenericController<T> {
                              updatedByUser = VALUES(updatedByUser)
     `;
 
-    const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, observation, userId, userId]);
-
-    return result;
+      const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, observation, userId, userId]);
+      conn.commit();
+      return result;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qUpdateTraining(conn: PoolConnection, id: number, meeting: number, category: number, month: number, updatedByUser: number, classroom?: number, discipline?: number, observation?: string) {
-    const updateQuery = `
+  async qUpdateTraining(id: number, meeting: number, category: number, month: number, updatedByUser: number, classroom?: number, discipline?: number, observation?: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      await conn.beginTransaction();
+      const updateQuery = `
       UPDATE training 
       SET meetingId = ?, categoryId = ?, monthReferenceId = ?, classroom = ?, disciplineId = ?, observation = ?, updatedByUser = ?
       WHERE id = ?
     `;
 
-    const [queryResult] = await conn.query<ResultSetHeader>(updateQuery, [meeting, category, month, classroom, discipline || null, observation || null, updatedByUser, id]);
-
-    return queryResult;
+      const [queryResult] = await conn.query<ResultSetHeader>(updateQuery, [meeting, category, month, classroom, discipline || null, observation || null, updatedByUser, id]);
+      conn.commit();
+      return queryResult;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAggregateTest(conn: PoolConnection, yearName: string, classroom: number, bimesterId: number, categoryId: number) {
+  async qAggregateTest(yearName: string, classroom: number, bimesterId: number, categoryId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const likeClassroom = `%${classroom}%`
 
-    const likeClassroom = `%${classroom}%`
-
-    const query = `
+      const query = `
       SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName
       FROM test_classroom AS tc
       INNER JOIN classroom AS c ON tc.classroomId = c.id
@@ -572,26 +834,19 @@ export class GenericController<T> {
       WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ? AND tcat.id = ?;    
     `
 
-    const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId, categoryId])
-    return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
+      const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId, categoryId])
+      return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestionsGroups(testId: number, connection: any) {
-    const query = `
-      SELECT qg.id AS id, qg.name AS name, COUNT(tq.id) AS questionsCount
-      FROM question_group qg
-      LEFT JOIN test_question tq ON qg.id = tq.questionGroupId
-      WHERE tq.testId = ?
-      GROUP BY qg.id, qg.name
-      ORDER BY qg.id
-    `;
-
-    const result = await connection.execute(query, [testId]);
-    return result[0];
-  }
-
-  async qSetInactiveStudentTest(conn: PoolConnection, studentClassroomId: number, testId: number, classroomId: number, userId: number) {
-    const updateQuery = `
+  async qSetInactiveStudentTest(studentClassroomId: number, testId: number, classroomId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      conn.beginTransaction();
+      const updateQuery = `
         UPDATE student_test_status sts
             INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
             SET sts.active = 0,
@@ -602,16 +857,22 @@ export class GenericController<T> {
           AND sc.classroomId = ?
     `;
 
-    const [queryResult] = await conn.query(format(updateQuery), [userId, studentClassroomId, testId, classroomId]);
-    return queryResult;
+      const [queryResult] = await conn.query(format(updateQuery), [userId, studentClassroomId, testId, classroomId]);
+      conn.commit();
+      return queryResult;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAllTeachersForSuperUser(conn: PoolConnection, search: string){
+  async qAllTeachersForSuperUser(search: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const personSearch = `%${search.toString().toUpperCase()}%`
 
-    const personSearch = `%${search.toString().toUpperCase()}%`
-
-    const query =
-      `
+      const query =
+        `
           SELECT t.id, t.email, t.register,
                  p.id AS pId, p.name, p.birth,
                  pc.id AS pcId, pc.name AS catName, pc.active
@@ -627,35 +888,40 @@ export class GenericController<T> {
           ORDER BY p.name;
       `
 
-    const [ queryResult ] = await conn.query(format(query), [personSearch])
+      const [ queryResult ] = await conn.query(format(query), [personSearch])
 
-    let result = queryResult as { [key: string]: any }[]
+      let result = queryResult as { [key: string]: any }[]
 
-    return result.map(el => {
-      return {
-        id: el.id,
-        email: el.email,
-        register: el.register,
-        person: {
-          id: el.pId,
-          name: el.name,
-          birth: el.birth,
-          category: {
-            id: el.pcId,
-            name: el.catName,
-            active: el.active
+      return result.map(el => {
+        return {
+          id: el.id,
+          email: el.email,
+          register: el.register,
+          person: {
+            id: el.pId,
+            name: el.name,
+            birth: el.birth,
+            category: {
+              id: el.pcId,
+              name: el.catName,
+              active: el.active
+            }
           }
         }
-      }
-    })
+      })
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherThatBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
+  async qTeacherThatBelongs(classroomsIds: number[], search: string){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const personSearch = `%${search.toString().toUpperCase()}%`
 
-    const personSearch = `%${search.toString().toUpperCase()}%`
-
-    const query =
-      `
+      const query =
+        `
           SELECT t.id, t.email, t.register,
                  p.id AS pId, p.name, p.birth,
                  pc.id AS pcId, pc.name AS catName, pc.active
@@ -671,35 +937,40 @@ export class GenericController<T> {
           ORDER BY p.name;
       `
 
-    const [ queryResult ] = await conn.query(format(query), [classroomsIds, personSearch])
+      const [ queryResult ] = await conn.query(format(query), [classroomsIds, personSearch])
 
-    let result = queryResult as { [key: string]: any }[]
+      let result = queryResult as { [key: string]: any }[]
 
-    return result.map(el => {
-      return {
-        id: el.id,
-        email: el.email,
-        register: el.register,
-        person: {
-          id: el.pId,
-          name: el.name,
-          birth: el.birth,
-          category: {
-            id: el.pcId,
-            name: el.catName,
-            active: el.active
+      return result.map(el => {
+        return {
+          id: el.id,
+          email: el.email,
+          register: el.register,
+          person: {
+            id: el.pId,
+            name: el.name,
+            birth: el.birth,
+            category: {
+              id: el.pcId,
+              name: el.catName,
+              active: el.active
+            }
           }
         }
-      }
-    })
+      })
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherThatNotBelongs(conn: PoolConnection, classroomsIds: number[], search: string){
+  async qTeacherThatNotBelongs(classroomsIds: number[], search: string){
+    let conn;
+    try{
+      conn = await connectionPool.getConnection()
+      const personSearch = `%${search.toString().toUpperCase()}%`
 
-    const personSearch = `%${search.toString().toUpperCase()}%`
-
-    const query =
-      `
+      const query =
+        `
           SELECT t.id, t.email, t.register,
                  p.id AS pId, p.name, p.birth,
                  pc.id AS pcId, pc.name AS catName, pc.active
@@ -719,46 +990,58 @@ export class GenericController<T> {
 
       `
 
-    const [ queryResult ] = await conn.query(format(query), [classroomsIds, 8, personSearch])
+      const [ queryResult ] = await conn.query(format(query), [classroomsIds, 8, personSearch])
 
-    let result = queryResult as { [key: string]: any }[]
+      let result = queryResult as { [key: string]: any }[]
 
-    return result.map(el => {
-      return {
-        id: el.id,
-        email: el.email,
-        register: el.register,
-        person: {
-          id: el.pId,
-          name: el.name,
-          birth: el.birth,
-          category: {
-            id: el.pcId,
-            name: el.catName,
-            active: el.active
+      return result.map(el => {
+        return {
+          id: el.id,
+          email: el.email,
+          register: el.register,
+          person: {
+            id: el.pId,
+            name: el.name,
+            birth: el.birth,
+            category: {
+              id: el.pcId,
+              name: el.catName,
+              active: el.active
+            }
           }
         }
-      }
-    })
+      })
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qState(conn: PoolConnection, stateId: number) {
-    const query =
+  async qState(stateId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT *
         FROM state
         WHERE state.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [stateId])
-    return (queryResult as qState[])[0]
+      const [ queryResult ] = await conn.query(format(query), [stateId])
+      return (queryResult as qState[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qUser(conn: PoolConnection, userId: number) {
-    const query =
+  async qUser(userId: number) {
+    let conn
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT pc.id as categoryId, u.id as userId
         FROM teacher
           INNER JOIN person AS p ON teacher.personId = p.id
@@ -767,28 +1050,43 @@ export class GenericController<T> {
         WHERE u.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [userId])
-    return (queryResult as qUser[])[0]
+      const [ queryResult ] = await conn.query(format(query), [userId])
+      return (queryResult as qUser[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestClassroom(conn: PoolConnection, testId: number, classroomId: number) {
-    const query =
+  async qTestClassroom(testId: number, classroomId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT *
         FROM test_classroom AS tc
         WHERE tc.testId = ? AND tc.classroomId = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
-    return (queryResult as qTestClassroom[])[0]
+      const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
+      return (queryResult as qTestClassroom[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  // TODO: create a function that checks if there is only one element into array. Return error if there is more than one?
-  async qTestByIdAndYear(conn: PoolConnection, testId: number, yearName: string) {
-    const query =
+  async qTestByIdAndYear(testId: number, yearName: string) {
 
-      `
+    let conn;
+
+    try {
+
+      conn = await connectionPool.getConnection();
+
+      const query =
+
+        `
         SELECT t.id, t.name, t.active, t.hideAnswers, t.createdAt,
                pr.id AS period_id, 
                bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName, 
@@ -806,99 +1104,137 @@ export class GenericController<T> {
         WHERE t.id = ? AND yr.name = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId, yearName])
-    return (queryResult as qTest[])[0]
+      const [ queryResult ] = await conn.query(format(query), [testId, yearName])
+      return (queryResult as qTest[])[0]
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qYearByName(conn: PoolConnection, yearName: string) {
-    const query =
-
-      `
-        SELECT y.id, y.name
-        FROM year AS y
-        WHERE y.name = ?
-      `
-
-    const [ queryResult ] = await conn.query(format(query), [yearName])
-    return (queryResult as qYear[])[0]
+  async qYearByName(yearName: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT y.id, y.name FROM year AS y WHERE y.name = ?`
+      const [ queryResult ] = await conn.query(format(query), [yearName])
+      return (queryResult as qYear[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qYearById(conn: PoolConnection, yearId: number | string) {
-    const query =
+  async qYearById(yearId: number | string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT y.id, y.name
         FROM year AS y
         WHERE y.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [yearId])
-    return (queryResult as qYear[])[0]
+      const [ queryResult ] = await conn.query(format(query), [yearId])
+      return (queryResult as qYear[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qSingleRel(conn: PoolConnection, teacherId: number, classroomId: number, disciplineId: number) {
-    const insertQuery = `
+  async qSingleRel(teacherId: number, classroomId: number, disciplineId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const insertQuery = `
         INSERT INTO teacher_class_discipline (startedAt, teacherId, classroomId, disciplineId) 
         VALUES (?, ?, ?, ?)
     `
-    const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), teacherId, classroomId, disciplineId])
-    return queryResult
+      const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), teacherId, classroomId, disciplineId])
+      return queryResult
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qClassroom(conn: PoolConnection, classroomId: number) {
-    const query =
+  async qClassroom(classroomId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT c.id, c.name, c.shortName, s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName
         FROM classroom AS c
           INNER JOIN school AS s ON c.schoolId = s.id
         WHERE c.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [classroomId])
+      const [ queryResult ] = await conn.query(format(query), [classroomId])
 
-    const res = (queryResult as qClassroom[])[0]
+      const res = (queryResult as qClassroom[])[0]
 
-    return {
-      id: res.id,
-      name: res.name,
-      shortName: res.shortName,
-      school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
-    } as Classroom
+      return {
+        id: res.id,
+        name: res.name,
+        shortName: res.shortName,
+        school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
+      } as Classroom
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qDiscipline(conn: PoolConnection, disciplineId: number) {
-    const query =
+  async qDiscipline(disciplineId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT *
         FROM discipline AS d
         WHERE d.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [disciplineId])
+      const [ queryResult ] = await conn.query(format(query), [disciplineId])
 
-    return (queryResult as Discipline[])[0]
+      return (queryResult as Discipline[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacher(conn: PoolConnection, teacherId: number) {
-    const query =
+  async qTeacher(teacherId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT *
         FROM teacher AS t
         WHERE t.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [teacherId])
+      const [ queryResult ] = await conn.query(format(query), [teacherId])
 
-    return (queryResult as Teacher[])[0]
+      return (queryResult as Teacher[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qSchools(conn: PoolConnection, testId: number) {
-    const query =
+  async qSchools(testId: number) {
+    let conn;
+    try{
 
-      `
+      conn = await connectionPool.getConnection();
+
+      const query =
+
+        `
         SELECT s.id, s.shortName, s.name 
         FROM school AS s
         WHERE EXISTS
@@ -911,31 +1247,46 @@ export class GenericController<T> {
         ORDER BY s.shortName
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId, [28, 29]])
-    return queryResult as qSchools[]
+      const [ queryResult ] = await conn.query(format(query), [testId, [28, 29]])
+      return queryResult as qSchools[]
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qClassroomsByTestId(conn: PoolConnection, schoolId: number, testId: number) {
-    const query =
+  async qClassroomsByTestId(schoolId: number, testId: number) {
+    let conn;
+    try {
 
-      `
+      conn = await connectionPool.getConnection();
+
+      const query =
+
+        `
         SELECT c.id, c.shortName 
         FROM classroom AS c
           INNER JOIN test_classroom AS tc ON c.id = tc.classroomId
         WHERE schoolId = ? AND tc.testId = ? AND c.id NOT IN (?)
       `
 
-    const [ queryResult ] = await conn.query(format(query), [schoolId, testId, [1216, 1217, 1218]])
-    return queryResult as qClassrooms[]
+      const [ queryResult ] = await conn.query(format(query), [schoolId, testId, [1216, 1217, 1218]])
+      return queryResult as qClassrooms[]
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentClassroomsForTest(conn: PoolConnection, test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+  async qStudentClassroomsForTest(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+    let conn;
+    try{
+      conn = await connectionPool.getConnection();
+      let responseQuery;
 
-    let responseQuery;
-
-    if(studentClassroomId) {
-      const query =
-        `
+      if(studentClassroomId) {
+        const query =
+          `
         SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
                s.id AS student_id,
                sts.id AS student_classroom_test_status_id,
@@ -949,13 +1300,13 @@ export class GenericController<T> {
         ORDER BY sc.rosterNumber
       `;
 
-      const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt, studentClassroomId]);
-      responseQuery = queryResult as qStudentsClassroomsForTest[];
-      return responseQuery
-    }
+        const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt, studentClassroomId]);
+        responseQuery = queryResult as qStudentsClassroomsForTest[];
+        return responseQuery
+      }
 
-    const query =
-      `
+      const query =
+        `
         SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
                s.id AS student_id,
                sts.id AS student_classroom_test_status_id,
@@ -969,29 +1320,44 @@ export class GenericController<T> {
         ORDER BY sc.rosterNumber
       `;
 
-    const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
-    responseQuery = queryResult as qStudentsClassroomsForTest[];
-    return responseQuery
+      const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
+      responseQuery = queryResult as qStudentsClassroomsForTest[];
+      return responseQuery
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qReadingFluency(conn: PoolConnection, testId: number, studentId: number) {
-    const query =
+  async qReadingFluency(testId: number, studentId: number) {
+    let conn;
+    try {
 
-      `
+      conn = await connectionPool.getConnection();
+
+      const query =
+
+        `
         SELECT rf.id, rf.readingFluencyExamId, rf.readingFluencyLevelId, rf.rClassroomId
         FROM reading_fluency AS rf 
         WHERE rf.testId = ? AND rf.studentId = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId, studentId])
-    return queryResult as any[]
+      const [ queryResult ] = await conn.query(format(query), [testId, studentId])
+      return queryResult as any[]
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qReadingFluencyHeaders(conn: PoolConnection) {
+  async qReadingFluencyHeaders() {
+    let conn;
+    try{
+      conn = await connectionPool.getConnection();
 
-    const query =
+      const query =
 
-      `
+        `
         SELECT 
             rfg.id AS id,
             rfl.id AS readingFluencyLevelId, rfl.name AS readingFluencyLevelName, rfl.color AS readingFluencyLevelColor,
@@ -1001,41 +1367,103 @@ export class GenericController<T> {
           INNER JOIN reading_fluency_exam as rfe ON rfg.readingFluencyExamId = rfe.id
       `
 
-    const [ queryResult ] = await conn.query(format(query), [])
+      const [ queryResult ] = await conn.query(format(query), [])
 
-    return queryResult as Array<qReadingFluenciesHeaders>
+      return queryResult as Array<qReadingFluenciesHeaders>
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticTests(conn: PoolConnection, categoryId: number, disciplineId: number, yearName: string) {
-    const query =
+  async qAlphabeticTests(categoryId: number, disciplineId: number, yearName: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+      SELECT 
+          t.id AS test_id, t.active AS test_active,
+          d.id AS discipline_id, d.name AS discipline_name,
+          tc.id AS test_category_id,
+          pr.id AS period_id,
+          b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName,
+          y.id AS year_id, y.name AS year_name           
+      FROM test AS t
+          INNER JOIN discipline AS d ON t.disciplineId = d.id
+          INNER JOIN period AS pr ON t.periodId = pr.id
+          INNER JOIN bimester AS b ON pr.bimesterId = b.id
+          INNER JOIN year AS y ON pr.yearId = y.id
+          INNER JOIN test_category AS tc ON t.categoryId = tc.id
+      WHERE tc.id = ? AND d.id = ? AND y.name = ?
+    `;
 
-      `
-        SELECT 
-            t.id AS test_id, t.active AS test_active,
-            d.id AS discipline_id, d.name AS discipline_name,
-            tc.id AS test_category_id,
-            pr.id AS period_id,
-            b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName,
-            y.id AS year_id, y.name AS year_name           
-            
-        FROM test AS t
-            INNER JOIN discipline AS d ON t.disciplineId = d.id
-            INNER JOIN period AS pr ON t.periodId = pr.id
-            INNER JOIN bimester AS b ON pr.bimesterId = b.id
-            INNER JOIN year AS y ON pr.yearId = y.id
-            INNER JOIN test_category AS tc ON t.categoryId = tc.id
-        WHERE tc.id = ? AND d.id = ? AND y.name = ?
-      `
+      // 2. Usa a conexão adquirida
+      const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName]);
 
-    const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName])
+      return this.formatAlphabeticTests(queryResult as qAlphaTests[]);
 
-    return this.formatAlphabeticTests(queryResult as qAlphaTests[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestions(conn: PoolConnection, testId: number | string) {
+  async qTestQuestionsForMultipleTests(testIds: number[]) {
+    if (!testIds || testIds.length === 0) { return new Map() }
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+            SELECT
+                tq.id AS test_question_id,
+                tq.testId AS test_id,
+                tq.order AS test_question_order,
+                tq.answer AS test_question_answer,
+                tq.active AS test_question_active,
+                qt.id AS question_id,
+                qg.id AS question_group_id,
+                qg.name AS question_group_name,
+                sk.id AS skill_id,
+                sk.reference AS skill_reference,
+                sk.description AS skill_description
+            FROM test_question AS tq
+                     INNER JOIN question AS qt ON tq.questionId = qt.id
+                     LEFT JOIN skill AS sk ON qt.skillId = sk.id
+                     INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+            WHERE tq.testId IN (?)
+            ORDER BY tq.testId, qg.id, tq.order
+        `;
 
-    const query =
-      `
+      const [ queryResult ] = await conn.query(format(query), [testIds]);
+      const allQuestionsRaw = queryResult as any[];
+
+      const questionsByTestId = new Map<number, any[]>();
+      for (const question of allQuestionsRaw) {
+        const testId = question.test_id;
+        if (!questionsByTestId.has(testId)) {
+          questionsByTestId.set(testId, []);
+        }
+        questionsByTestId.get(testId)!.push(question);
+      }
+
+      const finalMap = new Map();
+      for (const [testId, rawQuestions] of questionsByTestId.entries()) {
+        finalMap.set(testId, this.formatTestQuestions(rawQuestions));
+      }
+
+      return finalMap;
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qTestQuestions(testId: number | string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
         SELECT 
             tq.id AS test_question_id,
             tq.order AS test_question_order,
@@ -1056,14 +1484,19 @@ export class GenericController<T> {
         ORDER BY qg.id, tq.order
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId])
-    return this.formatTestQuestions(queryResult as qTestQuestions[])
+      const [ queryResult ] = await conn.query(format(query), [testId])
+      return this.formatTestQuestions(queryResult as qTestQuestions[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestionsWithTitle(conn: PoolConnection, testId: number | string) {
-
-    const query =
-      `
+  async qTestQuestionsWithTitle(testId: number | string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
         SELECT 
             tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
             qt.id AS question_id,
@@ -1080,14 +1513,19 @@ export class GenericController<T> {
         ORDER BY qg.id, tq.order
       `
 
-    const [ queryResult ] = await conn.query(format(query), [testId])
-    return this.formatTestQuestions(queryResult as qTestQuestions[])
+      const [ queryResult ] = await conn.query(format(query), [testId])
+      return this.formatTestQuestions(queryResult as qTestQuestions[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentTestQuestions(conn: PoolConnection, testId: number, studentId: number) {
-
-    const query =
-      `
+  async qStudentTestQuestions(testId: number, studentId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
         SELECT sq.id AS studentQuestionId, sq.answer, sq.testQuestionId, sq.studentId, sq.rClassroomId
         FROM student_question sq
           INNER JOIN test_question tq ON sq.testQuestionId = tq.id
@@ -1096,55 +1534,22 @@ export class GenericController<T> {
         WHERE studentId = ? AND tt.id = ?;
       `
 
-    const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+      const [ queryResult ] = await conn.query(format(query), [studentId, testId])
 
-    return queryResult as Array<{ id: number, answer: string, testQuestionId: string, studentId: number, rClassroomId: number }>
-  }
-
-  async qCreateLinkAlphabetic(studentClassrooms: qAlphaStuClassroomsFormated[], test: Test, userId: number, conn: PoolConnection) {
-
-    if (!studentClassrooms.length) return;
-
-    const studentIds = studentClassrooms.map(el => el.student.id);
-
-    const existingQuery = `
-      SELECT DISTINCT stu.id AS studentId
-      FROM alphabetic AS alpha
-        INNER JOIN test AS tt ON alpha.testId = tt.id
-        INNER JOIN student AS stu ON alpha.studentId = stu.id
-      WHERE tt.id = ? AND stu.id IN (${studentIds.map(() => '?').join(',')})
-    `;
-
-    const [existingRecords] = await conn.query(existingQuery, [test.id, ...studentIds]);
-
-    const existingStudentIds = new Set((existingRecords as Array<{ studentId: number }>).map(r => r.studentId));
-
-    const studentsToInsert = studentClassrooms.filter(el => !existingStudentIds.has(el.student.id))
-
-    if (!studentsToInsert.length) return;
-
-    const values = studentsToInsert.map(el => [new Date(), userId, el.student.id, test.id]);
-
-    const insertQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ?`;
-
-    try { if (values.length > 0) { await conn.query(insertQuery, [values]) } }
-    catch (error: any) {
-      if (error.code === 'ER_LOCK_WAIT_TIMEOUT') {
-        console.warn('Lock timeout detectado, tentando inserção individual com IGNORE');
-
-        for (const value of values) {
-          const singleInsertQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES (?, ?, ?, ?)`;
-          try { await conn.query(singleInsertQuery, value) }
-          catch (individualError: any) { console.error(`Erro ao inserir alphabetic para student ${value[2]}:`, individualError.message)}
-        }
-      } else { throw error }
+      return queryResult as Array<{ id: number, answer: string, testQuestionId: string, studentId: number, rClassroomId: number }>
     }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentClassrooms(conn: PoolConnection, classroomId: number, yearId: number) {
-    const query =
+  async qStudentClassrooms(classroomId: number, yearId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
 
-      `
+      const query =
+
+        `
         SELECT sc.id, sc.rosterNumber, sc.classroomId, sc.startedAt, sc.endedAt, s.id AS student_id, p.id AS person_id, p.name AS person_name
         FROM student_classroom AS sc
           INNER JOIN student AS s ON sc.studentId = s.id
@@ -1152,26 +1557,40 @@ export class GenericController<T> {
         WHERE sc.classroomId = ? AND sc.yearId = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
-    return  this.formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
+      const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
+      return  this.formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qSetFirstLevel(conn: PoolConnection, studentId: number, levelId: number, userId: number) {
-
-    const query = `
+  async qSetFirstLevel(studentId: number, levelId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      await conn.beginTransaction();
+      const query = `
       INSERT INTO alphabetic_first (studentId, alphabeticFirstId, createdByUser, updatedByUser, createdAt, updatedAt) 
       VALUES (?, ?, ?, ?, ?, ?) 
       ON DUPLICATE KEY UPDATE alphabeticFirstId = VALUES(alphabeticFirstId), updatedByUser = VALUES(updatedByUser), updatedAt = VALUES(updatedAt)
     `
 
-    const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId, new Date(), new Date()])
-    return queryResult as any
+      const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId, new Date(), new Date()])
+      conn.commit()
+      return queryResult as any
+    }
+    catch (error) { if(conn) conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherRelationship(conn: PoolConnection, teacherId: number | string) {
-    const qTeacher =
+  async qTeacherRelationship(teacherId: number | string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const qTeacher =
 
-      `
+        `
         SELECT 
           person.id AS person_id, person.name AS person_name, person.birth AS person_birth,
           person_category.id AS category_id, person_category.name AS category_name,
@@ -1182,10 +1601,10 @@ export class GenericController<T> {
         WHERE teacher.id = ?
       `
 
-    const [ teacherQueryResult ] = await conn.query(format(qTeacher), [teacherId])
+      const [ teacherQueryResult ] = await conn.query(format(qTeacher), [teacherId])
 
-    const qRelationships =
-      `
+      const qRelationships =
+        `
         SELECT 
           tcd.id, tcd.teacherId, tcd.classroomId, tcd.disciplineId, tcd.contractId AS contract, tcd.startedAt,
           classroom.shortName AS classroomName, 
@@ -1199,36 +1618,45 @@ export class GenericController<T> {
         ORDER BY classroom.shortName, school.shortName, discipline.name
       `
 
-    const [ teacherClassesDisciplines ] = (await conn.query(format(qRelationships), [teacherId]))
+      const [ teacherClassesDisciplines ] = (await conn.query(format(qRelationships), [teacherId]))
 
-    let relationships = teacherClassesDisciplines as Array<qTeacherRelationShip>
+      let relationships = teacherClassesDisciplines as Array<qTeacherRelationShip>
 
-    let teacher = (teacherQueryResult as Array<any>)[0]
+      let teacher = (teacherQueryResult as Array<any>)[0]
 
-    return {
-      id: teacher.teacher_id,
-      email: teacher.teacher_email,
-      register: teacher.teacher_register,
-      school: teacher.school_id,
-      observation: teacher.observation,
-      person: {
-        id: teacher.person_id,
-        name: teacher.person_name,
-        birth: teacher.person_birth,
-        category: {
-          id: teacher.category_id,
-          name: teacher.category_name
-        }
-      },
-      teacherClassesDisciplines: relationships.map(el => ({ ...el, active: true }))
+      return {
+        id: teacher.teacher_id,
+        email: teacher.teacher_email,
+        register: teacher.teacher_register,
+        school: teacher.school_id,
+        observation: teacher.observation,
+        person: {
+          id: teacher.person_id,
+          name: teacher.person_name,
+          birth: teacher.person_birth,
+          category: {
+            id: teacher.category_id,
+            name: teacher.category_name
+          }
+        },
+        teacherClassesDisciplines: relationships.map(el => ({ ...el, active: true }))
+      }
     }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAlphaStudents(conn: PoolConnection, test: Test, classroomId: number, year: number, studentClassroomId: number | null) {
+  async qAlphaStudents(test: Test, classroomId: number, year: number, studentClassroomId: number | null) {
 
-    if(studentClassroomId) {
+    let conn;
 
-      let query = `
+    try {
+
+      conn = await connectionPool.getConnection();
+
+      if(studentClassroomId) {
+
+        let query = `
           SELECT student_classroom.id,
                  student_classroom.rosterNumber,
                  student_classroom.startedAt,
@@ -1272,14 +1700,14 @@ export class GenericController<T> {
           ORDER BY student_classroom.rosterNumber, person.name
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
+        const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
 
-      return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
-    }
+        return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+      }
 
-    let query =
+      let query =
 
-      `
+        `
         SELECT
           student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
           student.id AS studentId, student.active,
@@ -1314,41 +1742,59 @@ export class GenericController<T> {
         ORDER BY student_classroom.rosterNumber, name
       `
 
-    const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
+      const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
 
-    return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+      return this.formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qPendingTransferStatus(conn: PoolConnection, year: number, status: number) {
-    const query =
+  async qPendingTransferStatus(year: number, status: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
 
-      `
+        `
         SELECT *
         FROM transfer
         WHERE transfer.yearId = ? AND transfer.statusId = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [year, status])
-    return  queryResult as Array<Transfer>
+      const [ queryResult ] = await conn.query(format(query), [year, status])
+      return  queryResult as Array<Transfer>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qPresence(conn: PoolConnection, trainingId: number) {
-
-    const query = `
+  async qPresence(trainingId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query = `
         SELECT *
         FROM training AS t
         WHERE t.id = ?
     `;
 
-    const [queryResult] = await conn.query(format(query), [trainingId]);
-    return (queryResult as Array<Training>)[0]
+      const [queryResult] = await conn.query(format(query), [trainingId]);
+      return (queryResult as Array<Training>)[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAllReferencedTrainings(conn: PoolConnection, referencedTraining: Training) {
-    let query = '';
+  async qAllReferencedTrainings(referencedTraining: Training) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      let query = '';
 
-    if (!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
-      query = `
+      if (!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
+        query = `
           SELECT
               t.id,
               t.classroom,
@@ -1375,16 +1821,16 @@ export class GenericController<T> {
           ORDER BY t.id
       `;
 
-      const [queryResult] = await conn.query(query, [
-        referencedTraining.yearId,
-        referencedTraining.categoryId,
-        referencedTraining.classroom
-      ]);
+        const [queryResult] = await conn.query(query, [
+          referencedTraining.yearId,
+          referencedTraining.categoryId,
+          referencedTraining.classroom
+        ]);
 
-      return this.formatTrainingsWithSchedules(queryResult as any[]);
-    }
+        return this.formatTrainingsWithSchedules(queryResult as any[]);
+      }
 
-    query = `
+      query = `
         SELECT
             t.id,
             cc.id AS categoryId,
@@ -1410,18 +1856,25 @@ export class GenericController<T> {
         ORDER BY t.id
     `;
 
-    const [queryResult] = await conn.query(query, [
-      referencedTraining.yearId,
-      referencedTraining.categoryId,
-      referencedTraining.disciplineId
-    ]);
+      const [queryResult] = await conn.query(query, [
+        referencedTraining.yearId,
+        referencedTraining.categoryId,
+        referencedTraining.disciplineId
+      ]);
 
-    return this.formatTrainingsWithSchedules(queryResult as any[]);
+      return this.formatTrainingsWithSchedules(queryResult as any[]);
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherContractCurrentYear(conn: PoolConnection, body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
-    const query =
-      `
+  async updateTeacherContractCurrentYear(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      conn.beginTransaction()
+      const query =
+        `
           UPDATE teacher_class_discipline AS tcd
               INNER JOIN classroom AS c ON tcd.classroomId = c.id
               INNER JOIN school AS s ON c.schoolId = s.id
@@ -1434,12 +1887,20 @@ export class GenericController<T> {
               tcd.endedAt IS NULL
       `
 
-    const [ queryResult ] = await conn.query(query, [body.contractId, body.teacherId, body.schoolId, body.classroom, body.categoryId])
-    return queryResult
+      const [ queryResult ] = await conn.query(query, [body.contractId, body.teacherId, body.schoolId, body.classroom, body.categoryId])
+      conn.commit()
+      return queryResult
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherContractOtherYear(conn: PoolConnection, body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
-    const query = `
+  async updateTeacherContractOtherYear(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      await conn.beginTransaction()
+      const query = `
     UPDATE teacher_class_discipline AS tcd
     INNER JOIN classroom AS c ON tcd.classroomId = c.id
     INNER JOIN school AS s ON c.schoolId = s.id
@@ -1454,26 +1915,30 @@ export class GenericController<T> {
       c.categoryId = ? AND
       y.name = ?
   `
-
-    const [ queryResult ] = await conn.query(query, [
-      body.contractId,
-      body.teacherId,
-      body.schoolId,
-      body.classroom,
-      body.categoryId,
-      body.yearName
-    ])
-
-    return queryResult
+      const [ queryResult ] = await conn.query(query, [
+        body.contractId,
+        body.teacherId,
+        body.schoolId,
+        body.classroom,
+        body.categoryId,
+        body.yearName
+      ])
+      await conn.commit()
+      return queryResult
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qSpecificDisciplinesInPEBI(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+  async qSpecificDisciplinesInPEBI(referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
+      const shouldFilterByDiscipline = referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
+      const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id);
 
-    const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
-    const shouldFilterByDiscipline = referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
-    const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id);
-
-    const query = `
+      const query = `
         SELECT
             t.id,
             p.name,
@@ -1512,35 +1977,39 @@ export class GenericController<T> {
             p.name
     `;
 
-    const queryParams = [
-      ...(shouldFilterByTeacher ? [teacher.id] : []),
-      ...(isCurrentYear ? [] : [referencedTrainingYear]),
-      ...(shouldFilterBySchool ? [teacher.school.id] : []),
-      ...(shouldFilterByDiscipline ? [referencedTraining.disciplineId] : [])
-    ];
+      const queryParams = [
+        ...(shouldFilterByTeacher ? [teacher.id] : []),
+        ...(isCurrentYear ? [] : [referencedTrainingYear]),
+        ...(shouldFilterBySchool ? [teacher.school.id] : []),
+        ...(shouldFilterByDiscipline ? [referencedTraining.disciplineId] : [])
+      ];
 
-    const [queryResult] = await conn.query(query, queryParams);
+      const [queryResult] = await conn.query(query, queryParams);
 
-    return queryResult as Array<{ id: number, name: string, discipline: string, classroom: string, schoolId: number, shortName: string, disciplineId: number, isHeadquarterSchool: number }>;
+      return queryResult as Array<{ id: number, name: string, discipline: string, classroom: string, schoolId: number, shortName: string, disciplineId: number, isHeadquarterSchool: number }>;
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeachersByCategory(conn: PoolConnection, referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+  async qTeachersByCategory(referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
+      const shouldFilterByClassroom = referencedTraining.categoryId === 1 && referencedTraining.classroom !== null && referencedTraining.classroom !== undefined;
+      const shouldFilterByDiscipline = referencedTraining.categoryId === 2 && referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
+      const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id);
 
-    const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
-    const shouldFilterByClassroom = referencedTraining.categoryId === 1 && referencedTraining.classroom !== null && referencedTraining.classroom !== undefined;
-    const shouldFilterByDiscipline = referencedTraining.categoryId === 2 && referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
-    const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id);
-
-    // Query principal (mantém comportamento original + escola sede)
-    const mainQuery = `
+      const mainQuery = `
         SELECT
             t.id,
             p.name,
             CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END AS discipline,
             ${referencedTraining.categoryId === 2 ?
-      `GROUP_CONCAT(DISTINCT CAST(LEFT(c.shortName, 1) AS UNSIGNED) ORDER BY CAST(LEFT(c.shortName, 1) AS UNSIGNED) SEPARATOR ', ') AS classroom` :
-      `CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom`
-    },
+        `GROUP_CONCAT(DISTINCT CAST(LEFT(c.shortName, 1) AS UNSIGNED) ORDER BY CAST(LEFT(c.shortName, 1) AS UNSIGNED) SEPARATOR ', ') AS classroom` :
+        `CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom`
+      },
             s.id AS schoolId,
             s.shortName,
             ${referencedTraining.categoryId === 2 ? 'd.id AS disciplineId' : 'NULL AS disciplineId'},
@@ -1571,54 +2040,55 @@ export class GenericController<T> {
             )
         GROUP BY
             ${referencedTraining.categoryId === 2 ?
-      `t.id, p.id, p.name, s.id, s.shortName, d.id, CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END` :
-      `t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED), CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END`
-    }
+        `t.id, p.id, p.name, s.id, s.shortName, d.id, CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END` :
+        `t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED), CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END`
+      }
         ORDER BY s.shortName
     `;
 
-    const mainQueryParams = [
-      ...(shouldFilterByTeacher ? [teacher.id] : []),
-      referencedTraining.categoryId,
-      ...(isCurrentYear ? [] : [referencedTrainingYear]),
-      ...(shouldFilterByClassroom ? [referencedTraining.classroom] : []),
-      ...(shouldFilterBySchool ? [teacher.school.id] : []),
-      referencedTraining.disciplineId
-    ];
+      const mainQueryParams = [
+        ...(shouldFilterByTeacher ? [teacher.id] : []),
+        referencedTraining.categoryId,
+        ...(isCurrentYear ? [] : [referencedTrainingYear]),
+        ...(shouldFilterByClassroom ? [referencedTraining.classroom] : []),
+        ...(shouldFilterBySchool ? [teacher.school.id] : []),
+        referencedTraining.disciplineId
+      ];
 
-    // Executa query principal
-    const [mainResult] = await conn.query(mainQuery, mainQueryParams);
-    let allTeachers = mainResult as Array<{ id: number, name: string, discipline: string, classroom: number | string, schoolId: number, shortName: string, disciplineId?: number | null, isHeadquarterSchool: number }>;
+      const [mainResult] = await conn.query(mainQuery, mainQueryParams);
+      let allTeachers = mainResult as Array<{ id: number, name: string, discipline: string, classroom: number | string, schoolId: number, shortName: string, disciplineId?: number | null, isHeadquarterSchool: number }>;
 
-    // Se for busca por PEBII, adiciona professores de disciplinas específicas que lecionam em PEBI
-    if (referencedTraining.categoryId === 2) {
-      const specificTeachers = await this.qSpecificDisciplinesInPEBI(conn, referencedTraining, isCurrentYear, referencedTrainingYear, teacher);
+      if (referencedTraining.categoryId === 2) {
+        const specificTeachers = await this.qSpecificDisciplinesInPEBI(referencedTraining, isCurrentYear, referencedTrainingYear, teacher);
 
-      // Remove duplicatas (caso um professor já esteja no resultado principal)
-      const existingIds = new Set(allTeachers.map(t => `${t.id}-${t.schoolId}-${t.disciplineId}`));
-      const newTeachers = specificTeachers.filter(t =>
-        !existingIds.has(`${t.id}-${t.schoolId}-${t.disciplineId}`)
-      );
+        const existingIds = new Set(allTeachers.map(t => `${t.id}-${t.schoolId}-${t.disciplineId}`));
+        const newTeachers = specificTeachers.filter(t =>
+          !existingIds.has(`${t.id}-${t.schoolId}-${t.disciplineId}`)
+        );
 
-      allTeachers = [...allTeachers, ...newTeachers];
+        allTeachers = [...allTeachers, ...newTeachers];
 
-      // Ordenação simplificada: apenas por nome da escola
-      allTeachers.sort((a, b) => a.shortName.localeCompare(b.shortName));
+        allTeachers.sort((a, b) => a.shortName.localeCompare(b.shortName));
+      }
+
+      return allTeachers;
     }
-
-    return allTeachers;
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherTrainings(conn: PoolConnection, teachers: TeacherParam[], trainingIds: number[], categoryId: number, isCurrentYear: boolean, referencedTrainingYear: string ) {
-
-    const query = `
+  async qTeacherTrainings(teachers: TeacherParam[], trainingIds: number[], categoryId: number, isCurrentYear: boolean, referencedTrainingYear: string ) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query = `
         SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
         FROM training_teacher AS tt
         WHERE tt.trainingId IN (?) AND tt.teacherId = ?
     `
 
-    // Query para PEBI (categoryId = 1) - comportamento original
-    const contractQueryPEBI = `
+      // Query para PEBI (categoryId = 1) - comportamento original
+      const contractQueryPEBI = `
         SELECT tcd.id, tcd.teacherId, tcd.contractId
         FROM teacher_class_discipline AS tcd
                  INNER JOIN classroom AS c ON tcd.classroomId = c.id
@@ -1635,14 +2105,14 @@ INNER JOIN year AS y ON tr.yearId = y.id
             c.categoryId = 1 AND
             tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
             ${isCurrentYear
-                    ? 'tcd.endedAt IS NULL'
-                    : 'y.name = ?'
-            }
+        ? 'tcd.endedAt IS NULL'
+        : 'y.name = ?'
+      }
         LIMIT 1
     `
 
-    // Query para PEBII (categoryId = 2) - comportamento original
-    const contractQueryPEBII = `
+      // Query para PEBII (categoryId = 2) - comportamento original
+      const contractQueryPEBII = `
         SELECT tcd.id, tcd.teacherId, tcd.contractId
         FROM teacher_class_discipline AS tcd
                  INNER JOIN classroom AS c ON tcd.classroomId = c.id
@@ -1658,14 +2128,14 @@ INNER JOIN year AS y ON tr.yearId = y.id
             c.categoryId = 2 AND
             tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
             ${isCurrentYear
-                    ? 'tcd.endedAt IS NULL'
-                    : 'y.name = ?'
-            }
+        ? 'tcd.endedAt IS NULL'
+        : 'y.name = ?'
+      }
         LIMIT 1
     `
 
-    // Query para disciplinas específicas em PEBI (nova)
-    const contractQuerySpecificInPEBI = `
+      // Query para disciplinas específicas em PEBI (nova)
+      const contractQuerySpecificInPEBI = `
         SELECT tcd.id, tcd.teacherId, tcd.contractId
         FROM teacher_class_discipline AS tcd
                  INNER JOIN classroom AS c ON tcd.classroomId = c.id
@@ -1681,79 +2151,84 @@ INNER JOIN year AS y ON tr.yearId = y.id
             c.categoryId = 1 AND
             tcd.disciplineId = ? AND
             ${isCurrentYear
-                    ? 'tcd.endedAt IS NULL'
-                    : 'y.name = ?'
-            }
+        ? 'tcd.endedAt IS NULL'
+        : 'y.name = ?'
+      }
         LIMIT 1
     `
 
-    // Busca contratos
-    for(let teacher of teachers) {
-      let queryParams: any[];
-      let contractQuery: string;
+      // Busca contratos
+      for(let teacher of teachers) {
+        let queryParams: any[];
+        let contractQuery: string;
 
-      // Detecta se é um professor de disciplina específica lecionando em PEBI
-      const isSpecificDisciplineInPEBI = teacher.disciplineId !== null &&
-        teacher.disciplineId !== undefined &&
-        [6, 7, 8].includes(teacher.disciplineId) &&
-        typeof teacher.classroom === 'string' &&
-        teacher.classroom.split(',').some(c => parseInt(c.trim()) >= 1 && parseInt(c.trim()) <= 5);
+        // Detecta se é um professor de disciplina específica lecionando em PEBI
+        const isSpecificDisciplineInPEBI = teacher.disciplineId !== null &&
+          teacher.disciplineId !== undefined &&
+          [6, 7, 8].includes(teacher.disciplineId) &&
+          typeof teacher.classroom === 'string' &&
+          teacher.classroom.split(',').some(c => parseInt(c.trim()) >= 1 && parseInt(c.trim()) <= 5);
 
-      if (categoryId === 1) {
-        // PEBI - usa classroom específico
-        const classroom = typeof teacher.classroom === 'string' ?
-          parseInt(teacher.classroom.split(',')[0].trim()) :
-          teacher.classroom;
+        if (categoryId === 1) {
+          // PEBI - usa classroom específico
+          const classroom = typeof teacher.classroom === 'string' ?
+            parseInt(teacher.classroom.split(',')[0].trim()) :
+            teacher.classroom;
 
-        queryParams = [
-          teacher.id,
-          teacher.schoolId,
-          classroom,
-          teacher.disciplineId,
-          ...(isCurrentYear ? [] : [referencedTrainingYear])
-        ];
-        contractQuery = contractQueryPEBI;
+          queryParams = [
+            teacher.id,
+            teacher.schoolId,
+            classroom,
+            teacher.disciplineId,
+            ...(isCurrentYear ? [] : [referencedTrainingYear])
+          ];
+          contractQuery = contractQueryPEBI;
 
-      } else if (isSpecificDisciplineInPEBI) {
-        // Professor de disciplina específica que leciona em PEBI mas aparece em busca PEBII
-        queryParams = [
-          teacher.id,
-          teacher.schoolId,
-          teacher.disciplineId,
-          ...(isCurrentYear ? [] : [referencedTrainingYear])
-        ];
-        contractQuery = contractQuerySpecificInPEBI;
+        } else if (isSpecificDisciplineInPEBI) {
+          // Professor de disciplina específica que leciona em PEBI mas aparece em busca PEBII
+          queryParams = [
+            teacher.id,
+            teacher.schoolId,
+            teacher.disciplineId,
+            ...(isCurrentYear ? [] : [referencedTrainingYear])
+          ];
+          contractQuery = contractQuerySpecificInPEBI;
 
-      } else {
-        // PEBII - comportamento original
-        queryParams = [
-          teacher.id,
-          teacher.schoolId,
-          teacher.disciplineId,
-          ...(isCurrentYear ? [] : [referencedTrainingYear])
-        ];
-        contractQuery = contractQueryPEBII;
+        } else {
+          // PEBII - comportamento original
+          queryParams = [
+            teacher.id,
+            teacher.schoolId,
+            teacher.disciplineId,
+            ...(isCurrentYear ? [] : [referencedTrainingYear])
+          ];
+          contractQuery = contractQueryPEBII;
+        }
+
+        const [queryResult] = await conn.query(contractQuery, queryParams);
+        const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0];
+
+        teacher.contract = result ? result.contractId : null;
       }
 
-      const [queryResult] = await conn.query(contractQuery, queryParams);
-      const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0];
+      // Busca treinamentos dos professores
+      for(let teacher of teachers) {
+        const [queryResult] = await conn.query(query, [trainingIds, teacher.id]);
+        teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string, observation: string | null }>;
+      }
 
-      teacher.contract = result ? result.contractId : null;
+      return teachers;
     }
-
-    // Busca treinamentos dos professores
-    for(let teacher of teachers) {
-      const [queryResult] = await conn.query(query, [trainingIds, teacher.id]);
-      teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string, observation: string | null }>;
-    }
-
-    return teachers;
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTrainings(conn: PoolConnection, yearId: number, search: string, peb: number, limit: number, offset: number) {
-
-    const query =
-      `
+  async qTrainings(yearId: number, search: string, peb: number, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
+        `
           SELECT
               t.id AS id,
               t.classroom AS classroom,
@@ -1778,23 +2253,29 @@ INNER JOIN year AS y ON tr.yearId = y.id
           OFFSET ?
       `
 
-    const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
+      const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
 
-    return queryResult as Array<{
-      id: number,
-      classroom: string,
-      observation: string,
-      discipline: string,
-      category: string,
-      meeting: string,
-      month: string,
-      year: string,
-      createdBy: string,
-    }>
+      return queryResult as Array<{
+        id: number,
+        classroom: string,
+        observation: string,
+        discipline: string,
+        category: string,
+        meeting: string,
+        month: string,
+        year: string,
+        createdBy: string,
+      }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qOneTraining(conn: PoolConnection, id: number): Promise<TrainingResult | null> {
-    const query = `
+  async qOneTraining(id: number): Promise<TrainingResult | null> {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query = `
         SELECT
             t.id AS id,
             tm.id AS meeting,
@@ -1814,78 +2295,124 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE t.id = ?
     `;
 
-    const [queryResult] = await conn.query(query, [id]);
-    const rows = queryResult as any[];
+      const [queryResult] = await conn.query(query, [id]);
+      const rows = queryResult as any[];
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    const firstRow = rows[0];
-    const training: TrainingResult = {
-      id: firstRow.id,
-      meeting: firstRow.meeting,
-      classroom: firstRow.classroom,
-      observation: firstRow.observation,
-      discipline: firstRow.discipline,
-      category: firstRow.category,
-      month: firstRow.month,
-      trainingSchedules: []
-    };
-
-    for(let row of rows) {
-      if (row.trainingScheduleId) {
-        training.trainingSchedules.push({
-          id: row.trainingScheduleId,
-          trainingId: row.training,
-          dateTime: row.dateTime,
-          active: row.active === 1
-        });
+      if (rows.length === 0) {
+        return null;
       }
+
+      const firstRow = rows[0];
+      const training: TrainingResult = {
+        id: firstRow.id,
+        meeting: firstRow.meeting,
+        classroom: firstRow.classroom,
+        observation: firstRow.observation,
+        discipline: firstRow.discipline,
+        category: firstRow.category,
+        month: firstRow.month,
+        trainingSchedules: []
+      };
+
+      for(let row of rows) {
+        if (row.trainingScheduleId) {
+          training.trainingSchedules.push({
+            id: row.trainingScheduleId,
+            trainingId: row.training,
+            dateTime: row.dateTime,
+            active: row.active === 1
+          });
+        }
+      }
+
+      return training;
     }
-
-    return training;
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qClassroomCategories(conn: PoolConnection) {
-    const query = `SELECT id, name FROM classroom_category`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<ClassroomCategory>
+  async qClassroomCategories() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM classroom_category`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<ClassroomCategory>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+
   }
 
-  async qContracts(conn: PoolConnection) {
-    const query = `SELECT id, name FROM contract ORDER BY id DESC`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<Contract>
+  async qContracts() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM contract ORDER BY id DESC`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<Contract>
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+
   }
 
-  async qTeacherTrainingStatus(conn: PoolConnection) {
-    const query = `SELECT id, name FROM training_teacher_status WHERE active = 1`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<TrainingTeacherStatus>
+  async qTeacherTrainingStatus() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM training_teacher_status WHERE active = 1`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<TrainingTeacherStatus>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+
   }
 
-  async qDisciplines(conn: PoolConnection) {
-    const query = `SELECT id, name FROM discipline`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<Discipline>
+  async qDisciplines() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM discipline`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<Discipline>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTrainingSchedulesMonthReference(conn: PoolConnection) {
-    const query = `SELECT id, name FROM training_schedules_months_references ORDER BY id`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<{ id: number, name: string }>
+  async qTrainingSchedulesMonthReference() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM training_schedules_months_references ORDER BY id`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<{ id: number, name: string }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qTrainingSchedulesMeetings(conn: PoolConnection) {
-    const query = `SELECT id, name FROM training_schedules_meeting ORDER BY id`
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<{ id: number, name: string }>
+  async qTrainingSchedulesMeetings() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name FROM training_schedules_meeting ORDER BY id`
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<{ id: number, name: string }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qNumberClassrooms(conn: PoolConnection) {
-    const query =
-      `
+  async qNumberClassrooms() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
           SELECT DISTINCT CAST(LEFT(shortName, 1) AS UNSIGNED) AS classroom_number, cc.id AS categoryId, cc.name AS categoryName
           FROM classroom AS c
                    INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
@@ -1893,14 +2420,20 @@ INNER JOIN year AS y ON tr.yearId = y.id
             AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) BETWEEN 1 AND 9
           ORDER BY classroom_number
       `
-    const [ queryResult ] = await conn.query(format(query))
-    return  queryResult as Array<any>
+      const [ queryResult ] = await conn.query(format(query))
+      return  queryResult as Array<any>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qPendingTransferStatusBySchool(conn: PoolConnection, year: number, transferStatus: number, schoolId: number) {
-    const query =
+  async qPendingTransferStatusBySchool(year: number, transferStatus: number, schoolId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT p.name, s.ra, s.dv, c.shortName AS requestedClassroom, sh.shortName As requestedSchool, ts.name AS status, currentClassroom.shortName AS currentClassroom, currentSchool.shortName AS currentSchool
         FROM transfer AS t
          INNER JOIN student AS s ON t.studentId = s.id
@@ -1914,14 +2447,20 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE y.id = ? AND ts.id = ? AND currentSchool.id = ?;
       `
 
-    const [ queryResult ] = await conn.query(format(query), [year, transferStatus, schoolId])
-    return  queryResult as Array<qPendingTransfers>
+      const [ queryResult ] = await conn.query(format(query), [year, transferStatus, schoolId])
+      return  queryResult as Array<qPendingTransfers>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qAllPendingTransferStatusBySchool(conn: PoolConnection, year: number, transferStatus: number) {
-    const query =
+  async qAllPendingTransferStatusBySchool(year: number, transferStatus: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
 
-      `
+        `
         SELECT p.name, s.ra, s.dv, c.shortName AS requestedClassroom, sh.shortName As requestedSchool, ts.name AS status, currentClassroom.shortName AS currentClassroom, currentSchool.shortName AS currentSchool
         FROM transfer AS t
          INNER JOIN student AS s ON t.studentId = s.id
@@ -1935,19 +2474,24 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE y.id = ? AND ts.id = ?
       `
 
-    const [ queryResult ] = await conn.query(format(query), [year, transferStatus])
-    return  queryResult as Array<qPendingTransfers>
+      const [ queryResult ] = await conn.query(format(query), [year, transferStatus])
+      return  queryResult as Array<qPendingTransfers>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qCurrentTeacherStudents(conn: PoolConnection, classrooms: number[], student: string | number, masterTeacher: boolean, limit: number, offset: number) {
+  async qCurrentTeacherStudents(classrooms: number[], student: string | number, masterTeacher: boolean, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const studentSearch = `%${student.toString().toUpperCase()}%`
 
-    const studentSearch = `%${student.toString().toUpperCase()}%`
+      let responseData
 
-    let responseData
+      if(masterTeacher) {
 
-    if(masterTeacher) {
-
-      let query = `
+        let query = `
         SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
@@ -1957,13 +2501,13 @@ INNER JOIN year AS y ON tr.yearId = y.id
         OFFSET ?
         `
 
-      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, limit, offset])
-      responseData = queryResult
+        const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, limit, offset])
+        responseData = queryResult
 
-      return responseData as { studentClassroomId: number, studentId: number, name: string }[]
-    }
+        return responseData as { studentClassroomId: number, studentId: number, name: string }[]
+      }
 
-    let query = `
+      let query = `
         SELECT sc.id, stu.id AS studentId, per.name
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
@@ -1971,15 +2515,20 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?) AND sc.endedAt IS NULL
         `
 
-    const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms])
-    responseData = queryResult
+      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms])
+      responseData = queryResult
 
-    return responseData as { id: number, studentId: number, name: string }[]
+      return responseData as { id: number, studentId: number, name: string }[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentTestsByYear(conn: PoolConnection, studentIds: number[], year: string, limit: number, offset: number) {
-
-    const query = `
+  async qStudentTestsByYear(studentIds: number[], year: string, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
       SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
       FROM student_test_status AS sts
       INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
@@ -1997,13 +2546,18 @@ INNER JOIN year AS y ON tr.yearId = y.id
       OFFSET ?
     `
 
-    const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
-    return queryResult as qStudentTests[]
+      const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
+      return queryResult as qStudentTests[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
-  async qStudentAlphabeticByYear(conn: PoolConnection, studentIds: number[], year: string, limit: number, offset: number) {
-
-    const query = `
+  async qStudentAlphabeticByYear(studentIds: number[], year: string, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
       SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
       FROM alphabetic AS alpha
       INNER JOIN student AS stu ON alpha.studentId = stu.id
@@ -2020,9 +2574,678 @@ INNER JOIN year AS y ON tr.yearId = y.id
       LIMIT ?
       OFFSET ?
     `
+      const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
+      return queryResult as qStudentTests[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 
-    const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
-    return queryResult as qStudentTests[]
+  async qTestQuestionsGroupsOnReport(testId: number) {
+    let conn;
+    try{
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+        SELECT 
+          qg.id,
+          qg.name,
+          COUNT(tq.id) AS questionsCount
+        FROM question_group qg
+        INNER JOIN test_question tq ON tq.questionGroupId = qg.id
+        WHERE tq.testId = ?
+        GROUP BY qg.id, qg.name
+        ORDER BY qg.id
+      `
+
+      const [result] = await conn.query(query, [testId])
+
+      return result as Array<{ id: number, name: string, questionsCount: number }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async bactchQueryAlphaQuestions(testIds: number[]){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const batchQuery = `
+        SELECT 
+          tq.id AS test_question_id, 
+          tq.order AS test_question_order, 
+          tq.answer AS test_question_answer, 
+          tq.active AS test_question_active,
+          tq.testId AS test_id,
+          qt.id AS question_id,
+          qg.id AS question_group_id, 
+          qg.name AS question_group_name,
+          sk.id AS skill_id, 
+          sk.reference AS skill_reference, 
+          sk.description AS skill_description
+        FROM test_question AS tq
+        INNER JOIN question AS qt ON tq.questionId = qt.id
+        LEFT JOIN skill AS sk ON qt.skillId = sk.id
+        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+        INNER JOIN test AS tt ON tq.testId = tt.id
+        WHERE tt.id IN (${testIds.map(() => '?').join(',')})
+        ORDER BY tt.id, qg.id, tq.order
+      `;
+
+      const [batchResult] = await conn.query(batchQuery, testIds);
+      return batchResult
+
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], classroomId?: number, studentClassroomId?: number | null) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const hasQuestions = !!testQuestionsIds.length;
+      const testQuestionsPlaceholders = hasQuestions && testQuestionsIds.length > 0
+        ? testQuestionsIds.map(() => '?').join(',')
+        : '';
+
+      let query = `
+    SELECT 
+      -- School
+      s.id AS school_id,
+      s.name AS school_name,
+      s.shortName AS school_shortName,
+      
+      -- Classroom
+      c.id AS classroom_id,
+      c.name AS classroom_name,
+      c.shortName AS classroom_shortName,
+      
+      -- StudentClassroom
+      sc.id AS studentClassroom_id,
+      sc.rosterNumber,
+      sc.endedAt AS studentClassroom_endedAt,
+      
+      -- Student
+      st.id AS student_id,
+      
+      -- Person
+      p.id AS person_id,
+      p.name AS person_name,
+      
+      -- AlphabeticFirst
+      af.id AS alphabeticFirst_id,
+      afl.id AS alphabeticFirst_level_id,
+      afl.name AS alphabeticFirst_level_name,
+      afl.shortName AS alphabeticFirst_level_shortName,
+      afl.color AS alphabeticFirst_level_color,
+      
+      -- Alphabetic
+      a.id AS alphabetic_id,
+      a.observation AS alphabetic_observation,
+      al.id AS alphabetic_level_id,
+      al.name AS alphabetic_level_name,
+      al.shortName AS alphabetic_level_shortName,
+      al.color AS alphabetic_level_color,
+      arc.id AS alphabetic_rClassroom_id,
+      arc.name AS alphabetic_rClassroom_name,
+      arc.shortName AS alphabetic_rClassroom_shortName,
+      at.id AS alpha_test_id,
+      at.name AS alpha_test_name,
+      atp.id AS alpha_test_period_id,
+      atb.id AS alpha_test_bimester_id,
+      atb.name AS alpha_test_bimester_name,
+      aty.id AS alpha_test_year_id,
+      aty.name AS alpha_test_year_name,
+      
+      -- StudentDisability
+      sd.id AS studentDisability_id,
+      sd.disabilityId AS disability_id,
+      d.name AS disability_name`;
+
+      if (hasQuestions) {
+        query += `,
+      -- StudentQuestion
+      sq.id AS studentQuestion_id,
+      sq.answer AS studentQuestion_answer,
+      sqrc.id AS studentQuestion_rClassroom_id,
+      tq.id AS testQuestion_id,
+      tq.order AS testQuestion_order,
+      tq.answer AS testQuestion_answer,
+      tq.active AS testQuestion_active,
+      t.id AS test_id,
+      t.name AS test_name,
+      per.id AS period_id,
+      bim.id AS bimester_id,
+      bim.name AS bimester_name,
+      py.id AS period_year_id,
+      py.name AS period_year_name`;
+      }
+
+      query += `
+    FROM school s
+    LEFT JOIN classroom c ON c.schoolId = s.id
+    LEFT JOIN student_classroom sc ON sc.classroomId = c.id
+    LEFT JOIN year scy ON sc.yearId = scy.id
+    LEFT JOIN student st ON sc.studentId = st.id
+    LEFT JOIN person p ON st.personId = p.id
+    LEFT JOIN alphabetic_first af ON af.studentId = st.id
+    LEFT JOIN alphabetic_level afl ON af.alphabeticFirstId = afl.id
+    LEFT JOIN alphabetic a ON a.studentId = st.id
+    LEFT JOIN alphabetic_level al ON a.alphabeticLevelId = al.id
+    LEFT JOIN classroom arc ON a.rClassroomId = arc.id
+    LEFT JOIN test at ON a.testId = at.id
+    LEFT JOIN test_category atc ON at.categoryId = atc.id
+    LEFT JOIN discipline atd ON at.disciplineId = atd.id
+    LEFT JOIN period atp ON at.periodId = atp.id
+    LEFT JOIN bimester atb ON atp.bimesterId = atb.id
+    LEFT JOIN year aty ON atp.yearId = aty.id
+    LEFT JOIN student_disability sd ON sd.studentId = st.id AND sd.endedAt IS NULL
+    LEFT JOIN disability d ON sd.disabilityId = d.id`;
+
+      if (hasQuestions) {
+        query += `
+    LEFT JOIN student_question sq ON sq.studentId = st.id
+    LEFT JOIN classroom sqrc ON sq.rClassroomId = sqrc.id
+    LEFT JOIN test_question tq ON sq.testQuestionId = tq.id ${testQuestionsPlaceholders ? `AND tq.id IN (${testQuestionsPlaceholders})` : ''}
+    LEFT JOIN test t ON tq.testId = t.id
+    LEFT JOIN test_category tc ON t.categoryId = tc.id
+    LEFT JOIN discipline td ON t.disciplineId = td.id
+    LEFT JOIN period per ON t.periodId = per.id
+    LEFT JOIN bimester bim ON per.bimesterId = bim.id
+    LEFT JOIN year py ON per.yearId = py.id`;
+      }
+
+      query += `
+    WHERE s.id NOT IN (28, 29)
+    AND c.id NOT IN (1216, 1217, 1218)
+    AND atd.id = ?
+    AND atc.id = ?
+    AND aty.name = ?
+    AND scy.name = ?`;
+
+      if (hasQuestions) {
+        query += `
+    AND (sc.startedAt < ? OR a.id IS NOT NULL OR sq.id IS NOT NULL)
+    AND tc.id = ?
+    AND td.id = ?
+    AND py.name = ?`;
+      } else {
+        query += `
+    AND (sc.startedAt < ? OR a.id IS NOT NULL)`;
+      }
+
+      if (classroomId) query += ` AND sc.classroomId = ?`;
+      if (studentClassroomId) query += ` AND sc.id = ?`;
+
+      query += `
+    ORDER BY sc.rosterNumber ASC, c.shortName ASC, s.shortName ASC`;
+
+      if (hasQuestions) {
+        query += `, bim.id ASC, tq.order ASC`;
+      }
+
+      // Parâmetros
+      const params: any[] = [];
+      if (hasQuestions && testQuestionsIds.length > 0) {
+        params.push(...testQuestionsIds);
+      }
+
+      params.push(
+        test.discipline?.id ?? test.discipline_id,
+        test.category?.id ?? test.test_category_id,
+        yearName,
+        yearName,
+        test.createdAt
+      );
+
+      if (hasQuestions) {
+        params.push(
+          test.category?.id ?? test.test_category_id,
+          test.discipline?.id ?? test.discipline_id,
+          yearName
+        );
+      }
+
+      if (classroomId) params.push(classroomId);
+      if (studentClassroomId) params.push(studentClassroomId);
+
+      const [rows] = await conn.query(query, params);
+
+      // Formatar resultado mantendo a estrutura do TypeORM
+      const schoolsMap = new Map();
+
+      for (const row of rows as any[]) {
+        if (!row.school_id) continue;
+
+        if (!schoolsMap.has(row.school_id)) {
+          schoolsMap.set(row.school_id, {
+            id: row.school_id,
+            name: row.school_name,
+            shortName: row.school_shortName,
+            classrooms: []
+          });
+        }
+
+        const school = schoolsMap.get(row.school_id);
+        let classroom = school.classrooms.find((c: any) => c.id === row.classroom_id);
+
+        if (!classroom) {
+          classroom = {
+            id: row.classroom_id,
+            name: row.classroom_name,
+            shortName: row.classroom_shortName,
+            school: {
+              id: row.school_id,
+              name: row.school_name,
+              shortName: row.school_shortName
+            },
+            studentClassrooms: []
+          };
+          school.classrooms.push(classroom);
+        }
+
+        let studentClassroom = classroom.studentClassrooms.find((sc: any) => sc.id === row.studentClassroom_id);
+
+        if (!studentClassroom) {
+          studentClassroom = {
+            id: row.studentClassroom_id,
+            rosterNumber: row.rosterNumber,
+            endedAt: row.studentClassroom_endedAt,
+            classroom: {
+              id: row.classroom_id,
+              name: row.classroom_name,
+              shortName: row.classroom_shortName
+            },
+            student: {
+              id: row.student_id,
+              person: {
+                id: row.person_id,
+                name: row.person_name
+              },
+              alphabeticFirst: null,
+              alphabetic: [],
+              studentDisabilities: [],
+              studentQuestions: hasQuestions ? [] : undefined
+            }
+          };
+
+          if (row.alphabeticFirst_id) {
+            studentClassroom.student.alphabeticFirst = {
+              id: row.alphabeticFirst_id,
+              alphabeticFirst: row.alphabeticFirst_level_id ? {
+                id: row.alphabeticFirst_level_id,
+                name: row.alphabeticFirst_level_name,
+                shortName: row.alphabeticFirst_level_shortName,
+                color: row.alphabeticFirst_level_color
+              } : null
+            };
+          }
+
+          classroom.studentClassrooms.push(studentClassroom);
+        }
+
+        // Adicionar Alphabetic
+        if (row.alphabetic_id && !studentClassroom.student.alphabetic.find((a: any) => a.id === row.alphabetic_id)) {
+          studentClassroom.student.alphabetic.push({
+            id: row.alphabetic_id,
+            observation: row.alphabetic_observation,
+            alphabeticLevel: row.alphabetic_level_id ? {
+              id: row.alphabetic_level_id,
+              name: row.alphabetic_level_name,
+              shortName: row.alphabetic_level_shortName,
+              color: row.alphabetic_level_color
+            } : null,
+            rClassroom: row.alphabetic_rClassroom_id ? {
+              id: row.alphabetic_rClassroom_id,
+              name: row.alphabetic_rClassroom_name,
+              shortName: row.alphabetic_rClassroom_shortName
+            } : null,
+            test: {
+              id: row.alpha_test_id,
+              name: row.alpha_test_name,
+              period: {
+                id: row.alpha_test_period_id,
+                bimester: {
+                  id: row.alpha_test_bimester_id,
+                  name: row.alpha_test_bimester_name
+                },
+                year: {
+                  id: row.alpha_test_year_id,
+                  name: row.alpha_test_year_name
+                }
+              }
+            }
+          });
+        }
+
+        // Adicionar StudentDisability
+        if (row.studentDisability_id && !studentClassroom.student.studentDisabilities.find((d: any) => d.id === row.studentDisability_id)) {
+          studentClassroom.student.studentDisabilities.push({
+            id: row.studentDisability_id,
+            disability: {
+              id: row.disability_id,
+              name: row.disability_name
+            }
+          });
+        }
+
+        // Adicionar StudentQuestion se houver
+        if (hasQuestions && row.studentQuestion_id && !studentClassroom.student.studentQuestions.find((q: any) => q.id === row.studentQuestion_id)) {
+          studentClassroom.student.studentQuestions.push({
+            id: row.studentQuestion_id,
+            answer: row.studentQuestion_answer || '',
+            rClassroom: row.studentQuestion_rClassroom_id ? {
+              id: row.studentQuestion_rClassroom_id
+            } : null,
+            testQuestion: row.testQuestion_id ? {
+              id: row.testQuestion_id,
+              order: row.testQuestion_order,
+              answer: row.testQuestion_answer,
+              active: row.testQuestion_active,
+              test: {
+                id: row.test_id,
+                name: row.test_name,
+                period: {
+                  id: row.period_id,
+                  bimester: {
+                    id: row.bimester_id,
+                    name: row.bimester_name
+                  },
+                  year: {
+                    id: row.period_year_id,
+                    name: row.period_year_name
+                  }
+                }
+              }
+            } : null
+          });
+        }
+      }
+
+      return Array.from(schoolsMap.values());
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async getTeacherClassrooms(masterUser: boolean, allClassrooms: number[]){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      let query = `
+        SELECT
+          classroom.id AS id,
+          classroom.shortName AS name,
+          school.shortName AS school
+        FROM classroom
+        LEFT JOIN school ON classroom.schoolId = school.id
+      `;
+      const params: any[] = [];
+
+      if (!masterUser) {
+        if (allClassrooms.length === 0) { return { status: 200, data: [] } }
+        query += ` WHERE classroom.id IN (?)`;
+        params.push(allClassrooms);
+      }
+      else { query += ` WHERE classroom.id > 0` }
+
+      const [queryResult] = await conn.query(query, params);
+
+      return queryResult as Array<Classroom>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async findPersonCategories(excludeIds: number[]){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query = `SELECT * FROM person_category WHERE id NOT IN (?)`;
+      const [result] = await conn.query(query, [excludeIds]);
+      return result as Array<PersonCategory>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qGetAllDisciplines(qUserTeacher: qUserTeacher, teacherDisciplines: { id: number, disciplines: number[] }){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+
+      let query = `
+        SELECT
+          discipline.id AS id,
+          discipline.name AS name,
+          discipline.shortName AS shortName
+        FROM discipline
+      `;
+      const params: any[] = [];
+      const isProfessor = qUserTeacher.person.category.id === pc.PROF;
+
+      if (isProfessor) {
+        if (!teacherDisciplines.disciplines || teacherDisciplines.disciplines.length === 0) {
+          return [];
+        }
+        query += ` WHERE discipline.id IN (?)`;
+        params.push(teacherDisciplines.disciplines);
+      }
+
+      const [result] = await conn.query(query, params);
+      return result as Array<Discipline>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qGetTestForGraphic(testId: string, testQuestionsIds: number[], year: any){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const testQuestionsPlaceholders = testQuestionsIds.map(() => '?').join(',');
+
+      const query = `
+        SELECT 
+          s.id AS school_id,
+          s.name AS school_name,
+          s.shortName AS school_shortName,
+          c.id AS classroom_id,
+          c.name AS classroom_name,
+          c.shortName AS classroom_shortName,
+          sc.id AS studentClassroom_id,
+          sc.studentId AS student_id,
+          sc.rosterNumber,
+          sc.startedAt,
+          sc.endedAt,
+          st.id AS student_id_check,
+          sq.id AS studentQuestion_id,
+          sq.answer AS studentQuestion_answer,
+          sq.rClassroomId AS studentQuestion_rClassroomId,
+          tq.id AS testQuestion_id,
+          tq.order AS testQuestion_order,
+          tq.answer AS testQuestion_answer,
+          tq.active AS testQuestion_active,
+          qg.id AS questionGroup_id,
+          qg.name AS questionGroup_name,
+          t.id AS test_id,
+          t.name AS test_name
+        FROM school s
+        LEFT JOIN classroom c ON c.schoolId = s.id
+        LEFT JOIN student_classroom sc ON sc.classroomId = c.id
+        LEFT JOIN student st ON sc.studentId = st.id
+        LEFT JOIN student_question sq ON sq.studentId = st.id
+        LEFT JOIN test_question tq ON sq.testQuestionId = tq.id 
+          AND tq.id IN (${testQuestionsPlaceholders})
+        LEFT JOIN question_group qg ON tq.questionGroupId = qg.id
+        LEFT JOIN test t ON tq.testId = t.id
+        LEFT JOIN period p ON t.periodId = p.id
+        WHERE 
+          t.id = ?
+          AND s.id NOT IN (28, 29)
+          AND c.id NOT IN (1216, 1217, 1218)
+          AND sc.yearId = ?
+          AND p.yearId = ?
+        ORDER BY 
+          s.shortName ASC,
+          c.id ASC,
+          qg.id ASC,
+          tq.order ASC
+      `;
+
+      const params = [...testQuestionsIds, testId, year.id, year.id];
+      const [rows] = await conn.query(query, params);
+      return rows;
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qfindAllByYear(
+    masterTeacher: boolean,
+    yearName: string,
+    classrooms: number[],
+    disciplines: number[],
+    bimesterId: number | null,
+    disciplineId: number | null,
+    search: string,
+    limit: number,
+    offset: number
+  ){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+
+      let query = `
+          WITH RankedTests AS (
+              SELECT
+                  t.id AS test_id,
+                  t.name AS test_name,
+
+                  -- Period
+                  p.id AS period_id,
+
+                  -- Category
+                  tc.id AS category_id,
+                  tc.name AS category_name,
+
+                  -- Year
+                  y.id AS year_id,
+                  y.name AS year_name,
+                  y.active AS year_active,
+
+                  -- Bimester
+                  b.id AS bimester_id,
+                  b.name AS bimester_name,
+                  b.testName AS bimester_test_name,
+
+                  -- Discipline
+                  d.id AS discipline_id,
+                  d.name AS discipline_name,
+
+                  -- Classroom
+                  c.id AS classroom_id,
+                  c.name AS classroom_name,
+                  c.shortName AS classroom_shortName,
+
+                  -- School
+                  s.id AS school_id,
+                  s.name AS school_name,
+                  s.shortName AS school_shortName,
+
+                  -- Adiciona ROW_NUMBER para ranking por categoria/disciplina/sala
+                  ROW_NUMBER() OVER (
+                      PARTITION BY tc.id, d.id, c.id, y.name
+                      ORDER BY b.id DESC
+                      ) AS rn
+
+              FROM test t
+                       INNER JOIN period p ON t.periodId = p.id
+                       INNER JOIN test_category tc ON t.categoryId = tc.id
+                       INNER JOIN year y ON p.yearId = y.id
+                       INNER JOIN bimester b ON p.bimesterId = b.id
+                       INNER JOIN discipline d ON t.disciplineId = d.id
+                       INNER JOIN test_classroom test_c ON t.id = test_c.testId
+                       INNER JOIN classroom c ON test_c.classroomId = c.id
+                       INNER JOIN school s ON c.schoolId = s.id
+              WHERE y.name = ?
+      `;
+
+      const params: any[] = [yearName];
+
+      if (!masterTeacher && classrooms.length > 0) {
+        const classroomPlaceholders = classrooms.map(() => '?').join(',');
+        query += ` AND c.id IN (${classroomPlaceholders})`;
+        params.push(...classrooms);
+      }
+
+      if (!masterTeacher && disciplines.length > 0) {
+        const disciplinePlaceholders = disciplines.map(() => '?').join(',');
+        query += ` AND d.id IN (${disciplinePlaceholders})`;
+        params.push(...disciplines);
+      }
+
+      if (bimesterId) {
+        query += ` AND b.id = ?`;
+        params.push(bimesterId);
+      }
+
+      if (disciplineId) {
+        query += ` AND d.id = ?`;
+        params.push(disciplineId);
+      }
+
+      if (search && search.trim() !== '') {
+        query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      }
+
+      query += `
+        )
+        SELECT DISTINCT
+          test_id,
+          test_name,
+          period_id,
+          category_id,
+          category_name,
+          year_id,
+          year_name,
+          year_active,
+          bimester_id,
+          bimester_name,
+          bimester_test_name,
+          discipline_id,
+          discipline_name,
+          classroom_id,
+          classroom_name,
+          classroom_shortName,
+          school_id,
+          school_name,
+          school_shortName
+        FROM RankedTests
+        WHERE 
+          -- Para categorias LITE (1, 2, 3), pegar apenas o registro com maior bimester
+          (category_id IN (1, 2, 3) AND rn = 1)
+          -- Para outras categorias, pegar todos os registros
+          OR category_id NOT IN (1, 2, 3)
+        ORDER BY 
+          test_name ASC,
+          school_shortName ASC,
+          classroom_shortName ASC,
+          bimester_name DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      params.push(limit, offset);
+
+      const [results] = await conn.query(query, params);
+      return results as any[];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
@@ -2152,7 +3375,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       return {
         id: el.test_id,
         active: el.test_active,
-        category: { id: el.test_id },
+        category: { id: el.test_category_id },
         discipline: { id: el.discipline_id, name: el.discipline_name },
         period: {
           id: el.period_id,

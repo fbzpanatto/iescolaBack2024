@@ -21,45 +21,38 @@ import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, qStudentsClassroomsForTest, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
-import { Disability } from "../model/Disability";
 import { Person } from "../model/Person";
-import { PoolConnection } from "mysql2/promise";
 import { Skill } from "../model/Skill";
-
-import { dbConn} from "../services/db";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
   async getStudents(req?: Request) {
+
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom)
     const studentClassroomId = Number(req?.query.stc)
     const isHistory = Boolean(req?.query.isHistory)
 
-    let sqlConn = await dbConn()
-
     try {
 
-      const testClassroom = await this.qTestClassroom(sqlConn, testId, classroomId)
+      const testClassroom = await this.qTestClassroom(testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.qUser(sqlConn, req?.body.user.user)
+      const tUser = await this.qUser(req?.body.user.user)
       const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
 
-      const { classrooms } = await this.qTeacherClassrooms(sqlConn, Number(req?.body.user.user))
+      const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       return await AppDataSource.transaction(async (typeOrmConnection) => {
 
-        const qTest = await this.qTestByIdAndYear(sqlConn, testId, String(req?.params.year))
-
+        const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
         if(!qTest) return { status: 404, message: "Teste não encontrado" }
-
         const test = this.formatedTest(qTest)
 
-        const classroom = await this.qClassroom(sqlConn, classroomId)
+        const classroom = await this.qClassroom(classroomId)
 
         if(!classroom) return { status: 404, message: "Sala não encontrada" }
 
@@ -70,21 +63,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.LITE_2):
           case(TEST_CATEGORIES_IDS.LITE_3): {
 
-            const sCs = await this.qAlphabeticStudentsForLink(sqlConn, Number(classroomId), test.createdAt, test.period.year.name)
+            const sCs = await this.qAlphabeticStudentsForLink(Number(classroomId), test.createdAt, test.period.year.name)
 
-            const headers = await this.qAlphabeticHeaders(sqlConn, test.period.year.name) as unknown as AlphaHeaders[]
+            const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
 
             switch (test.category.id) {
               case(TEST_CATEGORIES_IDS.LITE_1): {
                 data = await this.alphabeticTest(
-                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, typeOrmConnection, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
                 )
                 break;
               }
               case(TEST_CATEGORIES_IDS.LITE_2):
               case(TEST_CATEGORIES_IDS.LITE_3): {
                 data = await this.alphabeticTest(
-                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, typeOrmConnection, sqlConn, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
                 )
                 break;
               }
@@ -95,7 +88,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
-            const headers = await this.qReadingFluencyHeaders(sqlConn)
+            const headers = await this.qReadingFluencyHeaders()
             const fluencyHeaders = this.readingFluencyHeaders(headers)
 
             const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
@@ -104,7 +97,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
-            studentClassrooms = await this.qStudentDisabilities(sqlConn, studentClassrooms) as unknown as StudentClassroom[]
+            studentClassrooms = await this.qStudentDisabilities(studentClassrooms) as unknown as StudentClassroom[]
 
             studentClassrooms = studentClassrooms.map((item: any) => {
 
@@ -156,10 +149,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let testQuestionsIds: number[] = []
 
-            const qTestQuestions = await this.qTestQuestions(sqlConn, test.id) as TestQuestion[]
+            const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
 
             testQuestionsIds = [ ...testQuestionsIds, ...qTestQuestions.map(testQuestion => testQuestion.id) ]
-            const questionGroups = await this.qTestQuestionsGroups(testId, sqlConn)
+            const questionGroups = await this.qTestQuestionsGroupsOnReport(testId)
 
             let classroomPoints = 0
             let classroomPercent = 0
@@ -167,9 +160,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
             let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            const qStudentsClassroom = await this.qStudentClassroomsForTest(
-              sqlConn, test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
+            const qStudentsClassroom = await this.qStudentClassroomsForTest(test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
             await this.unifiedTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, typeOrmConnection)
 
@@ -178,7 +169,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let result = await this.stuQtsDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
-            result = await this.qStudentDisabilities(sqlConn, result) as unknown as StudentClassroom[]
+            result = await this.qStudentDisabilities(result) as unknown as StudentClassroom[]
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -271,14 +262,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('error', error)
       return { status: 500, message: error.message }
     }
-    finally { if (sqlConn) { sqlConn.release() } }
   }
 
   async getFormData(req: Request) {
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        let classrooms = (await classroomController.getAllClassrooms(req, false, CONN)).data
+        let classrooms = (await classroomController.getAllClassrooms(req)).data
 
         classrooms = classrooms?.filter(el => ![1216,1217,1218].includes(el.id))
 
@@ -292,33 +282,28 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getGraphic(req: Request) {
-
     const { id: testId, classroom: classroomId } = req.params
-
-    let sqlConnection = await dbConn()
-
     try {
-
       return await AppDataSource.transaction(async(CONN) => {
 
         let data;
 
-        const year = await this.qYearByName(sqlConnection, String(req.query?.year))
+        const year = await this.qYearByName(String(req.query?.year))
         if(!year) return { status: 404, message: "Ano não encontrado." }
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
         const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
-        const baseTest = this.formatedTest(await this.qTestByIdAndYear(sqlConnection, Number(testId), year.name))
+        const baseTest = this.formatedTest(await this.qTestByIdAndYear(Number(testId), year.name))
 
-        const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user)
+        const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
 
         if(!classrooms.includes(Number(classroomId)) && !masterUser) {
           return { status: 403, message: "Você não tem permissão para acessar essa sala." }
         }
 
-        const qClassroom = await this.qClassroom(sqlConnection, Number(classroomId))
+        const qClassroom = await this.qClassroom(Number(classroomId))
         if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
 
         switch (baseTest.category?.id) {
@@ -327,8 +312,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.LITE_3: {
 
             const [preheaders, tests] = await Promise.all([
-              this.qAlphabeticHeaders(sqlConnection, year.name) as Promise<any[]>,
-              this.qAlphabeticTests(sqlConnection, baseTest.category.id, baseTest.discipline.id, year.name) as Promise<any[]>
+              this.qAlphabeticHeaders(year.name) as Promise<any[]>,
+              this.qAlphabeticTests(baseTest.category.id, baseTest.discipline.id, year.name) as Promise<any[]>
             ])
 
             let testQuestionsIds: number[] = []
@@ -336,7 +321,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
               // Buscar todas as questões em paralelo
               const allTestQuestionsArrays = await Promise.all(
-                tests.map(test => this.qTestQuestions(sqlConnection, test.id))
+                tests.map(test => this.qTestQuestions(test.id))
               )
 
               // Atribuir aos testes e coletar IDs
@@ -362,7 +347,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             })
 
-            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds, sqlConnection)
+            const schools = await this.alphaQuestions(year.name, baseTest, testQuestionsIds)
             const onlyClasses = schools
               .flatMap((school: any) => school.classrooms)
               .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
@@ -402,7 +387,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.READ_3: {
 
             const [headers, test] = await Promise.all([
-              this.qReadingFluencyHeaders(sqlConnection),
+              this.qReadingFluencyHeaders(),
               this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Promise<Test>
             ])
 
@@ -431,7 +416,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.SIM_ITA: {
 
-            const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN, sqlConnection)
+            const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN)
 
             const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
             if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -545,7 +530,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   // TODO: Refactor this method URGENT!!!
@@ -648,8 +632,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const classroomId = request?.params.classroom
     const yearName = request.params.year
 
-    const sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async (CONN) => {
         const test = await this.getTest(Number(testId), Number(yearName), CONN)
@@ -671,7 +653,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           }
           case TEST_CATEGORIES_IDS.AVL_ITA:
           case TEST_CATEGORIES_IDS.SIM_ITA: {
-            data = await this.qNotTestIncluded(sqlConnection, yearName, Number(classroomId), test.id )
+            data = await this.qNotTestIncluded(yearName, Number(classroomId), test.id )
             break;
           }
         }
@@ -679,14 +661,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
-  async unifiedTestQuestLink(createStatus: boolean, arr: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager, returnAddedNames: boolean = false): Promise<string[] | void> {
+  async unifiedTestQuestLink(createStatus: boolean, arrOfStudentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager, returnAddedNames: boolean = false): Promise<string[] | void> {
 
     const added: string[] = [];
 
-    for (let sC of arr) {
+    for (let sC of arrOfStudentClassrooms) {
 
       const studentId = sC.student?.id ?? sC.student_id;
 
@@ -745,9 +726,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async deleteStudentFromTest(req: Request) {
-
-    let sqlConnection = await dbConn()
-
     const studentClassroomId = !isNaN(parseInt(req.query.studentClassroomId as string)) ? parseInt(req.query.studentClassroomId as string) : null
     const testId = !isNaN(parseInt(req.query.testId as string)) ? parseInt(req.query.testId as string) : null
     const classroomId = !isNaN(parseInt(req.params.classroom as string)) ? parseInt(req.params.classroom as string) : null
@@ -758,20 +736,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 400, message: 'Parâmetros inválidos.' }
       }
 
-      const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
       if(![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
       }
 
-      const qTest = await this.qTestById(sqlConnection, testId)
+      const qTest = await this.qTestById(testId)
 
       if(!qTest.active) {
         return { status: 403, message: 'Não é permitido realizar modificações em avaliações encerradas.' }
       }
 
       if(studentClassroomId && testId && classroomId) {
-        await this.qSetInactiveStudentTest(sqlConnection, studentClassroomId, testId, classroomId, qUserTeacher.person.user.id)
+        await this.qSetInactiveStudentTest(studentClassroomId, testId, classroomId, qUserTeacher.person.user.id)
       }
 
       return { status: 200, data: {} };
@@ -780,19 +758,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('deleteStudent', error)
       return { status: 500, message: error.message }
     }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async insertStudents(req: Request) {
-
-    let sqlConnection = await dbConn()
-
     const body = req.body as insertStudentsBody
 
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
         const test = await this.getTest(body.test.id, body.year, CONN)
 
@@ -816,14 +790,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            const headers = await this.qReadingFluencyHeaders(sqlConnection)
+            const headers = await this.qReadingFluencyHeaders()
             await this.linkReading(headers, filteredSC, test, qUserTeacher.person.user.id, CONN)
             break;
           }
 
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.SIM_ITA): {
-            const stClassrooms = await this.qNotTestIncluded(sqlConnection, String(body.year), body.classroom.id, test.id )
+            const stClassrooms = await this.qNotTestIncluded(String(body.year), body.classroom.id, test.id )
 
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
@@ -842,7 +816,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('insertStudents', error)
       return { status: 500, message: error.message }
     }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async notIncludedRF(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
@@ -880,10 +853,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async findAllByYear(req: Request) {
-    let sqlConnection = await dbConn();
-
     try {
-      // Extrair parâmetros
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
       const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null;
       const search = req.query.search as string || '';
@@ -892,126 +862,31 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let yearName = req.params.year;
 
-      // Validar ano
-      if (yearName.length != 4) {
-        const currentYear = await this.qCurrentYear(sqlConnection);
-        yearName = currentYear.name;
-      }
+      if (yearName.length != 4) { const currentYear = await this.qCurrentYear(); yearName = currentYear.name }
 
-      // Buscar dados do professor
-      const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(req.body.user.user);
 
       const masterTeacher =
         qUserTeacher.person.category.id === pc.ADMN ||
         qUserTeacher.person.category.id === pc.SUPE ||
         qUserTeacher.person.category.id === pc.FORM;
 
-      const { classrooms } = await this.qTeacherClassrooms(sqlConnection, req?.body.user.user);
-      const { disciplines } = await this.qTeacherDisciplines(sqlConnection, req?.body.user.user);
+      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user);
+      const { disciplines } = await this.qTeacherDisciplines(req?.body.user.user);
 
-      // Construir query SQL principal
-      let query = `
-      SELECT DISTINCT
-        t.id AS test_id,
-        t.name AS test_name,
-        
-        -- Period
-        p.id AS period_id,
-        
-        -- Category
-        tc.id AS category_id,
-        tc.name AS category_name,
-        
-        -- Year
-        y.id AS year_id,
-        y.name AS year_name,
-        y.active AS year_active,
-        
-        -- Bimester
-        b.id AS bimester_id,
-        b.name AS bimester_name,
-        b.testName AS bimester_test_name,
-        
-        -- Discipline
-        d.id AS discipline_id,
-        d.name AS discipline_name,
-        
-        -- Classroom (para agrupamento posterior)
-        c.id AS classroom_id,
-        c.name AS classroom_name,
-        c.shortName AS classroom_shortName,
-        
-        -- School
-        s.id AS school_id,
-        s.name AS school_name,
-        s.shortName AS school_shortName
-      FROM test t
-      INNER JOIN period p ON t.periodId = p.id
-      INNER JOIN test_category tc ON t.categoryId = tc.id
-      INNER JOIN year y ON p.yearId = y.id
-      INNER JOIN bimester b ON p.bimesterId = b.id
-      INNER JOIN discipline d ON t.disciplineId = d.id
-      INNER JOIN test_classroom test_c ON t.id = test_c.testId
-      INNER JOIN classroom c ON test_c.classroomId = c.id
-      INNER JOIN school s ON c.schoolId = s.id
-      WHERE y.name = ?
-    `;
-
-      const params: any[] = [yearName];
-
-      // Adicionar filtros condicionais
-      if (!masterTeacher && classrooms.length > 0) {
-        const classroomPlaceholders = classrooms.map(() => '?').join(',');
-        query += ` AND c.id IN (${classroomPlaceholders})`;
-        params.push(...classrooms);
-      }
-
-      if (!masterTeacher && disciplines.length > 0) {
-        const disciplinePlaceholders = disciplines.map(() => '?').join(',');
-        query += ` AND d.id IN (${disciplinePlaceholders})`;
-        params.push(...disciplines);
-      }
-
-      if (bimesterId) {
-        query += ` AND b.id = ?`;
-        params.push(bimesterId);
-      }
-
-      if (disciplineId) {
-        query += ` AND d.id = ?`;
-        params.push(disciplineId);
-      }
-
-      // Adicionar busca por texto
-      if (search && search.trim() !== '') {
-        query += ` AND (
-        t.name LIKE ? OR
-        c.shortName LIKE ? OR
-        s.name LIKE ? OR
-        s.shortName LIKE ?
-      )`;
-        const searchPattern = `%${search}%`;
-        params.push(searchPattern, searchPattern, searchPattern, searchPattern);
-      }
-
-      // Adicionar ordenação e paginação
-      query += `
-      ORDER BY 
-        t.name ASC,
-        s.shortName ASC,
-        c.shortName ASC,
-        b.name DESC
-      LIMIT ? OFFSET ?
-    `;
-
-      params.push(limit, offset);
-
-      // Executar query principal
-      const [results] = await sqlConnection.query(query, params);
-      const rows = results as any[];
-
-      // Agrupar resultados por teste
       const testsMap = new Map<number, any>();
+
+      const rows = await this.qfindAllByYear(
+        masterTeacher,
+        yearName,
+        classrooms,
+        disciplines,
+        bimesterId,
+        disciplineId,
+        search,
+        limit,
+        offset
+      )
 
       for (const row of rows) {
         const testId = row.test_id;
@@ -1030,7 +905,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               bimester: {
                 id: row.bimester_id,
                 name: row.bimester_name,
-                testName: row.bimester_test_name
+                testName: [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(row.category_id) ? 'TODOS': row.bimester_test_name
               }
             },
             category: {
@@ -1064,31 +939,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }
 
-      // Converter Map para Array e aplicar paginação
       let testClasses = Array.from(testsMap.values());
 
       return { status: 200, data: testClasses };
     }
-    catch (error: any) {
-      console.error('Error in findAllByYear:', error);
-      return { status: 500, message: error.message };
-    }
-    finally {
-      if (sqlConnection) {
-        sqlConnection.release();
-      }
-    }
+    catch (error: any) { console.error('Error in findAllByYear:', error); return { status: 500, message: error.message } }
   }
 
   async getById(req: Request) {
-
-    let sqlConnection = await dbConn()
-
     const { id } = req.params
-
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
         const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
@@ -1099,16 +961,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async saveTest(body: TestBodySave) {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id);
-    let sqlConnection = await dbConn();
-
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user);
+        const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
         if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
@@ -1229,15 +1088,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
       });
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async updateTest(id: number | string, req: Request) {
-    let sqlConnection = await dbConn()
-
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const uTeacher = await this.qTeacherByUser(sqlConnection, req.body.user.user)
+        const uTeacher = await this.qTeacherByUser(req.body.user.user)
         const userId = uTeacher.person.user.id
         const masterUser = uTeacher.person.category.id === pc.ADMN ||
           uTeacher.person.category.id === pc.SUPE ||
@@ -1366,9 +1222,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) {
       return { status: 500, message: error.message }
     }
-    finally {
-      if(sqlConnection) { sqlConnection.release() }
-    }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
@@ -1437,9 +1290,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
   }
 
-  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager, sqlConnection: PoolConnection) {
+  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
 
-    const testQuestions = await this.qTestQuestions(sqlConnection, testId) as TestQuestion[]
+    const testQuestions = await this.qTestQuestions(testId) as TestQuestion[]
 
     if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
     const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
@@ -1527,32 +1380,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  async alphabeticTest(
-    questions: boolean,
-    aHeaders: AlphaHeaders[],
-    test: Test,
-    sC: qAlphaStuClassroomsFormated[],
-    room: Classroom,
-    classId: number,
-    userId: number,
-    typeOrmConnection: EntityManager,
-    sqlConn: PoolConnection,
-    studentClassroomId: number | null
-  ) {
+  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: qAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, studentClassroomId: number | null) {
 
-    await this.qCreateLinkAlphabetic(sC, test, userId, sqlConn)
-
-    const qTests = await this.qAlphabeticTests(sqlConn, test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
+    const qTests = await this.qAlphabeticTests(test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
     const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
-
     let headers = aHeaders.map(bi => {
       const test = testsMap.get(bi.id);
       return { ...bi, currTest: { id: test?.id, active: test?.active } };
     });
 
-    let preResultScWd = await this.qAlphaStudents(sqlConn, test, classId, test.period.year.id, studentClassroomId)
-    let preResultSc = await this.qStudentDisabilities(sqlConn, preResultScWd) as unknown as StudentClassroom[]
+    let preResultScWd = await this.qAlphaStudents(test, classId, test.period.year.id, studentClassroomId)
+    let preResultSc = await this.qStudentDisabilities(preResultScWd) as unknown as StudentClassroom[]
 
     const studentDisabilitiesMap = new Map<number, any[]>();
 
@@ -1564,34 +1403,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     if (questions) {
 
-      const testIds = qTests.map(t => t.id);
-
-      const batchQuery = `
-      SELECT 
-        tq.id AS test_question_id, 
-        tq.order AS test_question_order, 
-        tq.answer AS test_question_answer, 
-        tq.active AS test_question_active,
-        tq.testId AS test_id,
-        qt.id AS question_id,
-        qg.id AS question_group_id, 
-        qg.name AS question_group_name,
-        sk.id AS skill_id, 
-        sk.reference AS skill_reference, 
-        sk.description AS skill_description
-      FROM test_question AS tq
-      INNER JOIN question AS qt ON tq.questionId = qt.id
-      LEFT JOIN skill AS sk ON qt.skillId = sk.id
-      INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
-      INNER JOIN test AS tt ON tq.testId = tt.id
-      WHERE tt.id IN (${testIds.map(() => '?').join(',')})
-      ORDER BY tt.id, qg.id, tq.order
-    `;
-
-      const [batchResult] = await sqlConn.query(batchQuery, testIds);
-      const allQuestionsRaw = batchResult as any
+      const allQuestionsRaw = await this.bactchQueryAlphaQuestions(qTests.map(t => t.id)) as any
 
       const questionsByTestId = new Map<number, any[]>();
+
       allQuestionsRaw.forEach((q: any) => {
         const testId = q.test_id;
         if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
@@ -1608,13 +1423,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
       }
 
-      await Promise.all(qTests.map(test => this.unifiedTestQuestLink(false, preResultSc, test, test.testQuestions, userId, typeOrmConnection)));
+      const result = await Promise.all(qTests.map(test => this.unifiedTestQuestLinkSql(false, preResultSc, test, test.testQuestions, userId)));
 
       const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 
       headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
-      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, sqlConn, classId, studentClassroomId);
+      const currentResult = await this.alphaQuestions(test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
 
       for (const item of preResultSc) {
@@ -1732,330 +1547,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     });
 
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
-  }
-
-  async alphaQuestions(yearName: string, test: any, testQuestionsIds: number[], conn: PoolConnection, classroomId?: number, studentClassroomId?: number | null) {
-
-    const hasQuestions = !!testQuestionsIds.length;
-    const testQuestionsPlaceholders = hasQuestions && testQuestionsIds.length > 0
-      ? testQuestionsIds.map(() => '?').join(',')
-      : '';
-
-    let query = `
-    SELECT 
-      -- School
-      s.id AS school_id,
-      s.name AS school_name,
-      s.shortName AS school_shortName,
-      
-      -- Classroom
-      c.id AS classroom_id,
-      c.name AS classroom_name,
-      c.shortName AS classroom_shortName,
-      
-      -- StudentClassroom
-      sc.id AS studentClassroom_id,
-      sc.rosterNumber,
-      sc.endedAt AS studentClassroom_endedAt,
-      
-      -- Student
-      st.id AS student_id,
-      
-      -- Person
-      p.id AS person_id,
-      p.name AS person_name,
-      
-      -- AlphabeticFirst
-      af.id AS alphabeticFirst_id,
-      afl.id AS alphabeticFirst_level_id,
-      afl.name AS alphabeticFirst_level_name,
-      afl.shortName AS alphabeticFirst_level_shortName,
-      afl.color AS alphabeticFirst_level_color,
-      
-      -- Alphabetic
-      a.id AS alphabetic_id,
-      a.observation AS alphabetic_observation,
-      al.id AS alphabetic_level_id,
-      al.name AS alphabetic_level_name,
-      al.shortName AS alphabetic_level_shortName,
-      al.color AS alphabetic_level_color,
-      arc.id AS alphabetic_rClassroom_id,
-      arc.name AS alphabetic_rClassroom_name,
-      arc.shortName AS alphabetic_rClassroom_shortName,
-      at.id AS alpha_test_id,
-      at.name AS alpha_test_name,
-      atp.id AS alpha_test_period_id,
-      atb.id AS alpha_test_bimester_id,
-      atb.name AS alpha_test_bimester_name,
-      aty.id AS alpha_test_year_id,
-      aty.name AS alpha_test_year_name,
-      
-      -- StudentDisability
-      sd.id AS studentDisability_id,
-      sd.disabilityId AS disability_id,
-      d.name AS disability_name`;
-
-    if (hasQuestions) {
-      query += `,
-      -- StudentQuestion
-      sq.id AS studentQuestion_id,
-      sq.answer AS studentQuestion_answer,
-      sqrc.id AS studentQuestion_rClassroom_id,
-      tq.id AS testQuestion_id,
-      tq.order AS testQuestion_order,
-      tq.answer AS testQuestion_answer,
-      tq.active AS testQuestion_active,
-      t.id AS test_id,
-      t.name AS test_name,
-      per.id AS period_id,
-      bim.id AS bimester_id,
-      bim.name AS bimester_name,
-      py.id AS period_year_id,
-      py.name AS period_year_name`;
-    }
-
-    query += `
-    FROM school s
-    LEFT JOIN classroom c ON c.schoolId = s.id
-    LEFT JOIN student_classroom sc ON sc.classroomId = c.id
-    LEFT JOIN year scy ON sc.yearId = scy.id
-    LEFT JOIN student st ON sc.studentId = st.id
-    LEFT JOIN person p ON st.personId = p.id
-    LEFT JOIN alphabetic_first af ON af.studentId = st.id
-    LEFT JOIN alphabetic_level afl ON af.alphabeticFirstId = afl.id
-    LEFT JOIN alphabetic a ON a.studentId = st.id
-    LEFT JOIN alphabetic_level al ON a.alphabeticLevelId = al.id
-    LEFT JOIN classroom arc ON a.rClassroomId = arc.id
-    LEFT JOIN test at ON a.testId = at.id
-    LEFT JOIN test_category atc ON at.categoryId = atc.id
-    LEFT JOIN discipline atd ON at.disciplineId = atd.id
-    LEFT JOIN period atp ON at.periodId = atp.id
-    LEFT JOIN bimester atb ON atp.bimesterId = atb.id
-    LEFT JOIN year aty ON atp.yearId = aty.id
-    LEFT JOIN student_disability sd ON sd.studentId = st.id AND sd.endedAt IS NULL
-    LEFT JOIN disability d ON sd.disabilityId = d.id`;
-
-    if (hasQuestions) {
-      query += `
-    LEFT JOIN student_question sq ON sq.studentId = st.id
-    LEFT JOIN classroom sqrc ON sq.rClassroomId = sqrc.id
-    LEFT JOIN test_question tq ON sq.testQuestionId = tq.id ${testQuestionsPlaceholders ? `AND tq.id IN (${testQuestionsPlaceholders})` : ''}
-    LEFT JOIN test t ON tq.testId = t.id
-    LEFT JOIN test_category tc ON t.categoryId = tc.id
-    LEFT JOIN discipline td ON t.disciplineId = td.id
-    LEFT JOIN period per ON t.periodId = per.id
-    LEFT JOIN bimester bim ON per.bimesterId = bim.id
-    LEFT JOIN year py ON per.yearId = py.id`;
-    }
-
-    query += `
-    WHERE s.id NOT IN (28, 29)
-    AND c.id NOT IN (1216, 1217, 1218)
-    AND atd.id = ?
-    AND atc.id = ?
-    AND aty.name = ?
-    AND scy.name = ?`;
-
-    if (hasQuestions) {
-      query += `
-    AND (sc.startedAt < ? OR a.id IS NOT NULL OR sq.id IS NOT NULL)
-    AND tc.id = ?
-    AND td.id = ?
-    AND py.name = ?`;
-    } else {
-      query += `
-    AND (sc.startedAt < ? OR a.id IS NOT NULL)`;
-    }
-
-    if (classroomId) query += ` AND sc.classroomId = ?`;
-    if (studentClassroomId) query += ` AND sc.id = ?`;
-
-    query += `
-    ORDER BY sc.rosterNumber ASC, c.shortName ASC, s.shortName ASC`;
-
-    if (hasQuestions) {
-      query += `, bim.id ASC, tq.order ASC`;
-    }
-
-    // Parâmetros
-    const params: any[] = [];
-    if (hasQuestions && testQuestionsIds.length > 0) {
-      params.push(...testQuestionsIds);
-    }
-
-    params.push(
-      test.discipline?.id ?? test.discipline_id,
-      test.category?.id ?? test.test_category_id,
-      yearName,
-      yearName,
-      test.createdAt
-    );
-
-    if (hasQuestions) {
-      params.push(
-        test.category?.id ?? test.test_category_id,
-        test.discipline?.id ?? test.discipline_id,
-        yearName
-      );
-    }
-
-    if (classroomId) params.push(classroomId);
-    if (studentClassroomId) params.push(studentClassroomId);
-
-    const [rows] = await conn.query(query, params);
-
-    // Formatar resultado mantendo a estrutura do TypeORM
-    const schoolsMap = new Map();
-
-    for (const row of rows as any[]) {
-      if (!row.school_id) continue;
-
-      if (!schoolsMap.has(row.school_id)) {
-        schoolsMap.set(row.school_id, {
-          id: row.school_id,
-          name: row.school_name,
-          shortName: row.school_shortName,
-          classrooms: []
-        });
-      }
-
-      const school = schoolsMap.get(row.school_id);
-      let classroom = school.classrooms.find((c: any) => c.id === row.classroom_id);
-
-      if (!classroom) {
-        classroom = {
-          id: row.classroom_id,
-          name: row.classroom_name,
-          shortName: row.classroom_shortName,
-          school: {
-            id: row.school_id,
-            name: row.school_name,
-            shortName: row.school_shortName
-          },
-          studentClassrooms: []
-        };
-        school.classrooms.push(classroom);
-      }
-
-      let studentClassroom = classroom.studentClassrooms.find((sc: any) => sc.id === row.studentClassroom_id);
-
-      if (!studentClassroom) {
-        studentClassroom = {
-          id: row.studentClassroom_id,
-          rosterNumber: row.rosterNumber,
-          endedAt: row.studentClassroom_endedAt,
-          classroom: {
-            id: row.classroom_id,
-            name: row.classroom_name,
-            shortName: row.classroom_shortName
-          },
-          student: {
-            id: row.student_id,
-            person: {
-              id: row.person_id,
-              name: row.person_name
-            },
-            alphabeticFirst: null,
-            alphabetic: [],
-            studentDisabilities: [],
-            studentQuestions: hasQuestions ? [] : undefined
-          }
-        };
-
-        if (row.alphabeticFirst_id) {
-          studentClassroom.student.alphabeticFirst = {
-            id: row.alphabeticFirst_id,
-            alphabeticFirst: row.alphabeticFirst_level_id ? {
-              id: row.alphabeticFirst_level_id,
-              name: row.alphabeticFirst_level_name,
-              shortName: row.alphabeticFirst_level_shortName,
-              color: row.alphabeticFirst_level_color
-            } : null
-          };
-        }
-
-        classroom.studentClassrooms.push(studentClassroom);
-      }
-
-      // Adicionar Alphabetic
-      if (row.alphabetic_id && !studentClassroom.student.alphabetic.find((a: any) => a.id === row.alphabetic_id)) {
-        studentClassroom.student.alphabetic.push({
-          id: row.alphabetic_id,
-          observation: row.alphabetic_observation,
-          alphabeticLevel: row.alphabetic_level_id ? {
-            id: row.alphabetic_level_id,
-            name: row.alphabetic_level_name,
-            shortName: row.alphabetic_level_shortName,
-            color: row.alphabetic_level_color
-          } : null,
-          rClassroom: row.alphabetic_rClassroom_id ? {
-            id: row.alphabetic_rClassroom_id,
-            name: row.alphabetic_rClassroom_name,
-            shortName: row.alphabetic_rClassroom_shortName
-          } : null,
-          test: {
-            id: row.alpha_test_id,
-            name: row.alpha_test_name,
-            period: {
-              id: row.alpha_test_period_id,
-              bimester: {
-                id: row.alpha_test_bimester_id,
-                name: row.alpha_test_bimester_name
-              },
-              year: {
-                id: row.alpha_test_year_id,
-                name: row.alpha_test_year_name
-              }
-            }
-          }
-        });
-      }
-
-      // Adicionar StudentDisability
-      if (row.studentDisability_id && !studentClassroom.student.studentDisabilities.find((d: any) => d.id === row.studentDisability_id)) {
-        studentClassroom.student.studentDisabilities.push({
-          id: row.studentDisability_id,
-          disability: {
-            id: row.disability_id,
-            name: row.disability_name
-          }
-        });
-      }
-
-      // Adicionar StudentQuestion se houver
-      if (hasQuestions && row.studentQuestion_id && !studentClassroom.student.studentQuestions.find((q: any) => q.id === row.studentQuestion_id)) {
-        studentClassroom.student.studentQuestions.push({
-          id: row.studentQuestion_id,
-          answer: row.studentQuestion_answer || '',
-          rClassroom: row.studentQuestion_rClassroom_id ? {
-            id: row.studentQuestion_rClassroom_id
-          } : null,
-          testQuestion: row.testQuestion_id ? {
-            id: row.testQuestion_id,
-            order: row.testQuestion_order,
-            answer: row.testQuestion_answer,
-            active: row.testQuestion_active,
-            test: {
-              id: row.test_id,
-              name: row.test_name,
-              period: {
-                id: row.period_id,
-                bimester: {
-                  id: row.bimester_id,
-                  name: row.bimester_name
-                },
-                year: {
-                  id: row.period_year_id,
-                  name: row.period_year_name
-                }
-              }
-            }
-          } : null
-        });
-      }
-    }
-
-    return Array.from(schoolsMap.values());
   }
 
   duplicatedStudents(studentClassrooms: StudentClassroom[] | qStudentClassroomFormated[]): any {

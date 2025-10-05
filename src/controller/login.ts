@@ -6,7 +6,6 @@ import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
 import { pc } from "../utils/personCategories";
-import { dbConn } from "../services/db";
 import { transferStatus } from "../utils/transferStatus";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import bcrypt from 'bcrypt';
@@ -19,8 +18,6 @@ class LoginController extends GenericController<EntityTarget<User>> {
   async login(req: Request) {
 
     const { email, password: frontPass } = req.body;
-
-    let sqlConnection = await dbConn()
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
@@ -41,15 +38,15 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
         if([pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(user.person.category.id)) {
 
-          const currentYear = await this.qCurrentYear(sqlConnection)
+          const currentYear = await this.qCurrentYear()
 
           if(user.person.category.id === pc.ADMN) {
-            const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(sqlConnection, currentYear.id, transferStatus.PENDING)
+            const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, transferStatus.PENDING)
             return this.loginResponse(token, expiresIn, role, user, allPendingTransfers)
           }
 
           if(user.person.teacher.school?.id) {
-            const pendingTransfers = await this.qPendingTransferStatusBySchool(sqlConnection, currentYear.id, transferStatus.PENDING, user.person.teacher.school.id)
+            const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, transferStatus.PENDING, user.person.teacher.school.id)
             return this.loginResponse(token, expiresIn, role, user, pendingTransfers)
           }
         }
@@ -58,21 +55,16 @@ class LoginController extends GenericController<EntityTarget<User>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   async studentLogin(req: Request) {
-
     const { ra: fullRa } = req.body;
-
-    let sqlConnection = await dbConn()
-
     try {
 
       const ra = fullRa.slice(0, -1);
       const dv = fullRa.slice(-1);
 
-      const student = await this.qStudentByRa(sqlConnection, ra, dv)
+      const student = await this.qStudentByRa(ra, dv)
 
       if (!student) { return { status: 404, message: "Credenciais Inválidas" } }
 
@@ -87,7 +79,6 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {

@@ -5,7 +5,6 @@ import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { pc } from "../utils/personCategories";
-import {dbConn} from "../services/db";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -15,11 +14,9 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
 
     const body = request?.body
 
-    let sqlConnection = await dbConn()
-
     try {
 
-      const qUserTeacher = await this.qTeacherByUser(sqlConnection, body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
       const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
@@ -100,7 +97,6 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
       }
     }
     catch (error: any) { return { status: 500, message: error.message } }
-    finally { if(sqlConnection) { sqlConnection.release() } }
   }
 
   override async save(body: { id: number, classrooms: number[] }) {

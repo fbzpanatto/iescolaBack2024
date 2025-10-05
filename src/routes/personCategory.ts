@@ -1,7 +1,7 @@
 import { Router, Request } from "express";
 import { pCatCtrl as controller } from "../controller/personCategory";
+import { ID_PARAM } from "../middleware/validators";
 import havePerm from "../middleware/havePermission";
-import {ID_PARAM} from "../middleware/validators";
 
 export const PeCatRouter = Router();
 

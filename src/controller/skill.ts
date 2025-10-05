@@ -14,18 +14,11 @@ class SkillController extends GenericController<EntityTarget<Skill>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
         // Remove 'relations: ['classroomCategory']' já que não é necessário no frontend
-        const options = {
-          where: {
-            classroomCategory: { id: Number(classCategoryId) },
-            discipline: { id: Number(disciplineId)}
-          }
-        }
+        const options = { where: { classroomCategory: { id: Number(classCategoryId) }, discipline: { id: Number(disciplineId)} } }
         const result = await CONN.find(Skill, { ...options })
         return { status: 200, data: result };
       })
-    } catch (error: any) {
-      return { status: 500, message: error.message }
-    }
+    } catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

@@ -32,10 +32,6 @@ StudentRouter.post("/inactive", havePermission, async (req: Request, res: any) =
   const response = await controller.setInactiveNewClassroom(req.body); return res.status(response.status).json(response)
 })
 
-StudentRouter.post("/bulk-insert", havePermission, async (req: Request, res: any) => {
-  const response = await controller.bulkInsert(req.body); return res.status(response.status).json(response)
-})
-
 StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
   const response = await controller.save(req.body); return res.status(response.status).json(response)
 })

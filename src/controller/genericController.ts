@@ -226,7 +226,6 @@ export class GenericController<T> {
       await conn.commit();
 
       return returnAddedNames ? addedNames.filter(name => name) : undefined;
-
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -46,45 +46,39 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
-      return await AppDataSource.transaction(async (typeOrmConnection) => {
+      const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
+      if(!qTest) return { status: 404, message: "Teste não encontrado" }
+      const test = this.formatedTest(qTest)
 
-        const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
-        if(!qTest) return { status: 404, message: "Teste não encontrado" }
-        const test = this.formatedTest(qTest)
+      const classroom = await this.qClassroom(classroomId)
+      if(!classroom) return { status: 404, message: "Sala não encontrada" }
 
-        const classroom = await this.qClassroom(classroomId)
+      let data: any = {}
 
-        if(!classroom) return { status: 404, message: "Sala não encontrada" }
-
-        let data;
-
+      if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
+        const sCs = await this.qAlphabeticStudentsForLink(Number(classroomId), test.createdAt, test.period.year.name)
+        const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
         switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE_1):
-          case(TEST_CATEGORIES_IDS.LITE_2):
-          case(TEST_CATEGORIES_IDS.LITE_3): {
-
-            const sCs = await this.qAlphabeticStudentsForLink(Number(classroomId), test.createdAt, test.period.year.name)
-
-            const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
-
-            switch (test.category.id) {
-              case(TEST_CATEGORIES_IDS.LITE_1): {
-                data = await this.alphabeticTest(
-                  false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-                )
-                break;
-              }
-              case(TEST_CATEGORIES_IDS.LITE_2):
-              case(TEST_CATEGORIES_IDS.LITE_3): {
-                data = await this.alphabeticTest(
-                  true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-                )
-                break;
-              }
-            }
+          case(TEST_CATEGORIES_IDS.LITE_1): {
+            data = await this.alphabeticTest(
+              false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
             break;
           }
+          case(TEST_CATEGORIES_IDS.LITE_2):
+          case(TEST_CATEGORIES_IDS.LITE_3): {
+            data = await this.alphabeticTest(
+              true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
+            )
+            break;
+          }
+        }
+        return { status: 200, data: data };
+      }
 
+      const response = await AppDataSource.transaction(async (typeOrmConnection) => {
+        console.log('await AppDataSource.transaction')
+        switch (test.category.id) {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {
 
@@ -143,7 +137,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
             break;
           }
-
           case (TEST_CATEGORIES_IDS.AVL_ITA):
           case (TEST_CATEGORIES_IDS.SIM_ITA): {
 
@@ -255,13 +248,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
             break;
           }
         }
-        return { status: 200, data };
+        return data
       })
+      return { status: 200, data: response };
     }
-    catch (error: any) {
-      console.log('error', error)
-      return { status: 500, message: error.message }
-    }
+    catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
   async getFormData(req: Request) {
@@ -1426,10 +1417,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
-      const qClassroom = await this.qClassroom(Number(classId))
-      if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
-
-      const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
+      const serieFilter = `${Number(room.shortName.replace(/\D/g, ""))}%`;
 
       const currentResult = await this.alphaQuestions(serieFilter, test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
       preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));

@@ -1396,11 +1396,8 @@ export class GenericController<T> {
       WHERE tc.id = ? AND d.id = ? AND y.name = ?
     `;
 
-      // 2. Usa a conexão adquirida
       const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName]);
-
       return this.formatAlphabeticTests(queryResult as qAlphaTests[]);
-
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

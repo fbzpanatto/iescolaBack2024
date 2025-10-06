@@ -1389,7 +1389,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     }
 
-    if (questions) {
+    if([TEST_CATEGORIES_IDS.LITE_1] .includes(test.category.id)) {
+
+    }
+
+    if (questions && [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
 
       const allQuestionsRaw = await this.bactchQueryAlphaQuestions(qTests.map(t => t.id)) as any
 

@@ -56,23 +56,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       let data: any = {}
 
       if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
-        const sCs = await this.qAlphabeticStudentsForLink(Number(classroomId), test.createdAt, test.period.year.name)
         const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
-        switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.LITE_1): {
-            data = await this.alphabeticTest(
-              false, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
-            break;
-          }
-          case(TEST_CATEGORIES_IDS.LITE_2):
-          case(TEST_CATEGORIES_IDS.LITE_3): {
-            data = await this.alphabeticTest(
-              true, headers, test, sCs, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId)
-            )
-            break;
-          }
-        }
+        data = await this.alphabeticTest(headers, test, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
         return { status: 200, data: data };
       }
 
@@ -1368,7 +1353,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return data
   }
 
-  async alphabeticTest(questions: boolean, aHeaders: AlphaHeaders[], test: Test, sC: qAlphaStuClassroomsFormated[], room: Classroom, classId: number, userId: number, studentClassroomId: number | null) {
+  async alphabeticTest(aHeaders: AlphaHeaders[], test: Test, room: Classroom, classId: number, userId: number, studentClassroomId: number | null) {
 
     const qTests = await this.qAlphabeticTests(test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
@@ -1742,4 +1727,5 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 }
 
+// @ts-ignore
 export const testController = new TestController();

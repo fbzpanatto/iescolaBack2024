@@ -1372,7 +1372,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const qTests = await this.qAlphabeticTests(test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
-    const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
+    let testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
     let headers = aHeaders.map(bi => {
       const test = testsMap.get(bi.id);
       return { ...bi, currTest: { id: test?.id, active: test?.active } };
@@ -1389,47 +1389,40 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
     }
 
-    if([TEST_CATEGORIES_IDS.LITE_1] .includes(test.category.id)) {
+    const allQuestionsRaw = await this.bactchQueryAlphaQuestions(qTests.map(t => t.id)) as any
 
+    const questionsByTestId = new Map<number, any[]>();
+
+    allQuestionsRaw.forEach((q: any) => {
+      const testId = q.test_id;
+      if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
+      questionsByTestId.get(testId)!.push(q);
+    });
+
+    let testQuestionsIds: number[] = [];
+
+    for (let test of qTests) {
+      const rawQuestions = questionsByTestId.get(test.id) || [];
+      const testQuestions = this.formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
+
+      test.testQuestions = testQuestions;
+      testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
     }
 
-    if (questions && [TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
+    const result = await Promise.all(qTests.map(test => this.unifiedTestQuestLinkSql(false, preResultSc, test, test.testQuestions, userId)));
 
-      const allQuestionsRaw = await this.bactchQueryAlphaQuestions(qTests.map(t => t.id)) as any
+    testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 
-      const questionsByTestId = new Map<number, any[]>();
+    headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
 
-      allQuestionsRaw.forEach((q: any) => {
-        const testId = q.test_id;
-        if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
-        questionsByTestId.get(testId)!.push(q);
-      });
+    const serieFilter = `${Number(room.shortName.replace(/\D/g, ""))}%`;
 
-      let testQuestionsIds: number[] = [];
+    const currentResult = await this.alphaQuestions(serieFilter, test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
+    preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
 
-      for (let test of qTests) {
-        const rawQuestions = questionsByTestId.get(test.id) || [];
-        const testQuestions = this.formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
-
-        test.testQuestions = testQuestions;
-        testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
-      }
-
-      const result = await Promise.all(qTests.map(test => this.unifiedTestQuestLinkSql(false, preResultSc, test, test.testQuestions, userId)));
-
-      const testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
-
-      headers = headers.map(bi => { return {...bi, testQuestions: testsMap.get(bi.id)?.testQuestions } });
-
-      const serieFilter = `${Number(room.shortName.replace(/\D/g, ""))}%`;
-
-      const currentResult = await this.alphaQuestions(serieFilter, test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
-      preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
-
-      for (const item of preResultSc) {
-        if (item.student && studentDisabilitiesMap.has(item.student.id)) { item.student.studentDisabilities = studentDisabilitiesMap.get(item.student.id) || [] }
-        else { item.student.studentDisabilities = [] }
-      }
+    for (const item of preResultSc) {
+      if (item.student && studentDisabilitiesMap.has(item.student.id)) { item.student.studentDisabilities = studentDisabilitiesMap.get(item.student.id) || [] }
+      else { item.student.studentDisabilities = [] }
     }
 
     let studentClassrooms = preResultSc.map(el => ({

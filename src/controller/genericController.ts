@@ -2440,7 +2440,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qCurrentTeacherStudents(classrooms: number[], student: string | number, masterTeacher: boolean, limit: number, offset: number) {
+  async qCurrentTeacherStudents(yearId: number, classrooms: number[], student: string | number, masterTeacher: boolean, limit: number, offset: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2455,12 +2455,12 @@ INNER JOIN year AS y ON tr.yearId = y.id
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
         INNER JOIN person AS per ON stu.personId = per.id
-        WHERE per.name LIKE ? OR stu.ra LIKE ?
+        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.yearId = ?
         LIMIT ?
         OFFSET ?
         `
 
-        const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, limit, offset])
+        const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, yearId, limit, offset])
         responseData = queryResult
 
         return responseData as { studentClassroomId: number, studentId: number, name: string }[]
@@ -2471,10 +2471,10 @@ INNER JOIN year AS y ON tr.yearId = y.id
         FROM student_classroom AS sc
         INNER JOIN student AS stu ON sc.studentId = stu.id
         INNER JOIN person AS per ON stu.personId = per.id
-        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?) AND sc.endedAt IS NULL
+        WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.classroomId IN (?) AND sc.endedAt IS NULL AND sc.yearId = ?
         `
 
-      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms])
+      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms, yearId])
       responseData = queryResult
 
       return responseData as { id: number, studentId: number, name: string }[]
@@ -2483,58 +2483,77 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentTestsByYear(studentIds: number[], year: string, limit: number, offset: number) {
+  async qStudentTestsByYear(studentIds: number[], yearId: number, limit: number, offset: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       const query = `
-      SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
-      FROM student_test_status AS sts
-      INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
-      INNER JOIN classroom AS cls ON sc.classroomId = cls.id
-      INNER JOIN school AS sch ON cls.schoolId = sch.id
-      INNER JOIN student AS stu ON sc.studentId = stu.id
-      INNER JOIN person AS per ON stu.personId = per.id
-      INNER JOIN test AS tt ON sts.testId = tt.id
-      INNER JOIN test_category AS ttc ON tt.categoryId = ttc.id
-      INNER JOIN period AS pr ON tt.periodId = pr.id
-      INNER JOIN year AS yr ON pr.yearId = yr.id
-      INNER JOIN bimester AS br ON pr.bimesterId = br.id
-      WHERE stu.id IN (?) AND yr.name = ?
-      LIMIT ?
-      OFFSET ?
-    `
+          SELECT
+              sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName,
+              cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName,
+              tt.id AS testId, tt.name AS testName, br.name AS bimesterName,
+              br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId,
+              stu.ra, stu.dv
+          FROM student_test_status AS sts
+                   INNER JOIN student_classroom AS sc ON sts.studentClassroomId = sc.id
+                   INNER JOIN classroom AS cls ON sc.classroomId = cls.id
+                   INNER JOIN school AS sch ON cls.schoolId = sch.id
+                   INNER JOIN student AS stu ON sc.studentId = stu.id
+                   INNER JOIN person AS per ON stu.personId = per.id
+                   INNER JOIN test AS tt ON sts.testId = tt.id
+                   INNER JOIN test_category AS ttc ON tt.categoryId = ttc.id
+                   INNER JOIN period AS pr ON tt.periodId = pr.id
+                   INNER JOIN year AS yr ON pr.yearId = yr.id
+                   INNER JOIN bimester AS br ON pr.bimesterId = br.id
+          WHERE
+              stu.id IN (?)
+            AND yr.id = ?
+            AND sc.yearId = yr.id
+              LIMIT ?
+          OFFSET ?
+      `;
 
-      const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
-      return queryResult as qStudentTests[]
+      const [ queryResult ] = await conn.query(format(query), [studentIds, yearId, limit, offset]);
+
+      return queryResult as qStudentTests[];
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentAlphabeticByYear(studentIds: number[], year: string, limit: number, offset: number) {
+  async qStudentAlphabeticByYear(studentIds: number[], yearId: number, limit: number, offset: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       const query = `
-      SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName, cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName, tt.id AS testId, tt.name AS testName, br.name AS bimesterName, br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId, stu.ra, stu.dv
-      FROM alphabetic AS alpha
-      INNER JOIN student AS stu ON alpha.studentId = stu.id
-      INNER JOIN student_classroom AS sc ON stu.id = sc.studentId
-      INNER JOIN classroom AS cls ON sc.classroomId = cls.id
-      INNER JOIN school AS sch ON cls.schoolId = sch.id
-      INNER JOIN person AS per ON stu.personId = per.id
-      INNER JOIN test AS tt ON alpha.testId = tt.id
-      INNER JOIN test_category AS ttc ON tt.categoryId = ttc.id
-      INNER JOIN period AS pr ON tt.periodId = pr.id
-      INNER JOIN year AS yr ON pr.yearId = yr.id
-      INNER JOIN bimester AS br ON pr.bimesterId = br.id
-      WHERE stu.id IN (?) AND yr.name = ? AND sc.endedAt IS NOT NULL
-      LIMIT ?
-      OFFSET ?
-    `
-      const [ queryResult ] = await conn.query(format(query), [studentIds, year, limit, offset])
-      return queryResult as qStudentTests[]
+          SELECT
+              sc.id AS studentClassroomId, stu.id AS studentId, per.name AS studentName,
+              cls.id AS classroomId, cls.shortName AS classroomName, sch.shortName AS schoolName,
+              tt.id AS testId, tt.name AS testName, br.name AS bimesterName,
+              br.testName AS bimesterTestName, yr.name AS yearName, ttc.id AS testCategoryId,
+              stu.ra, stu.dv
+          FROM alphabetic AS alpha
+                   INNER JOIN student AS stu ON alpha.studentId = stu.id
+                   INNER JOIN student_classroom AS sc ON stu.id = sc.studentId
+                   INNER JOIN classroom AS cls ON sc.classroomId = cls.id
+                   INNER JOIN school AS sch ON cls.schoolId = sch.id
+                   INNER JOIN person AS per ON stu.personId = per.id
+                   LEFT JOIN test AS tt ON alpha.testId = tt.id
+                   LEFT JOIN test_category AS ttc ON tt.categoryId = ttc.id
+                   LEFT JOIN period AS pr ON tt.periodId = pr.id
+                   LEFT JOIN year AS yr ON pr.yearId = yr.id
+                   LEFT JOIN bimester AS br ON pr.bimesterId = br.id
+          WHERE
+              stu.id IN (?)
+            AND yr.id = ?
+            AND sc.yearId = yr.id
+              LIMIT ?
+          OFFSET ?
+      `;
+
+      const [ queryResult ] = await conn.query(format(query), [studentIds, yearId, limit, offset]);
+
+      return queryResult as qStudentTests[];
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

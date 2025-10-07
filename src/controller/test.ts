@@ -941,7 +941,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
-        if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        if([pc.MONI, pc.SECR, pc.PROF, pc.COOR, pc.VICE, pc.DIRE].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
         }
 

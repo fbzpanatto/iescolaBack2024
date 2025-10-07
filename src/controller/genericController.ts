@@ -2871,13 +2871,10 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
           if (row.alphabeticFirst_id) {
             studentClassroom.student.alphabeticFirst = {
-              id: row.alphabeticFirst_id,
-              alphabeticFirst: row.alphabeticFirst_level_id ? {
-                id: row.alphabeticFirst_level_id,
-                name: row.alphabeticFirst_level_name,
-                shortName: row.alphabeticFirst_level_shortName,
-                color: row.alphabeticFirst_level_color
-              } : null
+              id: row.alphabeticFirst_level_id,
+              name: row.alphabeticFirst_level_name,
+              shortName: row.alphabeticFirst_level_shortName,
+              color: row.alphabeticFirst_level_color
             };
           }
 

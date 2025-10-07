@@ -19,7 +19,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qAlphaStuClassroomsFormated, qReadingFluenciesHeaders, qStudentClassroomFormated, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qReadingFluenciesHeaders, qStudentClassroomFormated, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
@@ -62,7 +62,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
 
       const response = await AppDataSource.transaction(async (typeOrmConnection) => {
-        console.log('await AppDataSource.transaction')
         switch (test.category.id) {
           case(TEST_CATEGORIES_IDS.READ_2):
           case(TEST_CATEGORIES_IDS.READ_3): {

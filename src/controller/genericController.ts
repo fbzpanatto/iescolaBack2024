@@ -3146,15 +3146,9 @@ INNER JOIN year AS y ON tr.yearId = y.id
         params.push(...disciplines);
       }
 
-      if (bimesterId) {
-        query += ` AND b.id = ?`;
-        params.push(bimesterId);
-      }
+      if (bimesterId) { query += ` AND b.id = ?`; params.push(bimesterId) }
 
-      if (disciplineId) {
-        query += ` AND d.id = ?`;
-        params.push(disciplineId);
-      }
+      if (disciplineId) { query += ` AND d.id = ?`; params.push(disciplineId) }
 
       if (search && search.trim() !== '') {
         query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;

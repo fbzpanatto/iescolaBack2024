@@ -1,60 +1,23 @@
-import {
-  DeepPartial,
-  EntityManager,
-  EntityTarget,
-  FindManyOptions,
-  FindOneOptions,
-  ObjectLiteral,
-  SaveOptions
-} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {
-  qAlphabeticLevels,
-  qAlphaStuClassrooms,
-  qAlphaTests,
-  qClassroom,
-  qClassrooms,
-  qFormatedYear,
-  qPendingTransfers,
-  qReadingFluenciesHeaders,
-  qSchools,
-  qState,
-  qStudentClassroomFormated,
-  qStudentsClassroomsForTest,
-  qStudentTests,
-  qTeacherClassrooms,
-  qTeacherDisciplines,
-  qTeacherRelationShip,
-  qTest,
-  qTestClassroom,
-  qTestQuestions,
-  qTransferStatus,
-  qUser,
-  qUserTeacher,
-  qYear,
-  SavePerson,
-  TeacherParam,
-  Training,
-  TrainingResult,
-  TrainingWithSchedulesResult
-} from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {ResultSetHeader} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
-import {Transfer} from "../model/Transfer";
-import {Discipline} from "../model/Discipline";
-import {Teacher} from "../model/Teacher";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Contract} from "../model/Contract";
-import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
-import {TestQuestion} from "../model/TestQuestion";
-import {TEST_CATEGORIES_IDS} from "../utils/testCategory";
-import {connectionPool} from "../services/db";
-import {PersonCategory} from "../model/PersonCategory";
-import {pc} from "../utils/personCategories";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { qAlphabeticLevels, qAlphaStuClassrooms, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, TeacherParam, Training, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { ResultSetHeader } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
+import { Transfer } from "../model/Transfer";
+import { Discipline } from "../model/Discipline";
+import { Teacher } from "../model/Teacher";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Contract } from "../model/Contract";
+import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
+import { TestQuestion } from "../model/TestQuestion";
+import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { connectionPool } from "../services/db";
+import { PersonCategory } from "../model/PersonCategory";
+import { pc } from "../utils/personCategories";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}

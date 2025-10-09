@@ -3220,6 +3220,66 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
+  async qUpdateAndValidateAnswer(studentQuestionId: number, newAnswer: string, classroomId: number, studentClassroomId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const updateQuery = `
+          UPDATE
+              student_question AS sq
+              INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id
+              INNER JOIN test AS tt ON tq.testId = tt.id
+              INNER JOIN student AS s ON sq.studentId = s.id
+              INNER JOIN student_classroom AS sc ON sc.id = ?
+              SET
+                  sq.answer = ?,
+                  sq.rClassroomId = ?,
+                  sq.updatedAt = NOW(),
+                  sq.updatedByUser = ?
+          WHERE
+              sq.id = ?
+            AND tt.active = 1
+            AND NOT (
+              sc.endedAt IS NOT NULL AND NOT EXISTS (
+              SELECT * FROM (
+              SELECT 1
+              FROM student_question sq2
+              INNER JOIN test_question tq2 ON sq2.testQuestionId = tq2.id
+              WHERE sq2.studentId = s.id
+            AND tq2.testId = tt.id
+            AND sq2.answer != ''
+            AND sq2.id != sq.id
+              ) AS temp
+              )
+              )
+            AND (sq.rClassroomId IS NULL OR sq.rClassroomId = ?)
+      `;
+
+      const params = [studentClassroomId, newAnswer, classroomId, userId, studentQuestionId, classroomId];
+
+      const [updateResult] = await conn.query(updateQuery, params) as any[];
+
+      if (updateResult.affectedRows === 0) { await conn.rollback(); return null }
+
+      const selectQuery = `
+        SELECT sq.*, tq.answer AS correctAnswer
+        FROM student_question sq
+        INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+        WHERE sq.id = ?
+      `;
+
+      const [selectResult] = await conn.query(selectQuery, [studentQuestionId]) as any[];
+
+      await conn.commit();
+
+      return selectResult[0];
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
   formatTrainingsWithSchedules(queryResult: any[]): TrainingWithSchedulesResult[] {

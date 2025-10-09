@@ -147,41 +147,20 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
   }
 
   async updateQuestion(req: Request, body: ObjectLiteral) {
-
-    const { year } = req.query
+    const { year } = req.query;
 
     try {
+      const cY = await this.qCurrentYear();
+      if (!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' } }
+      if (parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-      const cY = await this.qCurrentYear()
-      if(!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' }}
-      if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+      const updatedQuestion = await this.qUpdateAndValidateAnswer(Number(body.id), body.answer, body.classroom.id, body.studentClassroom.id, body.user.user);
+      if (!updatedQuestion) { return { status: 403, message: 'A atualização não foi permitida devido a uma regra de negócio. (Ex: matrícula encerrada, teste inativo, etc)' } }
 
-      return await AppDataSource.transaction(async(CONN: EntityManager)=> {
+      const mappedRes = { ...updatedQuestion, score: updatedQuestion.correctAnswer.includes(updatedQuestion.answer.trim().toUpperCase()) ? 1 : 0 };
+      delete mappedRes.correctAnswer;
 
-        const sQ: StudentQuestion | null = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })
-        if(!sQ) { return { status: 400, message: 'Registro não encontrado' } }
-
-        if(sQ.testQuestion.test && !sQ.testQuestion.test.active){ return { status: 403, message: `Este bimestre ou avaliação não permite novos lançamentos.` } }
-
-        const id = body.studentClassroom.id
-        const relations = ['classroom.school', 'student.studentQuestions.rClassroom', 'student.studentQuestions.testQuestion.test', 'student.person']
-        const sC: StudentClassroom | null = await CONN.findOne(StudentClassroom, { where: { id }, relations })
-        const condition = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length < 1 || el.answer === '' || el.answer === ' ')
-        if(sC?.endedAt && condition) { return { status: 403, message: `${ sC.student.person.name } consta como matrícula encerrada para ${sC.classroom.shortName} - ${sC.classroom.school.shortName}.` } }
-
-        const msgErr1: string = 'Você não pode alterar um gabarito que já foi registrado em outra sala/escola.'
-        const condition2 = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length > 0 && el.answer != ' ')
-        if(condition2 && sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
-
-        if(!['A', 'B', 'C', 'D', 'E', ''].includes(body.answer)) { return { status: 403, message: 'Informe uma letra válida entre: [A, B, C, D, E]' } }
-
-        sQ.rClassroom = body.classroom; sQ.answer = body.answer; sQ.updatedByUser = body.user.user; sQ.updatedAt = new Date()
-
-        const res = await CONN.save(StudentQuestion, sQ)
-
-        const mappedRes = { ...res, score: sQ.testQuestion.answer.includes(res.answer.trim().toUpperCase()) ? 1 : 0 }
-        return { status: 200, data: mappedRes };
-      })
+      return { status: 200, data: mappedRes };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }

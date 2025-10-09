@@ -151,11 +151,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { year } = req.query
 
     try {
-      return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
-        const cY = await this.qCurrentYear()
-        if(!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' }}
-        if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+      const cY = await this.qCurrentYear()
+      if(!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' }}
+      if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
+
+      return await AppDataSource.transaction(async(CONN: EntityManager)=> {
 
         const sQ: StudentQuestion | null = await CONN.findOne(StudentQuestion, { relations: ['testQuestion.test', 'rClassroom'], where: { id: Number(body.id) } })
         if(!sQ) { return { status: 400, message: 'Registro não encontrado' } }
@@ -172,13 +173,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const condition2 = sC?.student.studentQuestions.filter(el => el.testQuestion.test.id === sQ.testQuestion.test.id).every(el => el.answer.length > 0 && el.answer != ' ')
         if(condition2 && sQ.rClassroom && sQ.rClassroom.id != body.classroom.id) { return { status: 403, message: msgErr1  } }
 
-        if(!['A', 'B', 'C', 'D', 'E', ''].includes(body.answer)) {
-          return { status: 403, message: 'Informe uma letra válida entre: [A, B, C, D, E]' }
-        }
+        if(!['A', 'B', 'C', 'D', 'E', ''].includes(body.answer)) { return { status: 403, message: 'Informe uma letra válida entre: [A, B, C, D, E]' } }
 
-        const updatedBy = await this.qTeacherByUser(body.user.user)
-
-        sQ.rClassroom = body.classroom; sQ.answer = body.answer; sQ.updatedByUser = updatedBy.id; sQ.updatedAt = new Date()
+        sQ.rClassroom = body.classroom; sQ.answer = body.answer; sQ.updatedByUser = body.user.user; sQ.updatedAt = new Date()
 
         const res = await CONN.save(StudentQuestion, sQ)
 

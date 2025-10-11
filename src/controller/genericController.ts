@@ -1458,7 +1458,7 @@ export class GenericController<T> {
       const query =
         `
         SELECT 
-            tq.id AS test_question_id, tq.order AS test_question_order, tq.answer AS test_question_answer, tq.active AS test_question_active,
+            tq.id AS test_question_id, tq.order AS test_question_order, tq.active AS test_question_active,
             qt.id AS question_id,
             qt.title AS question_title,
             qt.images AS question_images,
@@ -3396,7 +3396,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     return arr.map(el => ({
       id: el.test_question_id,
       order: el.test_question_order,
-      answer: el.test_question_answer,
+      answer: el.test_question_answer ?? 'hidden',
       active: el.test_question_active,
       question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }

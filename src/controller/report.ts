@@ -76,7 +76,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
-
   async listAggregatedTests(req: Request) {
     const classroom = req.query.classroom ?? req.params.classroom
     const bimester = req.query.bimester ?? req.params.bimester
@@ -108,8 +107,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       for (const { testName, bimester, data: test } of allResults) {
 
-        if(test?.category.id === TEST_CATEGORIES_IDS.AVL_ITA){ response.headers.push(test.discipline.name) }
-        else { response.headers.push(testName) }
+        response.headers.push(testName)
 
         response.testName = response.testName || testName;
         response.classroom = response.classroom || `${req.params.classroom}° anos`;

@@ -784,19 +784,20 @@ export class GenericController<T> {
       const likeClassroom = `%${classroom}%`
 
       const query = `
-      SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName
-      FROM test_classroom AS tc
-      INNER JOIN classroom AS c ON tc.classroomId = c.id
-      INNER JOIN test AS t ON tc.testId = t.id
-      INNER JOIN discipline AS d ON t.disciplineId = d.id
-      INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
-      INNER JOIN period AS p ON t.periodId = p.id
-      INNER JOIN bimester AS b ON p.bimesterId = b.id
-      INNER JOIN year AS y ON p.yearId = y.id
-      WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ? AND tcat.id = ?;    
-    `
+        SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName, t.createdAt
+        FROM test_classroom AS tc
+        INNER JOIN classroom AS c ON tc.classroomId = c.id
+        INNER JOIN test AS t ON tc.testId = t.id
+        INNER JOIN discipline AS d ON t.disciplineId = d.id
+        INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
+        INNER JOIN period AS p ON t.periodId = p.id
+        INNER JOIN bimester AS b ON p.bimesterId = b.id
+        INNER JOIN year AS y ON p.yearId = y.id
+        WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ?
+        ORDER BY t.createdAt ASC, d.name ASC;    
+      `
 
-      const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId, categoryId])
+      const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId])
       return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
     }
     catch (error) { console.error(error); throw error }

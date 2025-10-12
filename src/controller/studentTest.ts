@@ -1,7 +1,7 @@
 import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import { TestByStudentId } from "../interfaces/interfaces";
+import {TestByStudentId, UpdateStudentAnswers} from "../interfaces/interfaces";
 import { TestQuestion } from "../model/TestQuestion";
 
 class StudentTestController extends GenericController<any> {
@@ -16,17 +16,17 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const studentClassroomId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
+      const scId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
       const testId = params.id;
       const studentId = body.user.user;
 
-      if (!studentClassroomId) { return { status: 400, message: "Referência inválida." } }
+      if (!scId) { return { status: 400, message: "Referência inválida." } }
 
       const studentTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
 
       if (!studentTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      if (studentTestInfo.studentClassroomId != studentClassroomId) {
+      if (studentTestInfo.studentClassroomId != scId) {
         return { status: 400, message: `Acesse a prova através da sala: ${studentTestInfo.classroomName} - ${studentTestInfo.schoolName}` };
       }
 
@@ -45,13 +45,9 @@ class StudentTestController extends GenericController<any> {
 
       if (!studentQuestions || studentQuestions.length === 0) {
 
-        let studentTestStatusId = studentTestInfo.studentTestStatusId;
-
-        if (!studentTestStatusId) {
+        if (!studentTestInfo.studentTestStatusId) {
           const insertStatusQuery = `INSERT INTO student_test_status (studentClassroomId, testId, active, observation, createdAt, createdByUser) VALUES (?, ?, 1, '', NOW(), ?)`;
-
           const [statusResult] = await conn.execute(insertStatusQuery, [studentTestInfo.studentClassroomId, testId, studentId]);
-          studentTestStatusId = (statusResult as any).insertId;
         }
 
         const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
@@ -95,18 +91,7 @@ class StudentTestController extends GenericController<any> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateStudentAnswers(body: {
-    user: { user: number, ra: string, category: number, iat: number, exp: number },
-    testId: number,
-    studentId: number | string,
-    questions: {
-      studentQuestionId: number,
-      answer: string,
-      testQuestionId: number,
-      studentId: number,
-      rClassroomId: number | null
-    }[]
-  }) {
+  async updateStudentAnswers(body: UpdateStudentAnswers) {
 
     let conn;
 
@@ -152,13 +137,13 @@ class StudentTestController extends GenericController<any> {
         const finalParams = [...answerParams, ...classroomParams, body.user.user, ...questionIds];
 
         const bulkUpdateQuery = `
-            UPDATE student_question
-            SET
-                answer = CASE id ${caseAnswerClauses.join(' ')} END,
-                rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
-                updatedAt = NOW(),
-                updatedByUser = ?
-            WHERE id IN (${questionIds.map(() => '?').join(',')})
+          UPDATE student_question
+          SET
+            answer = CASE id ${caseAnswerClauses.join(' ')} END,
+            rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
+            updatedAt = NOW(),
+            updatedByUser = ?
+          WHERE id IN (${questionIds.map(() => '?').join(',')})
         `;
 
         await conn.execute(bulkUpdateQuery, finalParams);

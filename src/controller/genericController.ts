@@ -3281,6 +3281,98 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
+  async getStudentDataForFrontend(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, studentClassroomId: number | null): Promise<any[]> {
+    let conn;
+
+    try {
+      conn = await await connectionPool.getConnection()
+
+      let query = `
+      WITH StudentData AS (
+        SELECT
+          -- StudentClassroom
+          sc.id AS sc_id, sc.rosterNumber AS sc_rosterNumber, sc.startedAt AS sc_startedAt, sc.endedAt AS sc_endedAt,
+          -- Student
+          s.id AS s_id, s.ra AS s_ra, s.dv AS s_dv, s.observationOne AS s_observationOne, s.observationTwo AS s_observationTwo, s.active AS s_active,
+          -- Person
+          p.id AS p_id, p.name AS p_name, p.birth AS p_birth,
+          -- StudentQuestion
+          sq.id AS sq_id, sq.answer AS sq_answer, sq.score AS sq_score,
+          -- Related Classroom (from StudentQuestion)
+          rc.id AS rc_id, rc.name AS rc_name, rc.shortName AS rc_shortName,
+          -- TestQuestion
+          tq.id AS tq_id, tq.\`order\` AS tq_order, tq.answer AS tq_answer, tq.active AS tq_active, tq.createdAt AS tq_createdAt, tq.updatedAt AS tq_updatedAt, tq.createdByUser AS tq_createdByUser, tq.updatedByUser AS tq_updatedByUser,
+          -- StudentDisability
+          sd.id AS sd_id, sd.startedAt AS sd_startedAt, sd.endedAt AS sd_endedAt,
+          -- Disability
+          d.id AS d_id, d.name AS d_name, d.official AS d_official,
+          -- StudentTestStatus
+          ss.id AS ss_id, ss.active AS ss_active, ss.observation AS ss_observation,
+          -- Test
+          st.id AS st_id, st.name AS st_name, st.active AS st_active, st.hideAnswers AS st_hideAnswers, st.createdAt AS st_createdAt, st.updatedAt AS st_updatedAt, st.createdByUser AS st_createdByUser, st.updatedByUser AS st_updatedByUser,
+          -- Period
+          per.id AS per_id,
+          -- Question Group
+          qg.id as qg_id,
+          -- Classroom
+          c.id AS c_id, c.name AS c_name, c.shortName AS c_shortName,
+          -- School
+          sch.id AS sch_id, sch.name AS sch_name, sch.shortName AS sch_shortName, sch.inep AS sch_inep, sch.active AS sch_active,
+          -- Campo para cálculo de acertos
+          CASE WHEN TRIM(UPPER(sq.answer)) = TRIM(UPPER(tq.answer)) THEN 1 ELSE 0 END AS is_correct
+        FROM
+          student_classroom sc
+          LEFT JOIN student s ON sc.studentId = s.id
+          INNER JOIN student_test_status ss ON sc.id = ss.studentClassroomId
+          INNER JOIN test st ON ss.testId = st.id
+          INNER JOIN period per ON st.periodId = per.id
+          INNER JOIN year y ON sc.yearId = y.id
+          INNER JOIN person p ON s.personId = p.id
+          INNER JOIN classroom c ON sc.classroomId = c.id
+          INNER JOIN school sch ON c.schoolId = sch.id
+          LEFT JOIN student_question sq ON s.id = sq.studentId
+          LEFT JOIN classroom rc ON sq.rClassroomId = rc.id
+          LEFT JOIN test_question tq ON sq.testQuestionId = tq.id AND tq.id IN (?)
+          LEFT JOIN question_group qg ON tq.questionGroupId = qg.id
+          LEFT JOIN student_disability sd ON s.id = sd.studentId AND sd.endedAt IS NULL
+          LEFT JOIN disability d ON sd.disabilityId = d.id
+        WHERE
+          sc.classroomId = ?
+          -- ================== FILTROS QUE FALTAVAM ==================
+          AND (sc.startedAt < ? OR ss.testId = ?)
+          AND tq.testId = ?
+          AND st.id = ?
+          AND y.name = ?
+          AND per.id = ?
+    `;
+
+      const testQuestionsIds = testQuestions.map(tq => tq.id);
+      const params: any[] = [ testQuestionsIds.length > 0 ? testQuestionsIds : [null], classroomId, test.createdAt, test.id, test.id, test.id, yearName, test.period.id ];
+
+      if (studentClassroomId) { query += ` AND sc.id = ?`; params.push(studentClassroomId) }
+      if (TEST_CATEGORIES_IDS.AVL_ITA === test.category.id) { query += ` AND ss.active = TRUE` }
+
+      query += `
+      )
+      SELECT
+        d.*,
+        SUM(d.is_correct) OVER (PARTITION BY d.s_id) AS student_row_total,
+        COUNT(d.tq_id) OVER (PARTITION BY d.s_id) AS student_total_questions
+      FROM StudentData d
+      ORDER BY
+        d.qg_id ASC,
+        d.tq_order ASC,
+        d.sc_rosterNumber ASC,
+        d.p_name ASC;
+    `;
+
+      const [flatResults] = await conn.query(format(query, params));
+      return this.hydrateFrontendObject(flatResults as any[]);
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
 
   formatTrainingsWithSchedules(queryResult: any[]): TrainingWithSchedulesResult[] {
@@ -3461,5 +3553,119 @@ INNER JOIN year AS y ON tr.yearId = y.id
       acc.periods.push({id: prev.period_id, bimester: {id: prev.bimester_id, name: prev.bimester_name, testName: prev.bimester_testName}});
       return acc;
     }, {} as qFormatedYear)
+  }
+
+  hydrateFrontendObject(rows: any[]): any[] {
+    const mainMap = new Map<number, any>();
+
+    for (const row of rows) {
+      // Se a matrícula (studentClassroom) ainda não foi processada, crie a estrutura completa.
+      if (!mainMap.has(row.sc_id)) {
+        // Calcula o percentual do aluno
+        let rowPercent = 0;
+        if (row.student_total_questions > 0) {
+          rowPercent = Math.floor((row.student_row_total / row.student_total_questions) * 10000) / 100;
+        }
+
+        mainMap.set(row.sc_id, {
+          id: row.sc_id,
+          rosterNumber: row.sc_rosterNumber,
+          startedAt: row.sc_startedAt,
+          endedAt: row.sc_endedAt,
+          student: {
+            id: row.s_id,
+            ra: row.s_ra,
+            dv: row.s_dv,
+            observationOne: row.s_observationOne,
+            observationTwo: row.s_observationTwo,
+            active: !!row.s_active,
+            person: {
+              id: row.p_id,
+              name: row.p_name,
+              birth: row.p_birth,
+            },
+            studentQuestions: [], // Será preenchido abaixo
+            studentDisabilities: [], // Será preenchido abaixo
+            studentTotals: {
+              rowTotal: row.student_row_total,
+              rowPercent: rowPercent,
+            },
+          },
+          studentStatus: {
+            id: row.ss_id,
+            active: !!row.ss_active,
+            observation: row.ss_observation,
+            test: {
+              id: row.st_id,
+              name: row.st_name,
+              active: !!row.st_active,
+              hideAnswers: !!row.st_hideAnswers,
+              createdAt: row.st_createdAt,
+              updatedAt: row.st_updatedAt,
+              createdByUser: row.st_createdByUser,
+              updatedByUser: row.st_updatedByUser,
+              period: {
+                id: row.per_id,
+              },
+            },
+          },
+          classroom: {
+            id: row.c_id,
+            name: row.c_name,
+            shortName: row.c_shortName,
+            school: {
+              id: row.sch_id,
+              name: row.sch_name,
+              shortName: row.sch_shortName,
+              inep: row.sch_inep,
+              active: !!row.sch_active,
+            },
+          },
+        });
+      }
+
+      // Obtenha a referência ao objeto principal que já está no Map.
+      const currentItem = mainMap.get(row.sc_id);
+
+      // Adicione studentQuestions, evitando duplicatas.
+      if (row.sq_id && !currentItem.student.studentQuestions.some((q: any) => q.id === row.sq_id)) {
+        currentItem.student.studentQuestions.push({
+          id: row.sq_id,
+          answer: row.sq_answer,
+          score: row.sq_score,
+          rClassroom: {
+            id: row.rc_id,
+            name: row.rc_name,
+            shortName: row.rc_shortName,
+          },
+          testQuestion: {
+            id: row.tq_id,
+            order: row.tq_order,
+            answer: row.tq_answer,
+            active: !!row.tq_active,
+            createdAt: row.tq_createdAt,
+            updatedAt: row.tq_updatedAt,
+            createdByUser: row.tq_createdByUser,
+            updatedByUser: row.tq_updatedByUser,
+          },
+        });
+      }
+
+      // Adicione studentDisabilities, evitando duplicatas.
+      if (row.sd_id && !currentItem.student.studentDisabilities.some((d:any) => d.id === row.sd_id)) {
+        currentItem.student.studentDisabilities.push({
+          id: row.sd_id,
+          startedAt: row.sd_startedAt,
+          endedAt: row.sd_endedAt,
+          disability: {
+            id: row.d_id,
+            name: row.d_name,
+            official: row.d_official,
+          },
+        });
+      }
+    }
+
+    return Array.from(mainMap.values());
   }
 }

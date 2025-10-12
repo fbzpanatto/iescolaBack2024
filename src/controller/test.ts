@@ -144,9 +144,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             let diffOe = 0
             let validSc = 0
 
-            let result = await this.stuQtsDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
-
-            result = await this.qStudentDisabilities(result) as unknown as StudentClassroom[]
+            let result = await this.getStudentDataForFrontend(test, qTestQuestions, Number(classroomId), test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
 
             const mappedResult = result.map((sc: StudentClassroom) => {
 
@@ -520,49 +518,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         }
       }
     }
-  }
-
-  async stuQtsDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
-
-    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-
-    let studentClassrooms = await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .innerJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .innerJoinAndSelect("studentStatus.test", "stStatusTest")
-      .innerJoinAndSelect("stStatusTest.period", "period")
-      .innerJoin("studentClassroom.year", "year")
-      .innerJoinAndSelect("student.person", "person")
-      .innerJoinAndSelect("studentClassroom.classroom", "classroom")
-      .innerJoinAndSelect("classroom.school", "school")
-      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
-      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .leftJoin("testQuestion.test", "test")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        if(studentClassroomId) {
-          qb.andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId })
-        }
-        if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){
-          qb.andWhere("studentStatus.active = :active", { active: true })
-        }
-      }))
-      .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })
-      .andWhere("testQuestion.test = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .andWhere("period.id = :periodId", { periodId: test.period.id })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .addOrderBy("person.name", "ASC")
-      .getMany();
-
-    return this.duplicatedStudents(studentClassrooms).map((sc: StudentClassroom) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) })) as StudentClassroom[]
   }
 
   async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {

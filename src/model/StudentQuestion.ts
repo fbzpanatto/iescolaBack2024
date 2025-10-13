@@ -3,7 +3,7 @@ import { TestQuestion } from "./TestQuestion";
 import { Classroom } from "./Classroom";
 import { Student } from "./Student";
 
-@Index(["testQuestion", "student"])
+@Index(["testQuestion", "student"], { unique: true })
 @Entity()
 export class StudentQuestion {
 

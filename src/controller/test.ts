@@ -567,12 +567,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let data;
         switch (test.category.id) {
-          case TEST_CATEGORIES_IDS.LITE_1:
-          case TEST_CATEGORIES_IDS.LITE_2:
-          case TEST_CATEGORIES_IDS.LITE_3: {
-            data = await this.notIncludedAL(test, Number(classroomId), Number(yearName), CONN)
-            break;
-          }
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
             data = await this.notIncludedRF(test, Number(classroomId), Number(yearName), CONN)
@@ -699,19 +693,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(!test) return { status: 404, message: "Teste não encontrado" }
         switch (test.category.id) {
-          case (TEST_CATEGORIES_IDS.LITE_1):
-          case (TEST_CATEGORIES_IDS.LITE_2):
-          case (TEST_CATEGORIES_IDS.LITE_3): {
-            const stClassrooms = await this.notIncludedAL(test, body.classroom.id, body.year, CONN)
-            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
-            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            for(let register of filteredSC){
-              const sAlphabetic = await CONN.findOne(Alphabetic, { where: { test: { id: test.id }, student: { id: register.student_id } } } )
-              if(!sAlphabetic) { await CONN.save(Alphabetic, { createdAt: new Date(), createdByUser: qUserTeacher.person.user.id, student: { id: register.student_id }, test } ) }
-            }
-            break;
-          }
-
           case (TEST_CATEGORIES_IDS.READ_2):
           case (TEST_CATEGORIES_IDS.READ_3): {
             const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
@@ -763,22 +744,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getRawMany() as unknown as notIncludedInterface[]
   }
 
-  async notIncludedAL(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoin("student.alphabetic", "alphabetic")
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", {classroomId})
-      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
-      .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("year.name = :yearName", {yearName})
-      .andWhere("alphabetic.id IS NULL")
-      .getRawMany()
-  }
-
   async findAllByYear(req: Request) {
     try {
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
@@ -793,7 +758,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user);
 
-      const masterTeacher =
+      const mTeacher =
         qUserTeacher.person.category.id === pc.ADMN ||
         qUserTeacher.person.category.id === pc.SUPE ||
         qUserTeacher.person.category.id === pc.FORM;
@@ -803,17 +768,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const testsMap = new Map<number, any>();
 
-      const rows = await this.qfindAllByYear(
-        masterTeacher,
-        yearName,
-        classrooms,
-        disciplines,
-        bimesterId,
-        disciplineId,
-        search,
-        limit,
-        offset
-      )
+      const rows = await this.qfindAllByYear(mTeacher, yearName, classrooms, disciplines, bimesterId, disciplineId, search, limit, offset)
 
       for (const row of rows) {
         const testId = row.test_id;

@@ -1,7 +1,7 @@
 import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import {TestByStudentId, UpdateStudentAnswers} from "../interfaces/interfaces";
+import { TestByStudentId, UpdateStudentAnswers } from "../interfaces/interfaces";
 import { TestQuestion } from "../model/TestQuestion";
 
 class StudentTestController extends GenericController<any> {

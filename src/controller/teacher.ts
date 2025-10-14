@@ -54,7 +54,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
       const qTeacherClasses = await this.qTeacherClassrooms(body.user.user)
-      let response;
+      let response: {}[] = [];
 
       if([pc.ADMN, pc.SUPE, pc.FORM].includes(qUserTeacher.person.category.id)) {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser((search as string) ?? '') } : { status: 200, data: [] }

@@ -46,7 +46,6 @@ class StudentTestController extends GenericController<any> {
       if (!studentQuestions || studentQuestions.length === 0) {
 
         if (!studentTestInfo.studentTestStatusId) {
-          // Usar ON DUPLICATE KEY UPDATE para evitar erro de duplicação
           const insertStatusQuery = `
               INSERT INTO student_test_status
               (studentClassroomId, testId, active, observation, createdAt, createdByUser)
@@ -56,17 +55,11 @@ class StudentTestController extends GenericController<any> {
                                    updatedAt = NOW(),
                                    updatedByUser = ?
           `;
-          const [statusResult] = await conn.execute(insertStatusQuery, [
-            studentTestInfo.studentClassroomId,
-            testId,
-            studentId,
-            studentId
-          ]);
+          const [statusResult] = await conn.execute(insertStatusQuery, [studentTestInfo.studentClassroomId, testId, studentId, studentId]);
         }
 
         const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
-        // Também aplicar ON DUPLICATE KEY UPDATE nas questões
         const insertQuestionsQuery = `
             INSERT INTO student_question
                 (testQuestionId, studentId, answer, createdAt, createdByUser)

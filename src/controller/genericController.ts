@@ -877,32 +877,35 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherThatBelongs(classroomsIds: number[], search: string){
+  async qTeacherThatBelongs(classroomsIds: number[], search: string) {
+    if (!classroomsIds || classroomsIds.length === 0) {
+      return [];
+    }
     let conn;
     try {
-      conn = await connectionPool.getConnection()
-      const personSearch = `%${search.toString().toUpperCase()}%`
+      conn = await connectionPool.getConnection();
+      const personSearch = `%${search.toString().toUpperCase()}%`;
 
       const query =
         `
-          SELECT t.id, t.email, t.register,
-                 p.id AS pId, p.name, p.birth,
-                 pc.id AS pcId, pc.name AS catName, pc.active
-          FROM teacher AS t
-                   LEFT JOIN person AS p ON t.personId = p.id
-                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-          WHERE EXISTS (
-              SELECT 1
-              FROM teacher_class_discipline AS tcd
-              WHERE tcd.teacherId = t.id AND tcd.classroomId IN (?) AND tcd.endedAt IS NULL
-          )
-            AND p.name LIKE ?
-          ORDER BY p.name;
-      `
+            SELECT t.id, t.email, t.register,
+                   p.id AS pId, p.name, p.birth,
+                   pc.id AS pcId, pc.name AS catName, pc.active
+            FROM teacher AS t
+                     LEFT JOIN person AS p ON t.personId = p.id
+                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+            WHERE EXISTS (
+                SELECT 1
+                FROM teacher_class_discipline AS tcd
+                WHERE tcd.teacherId = t.id AND tcd.classroomId IN (??) AND tcd.endedAt IS NULL
+            )
+              AND p.name LIKE ?
+            ORDER BY p.name;
+        `;
 
-      const [ queryResult ] = await conn.query(format(query), [classroomsIds, personSearch])
+      const [queryResult] = await conn.query(format(query), [classroomsIds, personSearch]);
 
-      let result = queryResult as { [key: string]: any }[]
+      let result = queryResult as { [key: string]: any }[];
 
       return result.map(el => {
         return {
@@ -926,36 +929,38 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherThatNotBelongs(classroomsIds: number[], search: string){
+  async qTeacherThatNotBelongs(classroomsIds: number[], categoryId: number, search: string) {
+    if (!classroomsIds || classroomsIds.length === 0) {
+      return [];
+    }
     let conn;
-    try{
-      conn = await connectionPool.getConnection()
-      const personSearch = `%${search.toString().toUpperCase()}%`
+    try {
+      conn = await connectionPool.getConnection();
+      const personSearch = `%${search.toString().toUpperCase()}%`;
 
       const query =
         `
-          SELECT t.id, t.email, t.register,
-                 p.id AS pId, p.name, p.birth,
-                 pc.id AS pcId, pc.name AS catName, pc.active
-          FROM teacher AS t
-                   LEFT JOIN person AS p ON t.personId = p.id
-                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-          WHERE NOT EXISTS (
-              SELECT 1
-              FROM teacher_class_discipline AS tcd
-              WHERE tcd.teacherId = t.id
-                AND tcd.classroomId IN (?)
-                AND tcd.endedAt IS NULL -- Apenas aqueles que ainda têm vínculo devem ser excluídos
-          )
-            AND pc.id = ?
-            AND p.name LIKE ?
-          ORDER BY p.name;
+            SELECT t.id, t.email, t.register,
+                   p.id AS pId, p.name, p.birth,
+                   pc.id AS pcId, pc.name AS catName, pc.active
+            FROM teacher AS t
+                     LEFT JOIN person AS p ON t.personId = p.id
+                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM teacher_class_discipline AS tcd
+                WHERE tcd.teacherId = t.id
+                  AND tcd.classroomId IN (??)
+                  AND tcd.endedAt IS NULL
+            )
+              AND pc.id = ?
+              AND p.name LIKE ?
+            ORDER BY p.name;
+        `;
 
-      `
+      const [queryResult] = await conn.query(format(query), [classroomsIds, categoryId, personSearch]);
 
-      const [ queryResult ] = await conn.query(format(query), [classroomsIds, 8, personSearch])
-
-      let result = queryResult as { [key: string]: any }[]
+      let result = queryResult as { [key: string]: any }[];
 
       return result.map(el => {
         return {

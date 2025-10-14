@@ -65,7 +65,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if(option === 2) {
-        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, (search as string) ?? '')
+        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, pc.PROF,(search as string) ?? '')
       }
 
       return { status: 200, data: response };

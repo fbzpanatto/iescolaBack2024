@@ -22,12 +22,13 @@ class StudentTestController extends GenericController<any> {
 
       if (!scId) { return { status: 400, message: "Referência inválida." } }
 
-      const studentTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
+      const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
 
-      if (!studentTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
+      if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      if (studentTestInfo.studentClassroomId != scId) {
-        return { status: 400, message: `Acesse a prova através da sala: ${studentTestInfo.classroomName} - ${studentTestInfo.schoolName}` };
+      if (stuTestInfo.studentClassroomId != scId) {
+        const message = `Acesse a prova através da sala: ${stuTestInfo.classroomName} - ${stuTestInfo.schoolName}`
+        return { status: 400, message }
       }
 
       const currentYear = await this.qCurrentYear();
@@ -37,56 +38,58 @@ class StudentTestController extends GenericController<any> {
 
       if (!qTest.active) { return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' } }
 
-      const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
+      const testQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
 
-      if (!qTestQuestions || qTestQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
+      if (!testQuestions || testQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
 
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
 
       if (!studentQuestions || studentQuestions.length === 0) {
 
-        if (!studentTestInfo.studentTestStatusId) {
-          const insertStatusQuery = `
-              INSERT INTO student_test_status
-              (studentClassroomId, testId, active, observation, createdAt, createdByUser)
-              VALUES (?, ?, 1, '', NOW(), ?)
-              ON DUPLICATE KEY UPDATE
-                                   active = IF(active IS NULL, 1, active),
-                                   updatedAt = NOW(),
-                                   updatedByUser = ?
+        const insertStatusQuery =
+          `
+            INSERT INTO student_test_status
+            (studentClassroomId, testId, active, observation, createdAt, createdByUser)
+            VALUES (?, ?, 1, '', NOW(), ?)
+            ON DUPLICATE KEY UPDATE active = COALESCE(active, 1), updatedAt = NOW(), updatedByUser = ?
           `;
-          const [statusResult] = await conn.execute(insertStatusQuery, [studentTestInfo.studentClassroomId, testId, studentId, studentId]);
-        }
 
-        const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
+        await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId, studentId]);
 
-        const insertQuestionsQuery = `
+        const questionsToInsert = testQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
+
+        const insertQuestionsQuery =
+          `
             INSERT INTO student_question
-                (testQuestionId, studentId, answer, createdAt, createdByUser)
+            (testQuestionId, studentId, answer, createdAt, createdByUser)
             VALUES ?
-            ON DUPLICATE KEY UPDATE
-                                 updatedAt = NOW(),
-                                 updatedByUser = ?
-        `;
+            ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)
+          `;
 
-        await conn.query(insertQuestionsQuery, [studentQuestionsToInsert, studentId]);
+        await conn.query(insertQuestionsQuery, [questionsToInsert]);
+
         await conn.commit();
+
         studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
       }
+      else { await conn.commit() }
 
       const groupMap = new Map();
-      qTestQuestions.forEach((tQ: any) => {
+      testQuestions.forEach((tQ: any) => {
         const groupId = tQ.questionGroup.id;
         if (!groupMap.has(groupId)) { groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] }) }
-        tQ.question.images = tQ.question.images > 0 ? Array.from({ length: tQ.question.images }, (_, i) => i + 1) : 0;
+        tQ.question.images = tQ.question.images > 0
+          ? Array.from({ length: tQ.question.images }, (_, i) => i + 1)
+          : 0;
         groupMap.get(groupId).questions.push(tQ);
       });
 
       const testQuestions = Array.from(groupMap.values());
+
       return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions } };
     }
-    catch (error: any) { console.log(error); if (conn) { await conn.rollback(); } return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release(); } }
+    catch (error: any) { console.log(error); if (conn) { await conn.rollback() } return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
   async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {

@@ -46,14 +46,37 @@ class StudentTestController extends GenericController<any> {
       if (!studentQuestions || studentQuestions.length === 0) {
 
         if (!studentTestInfo.studentTestStatusId) {
-          const insertStatusQuery = `INSERT INTO student_test_status (studentClassroomId, testId, active, observation, createdAt, createdByUser) VALUES (?, ?, 1, '', NOW(), ?)`;
-          const [statusResult] = await conn.execute(insertStatusQuery, [studentTestInfo.studentClassroomId, testId, studentId]);
+          // Usar ON DUPLICATE KEY UPDATE para evitar erro de duplicação
+          const insertStatusQuery = `
+              INSERT INTO student_test_status
+              (studentClassroomId, testId, active, observation, createdAt, createdByUser)
+              VALUES (?, ?, 1, '', NOW(), ?)
+              ON DUPLICATE KEY UPDATE
+                                   active = IF(active IS NULL, 1, active),
+                                   updatedAt = NOW(),
+                                   updatedByUser = ?
+          `;
+          const [statusResult] = await conn.execute(insertStatusQuery, [
+            studentTestInfo.studentClassroomId,
+            testId,
+            studentId,
+            studentId
+          ]);
         }
 
         const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
-        const insertQuestionsQuery = `INSERT INTO student_question (testQuestionId, studentId, answer, createdAt, createdByUser) VALUES ?`;
 
-        await conn.query(insertQuestionsQuery, [studentQuestionsToInsert]);
+        // Também aplicar ON DUPLICATE KEY UPDATE nas questões
+        const insertQuestionsQuery = `
+            INSERT INTO student_question
+                (testQuestionId, studentId, answer, createdAt, createdByUser)
+            VALUES ?
+            ON DUPLICATE KEY UPDATE
+                                 updatedAt = NOW(),
+                                 updatedByUser = ?
+        `;
+
+        await conn.query(insertQuestionsQuery, [studentQuestionsToInsert, studentId]);
         await conn.commit();
         studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
       }

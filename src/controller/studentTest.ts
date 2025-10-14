@@ -38,9 +38,9 @@ class StudentTestController extends GenericController<any> {
 
       if (!qTest.active) { return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' } }
 
-      const testQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
+      const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
 
-      if (!testQuestions || testQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
+      if (!qTestQuestions || qTestQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
 
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
 
@@ -56,7 +56,7 @@ class StudentTestController extends GenericController<any> {
 
         await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId, studentId]);
 
-        const questionsToInsert = testQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
+        const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
         const insertQuestionsQuery =
           `
@@ -66,16 +66,15 @@ class StudentTestController extends GenericController<any> {
             ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)
           `;
 
-        await conn.query(insertQuestionsQuery, [questionsToInsert]);
+        await conn.query(insertQuestionsQuery, [studentQuestionsToInsert]);
 
         await conn.commit();
 
         studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
-      }
-      else { await conn.commit() }
+      } else { await conn.commit() }
 
       const groupMap = new Map();
-      testQuestions.forEach((tQ: any) => {
+      qTestQuestions.forEach((tQ: any) => {
         const groupId = tQ.questionGroup.id;
         if (!groupMap.has(groupId)) { groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] }) }
         tQ.question.images = tQ.question.images > 0

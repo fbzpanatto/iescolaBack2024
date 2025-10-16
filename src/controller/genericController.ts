@@ -130,7 +130,10 @@ export class GenericController<T> {
 
       if (addNames) {
         const [personsRows]: [any[], any] = await conn.query(
-          `SELECT p.name, p.student_id FROM person p WHERE p.student_id IN (?)`,
+          `SELECT p.name, s.id as student_id
+           FROM person p
+                    INNER JOIN student s ON s.personId = p.id
+           WHERE s.id IN (?)`,
           [studentIds]
         );
         personsRows.forEach((row: any) => personNamesMap.set(row.student_id, row.name));
@@ -1585,24 +1588,26 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       const personSearch = `%${search.toString().toUpperCase()}%`;
 
-      const query =
-        `
-            SELECT t.id, t.email, t.register,
-                   p.id AS pId, p.name, p.birth,
-                   pc.id AS pcId, pc.name AS catName, pc.active
-            FROM teacher AS t
-                     LEFT JOIN person AS p ON t.personId = p.id
-                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-            WHERE EXISTS (
-                SELECT 1
-                FROM teacher_class_discipline AS tcd
-                WHERE tcd.teacherId = t.id AND tcd.classroomId IN (??) AND tcd.endedAt IS NULL
-            )
-              AND p.name LIKE ?
-            ORDER BY p.name;
-        `;
+      const query = `
+      SELECT t.id, t.email, t.register,
+             p.id AS pId, p.name, p.birth,
+             pc.id AS pcId, pc.name AS catName, pc.active
+      FROM teacher AS t
+               LEFT JOIN person AS p ON t.personId = p.id
+               LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+      WHERE EXISTS (
+          SELECT 1
+          FROM teacher_class_discipline AS tcd
+          WHERE tcd.teacherId = t.id 
+            AND tcd.classroomId IN (?)
+            AND tcd.endedAt IS NULL
+      )
+        AND p.name LIKE ?
+      ORDER BY p.name
+    `;
 
-      const [queryResult] = await conn.query(format(query), [classroomsIds, personSearch]);
+      // ✅ Remove o format() e passa os parâmetros corretamente
+      const [queryResult] = await conn.query(query, [classroomsIds, personSearch]);
 
       let result = queryResult as { [key: string]: any }[];
 
@@ -1637,27 +1642,26 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       const personSearch = `%${search.toString().toUpperCase()}%`;
 
-      const query =
-        `
-            SELECT t.id, t.email, t.register,
-                   p.id AS pId, p.name, p.birth,
-                   pc.id AS pcId, pc.name AS catName, pc.active
-            FROM teacher AS t
-                     LEFT JOIN person AS p ON t.personId = p.id
-                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM teacher_class_discipline AS tcd
-                WHERE tcd.teacherId = t.id
-                  AND tcd.classroomId IN (??)
-                  AND tcd.endedAt IS NULL
-            )
-              AND pc.id = ?
-              AND p.name LIKE ?
-            ORDER BY p.name;
-        `;
+      const query = `
+      SELECT t.id, t.email, t.register,
+             p.id AS pId, p.name, p.birth,
+             pc.id AS pcId, pc.name AS catName, pc.active
+      FROM teacher AS t
+               LEFT JOIN person AS p ON t.personId = p.id
+               LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+      WHERE NOT EXISTS (
+          SELECT 1
+          FROM teacher_class_discipline AS tcd
+          WHERE tcd.teacherId = t.id
+            AND tcd.classroomId IN (?)
+            AND tcd.endedAt IS NULL
+      )
+        AND pc.id = ?
+        AND p.name LIKE ?
+      ORDER BY p.name
+    `;
 
-      const [queryResult] = await conn.query(format(query), [classroomsIds, categoryId, personSearch]);
+      const [queryResult] = await conn.query(query, [classroomsIds, categoryId, personSearch]);
 
       let result = queryResult as { [key: string]: any }[];
 
@@ -3791,61 +3795,42 @@ INNER JOIN year AS y ON tr.yearId = y.id
       conn = await connectionPool.getConnection()
 
       let query = `
-          WITH RankedTests AS (
-    SELECT
-        t.id AS test_id,
-        t.name AS test_name,
-
-        -- Period
-        p.id AS period_id,
-
-        -- Category
-        tc.id AS category_id,
-        tc.name AS category_name,
-
-        -- Year
-        y.id AS year_id,
-        y.name AS year_name,
-        y.active AS year_active,
-
-        -- Bimester
-        b.id AS bimester_id,
-        b.name AS bimester_name,
-        b.testName AS bimester_test_name,
-
-        -- Discipline
-        d.id AS discipline_id,
-        d.name AS discipline_name,
-
-        -- Classroom
-        c.id AS classroom_id,
-        c.name AS classroom_name,
-        c.shortName AS classroom_shortName,
-
-        -- School
-        s.id AS school_id,
-        s.name AS school_name,
-        s.shortName AS school_shortName,
-
-        -- Adiciona ROW_NUMBER para ranking por categoria/disciplina/sala
-        ROW_NUMBER() OVER (
-            PARTITION BY tc.id, d.id, c.id, y.name
-            ORDER BY b.id DESC
+      WITH RankedTests AS (
+        SELECT
+            t.id AS test_id,
+            t.name AS test_name,
+            p.id AS period_id,
+            tc.id AS category_id,
+            tc.name AS category_name,
+            y.id AS year_id,
+            y.name AS year_name,
+            y.active AS year_active,
+            b.id AS bimester_id,
+            b.name AS bimester_name,
+            b.testName AS bimester_test_name,
+            d.id AS discipline_id,
+            d.name AS discipline_name,
+            c.id AS classroom_id,
+            c.name AS classroom_name,
+            c.shortName AS classroom_shortName,
+            s.id AS school_id,
+            s.name AS school_name,
+            s.shortName AS school_shortName,
+            ROW_NUMBER() OVER (
+                PARTITION BY tc.id, d.id, c.id, y.name
+                ORDER BY b.id DESC
             ) AS rn
-
-    FROM test t
-             INNER JOIN period p ON t.periodId = p.id
-             INNER JOIN test_category tc ON t.categoryId = tc.id
-             INNER JOIN year y ON p.yearId = y.id
-             INNER JOIN bimester b ON p.bimesterId = b.id
-             INNER JOIN discipline d ON t.disciplineId = d.id
-             INNER JOIN test_classroom test_c ON t.id = test_c.testId
-             INNER JOIN classroom c ON test_c.classroomId = c.id
-             INNER JOIN school s ON c.schoolId = s.id
-    WHERE y.name = ?
-)
-SELECT * FROM RankedTests WHERE rn = 1
-      `;
+        FROM test t
+            INNER JOIN period p ON t.periodId = p.id
+            INNER JOIN test_category tc ON t.categoryId = tc.id
+            INNER JOIN year y ON p.yearId = y.id
+            INNER JOIN bimester b ON p.bimesterId = b.id
+            INNER JOIN discipline d ON t.disciplineId = d.id
+            INNER JOIN test_classroom test_c ON t.id = test_c.testId
+            INNER JOIN classroom c ON test_c.classroomId = c.id
+            INNER JOIN school s ON c.schoolId = s.id
+        WHERE y.name = ?
+    `;
 
       const params: any[] = [yearName];
 
@@ -3861,9 +3846,15 @@ SELECT * FROM RankedTests WHERE rn = 1
         params.push(...disciplines);
       }
 
-      if (bimesterId) { query += ` AND b.id = ?`; params.push(bimesterId) }
+      if (bimesterId) {
+        query += ` AND b.id = ?`;
+        params.push(bimesterId)
+      }
 
-      if (disciplineId) { query += ` AND d.id = ?`; params.push(disciplineId) }
+      if (disciplineId) {
+        query += ` AND d.id = ?`;
+        params.push(disciplineId)
+      }
 
       if (search && search.trim() !== '') {
         query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;
@@ -3871,49 +3862,55 @@ SELECT * FROM RankedTests WHERE rn = 1
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 
+      // ✅ Fecha o CTE e adiciona a query principal
       query += `
-        )
-        SELECT DISTINCT
-          test_id,
-          test_name,
-          period_id,
-          category_id,
-          category_name,
-          year_id,
-          year_name,
-          year_active,
-          bimester_id,
-          bimester_name,
-          bimester_test_name,
-          discipline_id,
-          discipline_name,
-          classroom_id,
-          classroom_name,
-          classroom_shortName,
-          school_id,
-          school_name,
-          school_shortName
-        FROM RankedTests
-        WHERE 
-          -- Para categorias LITE (1, 2, 3), pegar apenas o registro com maior bimester
-          (category_id IN (1, 2, 3) AND rn = 1)
-          -- Para outras categorias, pegar todos os registros
-          OR category_id NOT IN (1, 2, 3)
-        ORDER BY 
-          test_name ASC,
-          school_shortName ASC,
-          classroom_shortName ASC,
-          bimester_name DESC
-        LIMIT ? OFFSET ?
-      `;
+      )
+      SELECT DISTINCT
+        test_id,
+        test_name,
+        period_id,
+        category_id,
+        category_name,
+        year_id,
+        year_name,
+        year_active,
+        bimester_id,
+        bimester_name,
+        bimester_test_name,
+        discipline_id,
+        discipline_name,
+        classroom_id,
+        classroom_name,
+        classroom_shortName,
+        school_id,
+        school_name,
+        school_shortName
+      FROM RankedTests
+      WHERE 
+        (category_id IN (1, 2, 3) AND rn = 1)
+        OR category_id NOT IN (1, 2, 3)
+      ORDER BY 
+        test_name ASC,
+        school_shortName ASC,
+        classroom_shortName ASC,
+        bimester_name DESC
+      LIMIT ? OFFSET ?
+    `;
 
       params.push(limit, offset);
 
       const [results] = await conn.query(query, params);
       return results as any[];
     }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) {
+      console.error(error);
+      throw error
+    }
+    finally {
+      if (conn) {
+        conn.release()
+      }
+    }
   }
 
   async qUpdateAndValidateAnswer(studentQuestionId: number, newAnswer: string, classroomId: number, studentClassroomId: number, userId: number) {

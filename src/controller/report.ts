@@ -7,6 +7,7 @@ import { Request } from "express";
 import { pc } from "../utils/personCategories";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
 import { testController } from "./test";
+import {formatedTestHelper, formatReadingFluencyHeaders} from "../utils/formaters";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -224,7 +225,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
-        let formatedTest = this.formatedTest(qTest)
+        let formatedTest = formatedTestHelper(qTest)
 
         const qYear = await this.qYearByName(yearName)
 
@@ -232,7 +233,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const headers = await this.qReadingFluencyHeaders()
 
-        const fluencyHeaders = testController.readingFluencyHeaders(headers)
+        const fluencyHeaders = formatReadingFluencyHeaders(headers)
 
         let localSchools = await this.qSchools(Number(testId))
 
@@ -308,10 +309,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.SIM_ITA): {
-        let formatedTest = this.formatedTest(qTest)
+        let formatedTest = formatedTestHelper(qTest)
 
         const year = await this.qYearByName(yearName)
-        // const year = await CONN.findOne(Year, { where: { name: yearName } })
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
         const qTestQuestions = await this.qTestQuestions(testId) as TestQuestion[]
@@ -321,9 +321,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
         const preResult = await this.getTestForGraphic(testId, testQuestionsIds, year)
 
-        // Maps para lookup O(1)
         const answersLettersMap = new Map<string, Map<string, any>>()
-        const testQuestionsMap = new Map(qTestQuestions.map(tq => [tq.id, tq]))
 
         const schools = preResult
           .filter(s => s.classrooms.some((c: any) =>
@@ -332,7 +330,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             )
           ))
           .map(s => {
-            // Identificar duplicados primeiro
             const studentCountMap = new Map<number, number>()
             const validStudentClassrooms: any[] = []
 

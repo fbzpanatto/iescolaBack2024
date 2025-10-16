@@ -21,6 +21,7 @@ import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedI
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
+import {formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders} from "../utils/formaters";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -46,7 +47,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
       if(!qTest) return { status: 404, message: "Teste não encontrado" }
-      const test = this.formatedTest(qTest)
+      const test = formatedTestHelper(qTest)
 
       const classroom = await this.qClassroom(classroomId)
       if(!classroom) return { status: 404, message: "Sala não encontrada" }
@@ -167,7 +168,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
         const headers = await this.qReadingFluencyHeaders()
-        const fluencyHeaders = this.readingFluencyHeaders(headers)
+        const fluencyHeaders = formatReadingFluencyHeaders(headers)
 
         const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
 
@@ -260,7 +261,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
-        const baseTest = this.formatedTest(await this.qTestByIdAndYear(Number(testId), year.name))
+        const baseTest = formatedTestHelper(await this.qTestByIdAndYear(Number(testId), year.name))
 
         const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
 
@@ -353,7 +354,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Promise<Test>
             ])
 
-            const fluencyHeaders = this.readingFluencyHeaders(headers)
+            const fluencyHeaders = formatReadingFluencyHeaders(headers)
 
             let response = { ...test, fluencyHeaders }
 
@@ -1196,7 +1197,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     for (let test of qTests) {
       const rawQuestions = questionsByTestId.get(test.id) || [];
-      const testQuestions = this.formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
+      const testQuestions = formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
 
       test.testQuestions = testQuestions;
       testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];

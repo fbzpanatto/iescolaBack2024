@@ -28,7 +28,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getStudents(req?: Request) {
 
-    const testId = Number(req?.params.id);
+    const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom);
     const scId = Number(req?.query.stc);
     const isHistory = Boolean(req?.query.isHistory);

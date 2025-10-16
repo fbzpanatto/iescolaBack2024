@@ -8,7 +8,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
@@ -16,7 +16,7 @@ import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qReadingFluenciesHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
@@ -40,7 +40,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
       const tUser = await this.qUser(req?.body.user.user)
-      const masterUser = tUser?.categoryId === pc.ADMN || tUser?.categoryId === pc.SUPE || tUser?.categoryId === pc.FORM;
+      const masterUser = tUser?.categoryId === PERSON_CATEGORIES.ADMN || tUser?.categoryId === PERSON_CATEGORIES.SUPE || tUser?.categoryId === PERSON_CATEGORIES.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
@@ -231,7 +231,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getFormData(req: Request) {
-
     try {
       return await AppDataSource.transaction(async (CONN) => {
         let classrooms = (await classroomController.getAllClassrooms(req)).data
@@ -259,7 +258,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
-        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
+        const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM
 
         const baseTest = formatedTestHelper(await this.qTestByIdAndYear(Number(testId), year.name))
 
@@ -297,20 +296,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
             }
 
-            // Criar Map para lookup O(1) ao invés de O(n*m)
             const testsByBimesterId = new Map()
             for(const test of tests) {
               const bimesterId = test.period?.bimester?.id
-              if(bimesterId) {
-                testsByBimesterId.set(bimesterId, test)
-              }
+              if(bimesterId) { testsByBimesterId.set(bimesterId, test) }
             }
 
             let headers = preheaders.map((bi: any) => {
-              return {
-                ...bi,
-                testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || []
-              }
+              return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] }
             })
 
             const schools = await this.alphaQuestions(serieFilter, year.name, baseTest, testQuestionsIds)
@@ -555,7 +548,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
-      if(![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+      if(![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
       }
 
@@ -684,9 +677,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user);
 
       const masterTeacher =
-        qUserTeacher.person.category.id === pc.ADMN ||
-        qUserTeacher.person.category.id === pc.SUPE ||
-        qUserTeacher.person.category.id === pc.FORM;
+        qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN ||
+        qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE ||
+        qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user);
       const { disciplines } = await this.qTeacherDisciplines(req?.body.user.user);
@@ -768,7 +761,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
         const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
-        const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
+        const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
         if(qUserTeacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
@@ -786,7 +779,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
-        if([pc.MONI, pc.SECR, pc.PROF, pc.COOR, pc.VICE, pc.DIRE].includes(qUserTeacher.person.category.id)) {
+        if([PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.DIRE].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
         }
 
@@ -912,9 +905,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const uTeacher = await this.qTeacherByUser(req.body.user.user)
         const userId = uTeacher.person.user.id
-        const masterUser = uTeacher.person.category.id === pc.ADMN ||
-          uTeacher.person.category.id === pc.SUPE ||
-          uTeacher.person.category.id === pc.FORM;
+        const masterUser = uTeacher.person.category.id === PERSON_CATEGORIES.ADMN ||
+          uTeacher.person.category.id === PERSON_CATEGORIES.SUPE ||
+          uTeacher.person.category.id === PERSON_CATEGORIES.FORM;
 
         const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
         if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -962,9 +955,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 };
 
                 // Adiciona skill apenas se existir
-                if (questionToSave.skill?.id) {
-                  questionData.skill = { id: questionToSave.skill.id };
-                }
+                if (questionToSave.skill?.id) { questionData.skill = { id: questionToSave.skill.id } }
 
                 // Cria a nova questão
                 const newQuestion = await CONN.save(Question, questionData);
@@ -1036,9 +1027,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: result };
       })
     }
-    catch (error: any) {
-      return { status: 500, message: error.message }
-    }
+    catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {

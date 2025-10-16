@@ -2,14 +2,14 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Request } from "express";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
   constructor() { super(PersonCategory) }
 
   async findAllPerCat(req?: Request) {
 
-    let excludeIds = [pc.ALUN];
+    let excludeIds = [PERSON_CATEGORIES.ALUN];
     const userBody = req?.body.user;
 
     try {
@@ -18,14 +18,14 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
       if (!qUserTeacher) { return { status: 404, message: "Usuário não encontrado" } }
       if (qUserTeacher.person.category.id != userBody.category) { return { status: 403, message: "Usuário não autorizado" } }
 
-      if(qUserTeacher.person.category.id === pc.SUPE){ excludeIds = [...excludeIds, pc.ADMN] }
-      if(qUserTeacher.person.category.id === pc.FORM){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE] }
-      if(qUserTeacher.person.category.id === pc.DIRE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM] }
-      if(qUserTeacher.person.category.id === pc.VICE){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE] }
-      if(qUserTeacher.person.category.id === pc.COOR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE] }
-      if(qUserTeacher.person.category.id === pc.SECR){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR] }
-      if(qUserTeacher.person.category.id === pc.MONI){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.PROF] }
-      if(qUserTeacher.person.category.id === pc.PROF){ excludeIds = [...excludeIds, pc.ADMN, pc.SUPE, pc.FORM, pc.DIRE, pc.VICE, pc.COOR, pc.SECR, pc.MONI] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.DIRE){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.VICE){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.DIRE] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.COOR){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.SECR){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.MONI){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.PROF] }
+      if(qUserTeacher.person.category.id === PERSON_CATEGORIES.PROF){ excludeIds = [...excludeIds, PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.MONI] }
 
       const result = await this.findPersonCategories(excludeIds)
 

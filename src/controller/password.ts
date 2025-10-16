@@ -1,6 +1,6 @@
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { resetPassword } from "../utils/email.service";
+import { resetPassword } from "../services/email";
 import { sign } from "jsonwebtoken";
 import { User } from "../model/User";
 import { EntityManager } from "typeorm";

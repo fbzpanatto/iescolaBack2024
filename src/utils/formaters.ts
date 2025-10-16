@@ -24,11 +24,9 @@ export function formatReadingFluencyHeaders(preHeaders: qReadingFluenciesHeaders
 
 export function formatTrainingsWithSchedules(queryResult: any[]): TrainingWithSchedulesResult[] {
   return queryResult.reduce((acc: any[], row) => {
-    // Procura se o training já existe no acumulador
     let training = acc.find(t => t.id === row.id);
 
     if (!training) {
-      // Se não existe, cria um novo training
       training = {
         id: row.id,
         classroom: row.classroom ?? null,

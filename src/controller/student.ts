@@ -4,14 +4,14 @@ import { Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull } fro
 import { Student } from "../model/Student";
 import { AppDataSource } from "../data-source";
 import { PersonCategory } from "../model/PersonCategory";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
 import { GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Request } from "express";
-import { ISOWNER } from "../utils/owner";
+import { IS_OWNER } from "../utils/enums";
 import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
 import { TransferStatus } from "../model/TransferStatus";
@@ -19,7 +19,7 @@ import { Year } from "../model/Year";
 import { stateController } from "./state";
 import { teacherClassroomsController } from "./teacherClassrooms";
 import { Teacher } from "../model/Teacher";
-import { transferStatus } from "../utils/transferStatus";
+import { TRANSFER_STATUS } from "../utils/enums";
 import { isJSON } from "class-validator";
 import getTimeZone from "../utils/getTimeZone";
 
@@ -223,7 +223,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
       const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
-      const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
+      const masterTeacher = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM
 
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
@@ -251,7 +251,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const options = { relations: ["person.category"], where: { person: { user: { id: body?.user.user } } } }
         const uTeacher = await CONN.findOne(Teacher, {...options})
 
-        const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE || uTeacher?.person.category.id === pc.FORM
+        const masterUser = uTeacher?.person.category.id === PERSON_CATEGORIES.ADMN || uTeacher?.person.category.id === PERSON_CATEGORIES.SUPE || uTeacher?.person.category.id === PERSON_CATEGORIES.FORM
 
         const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
 
@@ -339,7 +339,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         }
 
         const message = "Você não tem permissão para criar um aluno nesta sala."
-        if (body.user.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
+        if (body.user.category === PERSON_CATEGORIES.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { return { status: 403, message }}}
 
         let student: Student | null = null;
 
@@ -373,7 +373,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-      if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para modificar este registro.' } }
+      if([PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para modificar este registro.' } }
 
       await this.qSetFirstLevel(Number(body.student.id), Number(body.level.id), Number(body.user.user))
       return { status: 200, data: { message: 'done' } };
@@ -411,7 +411,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const cBodySRA: string = `${body.ra}${body.dv}`;
         const databaseStudentRa = `${dbStudent.ra}${dbStudent.dv}`;
 
-        if(databaseStudentRa !== cBodySRA && qUserTeacher.person.category.id != pc.ADMN) {
+        if(databaseStudentRa !== cBodySRA && qUserTeacher.person.category.id != PERSON_CATEGORIES.ADMN) {
           return { status: 403, message: 'Você não tem permissão para modificar o RA de um aluno. Solicite ao Administrador do sistema.' }
         }
 
@@ -420,7 +420,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           if (exists) { return { status: 409, message: "Já existe um aluno com esse RA" } }
         }
 
-        const canChange: number[] = [ pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR ]
+        const canChange: number[] = [ PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR ]
 
         const message: string = "Você não tem permissão para alterar a sala de um aluno por aqui. Solicite a alguém com nível de acesso superior ao seu."
         if (!canChange.includes(qUserTeacher.person.category.id) && stClass?.classroom.id != bodyClass.id ) { return { status: 403, message } }
@@ -432,7 +432,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           where: {
             student: { id: stClass.student.id },
             currentClassroom: { id: stClass.classroom.id },
-            status: { id: transferStatus.PENDING }, year: { id: currentYear.id }, endedAt: IsNull()
+            status: { id: TRANSFER_STATUS.PENDING }, year: { id: currentYear.id }, endedAt: IsNull()
           }
         }
 
@@ -523,8 +523,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async studentCategory(CONN?: EntityManager) {
-    if(!CONN){ return (await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: pc.ALUN } })) as PersonCategory }
-    return await CONN.findOne(PersonCategory, { where: { id: pc.ALUN } }) as PersonCategory
+    if(!CONN){ return (await AppDataSource.getRepository(PersonCategory).findOne({ where: { id: PERSON_CATEGORIES.ALUN } })) as PersonCategory }
+    return await CONN.findOne(PersonCategory, { where: { id: PERSON_CATEGORIES.ALUN } }) as PersonCategory
   }
 
   async disabilities(ids: number[], CONN?: EntityManager) {
@@ -553,7 +553,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
     return await AppDataSource.transaction(async(CONN) => {
 
-      const isOwner = options.owner === ISOWNER.OWNER;
+      const isOwner = options.owner === IS_OWNER.OWNER;
 
       let yearName: string | undefined = ''
 
@@ -764,7 +764,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-        const masterUser: boolean = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
+        const masterUser: boolean = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
 
         const { classrooms } = await this.qTeacherClassrooms(body.user.user)
 

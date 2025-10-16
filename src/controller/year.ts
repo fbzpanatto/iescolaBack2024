@@ -5,9 +5,9 @@ import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { transferStatus } from "../utils/transferStatus";
+import { TRANSFER_STATUS } from "../utils/enums";
 import { Transfer } from "../model/Transfer";
 import { Teacher } from "../model/Teacher";
 import { TransferStatus } from "../model/TransferStatus";
@@ -30,7 +30,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       return await AppDataSource.transaction(async(CONN)=> {
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)
-        const canCreate = [pc.ADMN]
+        const canCreate = [PERSON_CATEGORIES.ADMN]
         if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
         const yearExists = await this.checkIfExists(body, CONN)
         if (yearExists && yearExists.name === body.name) { return { status: 404, message: `O ano ${body.name} já existe.` } }
@@ -77,13 +77,13 @@ class YearController extends GenericController<EntityTarget<Year>> {
             .getMany()
           for (let register of allStudentsClassroomsYear) { await CONN.getRepository(StudentClassroom).save({ ...register, endedAt: new Date() }) }
 
-          const qPendingTransferStatus = await this.qPendingTransferStatus(data.id, transferStatus.PENDING)
+          const qPendingTransferStatus = await this.qPendingTransferStatus(data.id, TRANSFER_STATUS.PENDING)
 
           const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
           for(let item of qPendingTransferStatus) {
 
-            item.status = { id: transferStatus.ACCEPTED } as TransferStatus
+            item.status = { id: TRANSFER_STATUS.ACCEPTED } as TransferStatus
             item.endedAt = new Date()
             item.receiver = qUserTeacher as Teacher
 

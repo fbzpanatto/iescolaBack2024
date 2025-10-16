@@ -2,15 +2,15 @@ import { AppDataSource } from '../data-source';
 import { GenericController } from "./genericController";
 import { Brackets, DeepPartial, EntityTarget, FindManyOptions, IsNull, ObjectLiteral, SaveOptions} from "typeorm";
 import { Transfer } from "../model/Transfer";
-import { transferStatus } from "../utils/transferStatus";
+import { TRANSFER_STATUS } from "../utils/enums";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Request } from "express";
 import { Classroom } from "../model/Classroom";
 import { TransferStatus } from '../model/TransferStatus';
 import { Teacher } from "../model/Teacher";
-import { transferEmail } from "../utils/email.service";
+import { transferEmail } from "../services/email";
 import { Student } from "../model/Student";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 import { Year } from "../model/Year";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
@@ -66,7 +66,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-        const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: transferStatus.PENDING }, endedAt: IsNull()}})
+        const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: TRANSFER_STATUS.PENDING }, endedAt: IsNull()}})
 
         if (dbTransfer) return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' }
 
@@ -109,7 +109,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         transfer.year = await this.qCurrentYear() as unknown as Year
         transfer.currentClassroom = body.currentClassroom;
         transfer.createdByUser = qUserTeacher.person.user.id;
-        transfer.status = await this.qTransferStatus(transferStatus.PENDING) as TransferStatus
+        transfer.status = await this.qTransferStatus(TRANSFER_STATUS.PENDING) as TransferStatus
         const result = await CONN.save(Transfer, transfer)
 
         return { status: 201, data: result }
@@ -126,10 +126,10 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         const currTransfer = await CONN.findOne(Transfer, {
           relations: ['status', 'requester.person', 'requestedClassroom'],
-          where: { id: Number(transferId), status: { id: transferStatus.PENDING }, endedAt: IsNull() }
+          where: { id: Number(transferId), status: { id: TRANSFER_STATUS.PENDING }, endedAt: IsNull() }
         })
 
-        const isAdmin = qUserTeacher.person.category.id === pc.ADMN;
+        const isAdmin = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN;
 
         if (!currTransfer) return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' }
 
@@ -137,16 +137,16 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
         }
 
-        if(body.reject && ![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.reject && ![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência.' }
         }
 
-        if(body.accept && ![pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.accept && ![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência.' }
         }
 
         if (body.cancel) {
-          currTransfer.status = await this.qTransferStatus(transferStatus.CANCELED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(TRANSFER_STATUS.CANCELED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -156,7 +156,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
         if (body.reject) {
 
-          currTransfer.status = await this.qTransferStatus(transferStatus.REFUSED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(TRANSFER_STATUS.REFUSED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
           currTransfer.updatedByUser = qUserTeacher.person.user.id
@@ -190,7 +190,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 
-          currTransfer.status = await this.qTransferStatus(transferStatus.ACCEPTED) as TransferStatus
+          currTransfer.status = await this.qTransferStatus(TRANSFER_STATUS.ACCEPTED) as TransferStatus
           currTransfer.endedAt = new Date()
           currTransfer.receiver = qUserTeacher as Teacher
 

@@ -3,7 +3,7 @@ import { EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { TeacherBody } from "../interfaces/interfaces";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -15,7 +15,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
       const qUserTeacher = await this.qTeacherByUser(body.user.user);
       const tClasses = await this.qTeacherClassrooms(request?.body.user.user);
       const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];
-      const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM;
+      const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
       const result = await this.getTeacherClassrooms(masterUser, allClassrooms) as Array<Classroom>
       return { status: 200, data: result };
     }

@@ -14,17 +14,11 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Contract } from "../model/Contract";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { TestQuestion } from "../model/TestQuestion";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
-import { pc } from "../utils/personCategories";
-import {
-  formatAlphabeticTests, formatAlphabeticYearHeader,
-  formatAlphaStuWQuestions,
-  formatStudentClassroom,
-  formatTestQuestions,
-  formatTrainingsWithSchedules, formatUserTeacher
-} from "../utils/formaters";
+import { PERSON_CATEGORIES } from "../utils/enums";
+import { formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher } from "../utils/formaters";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -2114,9 +2108,7 @@ export class GenericController<T> {
       const questionsByTestId = new Map<number, any[]>();
       for (const question of allQuestionsRaw) {
         const testId = question.test_id;
-        if (!questionsByTestId.has(testId)) {
-          questionsByTestId.set(testId, []);
-        }
+        if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
         questionsByTestId.get(testId)!.push(question);
       }
 
@@ -3716,7 +3708,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         FROM discipline
       `;
       const params: any[] = [];
-      const isProfessor = qUserTeacher.person.category.id === pc.PROF;
+      const isProfessor = qUserTeacher.person.category.id === PERSON_CATEGORIES.PROF;
 
       if (isProfessor) {
         if (!teacherDisciplines.disciplines || teacherDisciplines.disciplines.length === 0) {

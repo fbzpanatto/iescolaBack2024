@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Test } from "../model/Test";
 import { Request } from "express";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -17,7 +17,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       const el = await this.qTeacherByUser(req.body.user.user)
       const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
-      const masterTeacher = el.person.category.id === pc.ADMN || el.person.category.id === pc.SUPE || el.person.category.id === pc.FORM
+      const masterTeacher = el.person.category.id === PERSON_CATEGORIES.ADMN || el.person.category.id === PERSON_CATEGORIES.SUPE || el.person.category.id === PERSON_CATEGORIES.FORM
 
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0

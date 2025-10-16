@@ -4,8 +4,8 @@ import { Test } from "../model/Test";
 import { AppDataSource } from "../data-source";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
-import { pc } from "../utils/personCategories";
-import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
+import { PERSON_CATEGORIES } from "../utils/enums";
+import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { testController } from "./test";
 import {formatedTestHelper, formatReadingFluencyHeaders} from "../utils/formaters";
 
@@ -37,7 +37,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const teacher = await this.qTeacherByUser(req.body.user.user)
         const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
-        const masterUser = teacher.person.category.id === pc.ADMN || teacher.person.category.id === pc.SUPE || teacher.person.category.id === pc.FORM;
+        const masterUser = teacher.person.category.id === PERSON_CATEGORIES.ADMN || teacher.person.category.id === PERSON_CATEGORIES.SUPE || teacher.person.category.id === PERSON_CATEGORIES.FORM;
 
         // TODO: MAKE MYSQL2
         let data = await CONN.getRepository(Test)

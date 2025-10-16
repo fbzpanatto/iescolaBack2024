@@ -5,8 +5,8 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
-import { pc } from "../utils/personCategories";
-import { transferStatus } from "../utils/transferStatus";
+import { PERSON_CATEGORIES } from "../utils/enums";
+import { TRANSFER_STATUS } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import bcrypt from 'bcrypt';
 
@@ -36,17 +36,17 @@ class LoginController extends GenericController<EntityTarget<User>> {
         const expiresIn = decoded.exp;
         const role = decoded.category;
 
-        if([pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR].includes(user.person.category.id)) {
+        if([PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(user.person.category.id)) {
 
           const currentYear = await this.qCurrentYear()
 
-          if(user.person.category.id === pc.ADMN) {
-            const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, transferStatus.PENDING)
+          if(user.person.category.id === PERSON_CATEGORIES.ADMN) {
+            const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, TRANSFER_STATUS.PENDING)
             return this.loginResponse(token, expiresIn, role, user, allPendingTransfers)
           }
 
           if(user.person.teacher.school?.id) {
-            const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, transferStatus.PENDING, user.person.teacher.school.id)
+            const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, TRANSFER_STATUS.PENDING, user.person.teacher.school.id)
             return this.loginResponse(token, expiresIn, role, user, pendingTransfers)
           }
         }

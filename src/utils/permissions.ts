@@ -1,4 +1,4 @@
-import { pc } from "./personCategories";
+import { PERSON_CATEGORIES } from "./enums";
 
 interface Permission { GET?: boolean, POST?: boolean, PUT?: boolean, DELETE?: boolean }
 
@@ -10,7 +10,7 @@ const allMethods: Permission = { GET: true, POST: true, PUT: true, DELETE: true 
 
 const arrayOfPermissions:{ category: number, permissions: { entity: string, methods: Permission }[]}[] = [
   {
-    category: pc.ADMN,
+    category: PERSON_CATEGORIES.ADMN,
     permissions: [
       { entity: "classroom", methods: allMethods },
       { entity: "teacher", methods: allMethods },
@@ -26,7 +26,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.SUPE,
+    category: PERSON_CATEGORIES.SUPE,
     permissions: [
       { entity: "classroom", methods: onlyGET },
       { entity: "teacher", methods: onlyGET },
@@ -42,7 +42,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.FORM,
+    category: PERSON_CATEGORIES.FORM,
     permissions: [
       { entity: "classroom", methods: onlyGET },
       { entity: "teacher", methods: onlyGET },
@@ -58,7 +58,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.DIRE,
+    category: PERSON_CATEGORIES.DIRE,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
@@ -73,7 +73,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.VICE,
+    category: PERSON_CATEGORIES.VICE,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
@@ -88,7 +88,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.COOR,
+    category: PERSON_CATEGORIES.COOR,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
@@ -103,7 +103,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.SECR,
+    category: PERSON_CATEGORIES.SECR,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
@@ -118,7 +118,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.PROF,
+    category: PERSON_CATEGORIES.PROF,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPostPut },
@@ -133,7 +133,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.MONI,
+    category: PERSON_CATEGORIES.MONI,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPost },
@@ -148,7 +148,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
-    category: pc.ALUN,
+    category: PERSON_CATEGORIES.ALUN,
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "student", methods: onlyGET },

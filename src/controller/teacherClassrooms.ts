@@ -4,7 +4,7 @@ import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
-import { pc } from "../utils/personCategories";
+import { PERSON_CATEGORIES } from "../utils/enums";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -18,7 +18,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
 
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-      const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
+      const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM
 
       const fields = ['classroom.id as id', 'classroom.shortName as name', 'school.shortName as school']
 

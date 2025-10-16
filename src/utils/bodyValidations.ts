@@ -1,7 +1,8 @@
 import { Request, NextFunction } from 'express'
-import { ojbRes } from "./response";
 
 interface Object { [key: string]: any }
+
+const ojbRes = (status: number, message: string ) => { return { status, message } }
 
 export const invalidValues = (res: any, _: Request) => {
   const msg = 'Valor(es) inválido(s) no corpo da requisição.'

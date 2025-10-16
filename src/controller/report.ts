@@ -7,7 +7,7 @@ import { Request } from "express";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { testController } from "./test";
-import {formatedTestHelper, formatReadingFluencyHeaders} from "../utils/formaters";
+import { formatedTestHelper, formatReadingFluencyHeaders } from "../utils/formaters";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }

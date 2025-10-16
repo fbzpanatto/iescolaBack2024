@@ -647,25 +647,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return student
   }
 
-  createStudentBulk(body: SaveStudent, person: Person, state: State, userId: number) {
-
-    let formatedDv;
-
-    if(typeof body.dv === 'number') { formatedDv = body.dv }
-    else { formatedDv = body.dv.toUpperCase() }
-
-    const student = new Student()
-    student.person = person
-    student.ra = body.ra
-    student.dv = formatedDv
-    student.state = state
-    student.createdByUser = userId
-    student.createdAt = new Date()
-    student.observationOne = body.observationOne
-    student.observationTwo = body.observationTwo
-    return student
-  }
-
   studentResponse(student: any) {
     return {
       id: student.studentClassroom_id,

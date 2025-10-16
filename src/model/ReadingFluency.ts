@@ -1,10 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { ReadingFluencyExam } from "./ReadingFluencyExam";
 import { ReadingFluencyLevel } from "./ReadingFluencyLevel";
 import { Test } from "./Test";
 import { Student } from "./Student";
 import { Classroom } from "./Classroom";
 
+@Index(["test", "student", "readingFluencyExam"], { unique: true })
 @Entity()
 export class ReadingFluency {
 

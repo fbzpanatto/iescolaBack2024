@@ -8,18 +8,16 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { StudentQuestion } from "../model/StudentQuestion";
-import { StudentTestStatus } from "../model/StudentTestStatus";
 import { pc } from "../utils/personCategories";
 import { Year } from "../model/Year";
-import { Brackets, EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
 import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/testCategory";
-import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qReadingFluenciesHeaders, qStudentClassroomFormated, ReadingHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qReadingFluenciesHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
@@ -32,7 +30,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const testId = Number(req?.params.id);
     const classroomId = Number(req?.params.classroom);
-    const studentClassroomId = Number(req?.query.stc);
+    const scId = Number(req?.query.stc);
     const isHistory = Boolean(req?.query.isHistory);
 
     try {
@@ -57,184 +55,176 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
         const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
-        data = await this.alphabeticTest(headers, test, classroom, classroomId, tUser?.userId as number, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+        data = await this.alphabeticTest(headers, test, classroom, classroomId, tUser?.userId as number, isNaN(scId) ? null : Number(scId))
         return { status: 200, data: data };
       }
 
-      const response = await AppDataSource.transaction(async (typeOrmConnection) => {
-        switch (test.category.id) {
-          case(TEST_CATEGORIES_IDS.READ_2):
-          case(TEST_CATEGORIES_IDS.READ_3): {
+      if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(test.category.id)) {
 
-            const headers = await this.qReadingFluencyHeaders()
-            const fluencyHeaders = this.readingFluencyHeaders(headers)
+        const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
 
-            const preStudents = await this.stuClassReadF(test, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+        const questionGroups = await this.qTestQuestionsGroupsOnReport(testId)
 
-            await this.linkReading(headers, preStudents, test, tUser?.userId as number, typeOrmConnection)
+        let classroomPoints = 0
+        let classroomPercent = 0
+        let validStudentsTotalizator = 0
+        let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
+        let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
-            let studentClassrooms = await this.getReadingFluencyStudents(test, classroomId, test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+        const qStudentsClassroom = await this.qStudentClassroomsForTest(test, classroomId, test.period.year.name, isNaN(scId) ? null : Number(scId))
 
-            studentClassrooms = await this.qStudentDisabilities(studentClassrooms) as unknown as StudentClassroom[]
+        await this.unifiedTestQuestLinkSql(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number)
 
-            studentClassrooms = studentClassrooms.map((item: any) => {
+        let diffOe = 0
+        let validSc = 0
 
-              item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
-                if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+        let result = await this.getStudentsQuestionsSql(test, qTestQuestions, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
 
-                if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+        const mappedResult = result.map((sc: StudentClassroom) => {
 
-                if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-                return rF
-              })
+          const studentTotals = { rowTotal: 0, rowPercent: 0 }
 
-              return item
-            })
+          if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
 
-            const totalNuColumn = []
+          if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
 
-            const allFluencies = studentClassrooms
-              .filter((el: any) => !el.ignore)
-              .flatMap((el: any) => el.student.readingFluency)
+            sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
 
-            const percentColumn = headers.reduce((acc, prev) => {
-              const key = prev.readingFluencyExamId;
-              if(!acc[key]) { acc[key] = 0 }
-              return acc
-            }, {} as any)
+            diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
+          }
 
-            for(let header of headers) {
+          if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
 
-              const el = allFluencies.filter((el: any) => {
-                const sameClassroom = el.rClassroom?.id === classroomId
-                const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExamId
-                const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevelId
-                return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
-              })
+            sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
 
-              const value = el.length ?? 0
-              totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExamId })
-              percentColumn[header.readingFluencyExamId] += value
+            diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
+          }
+
+          validSc += 1
+          validStudentsTotalizator += 1
+
+          let counterPercentage = 0
+
+          studentTotals.rowTotal = qTestQuestions.reduce((acc, testQuestion) => {
+
+            if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
+
+            counterPercentage += 1
+
+            const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
+
+            if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
+
+            let element = totals.find(el => el.id === testQuestion.id)
+
+            if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
+              element!.tNumber += 1
+              classroomPoints += 1
+              acc += 1
             }
 
-            const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
-            data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
-            break;
-          }
-          case (TEST_CATEGORIES_IDS.AVL_ITA):
-          case (TEST_CATEGORIES_IDS.SIM_ITA): {
+            element!.tTotal += 1
+            classroomPercent += 1
+            element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
 
-            let testQuestionsIds: number[] = []
+            const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
 
-            const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
+            let ltItem = answersLetters.find(el => el.letter === letter)
+            if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
 
-            testQuestionsIds = [ ...testQuestionsIds, ...qTestQuestions.map(testQuestion => testQuestion.id) ]
-            const questionGroups = await this.qTestQuestionsGroupsOnReport(testId)
+            let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
+            if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
 
-            let classroomPoints = 0
-            let classroomPercent = 0
-            let validStudentsTotalizator = 0
-            let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
-            let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
+            ltQ.occurrences += 1
 
-            const qStudentsClassroom = await this.qStudentClassroomsForTest(test, classroomId, test.period.year.name, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+            answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
 
-            await this.unifiedTestQuestLink(true, qStudentsClassroom, test, qTestQuestions, tUser?.userId as number, typeOrmConnection)
+            return acc
+          }, 0)
 
-            let diffOe = 0
-            let validSc = 0
+          studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
 
-            let result = await this.stuQtsDuplicated(test, qTestQuestions, Number(classroomId), test.period.year.name, typeOrmConnection, isNaN(studentClassroomId) ? null : Number(studentClassroomId))
+          return { ...sc, student: { ...sc.student, studentTotals } }
+        })
 
-            result = await this.qStudentDisabilities(result) as unknown as StudentClassroom[]
-
-            const mappedResult = result.map((sc: StudentClassroom) => {
-
-              const studentTotals = { rowTotal: 0, rowPercent: 0 }
-
-              if(sc.student.studentQuestions.every(sq => sq.answer?.length < 1)) { return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: '-', rowPercent: '-' } } } }
-
-              if((sc as any).ignore || sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id) && !sc.endedAt) {
-
-                sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'OE'}))
-
-                diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'OE', rowPercent: 'OE' } } }
-              }
-
-              if(sc.student.studentQuestions.every(sq => sq.rClassroom?.id != classroom.id)) {
-
-                sc.student.studentQuestions = sc.student.studentQuestions.map(sq => ({...sq, answer: 'TR'}))
-
-                diffOe += 1; return { ...sc, student: { ...sc.student, studentTotals: { rowTotal: 'TR', rowPercent: 'TR' } } }
-              }
-
-              validSc += 1
-              validStudentsTotalizator += 1
-
-              let counterPercentage = 0
-
-              studentTotals.rowTotal = qTestQuestions.reduce((acc, testQuestion) => {
-
-                if(!testQuestion.active) { validStudentsTotalizator -= 1; return acc }
-
-                counterPercentage += 1
-
-                const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
-
-                if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
-
-                let element = totals.find(el => el.id === testQuestion.id)
-
-                if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
-                  element!.tNumber += 1
-                  classroomPoints += 1
-                  acc += 1
-                }
-
-                element!.tTotal += 1
-                classroomPercent += 1
-                element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
-
-                const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
-
-                let ltItem = answersLetters.find(el => el.letter === letter)
-                if(!ltItem) { ltItem = { letter, questions: [] }; answersLetters.push(ltItem) }
-
-                let ltQ = ltItem.questions.find(tQ => tQ.id === testQuestion.id)
-                if(!ltQ) { ltQ = { id: testQuestion.id, order: testQuestion.order, occurrences: 0, percentage: 0 }; ltItem.questions.push(ltQ) }
-
-                ltQ.occurrences += 1
-
-                answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
-
-                return acc
-              }, 0)
-
-              studentTotals.rowPercent = Math.floor((studentTotals.rowTotal / counterPercentage) * 10000) / 100;
-
-              return { ...sc, student: { ...sc.student, studentTotals } }
-            })
-
-            data = {
-              test,
-              totals,
-              answersLetters,
-              validSc,
-              totalOfSc: mappedResult.length - diffOe,
-              totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
-              classroom,
-              testQuestions: qTestQuestions,
-              questionGroups,
-              classroomPoints,
-              studentClassrooms: mappedResult,
-              classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
-            }
-            break;
-          }
+        data = {
+          test,
+          totals,
+          answersLetters,
+          validSc,
+          totalOfSc: mappedResult.length - diffOe,
+          totalOfScPercentage: Math.floor((validSc / (mappedResult.length - diffOe)) * 10000) / 100,
+          classroom,
+          testQuestions: qTestQuestions,
+          questionGroups,
+          classroomPoints,
+          studentClassrooms: mappedResult,
+          classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
         }
-        return data
-      })
-      return { status: 200, data: response };
+
+        return { status: 200, data: data };
+      }
+
+      if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
+        const headers = await this.qReadingFluencyHeaders()
+        const fluencyHeaders = this.readingFluencyHeaders(headers)
+
+        const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
+
+        const linking = await this.linkReadingSql(headers, preStudents, test, tUser?.userId as number)
+
+        let studentClassrooms = await this.getReadingFluencyStudentsSql(test, classroomId, test.period.year.name, isNaN(scId) ? null : Number(scId))
+
+        studentClassrooms = await this.qStudentDisabilities(studentClassrooms) as unknown as StudentClassroom[]
+
+        studentClassrooms = studentClassrooms.map((item: any) => {
+
+          item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
+            if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+
+            if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+
+            if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+            return rF
+          })
+
+          return item
+        })
+
+        const totalNuColumn = []
+
+        const allFluencies = studentClassrooms
+          .filter((el: any) => !el.ignore)
+          .flatMap((el: any) => el.student.readingFluency)
+
+        const percentColumn = headers.reduce((acc, prev) => {
+          const key = prev.readingFluencyExamId;
+          if(!acc[key]) { acc[key] = 0 }
+          return acc
+        }, {} as any)
+
+        for(let header of headers) {
+
+          const el = allFluencies.filter((el: any) => {
+            const sameClassroom = el.rClassroom?.id === classroomId
+            const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExamId
+            const sameReadFluencyLevel = el.readingFluencyLevel?.id === header.readingFluencyLevelId
+            return sameClassroom && sameReadFluencyId && sameReadFluencyLevel
+          })
+
+          const value = el.length ?? 0
+          totalNuColumn.push({ total: value, divideByExamId: header.readingFluencyExamId })
+          percentColumn[header.readingFluencyExamId] += value
+        }
+
+        const totalPeColumn = totalNuColumn.map(el => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
+
+        data = { test, classroom, studentClassrooms, fluencyHeaders, totalNuColumn: totalNuColumn.map(el => el.total), totalPeColumn }
+
+        return { status: 200, data: data };
+      }
+
+      return { status: 200, data };
     }
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
@@ -504,90 +494,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  // TODO: Refactor this method URGENT!!!
-  async linkReading(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, CONN: EntityManager) {
-    for(let row of studentClassrooms) {
-      const options = { where: { test: { id: test.id }, studentClassroom: { id: row.id } }}
-      const stStatus = await CONN.findOne(StudentTestStatus, options)
-      const el = { active: true, test, studentClassroom: row, observation: '', createdAt: new Date(), createdByUser: userId } as StudentTestStatus
-      if(!stStatus) { await CONN.save(StudentTestStatus, el) }
-      for(let exam of headers) {
-        const options = { where: { readingFluencyExam: { id: exam.readingFluencyExamId }, test: { id: test.id }, student: { id: row?.student?.id ?? row?.student_id } } }
-        const sReadingFluency = await CONN.findOne(ReadingFluency, options)
-        if(!sReadingFluency) {
-          const toSave = { createdAt: new Date(), createdByUser: userId, student: { id: row?.student?.id ?? row?.student_id }, test, readingFluencyExam: { id: exam.readingFluencyExamId } }
-          await CONN.save(ReadingFluency, toSave)
-        }
-      }
-    }
-  }
-
-  async stuQtsDuplicated(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
-
-    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
-
-    let studentClassrooms = await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .innerJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .innerJoinAndSelect("studentStatus.test", "stStatusTest")
-      .innerJoinAndSelect("stStatusTest.period", "period")
-      .innerJoin("studentClassroom.year", "year")
-      .innerJoinAndSelect("student.person", "person")
-      .innerJoinAndSelect("studentClassroom.classroom", "classroom")
-      .innerJoinAndSelect("classroom.school", "school")
-      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
-      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .leftJoin("testQuestion.test", "test")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        if(studentClassroomId) {
-          qb.andWhere("studentClassroom.id = :studentClassroomId", { studentClassroomId })
-        }
-        if(TEST_CATEGORIES_IDS.AVL_ITA === test.category.id){
-          qb.andWhere("studentStatus.active = :active", { active: true })
-        }
-      }))
-      .andWhere("(studentClassroom.startedAt < :testCreatedAt OR studentStatus.testId = :testId)", { testCreatedAt: test.createdAt, testId: test.id })
-      .andWhere("testQuestion.test = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .andWhere("period.id = :periodId", { periodId: test.period.id })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .addOrderBy("person.name", "ASC")
-      .getMany();
-
-    return this.duplicatedStudents(studentClassrooms).map((sc: StudentClassroom) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) })) as StudentClassroom[]
-  }
-
-  async stuClassReadF(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", { testId: test.id })
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.readingFluency", "readingFluency")
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        if(studentClassroomId) {
-          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
-        }
-      }))
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt });
-        qb.orWhere("readingFluency.id IS NOT NULL")
-      }))
-      .andWhere("year.name = :yearName", { yearName })
-      .getMany();
-  }
-
   async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
     return await CONN.getRepository(QuestionGroup)
       .createQueryBuilder("questionGroup")
@@ -633,68 +539,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async unifiedTestQuestLink(createStatus: boolean, arrOfStudentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, CONN: EntityManager, returnAddedNames: boolean = false): Promise<string[] | void> {
-
-    const added: string[] = [];
-
-    for (let sC of arrOfStudentClassrooms) {
-
-      const studentId = sC.student?.id ?? sC.student_id;
-
-      if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-
-        if (sC.endedAt != null) {
-          if (returnAddedNames) {
-            const person = await CONN.findOne(Person, { where: { student: { id: studentId } } });
-            if (person?.name) { added.push(person.name) }
-          }
-          continue;
-        }
-
-        const options = { where: { test: { id: test.id }, studentClassroom: { student: { id: studentId } } } };
-        const stStatus = await CONN.findOne(StudentTestStatus, options);
-
-        if (stStatus) {
-          if (returnAddedNames) {
-            const person = await CONN.findOne(Person, { where: { student: { id: studentId } } });
-            if (person?.name) { added.push(person.name) }
-          }
-          continue;
-        }
-      }
-
-      if (createStatus) {
-        const studentClassroomId = sC.student_classroom_id ?? sC.id;
-
-        const options = { where: { test: { id: test.id }, studentClassroom: { id: studentClassroomId } } };
-        const stStatus = await CONN.findOne(StudentTestStatus, options);
-
-        if (!stStatus) {
-          const el = {
-            active: true,
-            test,
-            studentClassroom: sC.student_classroom_id
-              ? { id: sC.student_classroom_id }
-              : sC, // Usa o objeto completo ou apenas o ID
-            observation: '',
-            createdAt: new Date(),
-            createdByUser: userId
-          } as StudentTestStatus;
-
-          await CONN.save(StudentTestStatus, el);
-        }
-      }
-
-      for (let tQ of testQuestions) {
-        const options = { where: { testQuestion: { id: tQ.id, test: { id: test.id }, question: { id: tQ.question.id }}, student: { id: studentId } } };
-        const sQuestion = await CONN.findOne(StudentQuestion, options) as StudentQuestion;
-        if (!sQuestion) { await CONN.save(StudentQuestion, { answer: '', testQuestion: tQ, student: { id: studentId }, createdAt: new Date(), createdByUser: userId}) }
-      }
-    }
-
-    return returnAddedNames ? added : undefined;
   }
 
   async deleteStudentFromTest(req: Request) {
@@ -763,7 +607,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.qReadingFluencyHeaders()
-            await this.linkReading(headers, filteredSC, test, qUserTeacher.person.user.id, CONN)
+            await this.linkReadingSql(headers, filteredSC, test, qUserTeacher.person.user.id)
             break;
           }
 
@@ -774,7 +618,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
             const testQuestions = await this.getTestQuestions(test.id, CONN)
-            const linkResult = await this.unifiedTestQuestLink(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, CONN, true)
+            const linkResult = await this.unifiedTestQuestLinkSql(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, true)
             if(linkResult && linkResult?.length > 0) {
               return { status: 400, message: `${linkResult.join(', ')} já relizou a prova.` }
             }
@@ -1227,41 +1071,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async getReadingFluencyStudents(test: Test, classroomId: number, yearName: string, CONN: EntityManager, studentClassroomId: number | null) {
-    let studentClassrooms = await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.readingFluency", "readingFluency")
-      .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
-      .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
-      .leftJoinAndSelect("studentStatus.test", "stStatusTest")
-      .leftJoinAndSelect("readingFluency.test", "stReadFluenTest")
-      .leftJoinAndSelect("studentClassroom.year", "year")
-      .leftJoinAndSelect("student.person", "person")
-      .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-      .leftJoinAndSelect("student.studentDisabilities", "studentDisabilities", "studentDisabilities.endedAt IS NULL")
-      .where("studentClassroom.classroom = :classroomId", { classroomId })
-      .andWhere(new Brackets(qb => {
-        if(studentClassroomId) {
-          qb.where("studentClassroom.id = :studentClassroomId", { studentClassroomId })
-        }
-      }))
-      .andWhere(new Brackets(qb => {
-        qb.where("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: test.createdAt })
-        qb.orWhere("readingFluency.id IS NOT NULL")
-      }))
-      .andWhere("stReadFluenTest.id = :testId", { testId: test.id })
-      .andWhere("stStatusTest.id = :testId", { testId: test.id })
-      .andWhere("year.name = :yearName", { yearName })
-      .addOrderBy("studentClassroom.rosterNumber", "ASC")
-      .addOrderBy("person.name", "ASC")
-      .getMany()
-
-    return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({ ...sc, studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id) }))
-  }
-
   async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
 
     const testQuestions = await this.qTestQuestions(testId) as TestQuestion[]
@@ -1520,12 +1329,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 
-  duplicatedStudents(studentClassrooms: StudentClassroom[] | qStudentClassroomFormated[]): any {
-    const count = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-    const duplicatedStudents = studentClassrooms.filter(item => count[item.student.id] > 1).map(d => d.endedAt ? { ...d, ignore: true } : d)
-    return studentClassrooms.map(item => { const duplicated = duplicatedStudents.find(d => d.id === item.id); return duplicated ? duplicated : item });
-  }
-
   alphabeticTotalizators(onlyClasses: Classroom[], headers: AlphaHeaders[]) {
     // Função auxiliar para validar respostas
     const isValidAnswer = (answer: any): boolean => {
@@ -1667,27 +1470,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
         })
       }
     })
-  }
-
-  readingFluencyHeaders(preHeaders: qReadingFluenciesHeaders[]) {
-    return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
-      let exam = acc.find(el => el.exam_id === prev.readingFluencyExamId);
-      if (!exam) {
-        exam = {
-          exam_id: prev.readingFluencyExamId,
-          exam_name: prev.readingFluencyExamName,
-          exam_color: prev.readingFluencyExamColor,
-          exam_levels: []
-        };
-        acc.push(exam);
-      }
-      exam.exam_levels.push({
-        level_id: prev.readingFluencyLevelId,
-        level_name: prev.readingFluencyLevelName,
-        level_color: prev.readingFluencyLevelColor
-      });
-      return acc;
-    }, []);
   }
 
   cityHallResponse(baseClassroom: Classroom, allClasses: Classroom[]){

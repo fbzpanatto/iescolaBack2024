@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityManager, EntityTarget, ObjectLiteral } from "typeorm";
+import { EntityTarget, ObjectLiteral } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { StudentQuestion } from "../model/StudentQuestion";
 import { StudentTestStatus } from "../model/StudentTestStatus";
@@ -167,12 +167,17 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   async updateTestStatus(id: number | string, body: ObjectLiteral) {
     try {
+
+      const qUserTeacher = await this.qTeacherByUser(body.user.user)
+
       return await AppDataSource.transaction(async(CONN) => {
         const options = { relations: ['test', 'studentClassroom'], where: { id: Number(body.id), studentClassroom: { id: Number(id) }, test: { id: Number(body.test.id) }}}
         const register = await CONN.findOne(StudentTestStatus, { ...options })
         if(!register) { return { status: 404, message: 'Registro não encontrado' } }
         register.observation = body.observation ?? register.observation
         register.active = body.active ?? register.active
+        register.updatedAt = new Date()
+        register.updatedByUser = qUserTeacher.person.user.id
         await CONN.save(StudentTestStatus, register)
         const data = {}; return { status: 200, data }
       })

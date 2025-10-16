@@ -1,7 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { qAlphabeticLevels, qAlphaStuClassrooms, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, TeacherParam, Training, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
+import { qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qFormatedYear, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, ReadingHeaders, SavePerson, TeacherParam, Training, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { ResultSetHeader } from "mysql2/promise";
@@ -82,25 +82,25 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async unifiedTestQuestLinkSql(createStatus: boolean, arrOfStudentClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, returnAddedNames: boolean = false): Promise<string[] | void> {
+  async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, addNames: boolean = false): Promise<string[] | void> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      if (!arrOfStudentClassrooms || arrOfStudentClassrooms.length === 0) {
+      if (!stuClassrooms || stuClassrooms.length === 0) {
         // Se não há nada a fazer, ainda é um "sucesso", então commitamos a transação vazia.
         await conn.commit();
-        return returnAddedNames ? [] : undefined;
+        return addNames ? [] : undefined;
       }
 
-      const studentIds = arrOfStudentClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
-      const studentClassroomIds = arrOfStudentClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
+      const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
+      const studentClassroomIds = stuClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
       const testQuestionIds = testQuestions.map(tq => tq.id);
 
       if (studentIds.length === 0 || testQuestionIds.length === 0) {
         await conn.commit();
-        return returnAddedNames ? [] : undefined;
+        return addNames ? [] : undefined;
       }
 
       let existingStatusScIds = new Set<number>();
@@ -113,7 +113,8 @@ export class GenericController<T> {
           [test.id, studentIds]
         );
         existingAlphabeticStudentIds = new Set(existingAlphabeticRows.map((row: any) => row.studentId));
-      } else {
+      }
+      else {
         const [existingStatusesRows]: [any[], any] = await conn.query(
           `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?)`,
           [test.id, studentClassroomIds]
@@ -121,14 +122,13 @@ export class GenericController<T> {
         existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
       }
 
-      const [existingQuestionsRows]: [any[], any] = await conn.query(
-        `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`,
-        [studentIds, testQuestionIds]
-      );
-      const existingQuestionKeys = new Set(existingQuestionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
+      const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`
+      const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
+      const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
 
       let personNamesMap = new Map<number, string>();
-      if (returnAddedNames) {
+
+      if (addNames) {
         const [personsRows]: [any[], any] = await conn.query(
           `SELECT p.name, p.student_id FROM person p WHERE p.student_id IN (?)`,
           [studentIds]
@@ -142,7 +142,7 @@ export class GenericController<T> {
       const questionsToSave: any[] = [];
       const now = new Date();
 
-      for (const sC of arrOfStudentClassrooms) {
+      for (const sC of stuClassrooms) {
         const studentId = sC.student?.id ?? sC.student_id;
         const studentClassroomId = sC.student_classroom_id ?? sC.id;
 
@@ -154,7 +154,7 @@ export class GenericController<T> {
         } else {
           if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
             if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
-              if (returnAddedNames) addedNames.push(personNamesMap.get(studentId) || '');
+              if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
               continue;
             }
           }
@@ -166,9 +166,9 @@ export class GenericController<T> {
 
         for (const tQ of testQuestions) {
           const uniqueKey = `${studentId}-${tQ.id}`;
-          if (!existingQuestionKeys.has(uniqueKey)) {
+          if (!questionKeys.has(uniqueKey)) {
             questionsToSave.push(['', tQ.id, studentId, now, userId]);
-            existingQuestionKeys.add(uniqueKey);
+            questionKeys.add(uniqueKey);
           }
         }
       }
@@ -177,20 +177,748 @@ export class GenericController<T> {
         const alphabeticQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ?`;
         await conn.query(alphabeticQuery, [alphabeticLinksToSave]);
       }
+
       if (statusesToSave.length > 0) {
-        const statusQuery = `INSERT INTO student_test_status (active, testId, studentClassroomId, observation, createdAt, createdByUser) VALUES ?`;
+        const statusQuery = `
+            INSERT INTO student_test_status
+            (active, testId, studentClassroomId, observation, createdAt, createdByUser)
+            VALUES ?
+            ON DUPLICATE KEY UPDATE
+                                 updatedAt = NOW(),
+                                 updatedByUser = VALUES(createdByUser)
+        `;
         await conn.query(statusQuery, [statusesToSave]);
       }
+
       if (questionsToSave.length > 0) {
-        const questionQuery = `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser) VALUES ?`;
+        const questionQuery =
+          `
+            INSERT INTO student_question 
+            (answer, testQuestionId, studentId, createdAt, createdByUser)
+            VALUES ?
+            ON DUPLICATE KEY UPDATE
+                                 updatedAt = NOW(),
+                                 updatedByUser = VALUES(createdByUser)
+          `;
         await conn.query(questionQuery, [questionsToSave]);
       }
 
       await conn.commit();
 
-      return returnAddedNames ? addedNames.filter(name => name) : undefined;
+      return addNames ? addedNames.filter(name => name) : undefined;
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async getStudentsQuestionsSql(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, studentClassroomId: number | null) {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id);
+
+      const query = `
+      SELECT 
+        studentClassroom.id as sc_id,
+        studentClassroom.startedAt as sc_startedAt,
+        studentClassroom.endedAt as sc_endedAt,
+        studentClassroom.rosterNumber as sc_rosterNumber,
+        
+        student.id as student_id,
+        student.ra as student_ra,
+        student.dv as student_dv,
+        student.observationOne as student_observationOne,
+        student.observationTwo as student_observationTwo,
+        student.active as student_active,
+        
+        person.id as person_id,
+        person.name as person_name,
+        person.birth as person_birth,
+        
+        classroom.id as classroom_id,
+        classroom.name as classroom_name,
+        classroom.shortName as classroom_shortName,
+        
+        school.id as school_id,
+        school.name as school_name,
+        school.shortName as school_shortName,
+        school.inep as school_inep,
+        school.active as school_active,
+        
+        studentStatus.id as studentStatus_id,
+        studentStatus.active as studentStatus_active,
+        studentStatus.observation as studentStatus_observation,
+        
+        stStatusTest.id as stStatusTest_id,
+        stStatusTest.name as stStatusTest_name,
+        stStatusTest.active as stStatusTest_active,
+        stStatusTest.hideAnswers as stStatusTest_hideAnswers,
+        stStatusTest.createdAt as stStatusTest_createdAt,
+        stStatusTest.updatedAt as stStatusTest_updatedAt,
+        stStatusTest.createdByUser as stStatusTest_createdByUser,
+        stStatusTest.updatedByUser as stStatusTest_updatedByUser,
+        
+        period.id as period_id,
+        
+        studentQuestions.id as sq_id,
+        studentQuestions.answer as sq_answer,
+        studentQuestions.score as sq_score,
+        
+        rClassroom.id as rClassroom_id,
+        rClassroom.name as rClassroom_name,
+        rClassroom.shortName as rClassroom_shortName,
+        
+        testQuestion.id as tq_id,
+        testQuestion.order as tq_order,
+        testQuestion.answer as tq_answer,
+        testQuestion.active as tq_active,
+        testQuestion.createdAt as tq_createdAt,
+        testQuestion.updatedAt as tq_updatedAt,
+        testQuestion.createdByUser as tq_createdByUser,
+        testQuestion.updatedByUser as tq_updatedByUser,
+        
+        questionGroup.id as qg_id,
+        
+        studentDisabilities.id as sd_id,
+        studentDisabilities.startedAt as sd_startedAt,
+        studentDisabilities.endedAt as sd_endedAt,
+        
+        disability.id as disability_id,
+        disability.name as disability_name,
+        disability.official as disability_official
+        
+      FROM student_classroom as studentClassroom
+      
+      LEFT JOIN student ON student.id = studentClassroom.studentId
+      
+      INNER JOIN student_test_status as studentStatus 
+        ON studentStatus.studentClassroomId = studentClassroom.id
+      
+      INNER JOIN test as stStatusTest 
+        ON stStatusTest.id = studentStatus.testId
+      
+      INNER JOIN period ON period.id = stStatusTest.periodId
+      
+      INNER JOIN year ON year.id = studentClassroom.yearId
+      
+      INNER JOIN person ON person.id = student.personId
+      
+      INNER JOIN classroom ON classroom.id = studentClassroom.classroomId
+      
+      INNER JOIN school ON school.id = classroom.schoolId
+      
+      LEFT JOIN student_question as studentQuestions 
+        ON studentQuestions.studentId = student.id
+      
+      LEFT JOIN classroom as rClassroom 
+        ON rClassroom.id = studentQuestions.rClassroomId
+      
+      LEFT JOIN test_question as testQuestion 
+        ON testQuestion.id = studentQuestions.testQuestionId
+        AND testQuestion.id IN (${testQuestionsIds.join(',')})
+      
+      LEFT JOIN question_group as questionGroup 
+        ON questionGroup.id = testQuestion.questionGroupId
+      
+      LEFT JOIN test ON test.id = testQuestion.testId
+      
+      LEFT JOIN student_disability as studentDisabilities 
+        ON studentDisabilities.studentId = student.id
+        AND studentDisabilities.endedAt IS NULL
+      
+      LEFT JOIN disability 
+        ON disability.id = studentDisabilities.disabilityId
+      
+      WHERE studentClassroom.classroomId = ?
+        ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
+        ${test.category.id === TEST_CATEGORIES_IDS.AVL_ITA ? 'AND studentStatus.active = ?' : ''}
+        AND (studentClassroom.startedAt < ? OR studentStatus.testId = ?)
+        AND testQuestion.testId = ?
+        AND stStatusTest.id = ?
+        AND year.name = ?
+        AND period.id = ?
+      
+      ORDER BY 
+        questionGroup.id ASC,
+        testQuestion.order ASC,
+        studentClassroom.rosterNumber ASC,
+        person.name ASC
+    `;
+
+      const params: any[] = [classroomId];
+
+      if (studentClassroomId) { params.push(studentClassroomId) }
+
+      if (test.category.id === TEST_CATEGORIES_IDS.AVL_ITA) { params.push(true) }
+
+      params.push(test.createdAt, test.id, test.id, test.id, yearName, test.period.id);
+
+      const [rows] = await conn.query(query, params);
+
+      const studentClassroomsMap = new Map();
+
+      for (const row of (rows as Array<{[key:string]:any}>)) {
+        const scId = row.sc_id;
+
+        if (!studentClassroomsMap.has(scId)) {
+          studentClassroomsMap.set(scId, {
+            id: row.sc_id,
+            rosterNumber: row.sc_rosterNumber,
+            startedAt: row.sc_startedAt,
+            endedAt: row.sc_endedAt,
+            student: {
+              id: row.student_id,
+              ra: row.student_ra,
+              dv: row.student_dv,
+              observationOne: row.student_observationOne,
+              observationTwo: row.student_observationTwo,
+              active: row.student_active,
+              person: {
+                id: row.person_id,
+                name: row.person_name,
+                birth: row.person_birth
+              },
+              studentQuestions: [],
+              studentDisabilities: []
+            },
+            studentStatus: [],
+            classroom: {
+              id: row.classroom_id,
+              name: row.classroom_name,
+              shortName: row.classroom_shortName,
+              school: {
+                id: row.school_id,
+                name: row.school_name,
+                shortName: row.school_shortName,
+                inep: row.school_inep,
+                active: row.school_active
+              }
+            }
+          });
+        }
+
+        const sc = studentClassroomsMap.get(scId);
+
+        // Adicionar studentStatus (evitar duplicatas)
+        if (row.studentStatus_id && !sc.studentStatus.find((ss:any) => ss.id === row.studentStatus_id)) {
+          sc.studentStatus.push({
+            id: row.studentStatus_id,
+            active: row.studentStatus_active,
+            observation: row.studentStatus_observation,
+            test: {
+              id: row.stStatusTest_id,
+              name: row.stStatusTest_name,
+              active: row.stStatusTest_active,
+              hideAnswers: row.stStatusTest_hideAnswers,
+              createdAt: row.stStatusTest_createdAt,
+              updatedAt: row.stStatusTest_updatedAt,
+              createdByUser: row.stStatusTest_createdByUser,
+              updatedByUser: row.stStatusTest_updatedByUser,
+              period: {
+                id: row.period_id
+              }
+            }
+          });
+        }
+
+        // Adicionar studentQuestions (evitar duplicatas)
+        if (row.sq_id && !sc.student.studentQuestions.find((sq:any) => sq.id === row.sq_id)) {
+          sc.student.studentQuestions.push({
+            id: row.sq_id,
+            answer: row.sq_answer,
+            score: row.sq_score,
+            rClassroom: row.rClassroom_id ? {
+              id: row.rClassroom_id,
+              name: row.rClassroom_name,
+              shortName: row.rClassroom_shortName
+            } : null,
+            testQuestion: row.tq_id ? {
+              id: row.tq_id,
+              order: row.tq_order,
+              answer: row.tq_answer,
+              active: row.tq_active,
+              createdAt: row.tq_createdAt,
+              updatedAt: row.tq_updatedAt,
+              createdByUser: row.tq_createdByUser,
+              updatedByUser: row.tq_updatedByUser
+            } : null
+          });
+        }
+
+        // Adicionar studentDisabilities (evitar duplicatas)
+        if (row.sd_id && !sc.student.studentDisabilities.find((sd:any) => sd.id === row.sd_id)) {
+          sc.student.studentDisabilities.push({
+            id: row.sd_id,
+            startedAt: row.sd_startedAt,
+            endedAt: row.sd_endedAt,
+            disability: {
+              id: row.disability_id,
+              name: row.disability_name,
+              official: row.disability_official
+            }
+          });
+        }
+      }
+
+      const studentClassrooms = Array.from(studentClassroomsMap.values());
+
+      return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({
+        ...sc,
+        studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id)
+      }));
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async stuClassReadFSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query = `
+      SELECT 
+        studentClassroom.id as sc_id,
+        studentClassroom.startedAt as sc_startedAt,
+        studentClassroom.endedAt as sc_endedAt,
+        studentClassroom.rosterNumber as sc_rosterNumber,
+        studentClassroom.studentId as sc_studentId,
+        
+        student.id as student_id,
+        student.ra as student_ra,
+        student.dv as student_dv,
+        student.observationOne as student_observationOne,
+        student.observationTwo as student_observationTwo,
+        student.active as student_active,
+        
+        person.id as person_id,
+        person.name as person_name,
+        person.birth as person_birth,
+        
+        readingFluency.id as rf_id,
+        readingFluency.testId as rf_testId,
+        
+        readingFluencyExam.id as rfExam_id,
+        readingFluencyExam.name as rfExam_name,
+        readingFluencyExam.color as rfExam_color,
+        
+        readingFluencyLevel.id as rfLevel_id,
+        readingFluencyLevel.name as rfLevel_name,
+        readingFluencyLevel.color as rfLevel_color,
+        
+        rClassroom.id as rClassroom_id,
+        rClassroom.name as rClassroom_name,
+        rClassroom.shortName as rClassroom_shortName
+        
+      FROM student_classroom as studentClassroom
+      
+      LEFT JOIN year ON year.id = studentClassroom.yearId
+      
+      LEFT JOIN student_test_status as studentStatus 
+        ON studentStatus.studentClassroomId = studentClassroom.id
+      
+      LEFT JOIN test ON test.id = studentStatus.testId AND test.id = ?
+      
+      LEFT JOIN student ON student.id = studentClassroom.studentId
+      
+      LEFT JOIN reading_fluency as readingFluency 
+        ON readingFluency.studentId = student.id
+      
+      LEFT JOIN reading_fluency_exam as readingFluencyExam 
+        ON readingFluencyExam.id = readingFluency.readingFluencyExamId
+      
+      LEFT JOIN reading_fluency_level as readingFluencyLevel 
+        ON readingFluencyLevel.id = readingFluency.readingFluencyLevelId
+      
+      LEFT JOIN classroom as rClassroom 
+        ON rClassroom.id = readingFluency.rClassroomId
+      
+      LEFT JOIN person ON person.id = student.personId
+      
+      WHERE studentClassroom.classroomId = ?
+        ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
+        AND (studentClassroom.startedAt < ? OR readingFluency.id IS NOT NULL)
+        AND year.name = ?
+    `;
+
+      const params: any[] = [test.id, classroomId];
+
+      if (studentClassroomId) { params.push(studentClassroomId) }
+
+      params.push(test.createdAt, yearName);
+
+      const [rows] = await conn.query(query, params);
+
+      const studentClassroomsMap = new Map();
+
+      for (const row of (rows as Array<{[key:string]:any}>)) {
+        const scId = row.sc_id;
+
+        if (!studentClassroomsMap.has(scId)) {
+          studentClassroomsMap.set(scId, {
+            id: row.sc_id,
+            rosterNumber: row.sc_rosterNumber,
+            startedAt: row.sc_startedAt,
+            endedAt: row.sc_endedAt,
+            student: {
+              id: row.student_id,
+              ra: row.student_ra,
+              dv: row.student_dv,
+              observationOne: row.student_observationOne,
+              observationTwo: row.student_observationTwo,
+              active: row.student_active,
+              person: {
+                id: row.person_id,
+                name: row.person_name,
+                birth: row.person_birth
+              },
+              readingFluency: []
+            }
+          });
+        }
+
+        const sc = studentClassroomsMap.get(scId);
+
+        // Adicionar readingFluency (evitar duplicatas)
+        if (row.rf_id && !sc.student.readingFluency.find((rf: any) => rf.id === row.rf_id)) {
+          sc.student.readingFluency.push({
+            id: row.rf_id,
+            readingFluencyExam: row.rfExam_id ? {
+              id: row.rfExam_id,
+              name: row.rfExam_name,
+              color: row.rfExam_color
+            } : null,
+            readingFluencyLevel: row.rfLevel_id ? {
+              id: row.rfLevel_id,
+              name: row.rfLevel_name,
+              color: row.rfLevel_color
+            } : null,
+            rClassroom: row.rClassroom_id ? {
+              id: row.rClassroom_id,
+              name: row.rClassroom_name,
+              shortName: row.rClassroom_shortName
+            } : null
+          });
+        }
+      }
+
+      return Array.from(studentClassroomsMap.values());
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query = `
+      SELECT 
+        studentClassroom.id as sc_id,
+        studentClassroom.startedAt as sc_startedAt,
+        studentClassroom.endedAt as sc_endedAt,
+        studentClassroom.rosterNumber as sc_rosterNumber,
+        
+        student.id as student_id,
+        student.ra as student_ra,
+        student.dv as student_dv,
+        student.observationOne as student_observationOne,
+        student.observationTwo as student_observationTwo,
+        student.active as student_active,
+        
+        person.id as person_id,
+        person.name as person_name,
+        person.birth as person_birth,
+        
+        classroom.id as classroom_id,
+        classroom.name as classroom_name,
+        classroom.shortName as classroom_shortName,
+        
+        year.id as year_id,
+        year.name as year_name,
+        
+        studentStatus.id as studentStatus_id,
+        studentStatus.active as studentStatus_active,
+        studentStatus.observation as studentStatus_observation,
+        
+        stStatusTest.id as stStatusTest_id,
+        stStatusTest.name as stStatusTest_name,
+        stStatusTest.active as stStatusTest_active,
+        stStatusTest.hideAnswers as stStatusTest_hideAnswers,
+        stStatusTest.createdAt as stStatusTest_createdAt,
+        stStatusTest.updatedAt as stStatusTest_updatedAt,
+        stStatusTest.createdByUser as stStatusTest_createdByUser,
+        stStatusTest.updatedByUser as stStatusTest_updatedByUser,
+        stStatusTest.periodId as stStatusTest_periodId,
+        
+        readingFluency.id as rf_id,
+        
+        readingFluencyExam.id as rfExam_id,
+        readingFluencyExam.name as rfExam_name,
+        readingFluencyExam.color as rfExam_color,
+        
+        readingFluencyLevel.id as rfLevel_id,
+        readingFluencyLevel.name as rfLevel_name,
+        readingFluencyLevel.color as rfLevel_color,
+        
+        rClassroom.id as rClassroom_id,
+        rClassroom.name as rClassroom_name,
+        rClassroom.shortName as rClassroom_shortName,
+        
+        stReadFluenTest.id as stReadFluenTest_id,
+        
+        studentDisabilities.id as sd_id,
+        studentDisabilities.startedAt as sd_startedAt,
+        studentDisabilities.endedAt as sd_endedAt,
+        
+        disability.id as disability_id,
+        disability.name as disability_name,
+        disability.official as disability_official
+        
+      FROM student_classroom as studentClassroom
+      
+      LEFT JOIN student ON student.id = studentClassroom.studentId
+      
+      LEFT JOIN reading_fluency as readingFluency 
+        ON readingFluency.studentId = student.id
+      
+      LEFT JOIN classroom as rClassroom 
+        ON rClassroom.id = readingFluency.rClassroomId
+      
+      LEFT JOIN student_test_status as studentStatus 
+        ON studentStatus.studentClassroomId = studentClassroom.id
+      
+      LEFT JOIN reading_fluency_exam as readingFluencyExam 
+        ON readingFluencyExam.id = readingFluency.readingFluencyExamId
+      
+      LEFT JOIN reading_fluency_level as readingFluencyLevel 
+        ON readingFluencyLevel.id = readingFluency.readingFluencyLevelId
+      
+      LEFT JOIN test as stStatusTest 
+        ON stStatusTest.id = studentStatus.testId
+      
+      LEFT JOIN test as stReadFluenTest 
+        ON stReadFluenTest.id = readingFluency.testId
+      
+      LEFT JOIN year ON year.id = studentClassroom.yearId
+      
+      LEFT JOIN person ON person.id = student.personId
+      
+      LEFT JOIN classroom ON classroom.id = studentClassroom.classroomId
+      
+      LEFT JOIN student_disability as studentDisabilities 
+        ON studentDisabilities.studentId = student.id
+        AND studentDisabilities.endedAt IS NULL
+      
+      LEFT JOIN disability 
+        ON disability.id = studentDisabilities.disabilityId
+      
+      WHERE studentClassroom.classroomId = ?
+        ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
+        AND (studentClassroom.startedAt < ? OR readingFluency.id IS NOT NULL)
+        AND stReadFluenTest.id = ?
+        AND stStatusTest.id = ?
+        AND year.name = ?
+      
+      ORDER BY 
+        studentClassroom.rosterNumber ASC,
+        person.name ASC
+    `;
+
+      const params: any[] = [classroomId];
+
+      if (studentClassroomId) {
+        params.push(studentClassroomId);
+      }
+
+      params.push(test.createdAt, test.id, test.id, yearName);
+
+      const [rows] = await conn.query(query, params);
+
+      // Transformar resultado em estrutura aninhada
+      const studentClassroomsMap = new Map();
+
+      for (const row of (rows as Array<{[key:string]:any}>)) {
+        const scId = row.sc_id;
+
+        if (!studentClassroomsMap.has(scId)) {
+          studentClassroomsMap.set(scId, {
+            id: row.sc_id,
+            rosterNumber: row.sc_rosterNumber,
+            startedAt: row.sc_startedAt,
+            endedAt: row.sc_endedAt,
+            student: {
+              id: row.student_id,
+              ra: row.student_ra,
+              dv: row.student_dv,
+              observationOne: row.student_observationOne,
+              observationTwo: row.student_observationTwo,
+              active: row.student_active,
+              person: {
+                id: row.person_id,
+                name: row.person_name,
+                birth: row.person_birth
+              },
+              readingFluency: [],
+              studentDisabilities: []
+            },
+            classroom: {
+              id: row.classroom_id,
+              name: row.classroom_name,
+              shortName: row.classroom_shortName
+            },
+            year: {
+              id: row.year_id,
+              name: row.year_name
+            },
+            studentStatus: []
+          });
+        }
+
+        const sc = studentClassroomsMap.get(scId);
+
+        // Adicionar studentStatus (evitar duplicatas)
+        if (row.studentStatus_id && !sc.studentStatus.find((ss: any) => ss.id === row.studentStatus_id)) {
+          sc.studentStatus.push({
+            id: row.studentStatus_id,
+            active: row.studentStatus_active,
+            observation: row.studentStatus_observation,
+            test: {
+              id: row.stStatusTest_id,
+              name: row.stStatusTest_name,
+              active: row.stStatusTest_active,
+              hideAnswers: row.stStatusTest_hideAnswers,
+              createdAt: row.stStatusTest_createdAt,
+              updatedAt: row.stStatusTest_updatedAt,
+              createdByUser: row.stStatusTest_createdByUser,
+              updatedByUser: row.stStatusTest_updatedByUser,
+              period: {
+                id: row.stStatusTest_periodId
+              }
+            }
+          });
+        }
+
+        // Adicionar readingFluency (evitar duplicatas)
+        if (row.rf_id && !sc.student.readingFluency.find((rf: any) => rf.id === row.rf_id)) {
+          sc.student.readingFluency.push({
+            id: row.rf_id,
+            readingFluencyExam: row.rfExam_id ? {
+              id: row.rfExam_id,
+              name: row.rfExam_name,
+              color: row.rfExam_color
+            } : null,
+            readingFluencyLevel: row.rfLevel_id ? {
+              id: row.rfLevel_id,
+              name: row.rfLevel_name,
+              color: row.rfLevel_color
+            } : null,
+            rClassroom: row.rClassroom_id ? {
+              id: row.rClassroom_id,
+              name: row.rClassroom_name,
+              shortName: row.rClassroom_shortName
+            } : null,
+            test: {
+              id: row.stReadFluenTest_id
+            }
+          });
+        }
+
+        // Adicionar studentDisabilities (evitar duplicatas)
+        if (row.sd_id && !sc.student.studentDisabilities.find((sd: any) => sd.id === row.sd_id)) {
+          sc.student.studentDisabilities.push({
+            id: row.sd_id,
+            startedAt: row.sd_startedAt,
+            endedAt: row.sd_endedAt,
+            disability: {
+              id: row.disability_id,
+              name: row.disability_name,
+              official: row.disability_official
+            }
+          });
+        }
+      }
+
+      const studentClassrooms = Array.from(studentClassroomsMap.values());
+
+      return this.duplicatedStudents(studentClassrooms).map((sc: any) => ({
+        ...sc,
+        studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id)
+      }));
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number) {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      if (studentClassrooms.length === 0) { await conn.commit(); return }
+
+      const now = new Date();
+
+      // Preparar dados para StudentTestStatus em bulk
+      const studentTestStatusValues: any[] = [];
+      const studentTestStatusParams: any[] = [];
+
+      for (let row of studentClassrooms) {
+        const studentClassroomId = row.id;
+        studentTestStatusValues.push('(?, ?, ?, ?, ?, ?)');
+        studentTestStatusParams.push(test.id, studentClassroomId, true, '', now, userId);
+      }
+
+      // Inserir todos StudentTestStatus de uma vez
+      if (studentTestStatusValues.length > 0) {
+        await conn.query(
+          `INSERT INTO student_test_status 
+         (testId, studentClassroomId, active, observation, createdAt, createdByUser) 
+         VALUES ${studentTestStatusValues.join(', ')}
+         ON DUPLICATE KEY UPDATE
+         updatedAt = VALUES(createdAt),
+         updatedByUser = VALUES(createdByUser)`,
+          studentTestStatusParams
+        );
+      }
+
+      // Preparar dados para ReadingFluency em bulk
+      const readingFluencyValues: any[] = [];
+      const readingFluencyParams: any[] = [];
+
+      for (let row of studentClassrooms) {
+        const studentId = row?.student?.id ?? row?.student_id;
+
+        for (let exam of headers) {
+          readingFluencyValues.push('(?, ?, ?, ?, ?)');
+          readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, now, userId);
+        }
+      }
+
+      // Inserir todos ReadingFluency de uma vez
+      if (readingFluencyValues.length > 0) {
+        await conn.query(
+          `INSERT INTO reading_fluency 
+         (readingFluencyExamId, testId, studentId, createdAt, createdByUser) 
+         VALUES ${readingFluencyValues.join(', ')}
+         ON DUPLICATE KEY UPDATE
+         updatedAt = VALUES(createdAt),
+         updatedByUser = VALUES(createdByUser)`,
+          readingFluencyParams
+        );
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if (conn) { await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
@@ -319,35 +1047,6 @@ export class GenericController<T> {
       }
 
       return arr;
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qAlphabeticStudentsForLink(classroomId: number, testCreatedAt: Date | string, yearName: string){
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query =
-
-        `
-        SELECT DISTINCT sc.id, sc.rosterNumber, sc.startedAt, sc.endedAt, sc.classroomId,
-               s.id AS student_id,
-               p.id AS person_id, p.name AS person_name
-        FROM student_classroom AS sc
-          INNER JOIN year AS y ON sc.yearId = y.id
-          INNER JOIN student AS s ON sc.studentId = s.id
-          INNER JOIN person AS p ON s.personId = p.id
-          LEFT JOIN alphabetic AS a ON a.studentId = s.id
-          LEFT JOIN test AS t ON a.testId = t.id
-        WHERE sc.classroomId = ?
-          AND (sc.startedAt < ? OR a.id IS NOT NULL)
-          AND y.name = ?
-      `
-
-      const [ queryResult ] = await conn.query(format(query), [classroomId, testCreatedAt, yearName])
-
-      return this.formatStudentClassroom(queryResult as qAlphaStuClassrooms[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1338,7 +2037,6 @@ export class GenericController<T> {
       const [ queryResult ] = await conn.query(format(query), [])
 
       return queryResult as Array<qReadingFluenciesHeaders>
-
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -3087,74 +3785,66 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qfindAllByYear(
-    masterTeacher: boolean,
-    yearName: string,
-    classrooms: number[],
-    disciplines: number[],
-    bimesterId: number | null,
-    disciplineId: number | null,
-    search: string,
-    limit: number,
-    offset: number
-  ){
+  async qfindAllByYear(masterTeacher: boolean, yearName: string, classrooms: number[], disciplines: number[], bimesterId: number | null, disciplineId: number | null, search: string, limit: number, offset: number){
     let conn;
     try {
       conn = await connectionPool.getConnection()
 
       let query = `
           WITH RankedTests AS (
-              SELECT
-                  t.id AS test_id,
-                  t.name AS test_name,
+    SELECT
+        t.id AS test_id,
+        t.name AS test_name,
 
-                  -- Period
-                  p.id AS period_id,
+        -- Period
+        p.id AS period_id,
 
-                  -- Category
-                  tc.id AS category_id,
-                  tc.name AS category_name,
+        -- Category
+        tc.id AS category_id,
+        tc.name AS category_name,
 
-                  -- Year
-                  y.id AS year_id,
-                  y.name AS year_name,
-                  y.active AS year_active,
+        -- Year
+        y.id AS year_id,
+        y.name AS year_name,
+        y.active AS year_active,
 
-                  -- Bimester
-                  b.id AS bimester_id,
-                  b.name AS bimester_name,
-                  b.testName AS bimester_test_name,
+        -- Bimester
+        b.id AS bimester_id,
+        b.name AS bimester_name,
+        b.testName AS bimester_test_name,
 
-                  -- Discipline
-                  d.id AS discipline_id,
-                  d.name AS discipline_name,
+        -- Discipline
+        d.id AS discipline_id,
+        d.name AS discipline_name,
 
-                  -- Classroom
-                  c.id AS classroom_id,
-                  c.name AS classroom_name,
-                  c.shortName AS classroom_shortName,
+        -- Classroom
+        c.id AS classroom_id,
+        c.name AS classroom_name,
+        c.shortName AS classroom_shortName,
 
-                  -- School
-                  s.id AS school_id,
-                  s.name AS school_name,
-                  s.shortName AS school_shortName,
+        -- School
+        s.id AS school_id,
+        s.name AS school_name,
+        s.shortName AS school_shortName,
 
-                  -- Adiciona ROW_NUMBER para ranking por categoria/disciplina/sala
-                  ROW_NUMBER() OVER (
-                      PARTITION BY tc.id, d.id, c.id, y.name
-                      ORDER BY b.id DESC
-                      ) AS rn
+        -- Adiciona ROW_NUMBER para ranking por categoria/disciplina/sala
+        ROW_NUMBER() OVER (
+            PARTITION BY tc.id, d.id, c.id, y.name
+            ORDER BY b.id DESC
+            ) AS rn
 
-              FROM test t
-                       INNER JOIN period p ON t.periodId = p.id
-                       INNER JOIN test_category tc ON t.categoryId = tc.id
-                       INNER JOIN year y ON p.yearId = y.id
-                       INNER JOIN bimester b ON p.bimesterId = b.id
-                       INNER JOIN discipline d ON t.disciplineId = d.id
-                       INNER JOIN test_classroom test_c ON t.id = test_c.testId
-                       INNER JOIN classroom c ON test_c.classroomId = c.id
-                       INNER JOIN school s ON c.schoolId = s.id
-              WHERE y.name = ?
+    FROM test t
+             INNER JOIN period p ON t.periodId = p.id
+             INNER JOIN test_category tc ON t.categoryId = tc.id
+             INNER JOIN year y ON p.yearId = y.id
+             INNER JOIN bimester b ON p.bimesterId = b.id
+             INNER JOIN discipline d ON t.disciplineId = d.id
+             INNER JOIN test_classroom test_c ON t.id = test_c.testId
+             INNER JOIN classroom c ON test_c.classroomId = c.id
+             INNER JOIN school s ON c.schoolId = s.id
+    WHERE y.name = ?
+)
+SELECT * FROM RankedTests WHERE rn = 1
       `;
 
       const params: any[] = [yearName];
@@ -3284,6 +3974,24 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  // ------------------ HELPERS ------------------------------------------------------------------------------------
+
+  duplicatedStudents(studentClassrooms: any[]): any {
+    const count = studentClassrooms.reduce((acc, item) => {
+      acc[item.student.id] = (acc[item.student.id] || 0) + 1;
+      return acc
+    }, {} as Record<number, number>);
+
+    const duplicatedStudents = studentClassrooms
+      .filter(item => count[item.student.id] > 1)
+      .map(d => d.endedAt ? { ...d, ignore: true } : d);
+
+    return studentClassrooms.map(item => {
+      const duplicated = duplicatedStudents.find(d => d.id === item.id);
+      return duplicated ? duplicated : item;
+    });
   }
 
   // ------------------ FORMATTERS ------------------------------------------------------------------------------------
@@ -3466,5 +4174,26 @@ INNER JOIN year AS y ON tr.yearId = y.id
       acc.periods.push({id: prev.period_id, bimester: {id: prev.bimester_id, name: prev.bimester_name, testName: prev.bimester_testName}});
       return acc;
     }, {} as qFormatedYear)
+  }
+
+  readingFluencyHeaders(preHeaders: qReadingFluenciesHeaders[]) {
+    return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
+      let exam = acc.find(el => el.exam_id === prev.readingFluencyExamId);
+      if (!exam) {
+        exam = {
+          exam_id: prev.readingFluencyExamId,
+          exam_name: prev.readingFluencyExamName,
+          exam_color: prev.readingFluencyExamColor,
+          exam_levels: []
+        };
+        acc.push(exam);
+      }
+      exam.exam_levels.push({
+        level_id: prev.readingFluencyLevelId,
+        level_name: prev.readingFluencyLevelName,
+        level_color: prev.readingFluencyLevelColor
+      });
+      return acc;
+    }, []);
   }
 }

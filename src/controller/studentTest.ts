@@ -20,7 +20,10 @@ class StudentTestController extends GenericController<any> {
       const testId = params.id;
       const studentId = body.user.user;
 
-      if (!scId) { return { status: 400, message: "Referência inválida." } }
+      if (!scId) {
+        if (conn) await conn.rollback();
+        return { status: 400, message: "Referência inválida." }
+      }
 
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
 
@@ -46,15 +49,16 @@ class StudentTestController extends GenericController<any> {
 
       if (!studentQuestions || studentQuestions.length === 0) {
 
-        const insertStatusQuery =
-          `
+        const insertStatusQuery = `
             INSERT INTO student_test_status
             (studentClassroomId, testId, active, observation, createdAt, createdByUser)
             VALUES (?, ?, 1, '', NOW(), ?)
-            ON DUPLICATE KEY UPDATE active = COALESCE(active, 1), updatedAt = NOW(), updatedByUser = ?
-          `;
+            ON DUPLICATE KEY UPDATE
+                                 updatedAt = NOW(),
+                                 updatedByUser = VALUES(createdByUser)
+        `;
 
-        await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId, studentId]);
+        await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
 
         const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
@@ -71,7 +75,8 @@ class StudentTestController extends GenericController<any> {
         await conn.commit();
 
         studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
-      } else { await conn.commit() }
+      }
+      else { await conn.commit() }
 
       const groupMap = new Map();
       qTestQuestions.forEach((tQ: any) => {
@@ -91,24 +96,6 @@ class StudentTestController extends GenericController<any> {
     finally { if (conn) { conn.release() } }
   }
 
-  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
-    try {
-
-      const { search, limit: l, offset: o } = query;
-
-      const limit =  !isNaN(parseInt(l as string)) ? parseInt(l as string) : 100
-      const offset =  !isNaN(parseInt(o as string)) ? parseInt(o as string) : 0
-
-      const year = Number(params.year);
-      const studentId = body.user.user
-
-      const result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
-
-      return { status: 200, data: result }
-    }
-    catch (error: any) { return { status: 500, message: error.message } }
-  }
-
   async updateStudentAnswers(body: UpdateStudentAnswers) {
 
     let conn;
@@ -124,15 +111,17 @@ class StudentTestController extends GenericController<any> {
       let studentTestStatusId = result.studentTestStatusId;
 
       if (!studentTestStatusId) {
-        const insertQuery = `INSERT INTO student_test_status (studentClassroomId, testId, active, observation, createdAt, createdByUser) VALUES (?, ?, 0, '', NOW(), ?)`;
-        const [insertResult] = await conn.execute(insertQuery, [result.studentClassroomId, body.testId, body.user.user]);
-        studentTestStatusId = (insertResult as any).insertId;
+        await conn.rollback();
+        return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas."};
       }
-      else {
-        if (!result.active && result.active !== null) { await conn.rollback(); return { status: 400, message: "Tentativas esgotadas." } }
-        const updateStatusQuery = `UPDATE student_test_status SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
-        await conn.execute(updateStatusQuery, [body.user.user, studentTestStatusId]);
+
+      if (!result.active && result.active !== null) {
+        await conn.rollback();
+        return { status: 400, message: "Tentativas esgotadas." }
       }
+
+      const updateStatusQuery = `UPDATE student_test_status SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
+      await conn.execute(updateStatusQuery, [body.user.user, studentTestStatusId]);
 
       if (body.questions && body.questions.length > 0) {
         const caseAnswerClauses: string[] = [];
@@ -172,6 +161,24 @@ class StudentTestController extends GenericController<any> {
     }
     catch (error: any) { if (conn) await conn.rollback(); return { status: 500, message: error.message } }
     finally { if (conn) { conn.release(); } }
+  }
+
+  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
+    try {
+
+      const { search, limit: l, offset: o } = query;
+
+      const limit =  !isNaN(parseInt(l as string)) ? parseInt(l as string) : 100
+      const offset =  !isNaN(parseInt(o as string)) ? parseInt(o as string) : 0
+
+      const year = Number(params.year);
+      const studentId = body.user.user
+
+      const result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
+
+      return { status: 200, data: result }
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
   }
 }
 

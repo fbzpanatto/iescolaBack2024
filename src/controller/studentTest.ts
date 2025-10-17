@@ -25,11 +25,7 @@ class StudentTestController extends GenericController<any> {
         return { status: 400, message: "Referência inválida." }
       }
 
-      console.log('studentId', studentId, 'testId', testId)
-
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
-
-      console.log('getTest', stuTestInfo)
 
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
@@ -103,13 +99,9 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      console.log(body.studentId, body.testId)
-
       const result = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
 
       if (!result) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
-
-      console.log('updateStudentAnswers', result)
 
       if (!result.active && result.active !== null) {
         await conn.rollback();

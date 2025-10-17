@@ -523,8 +523,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             data = await this.notIncludedRF(test, Number(classroomId), Number(yearName), CONN)
             break;
           }
-          case TEST_CATEGORIES_IDS.AVL_ITA:
-          case TEST_CATEGORIES_IDS.SIM_ITA: {
+          case TEST_CATEGORIES_IDS.AVL_ITA: {
             data = await this.qNotTestIncluded(yearName, Number(classroomId), test.id )
             break;
           }

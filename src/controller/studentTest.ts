@@ -25,14 +25,13 @@ class StudentTestController extends GenericController<any> {
         return { status: 400, message: "Referência inválida." }
       }
 
+      console.log('studentId', studentId, 'testId', testId)
+
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
 
-      if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
+      console.log('getTest', stuTestInfo)
 
-      if (stuTestInfo.studentClassroomId != scId) {
-        const message = `Acesse a prova através da sala: ${stuTestInfo.classroomName} - ${stuTestInfo.schoolName}`
-        return { status: 400, message }
-      }
+      if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
       const currentYear = await this.qCurrentYear();
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name;
@@ -104,21 +103,20 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
+      console.log(body.studentId, body.testId)
+
       const result = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
 
       if (!result) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
 
-      let studentTestStatusId = result.studentTestStatusId;
-
-      if (!studentTestStatusId) {
-        await conn.rollback();
-        return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas."};
-      }
+      console.log('updateStudentAnswers', result)
 
       if (!result.active && result.active !== null) {
         await conn.rollback();
         return { status: 400, message: "Tentativas esgotadas." }
       }
+
+      let studentTestStatusId = result.studentTestStatusId;
 
       const updateStatusQuery = `UPDATE student_test_status SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
       await conn.execute(updateStatusQuery, [body.user.user, studentTestStatusId]);

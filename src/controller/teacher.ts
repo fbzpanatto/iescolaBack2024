@@ -178,16 +178,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
-      const classroom = await this.qClassroom(body.classroom.id)
-      const discipline = await this.qDiscipline(body.discipline.id)
-      const teacher = await this.qTeacher(body.teacher.id)
+      const [qUserTeacher, classroom, discipline, teacher] = await Promise.all([
+        this.qTeacherByUser(body.user.user),
+        this.qClassroom(body.classroom.id),
+        this.qDiscipline(body.discipline.id),
+        this.qTeacher(body.teacher.id)
+      ])
 
-      let response
-
-      if(qUserTeacher && classroom && discipline && teacher) {
-        response = await this.qSingleRel(body.teacher.id, body.classroom.id, body.discipline.id)
-      }
+      if(qUserTeacher && classroom && discipline && teacher) { await this.qSingleRel(body.teacher.id, body.classroom.id, body.discipline.id) }
 
       return { status: 200, data: { message: 'done.' } }
     }

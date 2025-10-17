@@ -1,9 +1,10 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Discipline } from "./Discipline";
 import { Teacher } from "./Teacher";
 import { Classroom } from "./Classroom";
 import { Contract } from "./Contract";
 
+@Index(["discipline", "teacher", "classroom"])
 @Entity()
 export class TeacherClassDiscipline {
 

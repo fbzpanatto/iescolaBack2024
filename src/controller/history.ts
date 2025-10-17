@@ -35,7 +35,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       return { status: 200, data: [...studentAlpha, ...studentTests] };
     } catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
-
 }
 
 export const historyController = new ReportController();

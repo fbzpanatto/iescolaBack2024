@@ -19,21 +19,28 @@ import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher } from "../utils/formaters";
-import {StudentClassroom} from "../model/StudentClassroom";
+import { StudentClassroom } from "../model/StudentClassroom";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 
-  async findAllWhere( options: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager ) {
+  async findAllWhere(
+    options: FindManyOptions<ObjectLiteral> | undefined = {},
+    request?: Request,
+    CONN?: EntityManager
+  ) {
     try {
       if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
       const result = await CONN.find(this.entity); return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneByWhere(options: FindOneOptions<ObjectLiteral>, CONN?: EntityManager) {
+  async findOneByWhere(
+    options: FindOneOptions<ObjectLiteral>,
+    CONN?: EntityManager
+  ) {
     try {
       if(!CONN) {
         const result = await this.repository.findOne(options)
@@ -44,7 +51,11 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneById(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
+  async findOneById(
+    id: number | string,
+    body: ObjectLiteral,
+    CONN?: EntityManager
+  ) {
     try {
       if(!CONN) {
         const result = await this.repository.findOneBy({ id: id });
@@ -55,14 +66,22 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async save( body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined, CONN?: EntityManager) {
+  async save(
+    body: DeepPartial<ObjectLiteral>,
+    options: SaveOptions | undefined,
+    CONN?: EntityManager
+  ) {
     try {
       if(!CONN) { const result = await this.repository.save(body, options); return { status: 201, data: result } }
       const result = await CONN.save(this.entity, body, options); return { status: 201, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
+  async updateId(
+    id: number | string,
+    body: ObjectLiteral,
+    CONN?: EntityManager
+  ) {
     try {
       if(!CONN){
         const dataInDataBase = await this.repository.findOneBy({ id: id });
@@ -78,7 +97,9 @@ export class GenericController<T> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  createPerson(body: SavePerson) {
+  createPerson(
+    body: SavePerson
+  ) {
     const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el
   }
 
@@ -979,7 +1000,16 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qNewTraining(yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string ) {
+  async qNewTraining(
+    yearId: number,
+    category: number,
+    month: number,
+    meeting: number,
+    createdByUser: number,
+    classroom?: number,
+    discipline?: number,
+    observation?: string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -996,7 +1026,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticHeaders(yearName: string) {
+  async qAlphabeticHeaders(
+    yearName: string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -1034,7 +1066,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qLastRegister(studentId: number, yearId: number ) {
+  async qLastRegister(
+    studentId: number,
+    yearId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -1063,7 +1098,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentDisabilities(arr: { [key: string]: any }[]) {
+  async qStudentDisabilities(
+    arr: { [key: string]: any }[]
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -1128,7 +1165,11 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qNotTestIncluded(yearName: string, classroomId: number, testId: number) {
+  async qNotTestIncluded(
+    yearName: string,
+    classroomId: number,
+    testId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();

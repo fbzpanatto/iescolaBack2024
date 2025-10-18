@@ -108,7 +108,6 @@ export class GenericController<T> {
       let studentsWhoCompletedTest = new Set<number>(); // ✅ NOVO
       const alphabeticCategories = new Set([1, 2, 3]);
 
-      // ✅ NOVA VERIFICAÇÃO para categoryId = 6 (SIM_ITA)
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
         const [completedTestRows]: [any[], any] = await conn.query(
           `
@@ -168,6 +167,8 @@ export class GenericController<T> {
 
         // ✅ PULA SE JÁ FINALIZOU A PROVA EM QUALQUER SALA
         if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) {
+          console.log(studentId, studentClassroomId)
+          console.log('-------------------------------')
           if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
           continue;
         }
@@ -177,7 +178,8 @@ export class GenericController<T> {
             alphabeticLinksToSave.push([now, userId, studentId, test.id]);
             existingAlphabeticStudentIds.add(studentId);
           }
-        } else {
+        }
+        else {
           if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
             if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
               if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
@@ -205,6 +207,9 @@ export class GenericController<T> {
       }
 
       if (statusesToSave.length > 0) {
+
+        console.log('statusesToSave', statusesToSave)
+
         const statusQuery = `
           INSERT INTO student_test_status
           (active, testId, studentClassroomId, observation, createdAt, createdByUser)
@@ -217,6 +222,9 @@ export class GenericController<T> {
       }
 
       if (questionsToSave.length > 0) {
+
+        console.log('questionsToSave', questionsToSave)
+
         const questionQuery =
           `
           INSERT INTO student_question 

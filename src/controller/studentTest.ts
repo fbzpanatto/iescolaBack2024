@@ -103,10 +103,7 @@ class StudentTestController extends GenericController<any> {
 
       if (!result) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
 
-      if (!result.active && result.active !== null) {
-        await conn.rollback();
-        return { status: 400, message: "Tentativas esgotadas." }
-      }
+      if (!result.active && result.active !== null) { await conn.rollback(); return { status: 400, message: "Tentativas esgotadas." } }
 
       let studentTestStatusId = result.studentTestStatusId;
 

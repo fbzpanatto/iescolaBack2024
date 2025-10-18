@@ -4063,10 +4063,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      if (!studentTestStatusIds || studentTestStatusIds.length === 0) {
-        await conn.commit();
-        return;
-      }
+      if (!studentTestStatusIds || studentTestStatusIds.length === 0) { await conn.commit(); return }
 
       const placeholders = studentTestStatusIds.map(() => '?').join(',');
 

@@ -168,8 +168,6 @@ export class GenericController<T> {
 
         // ✅ PULA SE JÁ FINALIZOU A PROVA EM QUALQUER SALA
         if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) {
-          console.log(studentId, studentClassroomId)
-          console.log('-------------------------------')
           if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
           continue;
         }
@@ -209,8 +207,6 @@ export class GenericController<T> {
 
       if (statusesToSave.length > 0) {
 
-        console.log('statusesToSave', statusesToSave)
-
         const statusQuery = `
           INSERT INTO student_test_status
           (active, testId, studentClassroomId, observation, createdAt, createdByUser)
@@ -223,8 +219,6 @@ export class GenericController<T> {
       }
 
       if (questionsToSave.length > 0) {
-
-        console.log('questionsToSave', questionsToSave)
 
         const questionQuery =
           `
@@ -4067,17 +4061,18 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const placeholders = studentTestStatusIds.map(() => '?').join(',');
 
-      const query =
-        `
+      const query = `
           UPDATE student_test_status
-            SET 
+          SET
               studentClassroomId = ?,
               updatedAt = NOW(),
               updatedByUser = ?
-            WHERE id IN (${placeholders}) AND active = 1
-        `;
+          WHERE id IN (${placeholders})
+            AND active = 1
+            AND studentClassroomId != ?
+      `;
 
-      const params = [newStudentClassroomId, userId, ...studentTestStatusIds];
+      const params = [newStudentClassroomId, userId, ...studentTestStatusIds, newStudentClassroomId];
 
       await conn.query(query, params);
       await conn.commit();

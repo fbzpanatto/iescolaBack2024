@@ -84,7 +84,14 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, addNames: boolean = false): Promise<string[] | void> {
+  async unifiedTestQuestLinkSql(
+    createStatus: boolean,
+    stuClassrooms: any[],
+    test: Test,
+    testQuestions: TestQuestion[],
+    userId: number,
+    addNames: boolean = false
+  ): Promise<string[] | void> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -240,7 +247,13 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async getStudentsQuestionsSql(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, studentClassroomId: number | null) {
+  async getStudentsQuestionsSql(
+    test: Test,
+    testQuestions: TestQuestion[],
+    classroomId: number,
+    yearName: string,
+    studentClassroomId: number | null
+  ) {
     let conn;
 
     try {
@@ -502,7 +515,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async stuClassReadFSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+  async stuClassReadFSql(
+    test: Test,
+    classroomId: number,
+    yearName: string,
+    studentClassroomId: number | null
+  ) {
 
     let conn;
 
@@ -641,7 +659,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+  async getReadingFluencyStudentsSql(
+    test: Test,
+    classroomId: number,
+    yearName: string,
+    studentClassroomId: number | null
+  ) {
     let conn;
 
     try {
@@ -885,7 +908,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number) {
+  async linkReadingSql(
+    headers: qReadingFluenciesHeaders[],
+    studentClassrooms: ObjectLiteral[],
+    test: Test,
+    userId: number
+  ) {
     let conn;
 
     try {

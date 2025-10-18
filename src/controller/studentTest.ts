@@ -8,7 +8,11 @@ class StudentTestController extends GenericController<any> {
 
   constructor() { super(Student) }
 
-  async getTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
+  async getTest(
+    body: { user: { user: number, ra: string, category: number } },
+    params: { [key: string]: any },
+    query: { [key: string]: any }
+  ) {
 
     let conn;
 
@@ -91,7 +95,9 @@ class StudentTestController extends GenericController<any> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateStudentAnswers(body: UpdateStudentAnswers) {
+  async updateStudentAnswers(
+    body: UpdateStudentAnswers
+  ) {
 
     let conn;
 

@@ -19,6 +19,7 @@ import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher } from "../utils/formaters";
+import {StudentClassroom} from "../model/StudentClassroom";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1190,6 +1191,24 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async qCurrentStudentClassroom(studentId: number){
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT *
+        FROM student_classroom sc
+        WHERE sc.studentId = ? 
+        AND sc.endedAt IS NULL 
+        LIMIT 1;
+      `
+      const [ queryResult ] = await conn.query(query, [ studentId ])
+      return (queryResult as StudentClassroom[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qTestByStudentId<T>(studentId: number, yearName: number | string, search: string, limit: number, offset: number) {
     let conn;
     try {
@@ -1200,10 +1219,14 @@ export class GenericController<T> {
         `
             SELECT DISTINCT
                 sts.id AS studentTestStatusId,
+                sts.active AS active,
                 sc.id AS studentClassroomId,
                 t.id AS testId,
                 sc.studentId,
+                sc.startedAt,
+                sc.endedAt,
                 t.name AS testName,
+                t.createdAt AS testCreatedAt,
                 bim.name AS bimesterName,
                 yr.name AS yearName,
                 c.shortName AS classroomName,
@@ -1227,11 +1250,11 @@ export class GenericController<T> {
               AND t.categoryId = 6
               AND t.name LIKE ?
               AND (
-                -- Teste já foi realizado (mostra independente da turma)
-                sts.id IS NOT NULL
+                -- Teste em andamento (ainda pode ser realizado)
+                (sts.id IS NOT NULL AND sts.active = 1)
                     OR
-                    -- Teste não realizado E aluno está atualmente na turma E não fez em nenhuma outra sala
-                (sc.endedAt IS NULL AND sc.startedAt <= t.createdAt AND NOT EXISTS (
+                    -- Teste não iniciado E aluno está atualmente na turma E não fez em nenhuma outra sala
+                (sts.id IS NULL AND sc.endedAt IS NULL AND sc.startedAt <= t.createdAt AND NOT EXISTS (
                     SELECT 1
                     FROM student_test_status sts_check
                     WHERE sts_check.testId = t.id
@@ -1242,11 +1265,14 @@ export class GenericController<T> {
                     )
                 ))
                 )
+            ORDER BY
+                CASE WHEN sts.id IS NULL THEN 0 ELSE 1 END,
+                testCreatedAt DESC
             LIMIT ?
                 OFFSET ?
         `
 
-      const [ queryResult ] = await conn.query(format(query), [ studentId, yearName, testSearch, studentId, limit, offset ])
+      const [ queryResult ] = await conn.query(query, [ studentId, yearName, testSearch, studentId, limit, offset ])
 
       return queryResult as T[]
     }
@@ -4029,6 +4055,38 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async qBulkUpdateStudentTestStatus(studentTestStatusIds: number[], newStudentClassroomId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      if (!studentTestStatusIds || studentTestStatusIds.length === 0) {
+        await conn.commit();
+        return;
+      }
+
+      const placeholders = studentTestStatusIds.map(() => '?').join(',');
+
+      const query =
+        `
+          UPDATE student_test_status
+            SET 
+              studentClassroomId = ?,
+              updatedAt = NOW(),
+              updatedByUser = ?
+            WHERE id IN (${placeholders}) AND active = 1
+        `;
+
+      const params = [newStudentClassroomId, userId, ...studentTestStatusIds];
+
+      await conn.query(query, params);
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) conn.release() }
   }
 
   // ------------------ HELPERS ------------------------------------------------------------------------------------

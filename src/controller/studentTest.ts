@@ -153,7 +153,11 @@ class StudentTestController extends GenericController<any> {
     finally { if (conn) { conn.release(); } }
   }
 
-  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
+  async allFilteredStudentTest(
+    body: { user: { user: number, ra: string, category: number } },
+    params: { [key: string]: any },
+    query: { [key: string]: any }
+  ) {
     try {
 
       const { search, limit: l, offset: o } = query;
@@ -162,10 +166,20 @@ class StudentTestController extends GenericController<any> {
       const offset =  !isNaN(parseInt(o as string)) ? parseInt(o as string) : 0
 
       const year = Number(params.year);
-      const studentId = body.user.user
+      const studentId = body.user.user;
 
-      const result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
+      const currentSc = await this.qCurrentStudentClassroom(studentId)
 
+      let result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
+
+      if (currentSc && result.length > 0) {
+        const statusToUpdate = result.filter(t => t.studentTestStatusId && t.active && t.studentClassroomId !== currentSc.id);
+
+        if (statusToUpdate.length > 0) {
+          await this.qBulkUpdateStudentTestStatus(statusToUpdate.map(t => t.studentTestStatusId), currentSc.id, body.user.user);
+          result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset);
+        }
+      }
       return { status: 200, data: result }
     }
     catch (error: any) { return { status: 500, message: error.message } }

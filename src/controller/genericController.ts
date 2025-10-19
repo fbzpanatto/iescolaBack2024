@@ -1199,7 +1199,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qActiveSc(studentId: number) {
+  async qActiveSc(
+    studentId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();

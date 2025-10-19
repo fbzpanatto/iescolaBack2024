@@ -24,10 +24,7 @@ class StudentTestController extends GenericController<any> {
       const testId = params.id;
       const studentId = body.user.user;
 
-      if (!scId) {
-        if (conn) await conn.rollback();
-        return { status: 400, message: "Referência inválida." }
-      }
+      if (!scId) { if (conn) await conn.rollback(); return { status: 400, message: "Referência inválida." } }
 
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
 
@@ -78,6 +75,7 @@ class StudentTestController extends GenericController<any> {
       else { await conn.commit() }
 
       const groupMap = new Map();
+
       qTestQuestions.forEach((tQ: any) => {
         const groupId = tQ.questionGroup.id;
         if (!groupMap.has(groupId)) { groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] }) }
@@ -95,9 +93,7 @@ class StudentTestController extends GenericController<any> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateStudentAnswers(
-    body: UpdateStudentAnswers
-  ) {
+  async updateStudentAnswers(body: UpdateStudentAnswers) {
 
     let conn;
 
@@ -105,55 +101,91 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const result = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
+      const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
 
-      if (!result) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
-
-      if (!result.active && result.active !== null) { await conn.rollback(); return { status: 400, message: "Tentativas esgotadas." } }
-
-      let studentTestStatusId = result.studentTestStatusId;
-
-      const updateStatusQuery = `UPDATE student_test_status SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
-      await conn.execute(updateStatusQuery, [body.user.user, studentTestStatusId]);
-
-      if (body.questions && body.questions.length > 0) {
-        const caseAnswerClauses: string[] = [];
-        const caseClassroomClauses: string[] = [];
-        const questionIds: number[] = [];
-
-        const answerParams: (string | number)[] = [];
-        const classroomParams: (string | number | null)[] = [];
-
-        for (const item of body.questions) {
-          caseAnswerClauses.push('WHEN ? THEN ?');
-          answerParams.push(item.studentQuestionId, item.answer);
-
-          caseClassroomClauses.push('WHEN ? THEN ?');
-          classroomParams.push(item.studentQuestionId, result.classroomId);
-
-          questionIds.push(item.studentQuestionId);
-        }
-
-        const finalParams = [...answerParams, ...classroomParams, body.user.user, ...questionIds];
-
-        const bulkUpdateQuery = `
-          UPDATE student_question
-          SET
-            answer = CASE id ${caseAnswerClauses.join(' ')} END,
-            rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
-            updatedAt = NOW(),
-            updatedByUser = ?
-          WHERE id IN (${questionIds.map(() => '?').join(',')})
-        `;
-
-        await conn.execute(bulkUpdateQuery, finalParams);
+      if (!studentTest) {
+        await conn.rollback();
+        return { status: 404, message: "Teste não encontrado para este aluno." }
       }
 
+      // ✅ Valida se studentTestStatusId existe
+      if (!studentTest.studentTestStatusId) {
+        await conn.rollback();
+        return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas." };
+      }
+
+      // ✅ Valida se há questões para enviar
+      if (!body.questions || body.questions.length === 0) {
+        await conn.rollback();
+        return { status: 400, message: "Nenhuma resposta foi enviada." };
+      }
+
+      // ✅ Lock pessimista + double-check (já valida active aqui!)
+      const lockQuery = `
+          SELECT id, active
+          FROM student_test_status
+          WHERE id = ?
+              FOR UPDATE
+      `;
+      const [lockResult] = await conn.query(lockQuery, [studentTest.studentTestStatusId]) as any[];
+
+      // ✅ Verifica após o lock (proteção definitiva contra race condition)
+      if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) {
+        await conn.rollback();
+        return { status: 400, message: "Esta prova já foi finalizada." };
+      }
+
+      // ✅ Atualiza o status
+      const updateStatusQuery = `
+          UPDATE student_test_status
+          SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ?
+          WHERE id = ? AND active = 1
+      `;
+      const [updateResult] = await conn.execute(updateStatusQuery, [body.user.user, studentTest.studentTestStatusId]) as any[];
+
+      // ✅ Verificação final
+      if (updateResult.affectedRows === 0) {
+        await conn.rollback();
+        return { status: 400, message: "Esta prova já foi finalizada por outra sessão." };
+      }
+
+      // ✅ Atualiza as respostas
+      const caseAnswerClauses: string[] = [];
+      const caseClassroomClauses: string[] = [];
+      const questionIds: number[] = [];
+
+      const answerParams: (string | number)[] = [];
+      const classroomParams: (string | number | null)[] = [];
+
+      for (const item of body.questions) {
+        caseAnswerClauses.push('WHEN ? THEN ?');
+        answerParams.push(item.studentQuestionId, item.answer);
+
+        caseClassroomClauses.push('WHEN ? THEN ?');
+        classroomParams.push(item.studentQuestionId, studentTest.classroomId);
+
+        questionIds.push(item.studentQuestionId);
+      }
+
+      const finalParams = [...answerParams, ...classroomParams, body.user.user, ...questionIds];
+
+      const bulkUpdateQuery = `
+          UPDATE student_question
+          SET
+              answer = CASE id ${caseAnswerClauses.join(' ')} END,
+              rClassroomId = CASE id ${caseAnswerClauses.join(' ')} END,
+              updatedAt = NOW(),
+              updatedByUser = ?
+          WHERE id IN (${questionIds.map(() => '?').join(',')})
+      `;
+
+      await conn.execute(bulkUpdateQuery, finalParams);
+
       await conn.commit();
-      return { status: 200, data: { studentTestStatusId, message: "Prova enviada com sucesso!" } };
+      return { status: 200, data: { studentTestStatusId: studentTest.studentTestStatusId, message: "Prova enviada com sucesso!" } };
     }
     catch (error: any) { if (conn) await conn.rollback(); return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release(); } }
+    finally { if (conn) { conn.release() } }
   }
 
   async allFilteredStudentTest(

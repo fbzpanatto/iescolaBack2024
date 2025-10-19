@@ -17,68 +17,84 @@ class StudentTestController extends GenericController<any> {
     let conn;
 
     try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
+      // ✅ Validações iniciais (sem transaction ainda)
       const scId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
+      if (!scId) { return { status: 400, message: "Referência inválida." } }
+
       const testId = params.id;
       const studentId = body.user.user;
 
-      if (!scId) { if (conn) await conn.rollback(); return { status: 400, message: "Referência inválida." } }
-
+      // ✅ Valida acesso à prova
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
-
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
+      // ✅ Busca ano atual
       const currentYear = await this.qCurrentYear();
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name;
 
+      // ✅ Valida prova ativa
       const qTest = await this.qTestByIdAndYear(testId, String(year));
-
       if (!qTest.active) { return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' } }
 
+      // ✅ Valida questões existem
       const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
-
       if (!qTestQuestions || qTestQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
 
+      // ✅ Verifica se já existe respostas do aluno
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
 
+      // ✅ Se não existe, cria (com proteção contra race condition)
       if (!studentQuestions || studentQuestions.length === 0) {
+        conn = await connectionPool.getConnection();
+        await conn.beginTransaction();
 
-        const insertStatusQuery = `
+        try {
+          // ✅ Lock para evitar duplicação
+          const lockQuery = `
+          SELECT id 
+          FROM student_test_status 
+          WHERE studentClassroomId = ? AND testId = ? 
+          FOR UPDATE
+        `;
+          const [existingStatus] = await conn.query(lockQuery, [stuTestInfo.studentClassroomId, testId]) as any[];
+
+          // ✅ Se não existe, cria o status
+          if (!existingStatus || existingStatus.length === 0) {
+            const insertStatusQuery = `
             INSERT INTO student_test_status
             (studentClassroomId, testId, active, observation, createdAt, createdByUser)
             VALUES (?, ?, 1, '', NOW(), ?)
-            ON DUPLICATE KEY UPDATE
-                                 updatedAt = NOW(),
-                                 updatedByUser = VALUES(createdByUser)
-        `;
-
-        await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
-
-        const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
-
-        const insertQuestionsQuery =
-          `
-            INSERT INTO student_question
-            (testQuestionId, studentId, answer, createdAt, createdByUser)
-            VALUES ?
-            ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)
           `;
+            await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
+          }
 
-        await conn.query(insertQuestionsQuery, [studentQuestionsToInsert]);
+          // ✅ Cria as questões (se não existirem)
+          const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
-        await conn.commit();
+          const insertQuestionsQuery = `
+          INSERT IGNORE INTO student_question
+          (testQuestionId, studentId, answer, createdAt, createdByUser)
+          VALUES ?
+        `;
+          await conn.query(insertQuestionsQuery, [studentQuestionsToInsert]);
 
-        studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
+          await conn.commit();
+
+          // ✅ Busca novamente as questões criadas
+          studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
+        }
+        catch (error) { if (conn) await conn.rollback(); throw error }
+        finally { if (conn) conn.release() }
       }
-      else { await conn.commit() }
 
+      // ✅ Formata questões por grupo
       const groupMap = new Map();
 
       qTestQuestions.forEach((tQ: any) => {
         const groupId = tQ.questionGroup.id;
-        if (!groupMap.has(groupId)) { groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] }) }
+        if (!groupMap.has(groupId)) {
+          groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] });
+        }
         tQ.question.images = tQ.question.images > 0
           ? Array.from({ length: tQ.question.images }, (_, i) => i + 1)
           : 0;
@@ -89,8 +105,7 @@ class StudentTestController extends GenericController<any> {
 
       return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions } };
     }
-    catch (error: any) { console.log(error); if (conn) { await conn.rollback() } return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release() } }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
   async updateStudentAnswers(body: UpdateStudentAnswers) {
@@ -108,19 +123,16 @@ class StudentTestController extends GenericController<any> {
         return { status: 404, message: "Teste não encontrado para este aluno." }
       }
 
-      // ✅ Valida se studentTestStatusId existe
       if (!studentTest.studentTestStatusId) {
         await conn.rollback();
         return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas." };
       }
 
-      // ✅ Valida se há questões para enviar
       if (!body.questions || body.questions.length === 0) {
         await conn.rollback();
         return { status: 400, message: "Nenhuma resposta foi enviada." };
       }
 
-      // ✅ Lock pessimista + double-check (já valida active aqui!)
       const lockQuery = `
           SELECT id, active
           FROM student_test_status
@@ -129,13 +141,11 @@ class StudentTestController extends GenericController<any> {
       `;
       const [lockResult] = await conn.query(lockQuery, [studentTest.studentTestStatusId]) as any[];
 
-      // ✅ Verifica após o lock (proteção definitiva contra race condition)
       if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) {
         await conn.rollback();
         return { status: 400, message: "Esta prova já foi finalizada." };
       }
 
-      // ✅ Atualiza o status
       const updateStatusQuery = `
           UPDATE student_test_status
           SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ?
@@ -143,13 +153,11 @@ class StudentTestController extends GenericController<any> {
       `;
       const [updateResult] = await conn.execute(updateStatusQuery, [body.user.user, studentTest.studentTestStatusId]) as any[];
 
-      // ✅ Verificação final
       if (updateResult.affectedRows === 0) {
         await conn.rollback();
         return { status: 400, message: "Esta prova já foi finalizada por outra sessão." };
       }
 
-      // ✅ Atualiza as respostas
       const caseAnswerClauses: string[] = [];
       const caseClassroomClauses: string[] = [];
       const questionIds: number[] = [];
@@ -173,7 +181,7 @@ class StudentTestController extends GenericController<any> {
           UPDATE student_question
           SET
               answer = CASE id ${caseAnswerClauses.join(' ')} END,
-              rClassroomId = CASE id ${caseAnswerClauses.join(' ')} END,
+              rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
               updatedAt = NOW(),
               updatedByUser = ?
           WHERE id IN (${questionIds.map(() => '?').join(',')})
@@ -184,8 +192,13 @@ class StudentTestController extends GenericController<any> {
       await conn.commit();
       return { status: 200, data: { studentTestStatusId: studentTest.studentTestStatusId, message: "Prova enviada com sucesso!" } };
     }
-    catch (error: any) { if (conn) await conn.rollback(); return { status: 500, message: error.message } }
-    finally { if (conn) { conn.release() } }
+    catch (error: any) {
+      if (conn) await conn.rollback();
+      return { status: 500, message: error.message }
+    }
+    finally {
+      if (conn) { conn.release() }
+    }
   }
 
   async allFilteredStudentTest(

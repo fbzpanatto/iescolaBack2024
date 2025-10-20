@@ -1610,7 +1610,7 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection()
-      conn.beginTransaction();
+      await conn.beginTransaction();
       const query = `
         INSERT INTO training_teacher (teacherId, trainingId, statusId, createdAt, createdByUser, updatedAt, updatedByUser)
         VALUES (?, ?, ?, NOW(), ?, NOW(), ?)
@@ -1621,6 +1621,8 @@ export class GenericController<T> {
     `;
 
       const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, statusId, userId, userId]);
+
+      await conn.commit()
 
       return result;
     }
@@ -1648,7 +1650,7 @@ export class GenericController<T> {
     `;
 
       const [result] = await conn.query<ResultSetHeader>(query, [teacherId, trainingId, observation, userId, userId]);
-      conn.commit();
+      await conn.commit();
       return result;
     }
     catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
@@ -1676,7 +1678,7 @@ export class GenericController<T> {
     `;
 
       const [queryResult] = await conn.query<ResultSetHeader>(updateQuery, [meeting, category, month, classroom, discipline || null, observation || null, updatedByUser, id]);
-      conn.commit();
+      await conn.commit();
       return queryResult;
     }
     catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
@@ -1724,7 +1726,7 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection()
-      conn.beginTransaction();
+      await conn.beginTransaction();
       const updateQuery = `
         UPDATE student_test_status sts
             INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
@@ -1737,7 +1739,7 @@ export class GenericController<T> {
     `;
 
       const [queryResult] = await conn.query(format(updateQuery), [userId, studentClassroomId, testId, classroomId]);
-      conn.commit();
+      await conn.commit();
       return queryResult;
     }
     catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
@@ -2778,7 +2780,7 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection()
-      conn.beginTransaction()
+      await conn.beginTransaction()
       const query =
         `
           UPDATE teacher_class_discipline AS tcd
@@ -2794,7 +2796,7 @@ export class GenericController<T> {
       `
 
       const [ queryResult ] = await conn.query(query, [body.contractId, body.teacherId, body.schoolId, body.classroom, body.categoryId])
-      conn.commit()
+      await conn.commit()
       return queryResult
     }
     catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }

@@ -1930,7 +1930,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qUser(userId: number) {
+  async qUser(
+    userId: number
+  ) {
     let conn
     try {
       conn = await connectionPool.getConnection()
@@ -1952,7 +1954,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTestClassroom(testId: number, classroomId: number) {
+  async qTestClassroom(
+    testId: number,
+    classroomId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -1971,14 +1976,13 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTestByIdAndYear(testId: number, yearName: string) {
-
+  async qTestByIdAndYear(
+    testId: number,
+    yearName: string
+  ) {
     let conn;
-
     try {
-
       conn = await connectionPool.getConnection();
-
       const query =
 
         `
@@ -2001,13 +2005,14 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(format(query), [testId, yearName])
       return (queryResult as qTest[])[0]
-
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
-  async qYearByName(yearName: string) {
+  async qYearByName(
+    yearName: string
+  ) {
     let conn;
 
     try {
@@ -2030,7 +2035,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qYearById(yearId: number | string) {
+  async qYearById(
+    yearId: number | string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2049,7 +2056,11 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qSingleRel(teacherId: number, classroomId: number, disciplineId: number) {
+  async qSingleRel(
+    teacherId: number,
+    classroomId: number,
+    disciplineId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2066,7 +2077,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qClassroom(classroomId: number) {
+  async qClassroom(
+    classroomId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2094,7 +2107,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qDiscipline(disciplineId: number) {
+  async qDiscipline(
+    disciplineId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2114,7 +2129,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTeacher(teacherId: number) {
+  async qTeacher(
+    teacherId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2134,7 +2151,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qSchools(testId: number) {
+  async qSchools(
+    testId: number
+  ) {
     let conn;
     try{
 
@@ -2163,7 +2182,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qClassroomsByTestId(schoolId: number, testId: number) {
+  async qClassroomsByTestId(
+    schoolId: number,
+    testId: number
+  ) {
     let conn;
     try {
 
@@ -2186,7 +2208,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentClassroomsForTest(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
+  async qStudentClassroomsForTest(
+    test: Test,
+    classroomId: number,
+    yearName: string,
+    studentClassroomId: number | null
+  ) {
     let conn;
     try{
       conn = await connectionPool.getConnection();
@@ -2236,7 +2263,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qReadingFluency(testId: number, studentId: number) {
+  async qReadingFluency(
+    testId: number,
+    studentId: number
+  ) {
     let conn;
     try {
 
@@ -2283,7 +2313,11 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticTests(categoryId: number, disciplineId: number, yearName: string) {
+  async qAlphabeticTests(
+    categoryId: number,
+    disciplineId: number,
+    yearName: string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2311,7 +2345,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestionsForMultipleTests(testIds: number[]) {
+  async qTestQuestionsForMultipleTests(
+    testIds: number[]
+  ) {
     if (!testIds || testIds.length === 0) { return new Map() }
     let conn;
     try {
@@ -2360,7 +2396,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestions(testId: number | string) {
+  async qTestQuestions(
+    testId: number | string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2393,7 +2431,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTestQuestionsWithTitle(testId: number | string) {
+  async qTestQuestionsWithTitle(
+    testId: number | string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2422,7 +2462,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentTestQuestions(testId: number, studentId: number) {
+  async qStudentTestQuestions(
+    testId: number,
+    studentId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2444,7 +2487,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentClassrooms(classroomId: number, yearId: number) {
+  async qStudentClassrooms(
+    classroomId: number,
+    yearId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -2467,7 +2513,11 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qSetFirstLevel(studentId: number, levelId: number, userId: number) {
+  async qSetFirstLevel(
+    studentId: number,
+    levelId: number,
+    userId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2486,7 +2536,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTeacherRelationship(teacherId: number | string) {
+  async qTeacherRelationship(
+    teacherId: number | string
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2548,7 +2600,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAlphaStudents(test: Test, classroomId: number, year: number, studentClassroomId: number | null) {
+  async qAlphaStudents(
+    test: Test,
+    classroomId: number,
+    year: number,
+    studentClassroomId: number | null
+  ) {
 
     let conn;
 
@@ -2653,7 +2710,10 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qPendingTransferStatus(year: number, status: number) {
+  async qPendingTransferStatus(
+    year: number,
+    status: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2672,7 +2732,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qPresence(trainingId: number) {
+  async qPresence(
+    trainingId: number
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2689,7 +2751,9 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAllReferencedTrainings(referencedTraining: Training) {
+  async qAllReferencedTrainings(
+    referencedTraining: Training
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -2770,7 +2834,17 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherContractCurrentYear(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number }) {
+  async updateTeacherContractCurrentYear(
+    body: {
+      teacherId: number,
+      schoolId: number,
+      contractId: number,
+      categoryId: number,
+      yearId: number,
+      yearName: string,
+      classroom: number
+    }
+  ) {
     let conn;
     try {
       conn = await connectionPool.getConnection()

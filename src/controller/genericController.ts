@@ -1236,8 +1236,8 @@ export class GenericController<T> {
     try {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
-      const insertQuery = `INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`
-      const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, new Date(), createdByUser])
+      const insertQuery = `INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES (?, ?, ?, ?, NOW(), ?)`
+      const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, createdByUser])
       await conn.commit()
       return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
     }
@@ -1259,10 +1259,10 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
       const insertQuery = `
-        INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-      const [ queryResult ] = await conn.query(format(insertQuery), [new Date(), new Date(), requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
+          INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser)
+          VALUES (NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      const [ queryResult ] = await conn.query(format(insertQuery), [requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
       await conn.commit()
       return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
     }
@@ -1521,12 +1521,9 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const updateQuery =
-        `
-        UPDATE teacher_class_discipline SET endedAt = ? where teacherId = ?;
-      `
+      const updateQuery = `UPDATE teacher_class_discipline SET endedAt = NOW() where teacherId = ?;`
 
-      const [ queryResult ] = await conn.query(format(updateQuery), [new Date(), teacherId])
+      const [ queryResult ] = await conn.query(format(updateQuery), [teacherId])
 
       await conn.commit()
 
@@ -2058,11 +2055,8 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection()
       await conn.beginTransaction();
 
-      const insertQuery = `
-        INSERT INTO teacher_class_discipline (startedAt, teacherId, classroomId, disciplineId) 
-        VALUES (?, ?, ?, ?)
-    `
-      const [ queryResult ] = await conn.query(insertQuery, [new Date(), teacherId, classroomId, disciplineId])
+      const insertQuery = `INSERT INTO teacher_class_discipline (startedAt, teacherId, classroomId, disciplineId) VALUES (NOW(), ?, ?, ?)`
+      const [ queryResult ] = await conn.query(insertQuery, [teacherId, classroomId, disciplineId])
 
       await conn.commit()
 
@@ -2479,12 +2473,12 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection()
       await conn.beginTransaction();
       const query = `
-      INSERT INTO alphabetic_first (studentId, alphabeticFirstId, createdByUser, updatedByUser, createdAt, updatedAt) 
-      VALUES (?, ?, ?, ?, ?, ?) 
-      ON DUPLICATE KEY UPDATE alphabeticFirstId = VALUES(alphabeticFirstId), updatedByUser = VALUES(updatedByUser), updatedAt = VALUES(updatedAt)
-    `
+          INSERT INTO alphabetic_first (studentId, alphabeticFirstId, createdByUser, updatedByUser, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, NOW(), NOW())
+          ON DUPLICATE KEY UPDATE alphabeticFirstId = VALUES(alphabeticFirstId), updatedByUser = VALUES(updatedByUser), updatedAt = VALUES(updatedAt)
+      `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId, new Date(), new Date()])
+      const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId])
       await conn.commit()
       return queryResult as any
     }

@@ -134,7 +134,7 @@ export class GenericController<T> {
 
       let existingStatusScIds = new Set<number>();
       let existingAlphabeticStudentIds = new Set<number>();
-      let studentsWhoCompletedTest = new Set<number>(); // ✅ NOVO
+      let studentsWhoCompletedTest = new Set<number>();
       const alphabeticCategories = new Set([1, 2, 3]);
 
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
@@ -188,13 +188,11 @@ export class GenericController<T> {
       const statusesToSave: any[] = [];
       const alphabeticLinksToSave: any[] = [];
       const questionsToSave: any[] = [];
-      const now = new Date();
 
       for (const sC of stuClassrooms) {
         const studentId = sC.student?.id ?? sC.student_id;
         const studentClassroomId = sC.student_classroom_id ?? sC.id;
 
-        // ✅ PULA SE JÁ FINALIZOU A PROVA EM QUALQUER SALA
         if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) {
           if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
           continue;
@@ -202,7 +200,7 @@ export class GenericController<T> {
 
         if (alphabeticCategories.has(test.category.id)) {
           if (!existingAlphabeticStudentIds.has(studentId)) {
-            alphabeticLinksToSave.push([now, userId, studentId, test.id]);
+            alphabeticLinksToSave.push([userId, studentId, test.id]);
             existingAlphabeticStudentIds.add(studentId);
           }
         }
@@ -214,7 +212,7 @@ export class GenericController<T> {
             }
           }
           if (createStatus && !existingStatusScIds.has(studentClassroomId)) {
-            statusesToSave.push([true, test.id, studentClassroomId, '', now, userId]);
+            statusesToSave.push([true, test.id, studentClassroomId, '', userId]);
             existingStatusScIds.add(studentClassroomId);
           }
         }
@@ -222,42 +220,48 @@ export class GenericController<T> {
         for (const tQ of testQuestions) {
           const uniqueKey = `${studentId}-${tQ.id}`;
           if (!questionKeys.has(uniqueKey)) {
-            questionsToSave.push(['', tQ.id, studentId, now, userId]);
+            questionsToSave.push(['', tQ.id, studentId, userId]);
             questionKeys.add(uniqueKey);
           }
         }
       }
 
       if (alphabeticLinksToSave.length > 0) {
-        const alphabeticQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ?`;
-        await conn.query(alphabeticQuery, [alphabeticLinksToSave]);
+        const alphabeticPlaceholders = alphabeticLinksToSave.map(() => '(NOW(), ?, ?, ?)').join(', ');
+        const alphabeticQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ${alphabeticPlaceholders}`;
+        const alphabeticFlatValues = alphabeticLinksToSave.flat();
+        await conn.query(alphabeticQuery, alphabeticFlatValues);
       }
 
       if (statusesToSave.length > 0) {
 
+        const statusPlaceholders = statusesToSave.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
         const statusQuery = `
           INSERT INTO student_test_status
           (active, testId, studentClassroomId, observation, createdAt, createdByUser)
-          VALUES ?
+          VALUES ${statusPlaceholders}
           ON DUPLICATE KEY UPDATE
                                updatedAt = NOW(),
                                updatedByUser = VALUES(createdByUser)
       `;
-        await conn.query(statusQuery, [statusesToSave]);
+        const statusFlatValues = statusesToSave.flat();
+        await conn.query(statusQuery, statusFlatValues);
       }
 
       if (questionsToSave.length > 0) {
 
+        const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
         const questionQuery =
           `
           INSERT INTO student_question 
           (answer, testQuestionId, studentId, createdAt, createdByUser)
-          VALUES ?
+          VALUES ${questionPlaceholders}
           ON DUPLICATE KEY UPDATE
                                updatedAt = NOW(),
                                updatedByUser = VALUES(createdByUser)
         `;
-        await conn.query(questionQuery, [questionsToSave]);
+        const questionFlatValues = questionsToSave.flat();
+        await conn.query(questionQuery, questionFlatValues);
       }
 
       await conn.commit();

@@ -947,32 +947,29 @@ export class GenericController<T> {
 
       if (studentClassrooms.length === 0) { await conn.commit(); return }
 
-      const now = new Date();
-
       // Preparar dados para StudentTestStatus em bulk
       const studentTestStatusValues: any[] = [];
       const studentTestStatusParams: any[] = [];
 
       for (let row of studentClassrooms) {
         const studentClassroomId = row.id;
-        studentTestStatusValues.push('(?, ?, ?, ?, ?, ?)');
-        studentTestStatusParams.push(test.id, studentClassroomId, true, '', now, userId);
+        studentTestStatusValues.push('(?, ?, ?, ?, NOW(), ?)');
+        studentTestStatusParams.push(test.id, studentClassroomId, true, '', userId);
       }
 
       // Inserir todos StudentTestStatus de uma vez
       if (studentTestStatusValues.length > 0) {
         await conn.query(
-          `INSERT INTO student_test_status 
-         (testId, studentClassroomId, active, observation, createdAt, createdByUser) 
-         VALUES ${studentTestStatusValues.join(', ')}
-         ON DUPLICATE KEY UPDATE
-         updatedAt = VALUES(createdAt),
-         updatedByUser = VALUES(createdByUser)`,
+          `INSERT INTO student_test_status
+           (testId, studentClassroomId, active, observation, createdAt, createdByUser)
+           VALUES ${studentTestStatusValues.join(', ')}
+           ON DUPLICATE KEY UPDATE
+                                updatedAt = NOW(),
+                                updatedByUser = VALUES(createdByUser)`,
           studentTestStatusParams
         );
       }
 
-      // Preparar dados para ReadingFluency em bulk
       const readingFluencyValues: any[] = [];
       const readingFluencyParams: any[] = [];
 
@@ -980,20 +977,19 @@ export class GenericController<T> {
         const studentId = row?.student?.id ?? row?.student_id;
 
         for (let exam of headers) {
-          readingFluencyValues.push('(?, ?, ?, ?, ?)');
-          readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, now, userId);
+          readingFluencyValues.push('(?, ?, ?, NOW(), ?)');
+          readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, userId);
         }
       }
 
-      // Inserir todos ReadingFluency de uma vez
       if (readingFluencyValues.length > 0) {
         await conn.query(
-          `INSERT INTO reading_fluency 
-         (readingFluencyExamId, testId, studentId, createdAt, createdByUser) 
-         VALUES ${readingFluencyValues.join(', ')}
-         ON DUPLICATE KEY UPDATE
-         updatedAt = VALUES(createdAt),
-         updatedByUser = VALUES(createdByUser)`,
+          `INSERT INTO reading_fluency
+               (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
+           VALUES ${readingFluencyValues.join(', ')}
+           ON DUPLICATE KEY UPDATE
+                                updatedAt = NOW(),
+                                updatedByUser = VALUES(createdByUser)`,
           readingFluencyParams
         );
       }

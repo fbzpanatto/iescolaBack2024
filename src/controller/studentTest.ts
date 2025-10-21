@@ -34,7 +34,7 @@ class StudentTestController extends GenericController<any> {
 
       // ✅ Valida prova ativa
       const qTest = await this.qTestByIdAndYear(testId, String(year));
-      if (!qTest.active) { return { status: 400, message: 'Lançamentos temporariamente indisponíveis. Tente novamente mais tarde.' } }
+      if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
       // ✅ Valida questões existem
       const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];

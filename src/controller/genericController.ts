@@ -4335,20 +4335,14 @@ INNER JOIN year AS y ON tr.yearId = y.id
     const answersLettersMap = new Map<string, Map<string, any>>()
 
     const schools = pResult
-      .filter(s => s.classrooms.some((c: any) =>
-        c.studentClassrooms.some((sc: any) =>
-          sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)
-        )
-      ))
+      .filter(s => s.classrooms.some((c: any) => c.studentClassrooms.some((sc: any) => sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0))))
       .map(s => {
         const studentCountMap = new Map<number, number>()
         const validStudentClassrooms: any[] = []
 
         for (const c of s.classrooms) {
           for (const sc of c.studentClassrooms) {
-            const hasValidAnswers = sc.student.studentQuestions.some((sq: any) =>
-              sq.answer?.length > 0 && sq.rClassroom?.id === c.id
-            )
+            const hasValidAnswers = sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0 && sq.rClassroom?.id === c.id)
 
             if (hasValidAnswers) {
               const count = studentCountMap.get(sc.student.id) || 0
@@ -4411,52 +4405,30 @@ INNER JOIN year AS y ON tr.yearId = y.id
     for (const school of schools) {
       for (const item of school.totals) {
         const existing = allResultsMap.get(item.id)
-        if (!existing) {
-          allResultsMap.set(item.id, { ...item })
-        } else {
+        if (!existing) { allResultsMap.set(item.id, { ...item }) }
+        else {
           existing.tNumber += item.tNumber
           existing.tPercent += item.tPercent
-          existing.tRate = existing.tPercent > 0
-            ? Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100
-            : 0
+          existing.tRate = existing.tPercent > 0 ? Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100 : 0
         }
       }
     }
 
     const allResults = Array.from(allResultsMap.values())
 
-    const cityHall = {
-      id: 999,
-      name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
-      shortName: 'ITATIBA',
-      totals: allResults,
-      schoolAvg: 0
-    }
+    const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults, schoolAvg: 0 }
 
     const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
     const answersLetters = Array.from(answersLettersMap.entries()).map(([letter, questions]) => ({
       letter,
-      questions: Array.from(questions.values()).map(q => ({
-        ...q,
-        percentage: firstElement > 0
-          ? Math.floor((q.occurrences / firstElement) * 10000) / 100
-          : 0
-      }))
+      questions: Array.from(questions.values()).map(q => ({ ...q, percentage: firstElement > 0 ? Math.floor((q.occurrences / firstElement) * 10000) / 100 : 0 }))
     }))
 
     const mappedSchools = [...schools, cityHall].map(school => {
       const tNumberTotal = school.totals.reduce((acc: any, item: any) => acc + item.tNumber, 0)
       const tPercentTotal = school.totals.reduce((acc: any, item: any) => acc + item.tPercent, 0)
-
-      return {
-        ...school,
-        tNumberTotal,
-        tPercentTotal,
-        schoolAvg: tPercentTotal > 0
-          ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100
-          : 0
-      }
+      return {...school, tNumberTotal, tPercentTotal, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
     })
 
     return { ...formatedTest, totalOfStudents: firstElement, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters }

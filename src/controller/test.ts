@@ -374,7 +374,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN)
 
-            const questionGroups = await this.getTestQuestionsGroups(Number(testId), CONN)
+            const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
             if(!test) return { status: 404, message: "Teste não encontrado" }
 
             const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
@@ -486,17 +486,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async getTestQuestionsGroups(testId: number, CONN: EntityManager) {
-    return await CONN.getRepository(QuestionGroup)
-      .createQueryBuilder("questionGroup")
-      .select(["questionGroup.id AS id", "questionGroup.name AS name"])
-      .addSelect("COUNT(testQuestions.id)", "questionsCount")
-      .leftJoin("questionGroup.testQuestions", "testQuestions")
-      .where("testQuestions.test = :testId", { testId })
-      .groupBy("questionGroup.id")
-      .getRawMany();
   }
 
   async getAllToInsert(request: Request) {
@@ -1100,7 +1089,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .andWhere("studentStatusTest.id = :testId", { testId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
-      // .addOrderBy("studentClassroom.rosterNumber", "ASC")
       .addOrderBy("classroom.shortName", "ASC")
       .getOne()
     return { test, testQuestions }

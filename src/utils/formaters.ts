@@ -199,3 +199,97 @@ export function formatAlphabeticYearHeader(el: qYear[]){
     return acc;
   }, {} as qFormatedYear)
 }
+
+export function formatTestGraph(rows: any[]) {
+  const schoolsMap = new Map();
+
+  for (const row of rows) {
+    // Estrutura escola
+    if (!schoolsMap.has(row.school_id)) {
+      schoolsMap.set(row.school_id, {
+        id: row.school_id,
+        name: row.school_name,
+        shortName: row.school_shortName,
+        classrooms: new Map()
+      });
+    }
+
+    const school = schoolsMap.get(row.school_id);
+
+    // Estrutura classroom
+    if (!school.classrooms.has(row.classroom_id)) {
+      school.classrooms.set(row.classroom_id, {
+        id: row.classroom_id,
+        name: row.classroom_name,
+        shortName: row.classroom_shortName,
+        studentClassrooms: new Map()
+      });
+    }
+
+    const classroom = school.classrooms.get(row.classroom_id);
+
+    // Estrutura studentClassroom
+    if (!classroom.studentClassrooms.has(row.studentClassroom_id)) {
+      classroom.studentClassrooms.set(row.studentClassroom_id, {
+        id: row.studentClassroom_id,
+        rosterNumber: row.rosterNumber,
+        startedAt: row.startedAt,
+        endedAt: row.endedAt,
+        classroom: {
+          id: row.classroom_id,
+          shortName: row.classroom_shortName
+        },
+        student: {
+          id: row.student_id,
+          studentQuestions: []
+        }
+      });
+    }
+
+    const studentClassroom = classroom.studentClassrooms.get(row.studentClassroom_id);
+
+    // Adicionar studentQuestion se existir
+    if (row.studentQuestion_id) {
+      const questionExists = studentClassroom.student.studentQuestions.some(
+        (sq: any) => sq.id === row.studentQuestion_id
+      );
+
+      if (!questionExists) {
+        studentClassroom.student.studentQuestions.push({
+          id: row.studentQuestion_id,
+          answer: row.studentQuestion_answer || '',
+          rClassroom: {
+            id: row.studentQuestion_rClassroomId
+          },
+          testQuestion: {
+            id: row.testQuestion_id,
+            order: row.testQuestion_order,
+            answer: row.testQuestion_answer,
+            active: row.testQuestion_active,
+            test: {
+              id: row.test_id,
+              period: {
+                bimester: {
+                  id: row.questionGroup_id  // Assumindo relação
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+  }
+
+  const result: any[] = [];
+  for (const [, school] of schoolsMap) {
+    const classroomsArray: any[] = [];
+    for (const [, classroom] of school.classrooms) {
+      const studentClassroomsArray: any[] = [];
+      for (const [, sc] of classroom.studentClassrooms) { studentClassroomsArray.push(sc) }
+      classroomsArray.push({ ...classroom, studentClassrooms: studentClassroomsArray });
+    }
+    result.push({ ...school, classrooms: classroomsArray });
+  }
+
+  return result;
+}

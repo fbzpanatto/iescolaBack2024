@@ -4035,7 +4035,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qGetTestForGraphic(testId: string, testQuestionsIds: number[], year: any){
+  async qGraphTest(testId: string, testQuestionsIds: number[], year: any) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -4328,5 +4328,137 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const duplicated = duplicatedStudents.find(d => d.id === item.id);
       return duplicated ? duplicated : item;
     });
+  }
+
+  testReportStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any) {
+
+    const answersLettersMap = new Map<string, Map<string, any>>()
+
+    const schools = pResult
+      .filter(s => s.classrooms.some((c: any) =>
+        c.studentClassrooms.some((sc: any) =>
+          sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)
+        )
+      ))
+      .map(s => {
+        const studentCountMap = new Map<number, number>()
+        const validStudentClassrooms: any[] = []
+
+        for (const c of s.classrooms) {
+          for (const sc of c.studentClassrooms) {
+            const hasValidAnswers = sc.student.studentQuestions.some((sq: any) =>
+              sq.answer?.length > 0 && sq.rClassroom?.id === c.id
+            )
+
+            if (hasValidAnswers) {
+              const count = studentCountMap.get(sc.student.id) || 0
+              studentCountMap.set(sc.student.id, count + 1)
+              validStudentClassrooms.push(sc)
+            }
+          }
+        }
+
+        // Filtrar duplicados
+        const filtered = validStudentClassrooms.filter(sc => {
+          const studentCount = studentCountMap.get(sc.student.id)
+          if (!studentCount) return true // Se não está no map, não é duplicado
+
+          const isDuplicate = studentCount > 1 && sc.endedAt
+          return !isDuplicate
+        })
+
+        const totals = qTestQuestions.map((tQ: any) => {
+          if (!tQ.active) { return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 } }
+
+          let matchedCount = 0
+
+          for (const sc of filtered) {
+            for (const sq of sc.student.studentQuestions) {
+              if (sq.testQuestion?.id === tQ.id &&
+                sq.answer?.length > 0 &&
+                sq.rClassroom?.id === sc.classroom.id) {
+
+                const letter = sq.answer.trim().toUpperCase() || 'VAZIO'
+
+                if (!answersLettersMap.has(letter)) { answersLettersMap.set(letter, new Map()) }
+
+                const letterMap = answersLettersMap.get(letter)!
+                const key = `${tQ.id}-${tQ.order}`
+
+                if (!letterMap.has(key)) {
+                  letterMap.set(key, { id: tQ.id, order: tQ.order, occurrences: 0, percentage: 0 })
+                }
+
+                const occurrence = letterMap.get(key)!
+                occurrence.occurrences++
+
+                if (tQ.answer?.includes(letter)) { matchedCount++ }
+              }
+            }
+          }
+
+          const total = filtered.length
+          const tRate = total > 0 ? Math.floor((matchedCount / total) * 10000) / 100 : 0
+
+          return { id: tQ.id, order: tQ.order, tNumber: matchedCount, tPercent: total, tRate }
+        })
+
+        return { id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0, totals }
+      })
+
+    const allResultsMap = new Map<number, any>()
+
+    for (const school of schools) {
+      for (const item of school.totals) {
+        const existing = allResultsMap.get(item.id)
+        if (!existing) {
+          allResultsMap.set(item.id, { ...item })
+        } else {
+          existing.tNumber += item.tNumber
+          existing.tPercent += item.tPercent
+          existing.tRate = existing.tPercent > 0
+            ? Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100
+            : 0
+        }
+      }
+    }
+
+    const allResults = Array.from(allResultsMap.values())
+
+    const cityHall = {
+      id: 999,
+      name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA',
+      shortName: 'ITATIBA',
+      totals: allResults,
+      schoolAvg: 0
+    }
+
+    const firstElement = cityHall.totals[0]?.tPercent ?? 0
+
+    const answersLetters = Array.from(answersLettersMap.entries()).map(([letter, questions]) => ({
+      letter,
+      questions: Array.from(questions.values()).map(q => ({
+        ...q,
+        percentage: firstElement > 0
+          ? Math.floor((q.occurrences / firstElement) * 10000) / 100
+          : 0
+      }))
+    }))
+
+    const mappedSchools = [...schools, cityHall].map(school => {
+      const tNumberTotal = school.totals.reduce((acc: any, item: any) => acc + item.tNumber, 0)
+      const tPercentTotal = school.totals.reduce((acc: any, item: any) => acc + item.tPercent, 0)
+
+      return {
+        ...school,
+        tNumberTotal,
+        tPercentTotal,
+        schoolAvg: tPercentTotal > 0
+          ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100
+          : 0
+      }
+    })
+
+    return { ...formatedTest, totalOfStudents: firstElement, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters }
   }
 }

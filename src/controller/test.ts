@@ -21,7 +21,7 @@ import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedI
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
-import {formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders} from "../utils/formaters";
+import { formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -247,104 +247,94 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getGraphic(req: Request) {
+
     const { id: testId, classroom: classroomId } = req.params
+
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+
+      const year = await this.qYearByName(String(req.query?.year))
+      if(!year) return { status: 404, message: "Ano não encontrado." }
+
+      const qUt = await this.qTeacherByUser(req.body.user.user)
+
+      const masterUser = qUt.person.category.id === PERSON_CATEGORIES.ADMN || qUt.person.category.id === PERSON_CATEGORIES.SUPE || qUt.person.category.id === PERSON_CATEGORIES.FORM
+
+      const baseTest = formatedTestHelper(await this.qTestByIdAndYear(Number(testId), year.name))
+
+      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
+
+      if(!classrooms.includes(Number(classroomId)) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+
+      const qClassroom = await this.qClassroom(Number(classroomId))
+      if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
+
+      const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
+
+      if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(baseTest.category.id)) {
+
+        const [preheaders, tests] = await Promise.all([
+          this.qAlphabeticHeaders(year.name) as Promise<any[]>,
+          this.qAlphabeticTests(baseTest.category.id, baseTest.discipline.id, year.name) as Promise<any[]>
+        ])
+
+        let testQuestionsIds: number[] = []
+
+        if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
+          const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
+
+          for(let i = 0; i < tests.length; i++) { tests[i].testQuestions = testQuestionsArr[i]; testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id)) }
+        }
+
+        const testsByBimesterId = new Map()
+        for(const test of tests) { const bimesterId = test.period?.bimester?.id; if(bimesterId) { testsByBimesterId.set(bimesterId, test) } }
+
+        let headers = preheaders.map((bi: any) => { return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] } })
+
+        const schools = await this.alphaQuestions(serieFilter, year.name, baseTest, testQuestionsIds)
+        const onlyClasses = schools
+          .flatMap((school: any) => school.classrooms)
+          .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
+
+        const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 })) }
+
+        let allClassrooms = this.alphabeticTotalizators(onlyClasses, headers)
+
+        cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
+
+        const schoolId = qClassroom?.school?.id
+        const resClassrooms = schoolId ? [...allClassrooms.filter((c: any) => c.school?.id === schoolId), cityHall] : [cityHall]
+
+        const test = { id: 99, name: baseTest.name, classrooms: [qClassroom], category: { id: baseTest.category.id, name: baseTest.category.name }, discipline: { name: baseTest.discipline.name }, period: { bimester: { name: 'TODOS' }, year }}
+
+        return { status: 200, data: { alphabeticHeaders: headers, ...test, classrooms: resClassrooms } };
+      }
+
+      if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(baseTest.category.id)) {
+        const qTestQuestions = await this.qTestQuestions(testId) as TestQuestion[];
+        if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
+
+        const testQuestionsIds = qTestQuestions.map(tq => tq.id);
+        const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId));
+
+        const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
+        const baseSchoolId = qClassroom.school.id;
+
+        const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
+
+        return { status: 200, data: this.classroomDataStructure(pResult, baseTest, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
+      }
+
+      return await AppDataSource.transaction(async(typeOrmConnection) => {
 
         let data;
 
-        const year = await this.qYearByName(String(req.query?.year))
-        if(!year) return { status: 404, message: "Ano não encontrado." }
-
-        const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
-
-        const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM
-
-        const baseTest = formatedTestHelper(await this.qTestByIdAndYear(Number(testId), year.name))
-
-        const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
-
-        if(!classrooms.includes(Number(classroomId)) && !masterUser) {
-          return { status: 403, message: "Você não tem permissão para acessar essa sala." }
-        }
-
-        const qClassroom = await this.qClassroom(Number(classroomId))
-        if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
-
-        const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
-
         switch (baseTest.category?.id) {
-          case TEST_CATEGORIES_IDS.LITE_1:
-          case TEST_CATEGORIES_IDS.LITE_2:
-          case TEST_CATEGORIES_IDS.LITE_3: {
-
-            const [preheaders, tests] = await Promise.all([
-              this.qAlphabeticHeaders(year.name) as Promise<any[]>,
-              this.qAlphabeticTests(baseTest.category.id, baseTest.discipline.id, year.name) as Promise<any[]>
-            ])
-
-            let testQuestionsIds: number[] = []
-
-            if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
-              // Buscar todas as questões em paralelo
-              const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
-
-              // Atribuir aos testes e coletar IDs
-              for(let i = 0; i < tests.length; i++) {
-                tests[i].testQuestions = testQuestionsArr[i]
-                testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id))
-              }
-            }
-
-            const testsByBimesterId = new Map()
-            for(const test of tests) {
-              const bimesterId = test.period?.bimester?.id
-              if(bimesterId) { testsByBimesterId.set(bimesterId, test) }
-            }
-
-            let headers = preheaders.map((bi: any) => {
-              return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] }
-            })
-
-            const schools = await this.alphaQuestions(serieFilter, year.name, baseTest, testQuestionsIds)
-            const onlyClasses = schools
-              .flatMap((school: any) => school.classrooms)
-              .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
-
-            const cityHall = {
-              id: 999,
-              name: 'ITATIBA',
-              shortName: 'ITA',
-              school: 'ITATIBA',
-              totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
-            }
-
-            let allClassrooms = this.alphabeticTotalizators(onlyClasses, headers)
-
-            cityHall.totals = this.aggregateResult(cityHall, allClassrooms)
-
-            const schoolId = qClassroom?.school?.id
-            const resClassrooms = schoolId ? [...allClassrooms.filter((c: any) => c.school?.id === schoolId), cityHall] : [cityHall]
-
-            const test = {
-              id: 99,
-              name: baseTest.name,
-              classrooms: [qClassroom],
-              category: { id: baseTest.category.id, name: baseTest.category.name },
-              discipline: { name: baseTest.discipline.name },
-              period: { bimester: { name: 'TODOS' }, year }
-            }
-
-            data = { alphabeticHeaders: headers, ...test, classrooms: resClassrooms }
-            break;
-          }
-
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
             const [headers, test] = await Promise.all([
               this.qReadingFluencyHeaders(),
-              this.getReadingFluencyForGraphic(testId, String(year.id), CONN) as Promise<Test>
+              this.getReadingFluencyForGraphic(testId, String(year.id), typeOrmConnection) as Promise<Test>
             ])
 
             const fluencyHeaders = formatReadingFluencyHeaders(headers)
@@ -366,119 +356,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
               })
             }
 
-            break;
-          }
-
-          case TEST_CATEGORIES_IDS.AVL_ITA:
-          case TEST_CATEGORIES_IDS.SIM_ITA: {
-
-            const { test, testQuestions } = await this.getTestForGraphic(testId, String(year.id), CONN)
-
-            const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
-            if(!test) return { status: 404, message: "Teste não encontrado" }
-
-            const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
-            const baseSchoolId = qClassroom.school.id;
-
-            const classroomResults = test.classrooms
-              .filter(classroom => classroom.studentClassrooms.some(sc => sc.student.studentQuestions.some(sq => sq.answer.length > 0)))
-              .map(classroom => {
-
-                const studentCount = classroom.studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
-
-                const duplicatedStudentsSet = new Set(
-                  classroom.studentClassrooms
-                    .filter(item => studentCount[item.student.id] > 1 && item.endedAt)
-                    .map(d => d.id)
-                );
-
-                const filtered = classroom.studentClassrooms.filter((sc: any) => {
-                  return !duplicatedStudentsSet.has(sc.id) &&
-                    sc.student.studentQuestions.some((sq: any) => sq.answer.length > 0 && sq.rClassroom.id === classroom.id)
-                });
-
-                const questionMap = new Map<number, any[]>();
-
-                for (const sc of filtered) {
-                  for (const sq of sc.student.studentQuestions) {
-                    if (sq.answer.length > 0 && sq.rClassroom?.id === classroom.id) {
-                      if (!questionMap.has(sq.testQuestion.id)) {
-                        questionMap.set(sq.testQuestion.id, []);
-                      }
-                      questionMap.get(sq.testQuestion.id)!.push(sq);
-                    }
-                  }
-                }
-
-                return {
-                  id: classroom.id,
-                  name: classroom.name,
-                  shortName: classroom.shortName,
-                  school: classroom.school.name,
-                  schoolId: classroom.school.id,
-                  clNumber: classroom.shortName.replace(/\D/g, ""),
-                  totals: testQuestions.map(tQ => {
-
-                    if (!tQ.active) { return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 } }
-
-                    const studentsQuestions = questionMap.get(tQ.id) || [];
-
-                    const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
-
-                    const total = filtered.length;
-
-                    const tRate = matchedQuestions > 0 && total > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
-
-                    return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
-                  })
-                }
-              })
-
-            const schoolResults = classroomResults.filter(cl => {
-              return cl.schoolId === baseSchoolId && cl.clNumber === classroomNumber;
-            })
-
-            const resultsMap = new Map<number, { id: number, order: number, tNumber: number, tPercent: number, tRate: number }>();
-
-            for (const classroom of classroomResults) {
-              for (const item of classroom.totals) {
-                const existing = resultsMap.get(item.id);
-
-                if (!existing) {
-                  resultsMap.set(item.id, {
-                    id: item.id,
-                    order: item.order,
-                    tNumber: Number(item.tNumber),
-                    tPercent: Number(item.tPercent),
-                    tRate: Number(item.tRate)
-                  });
-                } else {
-                  existing.tNumber += Number(item.tNumber);
-                  existing.tPercent += Number(item.tPercent);
-                  existing.tRate = existing.tPercent > 0 ?
-                    Math.floor((existing.tNumber / existing.tPercent) * 10000) / 100 : 0;
-                }
-              }
-            }
-
-            const allResults = Array.from(resultsMap.values());
-
-            const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults }
-
-            let allClassrooms = [...schoolResults.sort((a, b) => a.shortName.localeCompare(b.shortName)), cityHall]
-
-            allClassrooms = allClassrooms.map(c => {
-              const { tNumber, tPercent } = c.totals.reduce((acc, item) => {
-                acc.tNumber += Number(item.tNumber)
-                acc.tPercent += Number(item.tPercent)
-                return acc
-              }, { tNumber: 0, tPercent: 0 })
-
-              const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0
-              return { ...c, tRateAvg }
-            })
-
-            data = { ...test, testQuestions, questionGroups, classrooms: allClassrooms }
             break;
           }
         }

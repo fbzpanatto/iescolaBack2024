@@ -320,7 +320,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
         const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
-        data = this.testReportStructure(pResult, formatedTestHelper(qTest), questionGroups, qTestQuestions)
+        data = this.schoolDataStructure(pResult, formatedTestHelper(qTest), questionGroups, qTestQuestions)
 
         break
       }

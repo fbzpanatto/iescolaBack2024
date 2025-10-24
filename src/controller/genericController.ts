@@ -18,7 +18,6 @@ import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORIES } from "../utils/enums";
-import { formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions, formatClassroom, formatReadingFluency, formatStudentClassroom, formatSuperUsers, formatTeacher, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher } from "../utils/formaters";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { Helper } from "../utils/helpers";
 
@@ -478,7 +477,7 @@ export class GenericController<T> {
 
       const [rows] = await conn.query(query, params);
 
-      return formatReadingFluency(rows as Array<{[key:string]:any}>)
+      return Helper.readingFluency(rows as Array<{[key:string]:any}>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -715,7 +714,7 @@ export class GenericController<T> {
 
       const [[qYearResult], [qAlphaLevelsResult]] = await Promise.all([conn.query(format(qYear), [yearName]), conn.query(format(qAlphabeticLevels), [])]);
 
-      let year = formatAlphabeticYearHeader(qYearResult as qYear[]);
+      let year = Helper.alphabeticYearHeader(qYearResult as qYear[]);
       const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[];
 
       return year.periods.flatMap(period => ({ ...period.bimester, levels: alphabeticLevels }));
@@ -1179,7 +1178,7 @@ export class GenericController<T> {
       const [ queryResult ] = await conn.query(format(query), [userId])
       const data = (queryResult as any[])[0]
 
-      return formatUserTeacher(data)
+      return Helper.userTeacher(data)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1326,7 +1325,7 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(format(query), [personSearch])
 
-      return formatSuperUsers(queryResult as { [key: string]: any }[])
+      return Helper.superUsers(queryResult as { [key: string]: any }[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1359,7 +1358,7 @@ export class GenericController<T> {
 
       const [queryResult] = await conn.query(query, [classroomsIds, personSearch]);
 
-      return formatTeacher(queryResult as { [key: string]: any }[])
+      return Helper.teacher(queryResult as { [key: string]: any }[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1393,7 +1392,7 @@ export class GenericController<T> {
 
       const [queryResult] = await conn.query(query, [classroomsIds, categoryId, personSearch]);
 
-      return formatTeacher(queryResult as { [key: string]: any }[])
+      return Helper.teacher(queryResult as { [key: string]: any }[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1564,7 +1563,7 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(format(query), [classroomId])
 
-      return formatClassroom((queryResult as qClassroom[])[0])
+      return Helper.classroom((queryResult as qClassroom[])[0])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1781,7 +1780,7 @@ export class GenericController<T> {
     `;
 
       const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName]);
-      return formatAlphabeticTests(queryResult as qAlphaTests[]);
+      return Helper.alphabeticTests(queryResult as qAlphaTests[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1826,7 +1825,7 @@ export class GenericController<T> {
 
       const finalMap = new Map();
       for (const [testId, rawQuestions] of questionsByTestId.entries()) {
-        finalMap.set(testId, formatTestQuestions(rawQuestions));
+        finalMap.set(testId, Helper.testQuestions(rawQuestions));
       }
 
       return finalMap;
@@ -1863,7 +1862,7 @@ export class GenericController<T> {
       `
 
       const [ queryResult ] = await conn.query(format(query), [testId])
-      return formatTestQuestions(queryResult as qTestQuestions[])
+      return Helper.testQuestions(queryResult as qTestQuestions[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1892,7 +1891,7 @@ export class GenericController<T> {
       `
 
       const [ queryResult ] = await conn.query(format(query), [testId])
-      return formatTestQuestions(queryResult as qTestQuestions[])
+      return Helper.testQuestions(queryResult as qTestQuestions[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1936,7 +1935,7 @@ export class GenericController<T> {
       `
 
       const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
-      return  formatStudentClassroom(queryResult as Array<qStudentClassroomFormated>)
+      return  Helper.studentClassroom(queryResult as Array<qStudentClassroomFormated>)
 
     }
     catch (error) { console.error(error); throw error }
@@ -2080,7 +2079,7 @@ export class GenericController<T> {
 
         const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
 
-        return formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+        return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
       }
 
       let query =
@@ -2122,7 +2121,7 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
 
-      return formatAlphaStuWQuestions(queryResult as {[key:string]:any}[])
+      return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
 
     }
     catch (error) { console.error(error); throw error }
@@ -2205,7 +2204,7 @@ export class GenericController<T> {
           referencedTraining.classroom
         ]);
 
-        return formatTrainingsWithSchedules(queryResult as any[]);
+        return Helper.trainingsWithSchedules(queryResult as any[]);
       }
 
       query = `
@@ -2240,7 +2239,7 @@ export class GenericController<T> {
         referencedTraining.disciplineId
       ]);
 
-      return formatTrainingsWithSchedules(queryResult as any[]);
+      return Helper.trainingsWithSchedules(queryResult as any[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

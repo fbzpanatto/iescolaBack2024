@@ -7,7 +7,6 @@ import { Request } from "express";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { testController } from "./test";
-import { formatedTestHelper, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
 import { Helper } from "../utils/helpers";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
@@ -226,7 +225,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
-        let formatedTest = formatedTestHelper(qTest)
+        let formatedTest = Helper.testFormater(qTest)
 
         const qYear = await this.qYearByName(yearName)
 
@@ -234,7 +233,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const headers = await this.qReadingFluencyHeaders()
 
-        const fluencyHeaders = formatReadingFluencyHeaders(headers)
+        const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
         let localSchools = await this.qSchools(Number(testId))
 
@@ -317,9 +316,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
         const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
-        const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
+        const pResult = Helper.testGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
-        data = Helper.schoolDataStructure(pResult, formatedTestHelper(qTest), questionGroups, qTestQuestions)
+        data = Helper.schoolDataStructure(pResult, Helper.testFormater(qTest), questionGroups, qTestQuestions)
 
         break
       }

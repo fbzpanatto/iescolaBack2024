@@ -21,7 +21,6 @@ import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedI
 import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
-import { formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
 import { Helper } from "../utils/helpers";
 
 class TestController extends GenericController<EntityTarget<Test>> {
@@ -48,7 +47,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
       if(!qTest) return { status: 404, message: "Teste não encontrado" }
-      const test = formatedTestHelper(qTest)
+      const test = Helper.testFormater(qTest)
 
       const classroom = await this.qClassroom(classroomId)
       if(!classroom) return { status: 404, message: "Sala não encontrada" }
@@ -169,7 +168,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
         const headers = await this.qReadingFluencyHeaders()
-        const fluencyHeaders = formatReadingFluencyHeaders(headers)
+        const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
         const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
 
@@ -260,7 +259,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const masterUser = qUt.person.category.id === PERSON_CATEGORIES.ADMN || qUt.person.category.id === PERSON_CATEGORIES.SUPE || qUt.person.category.id === PERSON_CATEGORIES.FORM
 
-      const baseTest = formatedTestHelper(await this.qTestByIdAndYear(Number(testId), year.name))
+      const baseTest = Helper.testFormater(await this.qTestByIdAndYear(Number(testId), year.name))
 
       const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
 
@@ -320,7 +319,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
         const baseSchoolId = qClassroom.school.id;
 
-        const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
+        const pResult = Helper.testGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
         return { status: 200, data: Helper.classroomDataStructure(pResult, baseTest, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
       }
@@ -338,7 +337,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
               this.getReadingFluencyForGraphic(testId, String(year.id), typeOrmConnection) as Promise<Test>
             ])
 
-            const fluencyHeaders = formatReadingFluencyHeaders(headers)
+            const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
             let response = { ...test, fluencyHeaders }
 
@@ -1051,7 +1050,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     for (let test of qTests) {
       const rawQuestions = questionsByTestId.get(test.id) || [];
-      const testQuestions = formatTestQuestions(rawQuestions) as unknown as TestQuestion[];
+      const testQuestions = Helper.testQuestions(rawQuestions) as unknown as TestQuestion[];
 
       test.testQuestions = testQuestions;
       testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];

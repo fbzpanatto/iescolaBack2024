@@ -22,7 +22,7 @@ import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
-import {helperClassroomDataStructure, helperDuplicatedStudents} from "../utils/helpers";
+import { helperClassroomDataStructure, helperDuplicatedStudents } from "../utils/helpers";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 

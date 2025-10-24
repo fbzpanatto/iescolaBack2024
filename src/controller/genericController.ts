@@ -18,12 +18,9 @@ import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORIES } from "../utils/enums";
-import {
-  formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions,
-  formatReadingFluency, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher
-} from "../utils/formaters";
+import { formatAlphabeticTests, formatAlphabeticYearHeader, formatAlphaStuWQuestions, formatReadingFluency, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher } from "../utils/formaters";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {helperDuplicatedStudents, helperReadingFluencyStudents, helperStudentQuestions} from "../utils/helpers";
+import {helperReadingFluencyStudents, helperStudentDisabilities, helperStudentQuestions} from "../utils/helpers";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -641,12 +638,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async linkReadingSql(
-    headers: qReadingFluenciesHeaders[],
-    studentClassrooms: ObjectLiteral[],
-    test: Test,
-    userId: number
-  ) {
+  async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number) {
     let conn;
 
     try {
@@ -708,16 +700,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qNewTraining(
-    yearId: number,
-    category: number,
-    month: number,
-    meeting: number,
-    createdByUser: number,
-    classroom?: number,
-    discipline?: number,
-    observation?: string
-  ) {
+  async qNewTraining(yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -734,14 +717,11 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAlphabeticHeaders(
-    yearName: string
-  ) {
+  async qAlphabeticHeaders(yearName: string) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
 
-      // As duas queries são independentes, então podem rodar em paralelo
       const qYear = `
         SELECT year.id, year.name, period.id AS period_id, bimester.id AS bimester_id, bimester.name AS bimester_name, bimester.testName AS bimester_testName
         FROM year
@@ -754,30 +734,18 @@ export class GenericController<T> {
         FROM alphabetic_level AS al
       `;
 
-      // Executa as duas queries ao mesmo tempo na mesma conexão
-      const [
-        [qYearResult],
-        [qAlphaLevelsResult]
-      ] = await Promise.all([
-        conn.query(format(qYear), [yearName]),
-        conn.query(format(qAlphabeticLevels), [])
-      ]);
+      const [[qYearResult], [qAlphaLevelsResult]] = await Promise.all([conn.query(format(qYear), [yearName]), conn.query(format(qAlphabeticLevels), [])]);
 
-      // O processamento dos resultados continua o mesmo
       let year = formatAlphabeticYearHeader(qYearResult as qYear[]);
       const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[];
 
       return year.periods.flatMap(period => ({ ...period.bimester, levels: alphabeticLevels }));
-
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
-  async qLastRegister(
-    studentId: number,
-    yearId: number
-  ) {
+  async qLastRegister(studentId: number, yearId: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -806,17 +774,13 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentDisabilities(
-    arr: { [key: string]: any }[]
-  ) {
+  async qStudentDisabilities(arr: { [key: string]: any }[]) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       const studentIds = arr.map(item => item.student.id).filter(id => id);
 
-      if (studentIds.length === 0) {
-        return arr;
-      }
+      if (studentIds.length === 0) { return arr }
 
       const placeholders = studentIds.map(() => '?').join(',');
       const query = `
@@ -830,25 +794,7 @@ export class GenericController<T> {
 
       const [queryResult] = await conn.query(query, studentIds);
 
-      const disabilitiesByStudent = new Map();
-
-      for (const row of queryResult as any[]) {
-        if (!disabilitiesByStudent.has(row.studentId)) {
-          disabilitiesByStudent.set(row.studentId, []);
-        }
-        disabilitiesByStudent.get(row.studentId).push({
-          id: row.id,
-          startedAt: row.startedAt,
-          endedAt: row.endedAt,
-          disability: { id: row.disability_id, name: row.disability_name, official: row.disability_official }
-        });
-      }
-
-      for (const item of arr) {
-        item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [];
-      }
-
-      return arr;
+      return helperStudentDisabilities(queryResult as Array<any>, arr);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

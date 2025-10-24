@@ -486,3 +486,23 @@ export function helperStudentQuestions(test: Test, rows: any[]) {
     studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id)
   }));
 }
+
+export function helperStudentDisabilities(rows: any[], arr: any[]) {
+  const disabilitiesByStudent = new Map();
+
+  for (const row of rows as any[]) {
+    if (!disabilitiesByStudent.has(row.studentId)) {
+      disabilitiesByStudent.set(row.studentId, []);
+    }
+    disabilitiesByStudent.get(row.studentId).push({
+      id: row.id,
+      startedAt: row.startedAt,
+      endedAt: row.endedAt,
+      disability: { id: row.disability_id, name: row.disability_name, official: row.disability_official }
+    });
+  }
+
+  for (const item of arr) { item.student.studentDisabilities = disabilitiesByStudent.get(item.student.id) || [] }
+
+  return arr;
+}

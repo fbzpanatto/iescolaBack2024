@@ -1,5 +1,6 @@
 import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingWithSchedulesResult, qTest } from "../interfaces/interfaces";
 import { Test } from "../model/Test";
+import { Classroom } from "../model/Classroom";
 
 export function formatReadingFluencyHeaders(preHeaders: qReadingFluenciesHeaders[]) {
   return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
@@ -346,4 +347,53 @@ export function formatReadingFluency(rows: any[]) {
     }
   }
   return Array.from(studentClassroomsMap.values());
+}
+
+export function formatSuperUsers(result: any[]) {
+  return result.map(el => {
+    return {
+      id: el.id,
+      email: el.email,
+      register: el.register,
+      person: {
+        id: el.pId,
+        name: el.name,
+        birth: el.birth,
+        category: {
+          id: el.pcId,
+          name: el.catName,
+          active: el.active
+        }
+      }
+    }
+  })
+}
+
+export function formatTeacher(result: any[]) {
+  return result.map(el => {
+    return {
+      id: el.id,
+      email: el.email,
+      register: el.register,
+      person: {
+        id: el.pId,
+        name: el.name,
+        birth: el.birth,
+        category: {
+          id: el.pcId,
+          name: el.catName,
+          active: el.active
+        }
+      }
+    }
+  })
+}
+
+export function formatClassroom(res: {[key:string]:any}) {
+  return {
+    id: res.id,
+    name: res.name,
+    shortName: res.shortName,
+    school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
+  } as Classroom
 }

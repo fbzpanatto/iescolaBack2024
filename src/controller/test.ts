@@ -22,7 +22,7 @@ import { Alphabetic } from "../model/Alphabetic";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { formatedTestHelper, formatTestQuestions, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
-import { helperClassroomDataStructure, helperDuplicatedStudents } from "../utils/helpers";
+import { Helper } from "../utils/helpers";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -322,7 +322,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
-        return { status: 200, data: helperClassroomDataStructure(pResult, baseTest, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
+        return { status: 200, data: Helper.classroomDataStructure(pResult, baseTest, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
       }
 
       return await AppDataSource.transaction(async(typeOrmConnection) => {
@@ -1007,7 +1007,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       data = {
         ...data,
         classrooms: data.classrooms.map(classroom => {
-          const studentClassrooms = helperDuplicatedStudents(classroom.studentClassrooms).filter((el: any) => !el.ignore) as StudentClassroom[]
+          const studentClassrooms = Helper.duplicatedStudents(classroom.studentClassrooms).filter((el: any) => !el.ignore) as StudentClassroom[]
           return { ...classroom, studentClassrooms }
         })
       }
@@ -1199,7 +1199,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         )
       }))
 
-      studentClassrooms = helperDuplicatedStudents(studentClassrooms)
+      studentClassrooms = Helper.duplicatedStudents(studentClassrooms)
 
       // Filtrar uma vez e reusar
       const activeStudentClassrooms = studentClassrooms.filter((el: any) => !el.ignore)

@@ -1,5 +1,16 @@
 import { Test } from "../model/Test";
-import { qTest, qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingWithSchedulesResult } from "../interfaces/interfaces";
+import {
+  qTest,
+  qAlphaTests,
+  qFormatedYear,
+  qReadingFluenciesHeaders,
+  qTestQuestions,
+  qUserTeacher,
+  qYear,
+  ReadingHeaders,
+  TrainingWithSchedulesResult,
+  TrainingResult
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 
 export class Helper {
@@ -1076,5 +1087,46 @@ export class Helper {
     }
 
     return Array.from(schoolsMap.values());
+  }
+
+  static oneTraining(rows: any[]) {
+    const firstRow = rows[0];
+    const training: TrainingResult = {
+      id: firstRow.id,
+      meeting: firstRow.meeting,
+      classroom: firstRow.classroom,
+      observation: firstRow.observation,
+      discipline: firstRow.discipline,
+      category: firstRow.category,
+      month: firstRow.month,
+      trainingSchedules: []
+    };
+
+    for(let row of rows) {
+      if (row.trainingScheduleId) {
+        training.trainingSchedules.push({
+          id: row.trainingScheduleId,
+          trainingId: row.training,
+          dateTime: row.dateTime,
+          active: row.active === 1
+        });
+      }
+    }
+
+    return training;
+  }
+
+  static formatTrainings(queryResult: any[]) {
+    return queryResult as Array<{
+      id: number,
+      classroom: string,
+      observation: string,
+      discipline: string,
+      category: string,
+      meeting: string,
+      month: string,
+      year: string,
+      createdBy: string,
+    }>
   }
 }

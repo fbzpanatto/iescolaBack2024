@@ -2617,18 +2617,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       `
 
       const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
-
-      return queryResult as Array<{
-        id: number,
-        classroom: string,
-        observation: string,
-        discipline: string,
-        category: string,
-        meeting: string,
-        month: string,
-        year: string,
-        createdBy: string,
-      }>
+      return Helper.formatTrainings(queryResult as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -2661,34 +2650,9 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const [queryResult] = await conn.query(query, [id]);
       const rows = queryResult as any[];
 
-      if (rows.length === 0) {
-        return null;
-      }
+      if (rows.length === 0) { return null }
 
-      const firstRow = rows[0];
-      const training: TrainingResult = {
-        id: firstRow.id,
-        meeting: firstRow.meeting,
-        classroom: firstRow.classroom,
-        observation: firstRow.observation,
-        discipline: firstRow.discipline,
-        category: firstRow.category,
-        month: firstRow.month,
-        trainingSchedules: []
-      };
-
-      for(let row of rows) {
-        if (row.trainingScheduleId) {
-          training.trainingSchedules.push({
-            id: row.trainingScheduleId,
-            trainingId: row.training,
-            dateTime: row.dateTime,
-            active: row.active === 1
-          });
-        }
-      }
-
-      return training;
+      return Helper.oneTraining(rows as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -293,3 +293,57 @@ export function formatTestGraph(rows: any[]) {
 
   return result;
 }
+
+export function formatReadingFluency(rows: any[]) {
+  const studentClassroomsMap = new Map();
+  for (const row of rows) {
+    const scId = row.sc_id;
+
+    if (!studentClassroomsMap.has(scId)) {
+      studentClassroomsMap.set(scId, {
+        id: row.sc_id,
+        rosterNumber: row.sc_rosterNumber,
+        startedAt: row.sc_startedAt,
+        endedAt: row.sc_endedAt,
+        student: {
+          id: row.student_id,
+          ra: row.student_ra,
+          dv: row.student_dv,
+          observationOne: row.student_observationOne,
+          observationTwo: row.student_observationTwo,
+          active: row.student_active,
+          person: {
+            id: row.person_id,
+            name: row.person_name,
+            birth: row.person_birth
+          },
+          readingFluency: []
+        }
+      });
+    }
+
+    const sc = studentClassroomsMap.get(scId);
+
+    if (row.rf_id && !sc.student.readingFluency.find((rf: any) => rf.id === row.rf_id)) {
+      sc.student.readingFluency.push({
+        id: row.rf_id,
+        readingFluencyExam: row.rfExam_id ? {
+          id: row.rfExam_id,
+          name: row.rfExam_name,
+          color: row.rfExam_color
+        } : null,
+        readingFluencyLevel: row.rfLevel_id ? {
+          id: row.rfLevel_id,
+          name: row.rfLevel_name,
+          color: row.rfLevel_color
+        } : null,
+        rClassroom: row.rClassroom_id ? {
+          id: row.rClassroom_id,
+          name: row.rClassroom_name,
+          shortName: row.rClassroom_shortName
+        } : null
+      });
+    }
+  }
+  return Array.from(studentClassroomsMap.values());
+}

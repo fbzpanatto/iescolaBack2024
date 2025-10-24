@@ -8,6 +8,7 @@ import { PERSON_CATEGORIES } from "../utils/enums";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { testController } from "./test";
 import { formatedTestHelper, formatReadingFluencyHeaders, formatTestGraph } from "../utils/formaters";
+import {helperDuplicatedStudents, helperSchoolDataStructure} from "../utils/helpers";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -243,9 +244,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           for(let classroom of school.classrooms) {
 
-            classroom.studentsClassrooms = testController
-              .duplicatedStudents(await this.qStudentClassrooms(classroom.id, qYear.id))
-              .filter((el:any) => !el.ignore)
+            classroom.studentsClassrooms = helperDuplicatedStudents(await this.qStudentClassrooms(classroom.id, qYear.id)).filter((el:any) => !el.ignore)
 
             for(let studentClassroom of classroom.studentsClassrooms) {
 
@@ -320,7 +319,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
         const pResult = formatTestGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
-        data = this.schoolDataStructure(pResult, formatedTestHelper(qTest), questionGroups, qTestQuestions)
+        data = helperSchoolDataStructure(pResult, formatedTestHelper(qTest), questionGroups, qTestQuestions)
 
         break
       }

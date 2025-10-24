@@ -23,7 +23,7 @@ import {
   formatReadingFluency, formatStudentClassroom, formatTestQuestions, formatTrainingsWithSchedules, formatUserTeacher
 } from "../utils/formaters";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {helperDuplicatedStudents, helperStudentQuestions} from "../utils/helpers";
+import {helperDuplicatedStudents, helperReadingFluencyStudents, helperStudentQuestions} from "../utils/helpers";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -109,14 +109,7 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async unifiedTestQuestLinkSql(
-    createStatus: boolean,
-    stuClassrooms: any[],
-    test: Test,
-    testQuestions: TestQuestion[],
-    userId: number,
-    addNames: boolean = false
-  ): Promise<string[] | void> {
+  async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, addNames: boolean = false): Promise<string[] | void> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -515,12 +508,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async getReadingFluencyStudentsSql(
-    test: Test,
-    classroomId: number,
-    yearName: string,
-    studentClassroomId: number | null
-  ) {
+  async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
     let conn;
 
     try {
@@ -641,124 +629,13 @@ export class GenericController<T> {
 
       const params: any[] = [classroomId];
 
-      if (studentClassroomId) {
-        params.push(studentClassroomId);
-      }
+      if (studentClassroomId) { params.push(studentClassroomId) }
 
       params.push(test.createdAt, test.id, test.id, yearName);
 
       const [rows] = await conn.query(query, params);
 
-      // Transformar resultado em estrutura aninhada
-      const studentClassroomsMap = new Map();
-
-      for (const row of (rows as Array<{[key:string]:any}>)) {
-        const scId = row.sc_id;
-
-        if (!studentClassroomsMap.has(scId)) {
-          studentClassroomsMap.set(scId, {
-            id: row.sc_id,
-            rosterNumber: row.sc_rosterNumber,
-            startedAt: row.sc_startedAt,
-            endedAt: row.sc_endedAt,
-            student: {
-              id: row.student_id,
-              ra: row.student_ra,
-              dv: row.student_dv,
-              observationOne: row.student_observationOne,
-              observationTwo: row.student_observationTwo,
-              active: row.student_active,
-              person: {
-                id: row.person_id,
-                name: row.person_name,
-                birth: row.person_birth
-              },
-              readingFluency: [],
-              studentDisabilities: []
-            },
-            classroom: {
-              id: row.classroom_id,
-              name: row.classroom_name,
-              shortName: row.classroom_shortName
-            },
-            year: {
-              id: row.year_id,
-              name: row.year_name
-            },
-            studentStatus: []
-          });
-        }
-
-        const sc = studentClassroomsMap.get(scId);
-
-        // Adicionar studentStatus (evitar duplicatas)
-        if (row.studentStatus_id && !sc.studentStatus.find((ss: any) => ss.id === row.studentStatus_id)) {
-          sc.studentStatus.push({
-            id: row.studentStatus_id,
-            active: row.studentStatus_active,
-            observation: row.studentStatus_observation,
-            test: {
-              id: row.stStatusTest_id,
-              name: row.stStatusTest_name,
-              active: row.stStatusTest_active,
-              hideAnswers: row.stStatusTest_hideAnswers,
-              createdAt: row.stStatusTest_createdAt,
-              updatedAt: row.stStatusTest_updatedAt,
-              createdByUser: row.stStatusTest_createdByUser,
-              updatedByUser: row.stStatusTest_updatedByUser,
-              period: {
-                id: row.stStatusTest_periodId
-              }
-            }
-          });
-        }
-
-        // Adicionar readingFluency (evitar duplicatas)
-        if (row.rf_id && !sc.student.readingFluency.find((rf: any) => rf.id === row.rf_id)) {
-          sc.student.readingFluency.push({
-            id: row.rf_id,
-            readingFluencyExam: row.rfExam_id ? {
-              id: row.rfExam_id,
-              name: row.rfExam_name,
-              color: row.rfExam_color
-            } : null,
-            readingFluencyLevel: row.rfLevel_id ? {
-              id: row.rfLevel_id,
-              name: row.rfLevel_name,
-              color: row.rfLevel_color
-            } : null,
-            rClassroom: row.rClassroom_id ? {
-              id: row.rClassroom_id,
-              name: row.rClassroom_name,
-              shortName: row.rClassroom_shortName
-            } : null,
-            test: {
-              id: row.stReadFluenTest_id
-            }
-          });
-        }
-
-        // Adicionar studentDisabilities (evitar duplicatas)
-        if (row.sd_id && !sc.student.studentDisabilities.find((sd: any) => sd.id === row.sd_id)) {
-          sc.student.studentDisabilities.push({
-            id: row.sd_id,
-            startedAt: row.sd_startedAt,
-            endedAt: row.sd_endedAt,
-            disability: {
-              id: row.disability_id,
-              name: row.disability_name,
-              official: row.disability_official
-            }
-          });
-        }
-      }
-
-      const studentClassrooms = Array.from(studentClassroomsMap.values());
-
-      return helperDuplicatedStudents(studentClassrooms).map((sc: any) => ({
-        ...sc,
-        studentStatus: sc.studentStatus.find((studentStatus: any) => studentStatus.test.id === test.id)
-      }));
+      return helperReadingFluencyStudents(rows as Array<{[key:string]:any}>, test)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -1814,22 +1814,8 @@ export class GenericController<T> {
         `;
 
       const [ queryResult ] = await conn.query(format(query), [testIds]);
-      const allQuestionsRaw = queryResult as any[];
 
-      const questionsByTestId = new Map<number, any[]>();
-      for (const question of allQuestionsRaw) {
-        const testId = question.test_id;
-        if (!questionsByTestId.has(testId)) { questionsByTestId.set(testId, []) }
-        questionsByTestId.get(testId)!.push(question);
-      }
-
-      const finalMap = new Map();
-      for (const [testId, rawQuestions] of questionsByTestId.entries()) {
-        finalMap.set(testId, Helper.testQuestions(rawQuestions));
-      }
-
-      return finalMap;
-
+      return Helper.testQuestionsFormMultipleTests(queryResult as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -3182,7 +3168,6 @@ INNER JOIN year AS y ON tr.yearId = y.id
         query += `, bim.id ASC, tq.order ASC`;
       }
 
-      // Parâmetros
       const params: any[] = [];
       if (hasQuestions && testQuestionsIds.length > 0) {
         params.push(...testQuestionsIds);
@@ -3211,155 +3196,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const [rows] = await conn.query(query, params);
 
-      // Formatar resultado mantendo a estrutura do TypeORM
-      const schoolsMap = new Map();
-
-      for (const row of rows as any[]) {
-        if (!row.school_id) continue;
-
-        if (!schoolsMap.has(row.school_id)) {
-          schoolsMap.set(row.school_id, {
-            id: row.school_id,
-            name: row.school_name,
-            shortName: row.school_shortName,
-            classrooms: []
-          });
-        }
-
-        const school = schoolsMap.get(row.school_id);
-        let classroom = school.classrooms.find((c: any) => c.id === row.classroom_id);
-
-        if (!classroom) {
-          classroom = {
-            id: row.classroom_id,
-            name: row.classroom_name,
-            shortName: row.classroom_shortName,
-            school: {
-              id: row.school_id,
-              name: row.school_name,
-              shortName: row.school_shortName
-            },
-            studentClassrooms: []
-          };
-          school.classrooms.push(classroom);
-        }
-
-        let studentClassroom = classroom.studentClassrooms.find((sc: any) => sc.id === row.studentClassroom_id);
-
-        if (!studentClassroom) {
-          studentClassroom = {
-            id: row.studentClassroom_id,
-            rosterNumber: row.rosterNumber,
-            endedAt: row.studentClassroom_endedAt,
-            classroom: {
-              id: row.classroom_id,
-              name: row.classroom_name,
-              shortName: row.classroom_shortName
-            },
-            student: {
-              id: row.student_id,
-              person: {
-                id: row.person_id,
-                name: row.person_name
-              },
-              alphabeticFirst: null,
-              alphabetic: [],
-              studentDisabilities: [],
-              studentQuestions: hasQuestions ? [] : undefined
-            }
-          };
-
-          if (row.alphabeticFirst_id) {
-            studentClassroom.student.alphabeticFirst = {
-              id: row.alphabeticFirst_level_id,
-              name: row.alphabeticFirst_level_name,
-              shortName: row.alphabeticFirst_level_shortName,
-              color: row.alphabeticFirst_level_color
-            };
-          }
-
-          classroom.studentClassrooms.push(studentClassroom);
-        }
-
-        // Adicionar Alphabetic
-        if (row.alphabetic_id && !studentClassroom.student.alphabetic.find((a: any) => a.id === row.alphabetic_id)) {
-          studentClassroom.student.alphabetic.push({
-            id: row.alphabetic_id,
-            observation: row.alphabetic_observation,
-            alphabeticLevel: row.alphabetic_level_id ? {
-              id: row.alphabetic_level_id,
-              name: row.alphabetic_level_name,
-              shortName: row.alphabetic_level_shortName,
-              color: row.alphabetic_level_color
-            } : null,
-            rClassroom: row.alphabetic_rClassroom_id ? {
-              id: row.alphabetic_rClassroom_id,
-              name: row.alphabetic_rClassroom_name,
-              shortName: row.alphabetic_rClassroom_shortName
-            } : null,
-            test: {
-              id: row.alpha_test_id,
-              name: row.alpha_test_name,
-              period: {
-                id: row.alpha_test_period_id,
-                bimester: {
-                  id: row.alpha_test_bimester_id,
-                  name: row.alpha_test_bimester_name
-                },
-                year: {
-                  id: row.alpha_test_year_id,
-                  name: row.alpha_test_year_name
-                }
-              }
-            }
-          });
-        }
-
-        // Adicionar StudentDisability
-        if (row.studentDisability_id && !studentClassroom.student.studentDisabilities.find((d: any) => d.id === row.studentDisability_id)) {
-          studentClassroom.student.studentDisabilities.push({
-            id: row.studentDisability_id,
-            disability: {
-              id: row.disability_id,
-              name: row.disability_name
-            }
-          });
-        }
-
-        // Adicionar StudentQuestion se houver
-        if (hasQuestions && row.studentQuestion_id && !studentClassroom.student.studentQuestions.find((q: any) => q.id === row.studentQuestion_id)) {
-          studentClassroom.student.studentQuestions.push({
-            id: row.studentQuestion_id,
-            answer: row.studentQuestion_answer || '',
-            rClassroom: row.studentQuestion_rClassroom_id ? {
-              id: row.studentQuestion_rClassroom_id
-            } : null,
-            testQuestion: row.testQuestion_id ? {
-              id: row.testQuestion_id,
-              order: row.testQuestion_order,
-              answer: row.testQuestion_answer,
-              active: row.testQuestion_active,
-              test: {
-                id: row.test_id,
-                name: row.test_name,
-                period: {
-                  id: row.period_id,
-                  bimester: {
-                    id: row.bimester_id,
-                    name: row.bimester_name
-                  },
-                  year: {
-                    id: row.period_year_id,
-                    name: row.period_year_name
-                  }
-                }
-              }
-            } : null
-          });
-        }
-      }
-
-      return Array.from(schoolsMap.values());
+      return Helper.alphaQuestions(rows, hasQuestions)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

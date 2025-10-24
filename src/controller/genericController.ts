@@ -3613,15 +3613,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const [results] = await conn.query(query, params);
       return results as any[];
     }
-    catch (error) {
-      console.error(error);
-      throw error
-    }
-    finally {
-      if (conn) {
-        conn.release()
-      }
-    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
   async qUpdateAndValidateAnswer(studentQuestionId: number, newAnswer: string, classroomId: number, studentClassroomId: number, userId: number) {

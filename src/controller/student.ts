@@ -287,7 +287,83 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const disabilities = await this.disabilities(body.disabilities, CONN);
         const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
 
-        if (!qCurrentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
+        if (!qCurrentYear) {
+          return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." }
+        }
+
+        const potentialDuplicates = await CONN
+          .createQueryBuilder(Student, "student")
+          .leftJoinAndSelect("student.person", "person")
+          .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
+          .leftJoinAndSelect("studentClassroom.classroom", "classroom")
+          .leftJoinAndSelect("classroom.school", "school")
+          .leftJoinAndSelect("studentClassroom.year", "year")
+          .where("UPPER(TRIM(person.name)) = :name", {
+            name: body.name.toUpperCase().trim()
+          })
+          .andWhere("DATE(person.birth) = DATE(:birth)", {
+            birth: body.birth
+          })
+          .getMany();
+
+        if (potentialDuplicates.length > 0) {
+          for (const existing of potentialDuplicates) {
+            const raExistente = parseInt(existing.ra);
+            const raNovoInt = parseInt(body.ra);
+            const diferencaRA = Math.abs(raExistente - raNovoInt);
+
+            if (existing.ra !== body.ra && diferencaRA < 1000) {
+              let lastRecord;
+              const activeRecord = existing.studentClassrooms.find(sc => sc.endedAt === null);
+
+              if (activeRecord) {
+                lastRecord = activeRecord;
+              } else if (existing.studentClassrooms.length > 0) {
+                lastRecord = existing.studentClassrooms.reduce((prev, current) => {
+                  const prevDate = prev.endedAt ? new Date(prev.endedAt).getTime() : 0;
+                  const currDate = current.endedAt ? new Date(current.endedAt).getTime() : 0;
+                  return currDate > prevDate ? current : prev;
+                });
+              }
+
+              return {
+                status: 409,
+                message: `⚠️ ALUNO JÁ CADASTRADO!\n\nJá existe um aluno com os mesmos dados:\n\nNome: ${existing.person.name}\nData de Nascimento: ${new Date(existing.person.birth).toLocaleDateString('pt-BR')}\nRA Existente: ${existing.ra}-${existing.dv}\nRA Tentado: ${body.ra}-${body.dv}\n\n${lastRecord ? `Último registro: ${lastRecord.classroom.shortName} - ${lastRecord.classroom.school.shortName} (${lastRecord.year.name})\n${activeRecord ? `\n⚠️ Este aluno está ATIVO nesta sala. Use o menu MATRÍCULAS ATIVAS para transferência.` : `\n⚠️ Use o menu PASSAR DE ANO no ano ${lastRecord.year.name} para reativar este aluno.`}` : ''}\n\nSe você tem certeza de que são pessoas diferentes, solicite ao Administrador do sistema.`
+              };
+            }
+          }
+        }
+
+        const raNumerico = parseInt(body.ra);
+        const raBase = Math.floor(raNumerico / 100) * 100;
+
+        const studentsSameRARange = await CONN
+          .createQueryBuilder(Student, "student")
+          .leftJoinAndSelect("student.person", "person")
+          .where("CAST(student.ra AS UNSIGNED) BETWEEN :min AND :max", {
+            min: raBase,
+            max: raBase + 99
+          })
+          .andWhere("student.ra != :currentRA", { currentRA: body.ra })
+          .getMany();
+
+        for (const existing of studentsSameRARange) {
+          const similarity = this.isSimilar(existing.person.name, body.name);
+
+          if (similarity) {
+            const birthExisting = new Date(existing.person.birth);
+            const birthNew = new Date(body.birth);
+            const diffTime = Math.abs(birthExisting.getTime() - birthNew.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 365) {
+              return {
+                status: 409,
+                message: `⚠️ POSSÍVEL DUPLICATA DETECTADA!\n\nFoi encontrado um aluno com dados similares:\n\nExistente: ${existing.person.name}\nRA: ${existing.ra}-${existing.dv}\nNascimento: ${birthExisting.toLocaleDateString('pt-BR')}\n\nNovo: ${body.name}\nRA: ${body.ra}-${body.dv}\nNascimento: ${birthNew.toLocaleDateString('pt-BR')}\n\nRAs na mesma faixa (${raBase} a ${raBase + 99})\nDiferença de ${diffDays} dias no nascimento\n\nVerifique se não é o mesmo aluno. Em caso de dúvida, consulte o Administrador.`
+              };
+            }
+          }
+        }
 
         const preExistsCheck = await CONN.findOne(Student, { relations: ['person'], where: { ra: body.ra }})
 

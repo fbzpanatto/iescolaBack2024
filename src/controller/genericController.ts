@@ -397,11 +397,9 @@ export class GenericController<T> {
   }
 
   async stuClassReadFSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
-
     let conn;
 
     try {
-
       conn = await connectionPool.getConnection();
 
       const query = `
@@ -441,16 +439,16 @@ export class GenericController<T> {
       FROM student_classroom as studentClassroom
       
       LEFT JOIN year ON year.id = studentClassroom.yearId
-      
-      LEFT JOIN student_test_status as studentStatus 
-        ON studentStatus.studentClassroomId = studentClassroom.id
-      
-      LEFT JOIN test ON test.id = studentStatus.testId AND test.id = ?
-      
       LEFT JOIN student ON student.id = studentClassroom.studentId
+      LEFT JOIN person ON person.id = student.personId
+      
+      LEFT JOIN student_test_status as sts
+        ON sts.studentClassroomId = studentClassroom.id
+        AND sts.testId = ?
       
       LEFT JOIN reading_fluency as readingFluency 
         ON readingFluency.studentId = student.id
+       AND readingFluency.testId = ?
       
       LEFT JOIN reading_fluency_exam as readingFluencyExam 
         ON readingFluencyExam.id = readingFluency.readingFluencyExamId
@@ -461,19 +459,25 @@ export class GenericController<T> {
       LEFT JOIN classroom as rClassroom 
         ON rClassroom.id = readingFluency.rClassroomId
       
-      LEFT JOIN person ON person.id = student.personId
-      
       WHERE studentClassroom.classroomId = ?
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
-        AND (studentClassroom.startedAt < ? OR readingFluency.id IS NOT NULL)
         AND year.name = ?
+        AND (
+          studentClassroom.endedAt IS NULL
+          OR 
+          (studentClassroom.endedAt IS NOT NULL AND (
+            readingFluency.rClassroomId = ? OR
+            sts.id IS NOT NULL
+          ))
+        )
     `;
 
-      const params: any[] = [test.id, classroomId];
+      const params: any[] = [test.id, test.id, classroomId];
 
       if (studentClassroomId) { params.push(studentClassroomId) }
 
-      params.push(test.createdAt, yearName);
+      params.push(yearName);
+      params.push(classroomId);
 
       const [rows] = await conn.query(query, params);
 
@@ -481,6 +485,69 @@ export class GenericController<T> {
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async handleDuplicateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const duplicatesQuery = `
+          SELECT
+              sts_old.id AS old_status_id,
+              sts_old.studentClassroomId AS old_sc_id,
+              sts_old.createdAt AS old_created_at,
+              sts_new.id AS new_status_id,
+              sts_new.studentClassroomId AS new_sc_id,
+              sts_new.createdAt AS new_created_at,
+              sc_old.studentId,
+              sc_old.endedAt AS old_ended_at,
+              sc_new.endedAt AS new_ended_at
+          FROM student_test_status sts_old
+                   INNER JOIN student_classroom sc_old
+                              ON sts_old.studentClassroomId = sc_old.id
+                   INNER JOIN student_classroom sc_new
+                              ON sc_old.studentId = sc_new.studentId
+                   INNER JOIN year y
+                              ON sc_new.yearId = y.id
+                   INNER JOIN student_test_status sts_new
+                              ON sts_new.studentClassroomId = sc_new.id
+                                  AND sts_new.testId = sts_old.testId
+          WHERE
+              sts_old.testId = ?
+            AND sc_old.endedAt IS NOT NULL
+            AND sc_new.endedAt IS NULL
+            AND sc_new.classroomId = ?
+            AND y.name = ?
+            AND sts_old.id != sts_new.id
+          ORDER BY sc_old.studentId, sts_old.createdAt
+      `;
+
+      const [duplicates] = await conn.query(duplicatesQuery, [testId, classroomId, yearName]) as [any[], any];
+
+      if (duplicates.length === 0) { await conn.commit(); return }
+
+      for (const dup of duplicates) {
+
+        const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
+
+        await conn.query(deleteQuery, [dup.new_status_id]);
+
+        const updateQuery = `
+            UPDATE student_test_status
+            SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
+            WHERE id = ?
+        `;
+
+        await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); throw error }
+    finally { if (conn) conn.release() }
   }
 
   async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {

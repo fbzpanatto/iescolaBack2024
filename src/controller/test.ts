@@ -170,14 +170,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
 
-        await this.handleDuplicateStudentTestStatusForReadingFluency(testId, classroomId, test.period.year.name, tUser?.userId as number);
-
         const headers = await this.qReadingFluencyHeaders()
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
         const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
 
-        const linking = await this.linkReadingSql(headers, preStudents, test, tUser?.userId as number)
+        const linking = await this.linkReadingSql(headers, preStudents, test, tUser?.userId as number, classroomId, test.period.year.name)
 
         let studentClassrooms = await this.getReadingFluencyStudentsSql(test, classroomId, test.period.year.name, isNaN(scId) ? null : Number(scId))
 
@@ -465,7 +463,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
             if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
             const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
             const headers = await this.qReadingFluencyHeaders()
-            await this.linkReadingSql(headers, filteredSC, test, qUserTeacher.person.user.id)
+            await this.linkReadingSql(headers, filteredSC, test, qUserTeacher.person.user.id, body.classroom.id,  String(body.year))
             break;
           }
 

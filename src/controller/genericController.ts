@@ -497,75 +497,6 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async handleDuplicateStudentTestStatusForReadingFluency(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      const duplicatesQuery = `
-        SELECT
-            sts_old.id AS old_status_id,
-            sts_old.studentClassroomId AS old_sc_id,
-            sts_new.id AS new_status_id,
-            sts_new.studentClassroomId AS new_sc_id,
-            sc_old.studentId,
-            sc_old.classroomId AS old_classroom_id,
-            -- Verifica se há reading_fluency preenchido na sala antiga
-            (SELECT COUNT(*) 
-             FROM reading_fluency rf
-             WHERE rf.studentId = sc_old.studentId
-               AND rf.testId = sts_old.testId
-               AND rf.rClassroomId = sc_old.classroomId
-               AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
-            ) AS has_answers_in_old_classroom
-        FROM student_test_status sts_old
-                 INNER JOIN student_classroom sc_old
-                            ON sts_old.studentClassroomId = sc_old.id
-                 INNER JOIN student_classroom sc_new
-                            ON sc_old.studentId = sc_new.studentId
-                 INNER JOIN year y
-                            ON sc_new.yearId = y.id
-                 INNER JOIN student_test_status sts_new
-                            ON sts_new.studentClassroomId = sc_new.id
-                                AND sts_new.testId = sts_old.testId
-        WHERE
-            sts_old.testId = ?
-          AND sc_old.endedAt IS NOT NULL
-          AND sc_new.endedAt IS NULL
-          AND sc_new.classroomId = ?
-          AND y.name = ?
-          AND sts_old.id != sts_new.id
-        ORDER BY sc_old.studentId, sts_old.createdAt
-    `;
-
-      const [duplicates] = await conn.query(duplicatesQuery, [testId, classroomId, yearName]) as [any[], any];
-
-      if (duplicates.length === 0) { await conn.commit(); return }
-
-      for (const dup of duplicates) {
-        const hasAnswersInOldClassroom = dup.has_answers_in_old_classroom > 0;
-
-        const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
-        await conn.query(deleteQuery, [dup.new_status_id]);
-
-        if (!hasAnswersInOldClassroom) {
-          const updateQuery = `
-          UPDATE student_test_status
-          SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
-          WHERE id = ?
-        `;
-          await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
-        }
-      }
-
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
-  }
-
   async handleDuplicateStudentTestStatusForQuestions(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
     let conn;
 
@@ -785,7 +716,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number) {
+  async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, classroomId: number, yearName: string) {
     let conn;
 
     try {
@@ -794,27 +725,84 @@ export class GenericController<T> {
 
       if (studentClassrooms.length === 0) { await conn.commit(); return }
 
-      // Preparar dados para StudentTestStatus em bulk
-      const studentTestStatusValues: any[] = [];
-      const studentTestStatusParams: any[] = [];
+      const studentIds = studentClassrooms.map(row => row?.student?.id ?? row?.student_id);
+
+      const checkAllExistingQuery = `
+      SELECT 
+        sts.id, 
+        sts.studentClassroomId, 
+        sc_sts.classroomId, 
+        sc_sts.endedAt,
+        sc_sts.studentId,
+        (SELECT COUNT(*)
+         FROM reading_fluency rf
+         WHERE rf.studentId = sc_sts.studentId
+           AND rf.testId = ?
+           AND rf.rClassroomId IS NOT NULL
+           AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
+        ) AS has_reading_fluency_filled
+      FROM student_test_status sts
+      INNER JOIN student_classroom sc_sts ON sts.studentClassroomId = sc_sts.id
+      WHERE sts.testId = ?
+        AND sc_sts.studentId IN (?)
+    `;
+
+      const [allExisting] = await conn.query(checkAllExistingQuery, [test.id, test.id, studentIds]) as any[];
+
+      const existingByStudent = allExisting.reduce((acc: any, item: any) => {
+        if (!acc[item.studentId]) acc[item.studentId] = [];
+        acc[item.studentId].push(item);
+        return acc;
+      }, {});
+
+      const toDelete: number[] = [];
+      const toUpdate: Array<{id: number, newStudentClassroomId: number}> = [];
+      const toInsert: Array<{testId: number, studentClassroomId: number}> = [];
 
       for (let row of studentClassrooms) {
         const studentClassroomId = row.id;
-        studentTestStatusValues.push('(?, ?, ?, ?, NOW(), ?)');
-        studentTestStatusParams.push(test.id, studentClassroomId, true, '', userId);
+        const studentId = row?.student?.id ?? row?.student_id;
+
+        const existingForStudent = existingByStudent[studentId] || [];
+        const inOtherRoom = existingForStudent.find((e: any) => e.classroomId !== classroomId);
+        const inCurrentRoom = existingForStudent.find((e: any) => e.classroomId === classroomId);
+
+        if (inOtherRoom) {
+          const hasReadingFluencyFilled = inOtherRoom.has_reading_fluency_filled > 0;
+
+          if (hasReadingFluencyFilled) { continue }
+          else if (inOtherRoom.endedAt !== null) {
+            if (inCurrentRoom) { toDelete.push(inCurrentRoom.id) }
+            toUpdate.push({ id: inOtherRoom.id, newStudentClassroomId: studentClassroomId });
+            continue;
+          }
+        }
+
+        if (!inCurrentRoom) { toInsert.push({ testId: test.id, studentClassroomId }) }
       }
 
-      // Inserir todos StudentTestStatus de uma vez
-      if (studentTestStatusValues.length > 0) {
-        await conn.query(
-          `INSERT INTO student_test_status
-           (testId, studentClassroomId, active, observation, createdAt, createdByUser)
-           VALUES ${studentTestStatusValues.join(', ')}
-           ON DUPLICATE KEY UPDATE
-                                updatedAt = NOW(),
-                                updatedByUser = VALUES(createdByUser)`,
-          studentTestStatusParams
+      if (toDelete.length > 0) { await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [toDelete]) }
+
+      if (toUpdate.length > 0) {
+        const updateCases = toUpdate.map(u => `WHEN id = ${u.id} THEN ${u.newStudentClassroomId}`).join(' ');
+
+        const updateIds = toUpdate.map(u => u.id);
+
+        const query = `UPDATE student_test_status SET studentClassroomId = CASE ${updateCases} END, updatedAt = NOW(), updatedByUser = ? WHERE id IN (?)`
+        await conn.query(query, [userId, updateIds]);
+      }
+
+      if (toInsert.length > 0) {
+        const insertValues = toInsert.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
+        const insertParams = toInsert.flatMap(item =>
+          [item.testId, item.studentClassroomId, true, '', userId]
         );
+
+        await conn.query(`
+        INSERT INTO student_test_status
+        (testId, studentClassroomId, active, observation, createdAt, createdByUser)
+        VALUES ${insertValues}
+      `, insertParams);
       }
 
       const readingFluencyValues: any[] = [];
@@ -832,18 +820,18 @@ export class GenericController<T> {
       if (readingFluencyValues.length > 0) {
         await conn.query(
           `INSERT INTO reading_fluency
-               (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
-           VALUES ${readingFluencyValues.join(', ')}
-           ON DUPLICATE KEY UPDATE
-                                updatedAt = NOW(),
-                                updatedByUser = VALUES(createdByUser)`,
+             (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
+         VALUES ${readingFluencyValues.join(', ')}
+         ON DUPLICATE KEY UPDATE
+                              updatedAt = NOW(),
+                              updatedByUser = VALUES(createdByUser)`,
           readingFluencyParams
         );
       }
 
       await conn.commit();
     }
-    catch (error) { if (conn) { await conn.rollback() } console.error(error); throw error }
+    catch (error) { if (conn) { await conn.rollback() }throw error }
     finally { if (conn) { conn.release() } }
   }
 

@@ -869,25 +869,38 @@ export class GenericController<T> {
     try {
       conn = await connectionPool.getConnection();
       const query = `
-        SELECT sc.id AS id, st.id AS student_id, st.ra AS ra, st.dv AS dv, per.name AS name
-        FROM student_classroom AS sc
-                 INNER JOIN student AS st ON sc.studentId = st.id
-                 INNER JOIN person AS per ON st.personId = per.id
-                 INNER JOIN year AS yr ON sc.yearId = yr.id
-                 INNER JOIN classroom AS cl ON sc.classroomId = cl.id
-        WHERE
-            yr.name = ?
-          AND cl.id = ?
-          AND sc.endedAt IS NULL
-          AND NOT EXISTS (
-            SELECT 1
-            FROM student_test_status AS sts
-            WHERE sts.studentClassroomId = sc.id
-              AND sts.testId = ?
-        )
-    `;
+          SELECT sc.id AS id, st.id AS student_id, st.ra AS ra, st.dv AS dv, per.name AS name
+          FROM student_classroom AS sc
+                   INNER JOIN student AS st ON sc.studentId = st.id
+                   INNER JOIN person AS per ON st.personId = per.id
+                   INNER JOIN year AS yr ON sc.yearId = yr.id
+                   INNER JOIN classroom AS cl ON sc.classroomId = cl.id
+          WHERE
+              yr.name = ?
+            AND cl.id = ?
+            AND sc.endedAt IS NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM student_test_status AS sts
+              WHERE sts.studentClassroomId = sc.id
+                AND sts.testId = ?
+          )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM student_question AS sq
+                       INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id
+              WHERE sq.studentId = sc.studentId
+                AND tq.testId = ?
+                AND sq.rClassroomId IS NOT NULL
+          )
+      `;
 
-      const [queryResult] = await conn.query(format(query), [yearName, classroomId, testId]);
+      const [queryResult] = await conn.query(format(query), [
+        yearName,
+        classroomId,
+        testId,
+        testId
+      ]);
       return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
     }
     catch (error) { console.error(error); throw error }
@@ -1735,42 +1748,74 @@ export class GenericController<T> {
       let responseQuery;
 
       if(studentClassroomId) {
-        const query =
-          `
-        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-               s.id AS student_id,
-               sts.id AS student_classroom_test_status_id,
-               person.name
-        FROM student_classroom AS sc
-         INNER JOIN year AS y ON sc.yearId = y.id
-         INNER JOIN student AS s ON sc.studentId = s.id
-         INNER JOIN person ON s.personId = person.id
-         LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
-        WHERE sc.classroomId = ? AND y.name = ? AND (sc.startedAt < ? OR sts.id IS NOT NULL) AND sc.id = ?
-        ORDER BY sc.rosterNumber
-      `;
+        const query = `
+            SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+                   s.id AS student_id,
+                   sts.id AS student_classroom_test_status_id,
+                   person.name
+            FROM student_classroom AS sc
+                     INNER JOIN year AS y ON sc.yearId = y.id
+                     INNER JOIN student AS s ON sc.studentId = s.id
+                     INNER JOIN person ON s.personId = person.id
+                     LEFT JOIN student_test_status AS sts
+                               ON sc.id = sts.studentClassroomId
+                                   AND sts.testId = ?
+            WHERE sc.classroomId = ?
+              AND y.name = ?
+              AND sc.id = ?
+              AND (
+                -- Aluno ativo na sala (não transferido)
+                sc.endedAt IS NULL
+                    OR
+                    -- Aluno transferido MAS tem student_test_status para ESTA sala
+                (sc.endedAt IS NOT NULL AND sts.id IS NOT NULL)
+                )
+              AND (sc.startedAt < ? OR sts.id IS NOT NULL)
+            ORDER BY sc.rosterNumber
+        `;
 
-        const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt, studentClassroomId]);
+        const [queryResult] = await conn.query(format(query), [
+          test.id,
+          classroomId,
+          yearName,
+          studentClassroomId,
+          test.createdAt
+        ]);
         responseQuery = queryResult as qStudentsClassroomsForTest[];
         return responseQuery
       }
 
-      const query =
-        `
-        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-               s.id AS student_id,
-               sts.id AS student_classroom_test_status_id,
-               person.name
-        FROM student_classroom AS sc
-         INNER JOIN year AS y ON sc.yearId = y.id
-         INNER JOIN student AS s ON sc.studentId = s.id
-         INNER JOIN person ON s.personId = person.id
-         LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
-        WHERE sc.classroomId = ? AND y.name = ? AND (sc.startedAt < ? OR sts.id IS NOT NULL)
-        ORDER BY sc.rosterNumber
+      const query = `
+          SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+                 s.id AS student_id,
+                 sts.id AS student_classroom_test_status_id,
+                 person.name
+          FROM student_classroom AS sc
+                   INNER JOIN year AS y ON sc.yearId = y.id
+                   INNER JOIN student AS s ON sc.studentId = s.id
+                   INNER JOIN person ON s.personId = person.id
+                   LEFT JOIN student_test_status AS sts
+                             ON sc.id = sts.studentClassroomId
+                                 AND sts.testId = ?
+          WHERE sc.classroomId = ?
+            AND y.name = ?
+            AND (
+              -- Aluno ativo na sala (não transferido)
+              sc.endedAt IS NULL
+                  OR
+                  -- Aluno transferido MAS tem student_test_status para ESTA sala
+              (sc.endedAt IS NOT NULL AND sts.id IS NOT NULL)
+              )
+            AND (sc.startedAt < ? OR sts.id IS NOT NULL)
+          ORDER BY sc.rosterNumber
       `;
 
-      const [queryResult] = await conn.query(format(query), [test.id, classroomId, yearName, test.createdAt]);
+      const [queryResult] = await conn.query(format(query), [
+        test.id,
+        classroomId,
+        yearName,
+        test.createdAt
+      ]);
       responseQuery = queryResult as qStudentsClassroomsForTest[];
       return responseQuery
     }
@@ -3493,45 +3538,34 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const updateQuery = `
           UPDATE
               student_question AS sq
-              INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id
-              INNER JOIN test AS tt ON tq.testId = tt.id
-              INNER JOIN student AS s ON sq.studentId = s.id
-              INNER JOIN student_classroom AS sc ON sc.id = ?
-              SET
-                  sq.answer = ?,
-                  sq.rClassroomId = ?,
-                  sq.updatedAt = NOW(),
-                  sq.updatedByUser = ?
+                  INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id
+                  INNER JOIN test AS tt ON tq.testId = tt.id
+                  INNER JOIN student AS s ON sq.studentId = s.id
+                  INNER JOIN student_classroom AS sc ON sc.id = ?
+          SET
+              sq.answer = ?,
+              sq.rClassroomId = ?,
+              sq.updatedAt = NOW(),
+              sq.updatedByUser = ?
           WHERE
               sq.id = ?
             AND tt.active = 1
-            AND NOT (
-              sc.endedAt IS NOT NULL AND NOT EXISTS (
-              SELECT * FROM (
-              SELECT 1
-              FROM student_question sq2
-              INNER JOIN test_question tq2 ON sq2.testQuestionId = tq2.id
-              WHERE sq2.studentId = s.id
-            AND tq2.testId = tt.id
-            AND sq2.answer != ''
-            AND sq2.id != sq.id
-              ) AS temp
-              )
-              )
+            AND sc.endedAt IS NULL
             AND (sq.rClassroomId IS NULL OR sq.rClassroomId = ?)
       `;
 
-      const params = [studentClassroomId, newAnswer, classroomId, userId, studentQuestionId, classroomId];
+      const isAnswerEmpty = !newAnswer || newAnswer.trim().length === 0;
+      const params = [studentClassroomId, newAnswer, isAnswerEmpty ? null : classroomId, userId, studentQuestionId, classroomId];
 
       const [updateResult] = await conn.query(updateQuery, params) as any[];
 
       if (updateResult.affectedRows === 0) { await conn.rollback(); return null }
 
       const selectQuery = `
-        SELECT sq.*, tq.answer AS correctAnswer
-        FROM student_question sq
-        INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-        WHERE sq.id = ?
+          SELECT sq.*, tq.answer AS correctAnswer
+          FROM student_question sq
+                   INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+          WHERE sq.id = ?
       `;
 
       const [selectResult] = await conn.query(selectQuery, [studentQuestionId]) as any[];

@@ -403,81 +403,91 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
 
       const query = `
-      SELECT 
-        studentClassroom.id as sc_id,
-        studentClassroom.startedAt as sc_startedAt,
-        studentClassroom.endedAt as sc_endedAt,
-        studentClassroom.rosterNumber as sc_rosterNumber,
-        studentClassroom.studentId as sc_studentId,
-        
-        student.id as student_id,
-        student.ra as student_ra,
-        student.dv as student_dv,
-        student.observationOne as student_observationOne,
-        student.observationTwo as student_observationTwo,
-        student.active as student_active,
-        
-        person.id as person_id,
-        person.name as person_name,
-        person.birth as person_birth,
-        
-        readingFluency.id as rf_id,
-        readingFluency.testId as rf_testId,
-        
-        readingFluencyExam.id as rfExam_id,
-        readingFluencyExam.name as rfExam_name,
-        readingFluencyExam.color as rfExam_color,
-        
-        readingFluencyLevel.id as rfLevel_id,
-        readingFluencyLevel.name as rfLevel_name,
-        readingFluencyLevel.color as rfLevel_color,
-        
-        rClassroom.id as rClassroom_id,
-        rClassroom.name as rClassroom_name,
-        rClassroom.shortName as rClassroom_shortName
-        
-      FROM student_classroom as studentClassroom
+    SELECT 
+      studentClassroom.id as sc_id,
+      studentClassroom.startedAt as sc_startedAt,
+      studentClassroom.endedAt as sc_endedAt,
+      studentClassroom.rosterNumber as sc_rosterNumber,
+      studentClassroom.studentId as sc_studentId,
       
-      LEFT JOIN year ON year.id = studentClassroom.yearId
-      LEFT JOIN student ON student.id = studentClassroom.studentId
-      LEFT JOIN person ON person.id = student.personId
+      student.id as student_id,
+      student.ra as student_ra,
+      student.dv as student_dv,
+      student.observationOne as student_observationOne,
+      student.observationTwo as student_observationTwo,
+      student.active as student_active,
       
-      LEFT JOIN student_test_status as sts
-        ON sts.studentClassroomId = studentClassroom.id
-        AND sts.testId = ?
+      person.id as person_id,
+      person.name as person_name,
+      person.birth as person_birth,
       
-      LEFT JOIN reading_fluency as readingFluency 
-        ON readingFluency.studentId = student.id
-       AND readingFluency.testId = ?
+      readingFluency.id as rf_id,
+      readingFluency.testId as rf_testId,
       
-      LEFT JOIN reading_fluency_exam as readingFluencyExam 
-        ON readingFluencyExam.id = readingFluency.readingFluencyExamId
+      readingFluencyExam.id as rfExam_id,
+      readingFluencyExam.name as rfExam_name,
+      readingFluencyExam.color as rfExam_color,
       
-      LEFT JOIN reading_fluency_level as readingFluencyLevel 
-        ON readingFluencyLevel.id = readingFluency.readingFluencyLevelId
+      readingFluencyLevel.id as rfLevel_id,
+      readingFluencyLevel.name as rfLevel_name,
+      readingFluencyLevel.color as rfLevel_color,
       
-      LEFT JOIN classroom as rClassroom 
-        ON rClassroom.id = readingFluency.rClassroomId
+      rClassroom.id as rClassroom_id,
+      rClassroom.name as rClassroom_name,
+      rClassroom.shortName as rClassroom_shortName
       
-      WHERE studentClassroom.classroomId = ?
-        ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
-        AND year.name = ?
-        AND (
-          studentClassroom.endedAt IS NULL
-          OR 
-          (studentClassroom.endedAt IS NOT NULL AND (
-            readingFluency.rClassroomId = ? OR
-            sts.id IS NOT NULL
-          ))
-        )
-    `;
+    FROM student_classroom as studentClassroom
+    
+    LEFT JOIN year ON year.id = studentClassroom.yearId
+    LEFT JOIN student ON student.id = studentClassroom.studentId
+    LEFT JOIN person ON person.id = student.personId
+    
+    LEFT JOIN student_test_status as sts
+      ON sts.studentClassroomId = studentClassroom.id
+      AND sts.testId = ?
+    
+    LEFT JOIN reading_fluency as readingFluency 
+      ON readingFluency.studentId = student.id
+     AND readingFluency.testId = ?
+    
+    LEFT JOIN reading_fluency_exam as readingFluencyExam 
+      ON readingFluencyExam.id = readingFluency.readingFluencyExamId
+    
+    LEFT JOIN reading_fluency_level as readingFluencyLevel 
+      ON readingFluencyLevel.id = readingFluency.readingFluencyLevelId
+    
+    LEFT JOIN classroom as rClassroom 
+      ON rClassroom.id = readingFluency.rClassroomId
+    
+    WHERE studentClassroom.classroomId = ?
+      ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
+      AND year.name = ?
+      AND (
+        -- Matrícula ativa: sempre exibe
+        studentClassroom.endedAt IS NULL
+        OR 
+        -- Matrícula encerrada: só exibe se tem student_test_status NESTA sala
+        (studentClassroom.endedAt IS NOT NULL AND sts.id IS NOT NULL)
+      )
+      -- Exclui alunos que fizeram prova em outra sala
+      AND NOT EXISTS (
+        SELECT 1
+        FROM reading_fluency rf_other
+        WHERE rf_other.studentId = student.id
+          AND rf_other.testId = ?
+          AND rf_other.rClassroomId IS NOT NULL
+          AND rf_other.rClassroomId != ?
+          AND (rf_other.readingFluencyExamId IS NOT NULL OR rf_other.readingFluencyLevelId IS NOT NULL)
+      )
+  `;
 
       const params: any[] = [test.id, test.id, classroomId];
 
       if (studentClassroomId) { params.push(studentClassroomId) }
 
       params.push(yearName);
-      params.push(classroomId);
+      params.push(test.id);      // Para o NOT EXISTS
+      params.push(classroomId);  // Para o NOT EXISTS
 
       const [rows] = await conn.query(query, params);
 
@@ -495,53 +505,61 @@ export class GenericController<T> {
       await conn.beginTransaction();
 
       const duplicatesQuery = `
-          SELECT
-              sts_old.id AS old_status_id,
-              sts_old.studentClassroomId AS old_sc_id,
-              sts_old.createdAt AS old_created_at,
-              sts_new.id AS new_status_id,
-              sts_new.studentClassroomId AS new_sc_id,
-              sts_new.createdAt AS new_created_at,
-              sc_old.studentId,
-              sc_old.endedAt AS old_ended_at,
-              sc_new.endedAt AS new_ended_at
-          FROM student_test_status sts_old
-                   INNER JOIN student_classroom sc_old
-                              ON sts_old.studentClassroomId = sc_old.id
-                   INNER JOIN student_classroom sc_new
-                              ON sc_old.studentId = sc_new.studentId
-                   INNER JOIN year y
-                              ON sc_new.yearId = y.id
-                   INNER JOIN student_test_status sts_new
-                              ON sts_new.studentClassroomId = sc_new.id
-                                  AND sts_new.testId = sts_old.testId
-          WHERE
-              sts_old.testId = ?
-            AND sc_old.endedAt IS NOT NULL
-            AND sc_new.endedAt IS NULL
-            AND sc_new.classroomId = ?
-            AND y.name = ?
-            AND sts_old.id != sts_new.id
-          ORDER BY sc_old.studentId, sts_old.createdAt
-      `;
+        SELECT
+            sts_old.id AS old_status_id,
+            sts_old.studentClassroomId AS old_sc_id,
+            sts_new.id AS new_status_id,
+            sts_new.studentClassroomId AS new_sc_id,
+            sc_old.studentId,
+            sc_old.classroomId AS old_classroom_id,
+            -- Verifica se há reading_fluency preenchido na sala antiga
+            (SELECT COUNT(*) 
+             FROM reading_fluency rf
+             WHERE rf.studentId = sc_old.studentId
+               AND rf.testId = sts_old.testId
+               AND rf.rClassroomId = sc_old.classroomId
+               AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
+            ) AS has_reading_fluency_old_classroom
+        FROM student_test_status sts_old
+                 INNER JOIN student_classroom sc_old
+                            ON sts_old.studentClassroomId = sc_old.id
+                 INNER JOIN student_classroom sc_new
+                            ON sc_old.studentId = sc_new.studentId
+                 INNER JOIN year y
+                            ON sc_new.yearId = y.id
+                 INNER JOIN student_test_status sts_new
+                            ON sts_new.studentClassroomId = sc_new.id
+                                AND sts_new.testId = sts_old.testId
+        WHERE
+            sts_old.testId = ?
+          AND sc_old.endedAt IS NOT NULL
+          AND sc_new.endedAt IS NULL
+          AND sc_new.classroomId = ?
+          AND y.name = ?
+          AND sts_old.id != sts_new.id
+        ORDER BY sc_old.studentId, sts_old.createdAt
+    `;
 
       const [duplicates] = await conn.query(duplicatesQuery, [testId, classroomId, yearName]) as [any[], any];
 
       if (duplicates.length === 0) { await conn.commit(); return }
 
       for (const dup of duplicates) {
+        const hasReadingFluencyInOldClassroom = dup.has_reading_fluency_old_classroom > 0;
 
+        // Sempre deleta o student_test_status da sala nova
         const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
-
         await conn.query(deleteQuery, [dup.new_status_id]);
 
-        const updateQuery = `
-            UPDATE student_test_status
-            SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
-            WHERE id = ?
+        // Só atualiza se NÃO tiver reading_fluency preenchido na sala antiga
+        if (!hasReadingFluencyInOldClassroom) {
+          const updateQuery = `
+          UPDATE student_test_status
+          SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
+          WHERE id = ?
         `;
-
-        await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
+          await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
+        }
       }
 
       await conn.commit();
@@ -622,15 +640,20 @@ export class GenericController<T> {
       FROM student_classroom as studentClassroom
       
       LEFT JOIN student ON student.id = studentClassroom.studentId
-      
-      LEFT JOIN reading_fluency as readingFluency 
-        ON readingFluency.studentId = student.id
-      
-      LEFT JOIN classroom as rClassroom 
-        ON rClassroom.id = readingFluency.rClassroomId
+      LEFT JOIN year ON year.id = studentClassroom.yearId
+      LEFT JOIN person ON person.id = student.personId
+      LEFT JOIN classroom ON classroom.id = studentClassroom.classroomId
       
       LEFT JOIN student_test_status as studentStatus 
         ON studentStatus.studentClassroomId = studentClassroom.id
+        AND studentStatus.testId = ?
+      
+      LEFT JOIN reading_fluency as readingFluency 
+        ON readingFluency.studentId = student.id
+        AND readingFluency.testId = ?
+      
+      LEFT JOIN classroom as rClassroom 
+        ON rClassroom.id = readingFluency.rClassroomId
       
       LEFT JOIN reading_fluency_exam as readingFluencyExam 
         ON readingFluencyExam.id = readingFluency.readingFluencyExamId
@@ -644,12 +667,6 @@ export class GenericController<T> {
       LEFT JOIN test as stReadFluenTest 
         ON stReadFluenTest.id = readingFluency.testId
       
-      LEFT JOIN year ON year.id = studentClassroom.yearId
-      
-      LEFT JOIN person ON person.id = student.personId
-      
-      LEFT JOIN classroom ON classroom.id = studentClassroom.classroomId
-      
       LEFT JOIN student_disability as studentDisabilities 
         ON studentDisabilities.studentId = student.id
         AND studentDisabilities.endedAt IS NULL
@@ -659,21 +676,37 @@ export class GenericController<T> {
       
       WHERE studentClassroom.classroomId = ?
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
-        AND (studentClassroom.startedAt < ? OR readingFluency.id IS NOT NULL)
-        AND stReadFluenTest.id = ?
-        AND stStatusTest.id = ?
         AND year.name = ?
+        AND (
+          -- Matrícula ativa: sempre exibe
+          studentClassroom.endedAt IS NULL
+          OR 
+          -- Matrícula encerrada: só exibe se tem student_test_status NESTA sala
+          (studentClassroom.endedAt IS NOT NULL AND studentStatus.id IS NOT NULL)
+        )
+        -- Exclui alunos que fizeram prova em outra sala
+        AND NOT EXISTS (
+          SELECT 1
+          FROM reading_fluency rf_other
+          WHERE rf_other.studentId = student.id
+            AND rf_other.testId = ?
+            AND rf_other.rClassroomId IS NOT NULL
+            AND rf_other.rClassroomId != ?
+            AND (rf_other.readingFluencyExamId IS NOT NULL OR rf_other.readingFluencyLevelId IS NOT NULL)
+        )
       
       ORDER BY 
         studentClassroom.rosterNumber ASC,
         person.name ASC
     `;
 
-      const params: any[] = [classroomId];
+      const params: any[] = [test.id, test.id, classroomId];
 
       if (studentClassroomId) { params.push(studentClassroomId) }
 
-      params.push(test.createdAt, test.id, test.id, yearName);
+      params.push(yearName);
+      params.push(test.id);       // Para o NOT EXISTS
+      params.push(classroomId);   // Para o NOT EXISTS
 
       const [rows] = await conn.query(query, params);
 

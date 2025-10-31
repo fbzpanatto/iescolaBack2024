@@ -62,7 +62,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(test.category.id)) {
 
-        await this.handleDuplicateStudentTestStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
+        await this.handleDuplicateStudentTestStatusForQuestions(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
         const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
 
@@ -170,7 +170,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
 
-        await this.handleDuplicateStudentTestStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
+        await this.handleDuplicateStudentTestStatusForReadingFluency(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
         const headers = await this.qReadingFluencyHeaders()
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)

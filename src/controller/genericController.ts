@@ -497,7 +497,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async handleDuplicateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
+  async handleDuplicateStudentTestStatusForReadingFluency(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
     let conn;
 
     try {
@@ -519,7 +519,7 @@ export class GenericController<T> {
                AND rf.testId = sts_old.testId
                AND rf.rClassroomId = sc_old.classroomId
                AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
-            ) AS has_reading_fluency_old_classroom
+            ) AS has_answers_in_old_classroom
         FROM student_test_status sts_old
                  INNER JOIN student_classroom sc_old
                             ON sts_old.studentClassroomId = sc_old.id
@@ -545,14 +545,83 @@ export class GenericController<T> {
       if (duplicates.length === 0) { await conn.commit(); return }
 
       for (const dup of duplicates) {
-        const hasReadingFluencyInOldClassroom = dup.has_reading_fluency_old_classroom > 0;
+        const hasAnswersInOldClassroom = dup.has_answers_in_old_classroom > 0;
 
-        // Sempre deleta o student_test_status da sala nova
         const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
         await conn.query(deleteQuery, [dup.new_status_id]);
 
-        // Só atualiza se NÃO tiver reading_fluency preenchido na sala antiga
-        if (!hasReadingFluencyInOldClassroom) {
+        if (!hasAnswersInOldClassroom) {
+          const updateQuery = `
+          UPDATE student_test_status
+          SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
+          WHERE id = ?
+        `;
+          await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
+        }
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); throw error }
+    finally { if (conn) conn.release() }
+  }
+
+  async handleDuplicateStudentTestStatusForQuestions(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const duplicatesQuery = `
+        SELECT
+            sts_old.id AS old_status_id,
+            sts_old.studentClassroomId AS old_sc_id,
+            sts_new.id AS new_status_id,
+            sts_new.studentClassroomId AS new_sc_id,
+            sc_old.studentId,
+            sc_old.classroomId AS old_classroom_id,
+            -- Verifica se há student_question respondido na sala antiga
+            (SELECT COUNT(*) 
+             FROM student_question sq
+             INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+             WHERE sq.studentId = sc_old.studentId
+               AND tq.testId = sts_old.testId
+               AND sq.rClassroomId = sc_old.classroomId
+               AND sq.answer IS NOT NULL
+               AND sq.answer != ''
+            ) AS has_answers_in_old_classroom
+        FROM student_test_status sts_old
+                 INNER JOIN student_classroom sc_old
+                            ON sts_old.studentClassroomId = sc_old.id
+                 INNER JOIN student_classroom sc_new
+                            ON sc_old.studentId = sc_new.studentId
+                 INNER JOIN year y
+                            ON sc_new.yearId = y.id
+                 INNER JOIN student_test_status sts_new
+                            ON sts_new.studentClassroomId = sc_new.id
+                                AND sts_new.testId = sts_old.testId
+        WHERE
+            sts_old.testId = ?
+          AND sc_old.endedAt IS NOT NULL
+          AND sc_new.endedAt IS NULL
+          AND sc_new.classroomId = ?
+          AND y.name = ?
+          AND sts_old.id != sts_new.id
+        ORDER BY sc_old.studentId, sts_old.createdAt
+    `;
+
+      const [duplicates] = await conn.query(duplicatesQuery, [testId, classroomId, yearName]) as [any[], any];
+
+      if (duplicates.length === 0) { await conn.commit(); return }
+
+      for (const dup of duplicates) {
+        const hasAnswersInOldClassroom = dup.has_answers_in_old_classroom > 0;
+
+        const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
+        await conn.query(deleteQuery, [dup.new_status_id]);
+
+        if (!hasAnswersInOldClassroom) {
           const updateQuery = `
           UPDATE student_test_status
           SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?

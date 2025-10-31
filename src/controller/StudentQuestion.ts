@@ -25,6 +25,8 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
+        console.log('body.readingFluencyLevel.id', body.readingFluencyLevel.id)
+
         let data;
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)
@@ -54,7 +56,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const messageErr1: string = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
         if(readingFluency?.readingFluencyLevel && readingFluency?.rClassroom && readingFluency?.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
-        readingFluency.rClassroom = body.classroom; readingFluency.readingFluencyLevel = body.readingFluencyLevel
+        // Se readingFluencyLevel for nulo, rClassroom também deve ser nulo
+        readingFluency.readingFluencyLevel = body.readingFluencyLevel
+        readingFluency.rClassroom = body.readingFluencyLevel?.id ? body.classroom : null
 
         data = await CONN.save(ReadingFluency, {...readingFluency, updatedAt: new Date(), updatedByUser: qUserTeacher.person.user.id })
 

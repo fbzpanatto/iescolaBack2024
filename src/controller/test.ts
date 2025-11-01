@@ -170,6 +170,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
 
+        await this.cleanupOrphanedReadingFluencyRecords(testId, classroomId, test.period.year.name);
+
         const headers = await this.qReadingFluencyHeaders()
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 

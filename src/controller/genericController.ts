@@ -568,6 +568,65 @@ export class GenericController<T> {
     finally { if (conn) conn.release() }
   }
 
+  async cleanupOrphanedReadingFluencyRecords(testId: number, classroomId: number, yearName: string): Promise<void> {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      // Busca alunos transferidos (endedAt preenchido) que têm student_test_status
+      // nesta sala mas NÃO têm reading_fluency preenchido
+      const findOrphansQuery = `
+      SELECT 
+        sts.id AS student_test_status_id,
+        sc.studentId,
+        sc.id AS student_classroom_id
+      FROM student_test_status sts
+      INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
+      INNER JOIN year y ON sc.yearId = y.id
+      WHERE sts.testId = ?
+        AND sc.classroomId = ?
+        AND y.name = ?
+        AND sc.endedAt IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM reading_fluency rf
+          WHERE rf.studentId = sc.studentId
+            AND rf.testId = ?
+            AND rf.rClassroomId = ?
+            AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
+        )
+    `;
+
+      const [orphans] = await conn.query(findOrphansQuery, [testId, classroomId, yearName, testId, classroomId]) as any[];
+
+      if (orphans.length === 0) { await conn.commit(); return }
+
+      const studentTestStatusIds = orphans.map((o: any) => o.student_test_status_id);
+      const studentIds = orphans.map((o: any) => o.studentId);
+
+      // 1. Remove student_test_status
+      if (studentTestStatusIds.length > 0) { await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [studentTestStatusIds]) }
+
+      // 2. Remove reading_fluency (registros vazios/não preenchidos deste teste)
+      if (studentIds.length > 0) {
+        await conn.query(
+          `DELETE FROM reading_fluency 
+         WHERE studentId IN (?) 
+           AND testId = ?
+           AND (rClassroomId IS NULL OR rClassroomId = ?)
+           AND (readingFluencyExamId IS NULL OR readingFluencyLevelId IS NULL)`,
+          [studentIds, testId, classroomId]
+        );
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error('Erro em cleanupOrphanedReadingFluencyRecords:', error); throw error; }
+    finally { if (conn) conn.release() }
+  }
+
   async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
     let conn;
 
@@ -678,13 +737,19 @@ export class GenericController<T> {
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
         AND year.name = ?
         AND (
-          -- Matrícula ativa: sempre exibe
           studentClassroom.endedAt IS NULL
           OR 
-          -- Matrícula encerrada: só exibe se tem student_test_status NESTA sala
-          (studentClassroom.endedAt IS NOT NULL AND studentStatus.id IS NOT NULL)
+          (studentClassroom.endedAt IS NOT NULL 
+           AND studentStatus.id IS NOT NULL
+           AND EXISTS (
+             SELECT 1
+             FROM reading_fluency rf_check
+             WHERE rf_check.studentId = student.id
+               AND rf_check.testId = ?
+               AND rf_check.rClassroomId = ?
+               AND (rf_check.readingFluencyExamId IS NOT NULL OR rf_check.readingFluencyLevelId IS NOT NULL)
+           ))
         )
-        -- Exclui alunos que fizeram prova em outra sala
         AND NOT EXISTS (
           SELECT 1
           FROM reading_fluency rf_other
@@ -705,6 +770,8 @@ export class GenericController<T> {
       if (studentClassroomId) { params.push(studentClassroomId) }
 
       params.push(yearName);
+      params.push(test.id);       // Para o EXISTS (verifica se tem dados nesta sala)
+      params.push(classroomId);   // Para o EXISTS (verifica se tem dados nesta sala)
       params.push(test.id);       // Para o NOT EXISTS
       params.push(classroomId);   // Para o NOT EXISTS
 

@@ -396,6 +396,74 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async cleanupOrphanedStudentQuestionsRecords(testId: number, classroomId: number, yearName: string): Promise<void> {
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const findOrphansQuery = `
+      SELECT 
+        sts.id AS student_test_status_id,
+        sc.studentId,
+        sc.id AS student_classroom_id,
+        p.name AS student_name
+      FROM student_test_status sts
+      INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
+      INNER JOIN year y ON sc.yearId = y.id
+      INNER JOIN student s ON sc.studentId = s.id
+      INNER JOIN person p ON s.personId = p.id
+      WHERE sts.testId = ?
+        AND sc.classroomId = ?
+        AND y.name = ?
+        AND sc.endedAt IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM student_question sq
+          INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+          WHERE sq.studentId = sc.studentId
+            AND tq.testId = ?
+            AND sq.rClassroomId = ?
+            AND sq.answer IS NOT NULL
+            AND sq.answer != ''
+        )
+    `;
+
+      const [orphans] = await conn.query(findOrphansQuery, [testId, classroomId, yearName, testId, classroomId]) as any[];
+
+      if (orphans.length === 0) { await conn.commit(); return }
+
+      const studentTestStatusIds = orphans.map((o: any) => o.student_test_status_id);
+      const studentIds = orphans.map((o: any) => o.studentId);
+
+      if (studentTestStatusIds.length > 0) {
+        const [deleteStatusResult] = await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [studentTestStatusIds]) as any[];
+
+        console.log(`Removidos ${deleteStatusResult.affectedRows} student_test_status órfãos (AVL_ITA/SIM_ITA)`);
+      }
+
+      if (studentIds.length > 0) {
+        const [deleteSqResult] = await conn.query(
+          `DELETE sq
+         FROM student_question sq
+         INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+         WHERE sq.studentId IN (?)
+           AND tq.testId = ?
+           AND (sq.rClassroomId IS NULL OR sq.rClassroomId = ?)
+           AND (sq.answer IS NULL OR sq.answer = '')`,
+          [studentIds, testId, classroomId]
+        ) as any[];
+
+        console.log(`Removidos ${deleteSqResult.affectedRows} student_question vazios`);
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error('Erro em cleanupOrphanedStudentQuestionsRecords:', error); throw error }
+    finally { if (conn) conn.release() }
+  }
+
   async stuClassReadFSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
     let conn;
 

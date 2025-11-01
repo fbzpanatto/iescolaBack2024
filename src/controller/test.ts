@@ -64,7 +64,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await this.cleanupOrphanedStudentQuestionsRecords(testId, classroomId, test.period.year.name);
 
-        await this.handleDuplicateStudentTestStatusForQuestions(testId, classroomId, test.period.year.name, tUser?.userId as number);
+        await this.updateStudentTestStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
         const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
 

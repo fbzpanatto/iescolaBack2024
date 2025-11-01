@@ -561,7 +561,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async handleDuplicateStudentTestStatusForQuestions(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
+  async updateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
     let conn;
 
     try {
@@ -639,8 +639,6 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      // Busca alunos transferidos (endedAt preenchido) que têm student_test_status
-      // nesta sala mas NÃO têm reading_fluency preenchido
       const findOrphansQuery = `
       SELECT 
         sts.id AS student_test_status_id,
@@ -670,10 +668,13 @@ export class GenericController<T> {
       const studentTestStatusIds = orphans.map((o: any) => o.student_test_status_id);
       const studentIds = orphans.map((o: any) => o.studentId);
 
-      // 1. Remove student_test_status
-      if (studentTestStatusIds.length > 0) { await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [studentTestStatusIds]) }
+      if (studentTestStatusIds.length > 0) {
+        await conn.query(
+          `DELETE FROM student_test_status WHERE id IN (?)`,
+          [studentTestStatusIds]
+        );
+      }
 
-      // 2. Remove reading_fluency (registros vazios/não preenchidos deste teste)
       if (studentIds.length > 0) {
         await conn.query(
           `DELETE FROM reading_fluency 
@@ -687,7 +688,7 @@ export class GenericController<T> {
 
       await conn.commit();
     }
-    catch (error) { if (conn) await conn.rollback(); console.error('Erro em cleanupOrphanedReadingFluencyRecords:', error); throw error; }
+    catch (error) { if (conn) await conn.rollback(); console.error('Erro em cleanupOrphanedReadingFluencyRecords:', error); throw error }
     finally { if (conn) conn.release() }
   }
 

@@ -439,8 +439,6 @@ export class GenericController<T> {
 
       if (studentTestStatusIds.length > 0) {
         const [deleteStatusResult] = await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [studentTestStatusIds]) as any[];
-
-        console.log(`Removidos ${deleteStatusResult.affectedRows} student_test_status órfãos (AVL_ITA/SIM_ITA)`);
       }
 
       if (studentIds.length > 0) {
@@ -454,8 +452,6 @@ export class GenericController<T> {
            AND (sq.answer IS NULL OR sq.answer = '')`,
           [studentIds, testId, classroomId]
         ) as any[];
-
-        console.log(`Removidos ${deleteSqResult.affectedRows} student_question vazios`);
       }
 
       await conn.commit();

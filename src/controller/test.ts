@@ -1057,7 +1057,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
     }
 
-    const result = await Promise.all(qTests.map(test => this.unifiedTestQuestLinkSql(false, preResultSc, test, test.testQuestions, userId)));
+    const result = await Promise.all(qTests.map(test => this.qLinkAlphabetics(preResultSc, test, test.testQuestions, userId)));
 
     testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 

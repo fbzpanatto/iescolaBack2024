@@ -84,6 +84,79 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
+  async qLinkAlphabetics(stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      if (!stuClassrooms || stuClassrooms.length === 0) { await conn.commit(); return }
+
+      const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
+      const testQuestionIds = testQuestions.map(tq => tq.id);
+
+      if (studentIds.length === 0 || testQuestionIds.length === 0) { await conn.commit(); return }
+
+      const [existingAlphabeticRows] = await conn.query(
+        `SELECT studentId FROM alphabetic WHERE testId = ? AND studentId IN (?)`,
+        [test.id, studentIds]
+      ) as any[];
+
+      const existingAlphabeticStudentIds = new Set(existingAlphabeticRows.map((row: any) => row.studentId));
+
+      const [questionsRows] = await conn.query(
+        `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`,
+        [studentIds, testQuestionIds]
+      ) as any[];
+
+      const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
+
+      const alphabeticLinksToSave: any[] = [];
+      const questionsToSave: any[] = [];
+
+      for (const sC of stuClassrooms) {
+        const studentId = sC.student?.id ?? sC.student_id;
+
+        if (!existingAlphabeticStudentIds.has(studentId)) {
+          alphabeticLinksToSave.push([userId, studentId, test.id]);
+          existingAlphabeticStudentIds.add(studentId);
+        }
+
+        for (const tQ of testQuestions) {
+          const uniqueKey = `${studentId}-${tQ.id}`;
+          if (!questionKeys.has(uniqueKey)) {
+            questionsToSave.push(['', tQ.id, studentId, userId]);
+            questionKeys.add(uniqueKey);
+          }
+        }
+      }
+
+      if (alphabeticLinksToSave.length > 0) {
+        const alphabeticPlaceholders = alphabeticLinksToSave.map(() => '(NOW(), ?, ?, ?)').join(', ');
+        const alphabeticFlatValues = alphabeticLinksToSave.flat();
+        await conn.query(
+          `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ${alphabeticPlaceholders}`,
+          alphabeticFlatValues
+        );
+      }
+
+      if (questionsToSave.length > 0) {
+        const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
+        const questionFlatValues = questionsToSave.flat();
+        await conn.query(
+          `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser)
+           VALUES ${questionPlaceholders}
+           ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)`,
+          questionFlatValues
+        );
+      }
+
+      await conn.commit();
+    }
+    catch (error) { if(conn){ await conn.rollback() } throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, addNames: boolean = false): Promise<string[] | void> {
     let conn;
     try {
@@ -2354,92 +2427,117 @@ export class GenericController<T> {
       if(studentClassroomId) {
 
         let query = `
-          SELECT student_classroom.id,
-                 student_classroom.rosterNumber,
-                 student_classroom.startedAt,
-                 student_classroom.endedAt,
-                 student.id       AS studentId,
-                 student.active,
-                 person.id        AS personId,
-                 person.name      AS name,
-                 alphabetic.id    AS alphabeticId,
-                 alphabetic.alphabeticLevelId,
-                 alphabetic.rClassroomId,
-                 alphaLevel.color AS alphabeticLevelColor,
-                 alphabetic.observation,
-                 test.id          AS testId,
-                 test.name        AS testName,
-                 period.id        AS periodId,
-                 bim.id           AS bimesterId,
-                 year.id          AS yearId,
-                 al.id            AS alphaFirstLevelId,
-                 al.shortName     AS alphaFirstLevelShortName,
-                 al.name          AS alphaFirstLevelName
-          FROM student_classroom
-                   INNER JOIN student ON student_classroom.studentId = student.id
-                   LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
-                   LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
-                   INNER JOIN person ON student.personId = person.id
-                   LEFT JOIN alphabetic ON student.id = alphabetic.studentId
-                   LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
-                   LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
-                   INNER JOIN test ON alphabetic.testId = test.id
-                   INNER JOIN discipline ON test.disciplineId = discipline.id
-                   INNER JOIN test_category ON test.categoryId = test_category.id
-                   INNER JOIN period ON test.periodId = period.id
-                   INNER JOIN bimester AS bim ON period.bimesterId = bim.id
-                   INNER JOIN year ON period.yearId = year.id
-                   INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-          WHERE student_classroom.id = ?
-            AND (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?)
-            AND discipline.id = ?
-            AND test_category.id
-          ORDER BY student_classroom.rosterNumber, person.name
-      `
+        SELECT student_classroom.id,
+               student_classroom.rosterNumber,
+               student_classroom.startedAt,
+               student_classroom.endedAt,
+               student.id       AS studentId,
+               student.active,
+               person.id        AS personId,
+               person.name      AS name,
+               alphabetic.id    AS alphabeticId,
+               alphabetic.alphabeticLevelId,
+               alphabetic.rClassroomId,
+               alphaLevel.color AS alphabeticLevelColor,
+               alphabetic.observation,
+               test.id          AS testId,
+               test.name        AS testName,
+               period.id        AS periodId,
+               bim.id           AS bimesterId,
+               year.id          AS yearId,
+               al.id            AS alphaFirstLevelId,
+               al.shortName     AS alphaFirstLevelShortName,
+               al.name          AS alphaFirstLevelName
+        FROM student_classroom
+                 INNER JOIN student ON student_classroom.studentId = student.id
+                 INNER JOIN person ON student.personId = person.id
+                 INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+                 LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
+                 LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
+                 LEFT JOIN alphabetic ON student.id = alphabetic.studentId 
+                     AND alphabetic.testId IN (
+                         SELECT t.id 
+                         FROM test t
+                         INNER JOIN discipline d ON t.disciplineId = d.id
+                         INNER JOIN test_category tc ON t.categoryId = tc.id
+                         INNER JOIN period p ON t.periodId = p.id
+                         WHERE d.id = ? 
+                           AND tc.id = ?
+                           AND p.yearId = ?
+                     )
+                 LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+                 LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+                 LEFT JOIN test ON alphabetic.testId = test.id
+                 LEFT JOIN discipline ON test.disciplineId = discipline.id
+                 LEFT JOIN test_category ON test.categoryId = test_category.id
+                 LEFT JOIN period ON test.periodId = period.id
+                 LEFT JOIN bimester AS bim ON period.bimesterId = bim.id
+                 LEFT JOIN year ON period.yearId = year.id
+        WHERE student_classroom.id = ?
+          AND student_classroom.yearId = ?
+          AND classroom.id = ?
+        ORDER BY student_classroom.rosterNumber, person.name
+    `
 
-        const [ queryResult ] = await conn.query(format(query), [studentClassroomId, year, classroomId, test.discipline.id, test.category.id])
+        const [ queryResult ] = await conn.query(format(query), [test.discipline.id, test.category.id, year, studentClassroomId, year, classroomId])
 
         return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
       }
 
-      let query =
+      let query = `
+      SELECT
+        student_classroom.id, 
+        student_classroom.rosterNumber, 
+        student_classroom.startedAt, 
+        student_classroom.endedAt,
+        student.id AS studentId, 
+        student.active,
+        person.id AS personId, 
+        person.name AS name,
+        alphabetic.id AS alphabeticId, 
+        alphabetic.alphabeticLevelId, 
+        alphabetic.rClassroomId, 
+        alphaLevel.color AS alphabeticLevelColor, 
+        alphabetic.observation,
+        test.id AS testId, 
+        test.name AS testName,
+        period.id AS periodId,
+        bim.id AS bimesterId,
+        year.id AS yearId,
+        al.id AS alphaFirstLevelId,
+        al.shortName AS alphaFirstLevelShortName,
+        al.name AS alphaFirstLevelName
+      FROM student_classroom
+        INNER JOIN student ON student_classroom.studentId = student.id
+        INNER JOIN person ON student.personId = person.id
+        INNER JOIN classroom ON student_classroom.classroomId = classroom.id
+        LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
+        LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
+        LEFT JOIN alphabetic ON student.id = alphabetic.studentId 
+            AND alphabetic.testId IN (
+                SELECT t.id 
+                FROM test t
+                INNER JOIN discipline d ON t.disciplineId = d.id
+                INNER JOIN test_category tc ON t.categoryId = tc.id
+                INNER JOIN period p ON t.periodId = p.id
+                WHERE d.id = ? 
+                  AND tc.id = ?
+                  AND p.yearId = ?
+            )
+        LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
+        LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
+        LEFT JOIN test ON alphabetic.testId = test.id
+        LEFT JOIN discipline ON test.disciplineId = discipline.id
+        LEFT JOIN test_category ON test.categoryId = test_category.id
+        LEFT JOIN period ON test.periodId = period.id
+        LEFT JOIN bimester AS bim ON period.bimesterId = bim.id
+        LEFT JOIN year ON period.yearId = year.id
+      WHERE student_classroom.yearId = ?
+        AND classroom.id = ?
+      ORDER BY student_classroom.rosterNumber, person.name
+    `
 
-        `
-        SELECT
-          student_classroom.id, student_classroom.rosterNumber, student_classroom.startedAt, student_classroom.endedAt,
-          student.id AS studentId, student.active,
-          person.id AS personId, person.name AS name,
-          alphabetic.id AS alphabeticId, alphabetic.alphabeticLevelId, alphabetic.rClassroomId, alphaLevel.color AS alphabeticLevelColor, alphabetic.observation,
-          test.id AS testId, test.name AS testName,
-          period.id AS periodId,
-          bim.id AS bimesterId,
-          year.id AS yearId,
-          al.id AS alphaFirstLevelId,
-          al.shortName AS alphaFirstLevelShortName,
-          al.name AS alphaFirstLevelName
-        FROM student_classroom
-          INNER JOIN student ON student_classroom.studentId = student.id
-          LEFT JOIN alphabetic_first AS af ON student.id = af.studentId
-          LEFT JOIN alphabetic_level AS al ON af.alphabeticFirstId = al.id
-          INNER JOIN person ON student.personId = person.id
-          LEFT JOIN alphabetic ON student.id = alphabetic.studentId
-          LEFT JOIN classroom AS rClassroom ON alphabetic.rClassroomId = rClassroom.id
-          LEFT JOIN alphabetic_level AS alphaLevel ON alphabetic.alphabeticLevelId = alphaLevel.id
-          INNER JOIN test ON alphabetic.testId = test.id
-          INNER JOIN discipline ON test.disciplineId = discipline.id
-          INNER JOIN test_category ON test.categoryId = test_category.id
-          INNER JOIN period ON test.periodId = period.id
-          INNER JOIN bimester AS bim ON period.bimesterId = bim.id
-          INNER JOIN year ON period.yearId = year.id
-          INNER JOIN classroom ON student_classroom.classroomId = classroom.id
-        WHERE
-
-            (student_classroom.yearId = ? AND student_classroom.yearId = period.yearId AND classroom.id = ?) AND
-            discipline.id = ? AND test_category.id
-        ORDER BY student_classroom.rosterNumber, name
-      `
-
-      const [ queryResult ] = await conn.query(format(query), [year, classroomId, test.discipline.id, test.category.id])
+      const [ queryResult ] = await conn.query(format(query), [test.discipline.id, test.category.id, year, year, classroomId])
 
       return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
 

@@ -891,51 +891,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getMany()
   }
 
-  async getTestForGraphic(testId: string, yearId: string, CONN: EntityManager) {
-
-    const testQuestions = await this.qTestQuestions(testId) as TestQuestion[]
-
-    if (!testQuestions) return { status: 404, message: "Questões não encontradas" }
-    const testQuestionsIds = testQuestions.map(testQuestion => testQuestion.id)
-
-    const test = await CONN.getRepository(Test)
-      .createQueryBuilder("test")
-      .select(['test.id', 'test.name', 'test.hideAnswers'])
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "periodBimester")
-      .leftJoin("period.year", "periodYear")
-      .addSelect(['periodYear.id', 'periodYear.name', 'periodYear.active'])
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .leftJoin("test.person", "testPerson")
-      .addSelect(['testPerson.id', 'testPerson.name'])
-      .leftJoinAndSelect("test.classrooms", "classroom")
-      .leftJoinAndSelect("classroom.school", "school")
-      .leftJoin("classroom.studentClassrooms", "studentClassroom")
-      .addSelect(['studentClassroom.id', 'studentClassroom.student', 'studentClassroom.classroom', 'studentClassroom.endedAt'])
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-      .leftJoin("studentClassroom.student", "student")
-      .addSelect(['student.id'])
-      .leftJoinAndSelect("student.studentQuestions", "studentQuestions")
-      .leftJoinAndSelect("studentQuestions.rClassroom", "rClassroom")
-      .leftJoinAndSelect("studentQuestions.testQuestion", "testQuestion", "testQuestion.id IN (:...testQuestions)", { testQuestions: testQuestionsIds })
-      .leftJoinAndSelect("testQuestion.questionGroup", "questionGroup")
-      .leftJoinAndSelect("student.person", "studentPerson")
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .where("test.id = :testId", { testId })
-      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
-      .andWhere("periodYear.id = :yearId", { yearId })
-      .andWhere("studentClassroomYear.id = :yearId", { yearId })
-      .andWhere("testQuestion.test = :testId", { testId })
-      .andWhere("studentStatusTest.id = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .addOrderBy("classroom.shortName", "ASC")
-      .getOne()
-    return { test, testQuestions }
-  }
-
   async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {
     let data = await CONN.getRepository(Test)
       .createQueryBuilder("test")
@@ -1060,8 +1015,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       newItem.student.studentQuestions = newItem.student.studentQuestions?.map((sQ: any) => {
         if (sQ.rClassroom?.id && sQ.rClassroom.id != room.id) {
-          if (item.endedAt) { return { ...sQ, answer: 'TR' } }
-          return { ...sQ, answer: 'OE' }
+          if (item.endedAt) { return { ...sQ, answer: 'TR', gray: true } }
+          return { ...sQ, gray: true }
         }
         return { ...sQ }
       })

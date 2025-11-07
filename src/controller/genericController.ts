@@ -1046,9 +1046,10 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
       const insertQuery = `
-        INSERT INTO training (yearId, categoryId, monthReferenceId, meetingId, classroom, createdByUser, updatedByUser, disciplineId, observation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+          INSERT INTO training (yearId, categoryId, monthReferenceId, meetingId, classroom, createdByUser, updatedByUser, disciplineId, observation)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE observation = VALUES(observation), updatedByUser = VALUES(updatedByUser)
+      `;
       const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [yearId, category, month, meeting, classroom, createdByUser, createdByUser, discipline || null, observation || null])
       await conn.commit();
       return queryResult;

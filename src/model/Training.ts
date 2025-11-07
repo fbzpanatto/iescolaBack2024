@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, Index } from "typeorm";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { Discipline } from "./Discipline";
 import { Year } from "./Year";
@@ -7,6 +7,14 @@ import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 import { TrainingTeacher } from "./TrainingTeacher";
 
 @Entity()
+@Index('idx_training_unique_peb1', ['year', 'category', 'monthReference', 'meeting', 'classroom'], {
+  unique: true,
+  where: 'disciplineId IS NULL'
+})
+@Index('idx_training_unique_peb2', ['year', 'category', 'monthReference', 'meeting', 'discipline'], {
+  unique: true,
+  where: 'classroom IS NULL'
+})
 export class Training {
 
   @PrimaryGeneratedColumn()

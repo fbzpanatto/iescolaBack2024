@@ -2045,43 +2045,6 @@ export class GenericController<T> {
 
       if(studentClassroomId) {
         const query = `
-            SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-                   s.id AS student_id,
-                   sts.id AS student_classroom_test_status_id,
-                   person.name
-            FROM student_classroom AS sc
-                     INNER JOIN year AS y ON sc.yearId = y.id
-                     INNER JOIN student AS s ON sc.studentId = s.id
-                     INNER JOIN person ON s.personId = person.id
-                     LEFT JOIN student_test_status AS sts
-                               ON sc.id = sts.studentClassroomId
-                                   AND sts.testId = ?
-            WHERE sc.classroomId = ?
-              AND y.name = ?
-              AND sc.id = ?
-              AND (
-                -- Aluno ativo na sala (não transferido)
-                sc.endedAt IS NULL
-                    OR
-                    -- Aluno transferido MAS tem student_test_status para ESTA sala
-                (sc.endedAt IS NOT NULL AND sts.id IS NOT NULL)
-                )
-              AND (sc.startedAt < ? OR sts.id IS NOT NULL)
-            ORDER BY sc.rosterNumber
-        `;
-
-        const [queryResult] = await conn.query(format(query), [
-          test.id,
-          classroomId,
-          yearName,
-          studentClassroomId,
-          test.createdAt
-        ]);
-        responseQuery = queryResult as qStudentsClassroomsForTest[];
-        return responseQuery
-      }
-
-      const query = `
           SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
                  s.id AS student_id,
                  sts.id AS student_classroom_test_status_id,
@@ -2095,22 +2058,79 @@ export class GenericController<T> {
                                  AND sts.testId = ?
           WHERE sc.classroomId = ?
             AND y.name = ?
+            AND sc.id = ?
             AND (
-              -- Aluno ativo na sala (não transferido)
-              sc.endedAt IS NULL
-                  OR
-                  -- Aluno transferido MAS tem student_test_status para ESTA sala
-              (sc.endedAt IS NOT NULL AND sts.id IS NOT NULL)
-              )
-            AND (sc.startedAt < ? OR sts.id IS NOT NULL)
+              -- Aluno matriculado ANTES ou NA data de criação do teste
+              sc.startedAt <= ?
+              OR
+              -- Aluno ativo na sala SEM relação com o teste (pode ter entrado depois)
+              (sc.endedAt IS NULL AND sts.id IS NULL)
+            )
+            -- NOVA VALIDAÇÃO: Não mostrar se o aluno tem student_test_status em OUTRA sala
+            AND NOT EXISTS (
+              SELECT 1
+              FROM student_test_status sts_other
+              INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
+              WHERE sts_other.testId = ?
+                AND sc_other.studentId = s.id
+                AND sc_other.classroomId != ?
+            )
           ORDER BY sc.rosterNumber
       `;
+
+        const [queryResult] = await conn.query(format(query), [
+          test.id,
+          classroomId,
+          yearName,
+          studentClassroomId,
+          test.createdAt,
+          test.id,          // NOT EXISTS - testId
+          classroomId       // NOT EXISTS - classroomId diferente
+        ]);
+        responseQuery = queryResult as qStudentsClassroomsForTest[];
+        return responseQuery
+      }
+
+      const query = `
+        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+               s.id AS student_id,
+               sts.id AS student_classroom_test_status_id,
+               person.name
+        FROM student_classroom AS sc
+                 INNER JOIN year AS y ON sc.yearId = y.id
+                 INNER JOIN student AS s ON sc.studentId = s.id
+                 INNER JOIN person ON s.personId = person.id
+                 LEFT JOIN student_test_status AS sts
+                           ON sc.id = sts.studentClassroomId
+                               AND sts.testId = ?
+        WHERE sc.classroomId = ?
+          AND y.name = ?
+          AND (
+            -- Aluno matriculado ANTES ou NA data de criação do teste
+            sc.startedAt <= ?
+            OR
+            -- Aluno ativo na sala SEM relação com o teste (pode ter entrado depois)
+            (sc.endedAt IS NULL AND sts.id IS NULL)
+          )
+          -- NOVA VALIDAÇÃO: Não mostrar se o aluno tem student_test_status em OUTRA sala
+          AND NOT EXISTS (
+            SELECT 1
+            FROM student_test_status sts_other
+            INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
+            WHERE sts_other.testId = ?
+              AND sc_other.studentId = s.id
+              AND sc_other.classroomId != ?
+          )
+        ORDER BY sc.rosterNumber
+    `;
 
       const [queryResult] = await conn.query(format(query), [
         test.id,
         classroomId,
         yearName,
-        test.createdAt
+        test.createdAt,
+        test.id,          // NOT EXISTS - testId
+        classroomId       // NOT EXISTS - classroomId diferente
       ]);
       responseQuery = queryResult as qStudentsClassroomsForTest[];
       return responseQuery

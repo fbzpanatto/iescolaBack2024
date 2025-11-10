@@ -25,8 +25,6 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        console.log('body.readingFluencyLevel.id', body.readingFluencyLevel.id)
-
         let data;
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)

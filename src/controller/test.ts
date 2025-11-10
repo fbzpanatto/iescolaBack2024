@@ -61,7 +61,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(test.category.id)) {
 
-        await this.cleanupOrphanedStudentQuestionsRecords(testId, classroomId, test.period.year.name);
+        // await this.cleanupOrphanedStudentQuestionsRecords(testId, classroomId, test.period.year.name);
 
         await this.updateStudentTestStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
 

@@ -1272,6 +1272,7 @@ export class GenericController<T> {
                 sc.studentId = ?
               AND yr.name = ?
               AND t.categoryId = 6
+              AND t.active = 1
               AND t.name LIKE ?
               AND (
                 -- Teste em andamento (ainda pode ser realizado)

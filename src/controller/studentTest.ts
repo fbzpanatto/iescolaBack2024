@@ -216,18 +216,7 @@ class StudentTestController extends GenericController<any> {
       const year = Number(params.year);
       const studentId = body.user.user;
 
-      // const currentSc = await this.qCurrentStudentClassroom(studentId)
-
       let result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
-
-      // if (currentSc && result.length > 0) {
-      //   const statusToUpdate = result.filter(t => t.studentTestStatusId && t.active && t.studentClassroomId !== currentSc.id);
-      //
-      //   if (statusToUpdate.length > 0) {
-      //     await this.qBulkUpdateStudentTestStatus(statusToUpdate.map(t => t.studentTestStatusId), currentSc.id, body.user.user);
-      //     result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset);
-      //   }
-      // }
 
       return { status: 200, data: result }
     }

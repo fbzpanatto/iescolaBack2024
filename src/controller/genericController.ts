@@ -490,70 +490,6 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async cleanupOrphanedStudentQuestionsRecords(testId: number, classroomId: number, yearName: string): Promise<void> {
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      const findOrphansQuery = `
-      SELECT 
-        sts.id AS student_test_status_id,
-        sc.studentId,
-        sc.id AS student_classroom_id,
-        p.name AS student_name
-      FROM student_test_status sts
-      INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
-      INNER JOIN year y ON sc.yearId = y.id
-      INNER JOIN student s ON sc.studentId = s.id
-      INNER JOIN person p ON s.personId = p.id
-      WHERE sts.testId = ?
-        AND sc.classroomId = ?
-        AND y.name = ?
-        AND sc.endedAt IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1
-          FROM student_question sq
-          INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-          WHERE sq.studentId = sc.studentId
-            AND tq.testId = ?
-            AND sq.rClassroomId = ?
-            AND sq.answer IS NOT NULL
-            AND sq.answer != ''
-        )
-    `;
-
-      const [orphans] = await conn.query(findOrphansQuery, [testId, classroomId, yearName, testId, classroomId]) as any[];
-
-      if (orphans.length === 0) { await conn.commit(); return }
-
-      const studentTestStatusIds = orphans.map((o: any) => o.student_test_status_id);
-      const studentIds = orphans.map((o: any) => o.studentId);
-
-      if (studentTestStatusIds.length > 0) {
-        const [deleteStatusResult] = await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [studentTestStatusIds]) as any[];
-      }
-
-      if (studentIds.length > 0) {
-        const [deleteSqResult] = await conn.query(
-          `DELETE sq
-         FROM student_question sq
-         INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-         WHERE sq.studentId IN (?)
-           AND tq.testId = ?
-           AND (sq.rClassroomId IS NULL OR sq.rClassroomId = ?)
-           AND (sq.answer IS NULL OR sq.answer = '')`,
-          [studentIds, testId, classroomId]
-        ) as any[];
-      }
-
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); console.error('Erro em cleanupOrphanedStudentQuestionsRecords:', error); throw error }
-    finally { if (conn) conn.release() }
-  }
-
   async stuClassReadFSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
     let conn;
 
@@ -662,61 +598,61 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const duplicatesQuery = `
-        SELECT
-            sts_old.id AS old_status_id,
-            sts_old.studentClassroomId AS old_sc_id,
-            sts_new.id AS new_status_id,
-            sts_new.studentClassroomId AS new_sc_id,
-            sc_old.studentId,
-            sc_old.classroomId AS old_classroom_id,
-            -- Verifica se há student_question respondido na sala antiga
-            (SELECT COUNT(*) 
-             FROM student_question sq
-             INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-             WHERE sq.studentId = sc_old.studentId
-               AND tq.testId = sts_old.testId
-               AND sq.rClassroomId = sc_old.classroomId
-               AND sq.answer IS NOT NULL
-               AND sq.answer != ''
-            ) AS has_answers_in_old_classroom
-        FROM student_test_status sts_old
-                 INNER JOIN student_classroom sc_old
-                            ON sts_old.studentClassroomId = sc_old.id
-                 INNER JOIN student_classroom sc_new
-                            ON sc_old.studentId = sc_new.studentId
-                 INNER JOIN year y
-                            ON sc_new.yearId = y.id
-                 INNER JOIN student_test_status sts_new
-                            ON sts_new.studentClassroomId = sc_new.id
-                                AND sts_new.testId = sts_old.testId
-        WHERE
-            sts_old.testId = ?
-          AND sc_old.endedAt IS NOT NULL
-          AND sc_new.endedAt IS NULL
-          AND sc_new.classroomId = ?
-          AND y.name = ?
-          AND sts_old.id != sts_new.id
-        ORDER BY sc_old.studentId, sts_old.createdAt
+      const query = `
+      SELECT
+          sts.id AS sts_id,
+          sts.studentClassroomId AS current_sc_id,
+          sc_current.studentId,
+          sc_current.classroomId AS current_classroom_id,
+          sc_active.id AS active_sc_id,
+          sc_active.classroomId AS active_classroom_id,
+          (SELECT COUNT(*) 
+           FROM student_question sq
+           INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+           WHERE sq.studentId = sc_current.studentId
+             AND tq.testId = ?
+             AND sq.answer IS NOT NULL
+             AND sq.answer != ''
+          ) AS has_any_answers
+      FROM student_test_status sts
+      INNER JOIN student_classroom sc_current 
+        ON sts.studentClassroomId = sc_current.id
+      INNER JOIN year y_current 
+        ON sc_current.yearId = y_current.id
+      INNER JOIN student_classroom sc_active 
+        ON sc_current.studentId = sc_active.studentId
+        AND sc_active.endedAt IS NULL
+      INNER JOIN year y_active 
+        ON sc_active.yearId = y_active.id
+      WHERE sts.testId = ?
+        AND y_current.name = ?
+        AND y_active.name = ?
+        AND (
+          sc_active.classroomId = ?
+          OR sc_current.classroomId = ?
+        )
+        AND sts.studentClassroomId != sc_active.id
     `;
 
-      const [duplicates] = await conn.query(duplicatesQuery, [testId, classroomId, yearName]) as [any[], any];
+      const [results] = await conn.query(query, [
+        testId,
+        testId,
+        yearName,
+        yearName,
+        classroomId,
+        classroomId
+      ]) as [any[], any];
 
-      if (duplicates.length === 0) { await conn.commit(); return }
+      for (const row of results) {
+        const hasAnyAnswers = row.has_any_answers > 0;
 
-      for (const dup of duplicates) {
-        const hasAnswersInOldClassroom = dup.has_answers_in_old_classroom > 0;
-
-        const deleteQuery = `DELETE FROM student_test_status WHERE id = ?`;
-        await conn.query(deleteQuery, [dup.new_status_id]);
-
-        if (!hasAnswersInOldClassroom) {
-          const updateQuery = `
-          UPDATE student_test_status
-          SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
-          WHERE id = ?
-        `;
-          await conn.query(updateQuery, [dup.new_sc_id, userId, dup.old_status_id]);
+        if (!hasAnyAnswers) {
+          await conn.query(
+            `UPDATE student_test_status
+           SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
+           WHERE id = ?`,
+            [row.active_sc_id, userId, row.sts_id]
+          );
         }
       }
 

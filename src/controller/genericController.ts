@@ -18,7 +18,6 @@ import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { PERSON_CATEGORIES } from "../utils/enums";
-import { StudentClassroom } from "../model/StudentClassroom";
 import { Helper } from "../utils/helpers";
 
 export class GenericController<T> {
@@ -1069,49 +1068,6 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qNotTestIncluded(yearName: string, classroomId: number, testId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query = `
-          SELECT sc.id AS id, st.id AS student_id, st.ra AS ra, st.dv AS dv, per.name AS name
-          FROM student_classroom AS sc
-                   INNER JOIN student AS st ON sc.studentId = st.id
-                   INNER JOIN person AS per ON st.personId = per.id
-                   INNER JOIN year AS yr ON sc.yearId = yr.id
-                   INNER JOIN classroom AS cl ON sc.classroomId = cl.id
-          WHERE
-              yr.name = ?
-            AND cl.id = ?
-            AND sc.endedAt IS NULL
-            AND NOT EXISTS (
-              SELECT 1
-              FROM student_test_status AS sts
-              WHERE sts.studentClassroomId = sc.id
-                AND sts.testId = ?
-          )
-            AND NOT EXISTS (
-              SELECT 1
-              FROM student_question AS sq
-                       INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id
-              WHERE sq.studentId = sc.studentId
-                AND tq.testId = ?
-                AND sq.rClassroomId IS NOT NULL
-          )
-      `;
-
-      const [queryResult] = await conn.query(format(query), [
-        yearName,
-        classroomId,
-        testId,
-        testId
-      ]);
-      return queryResult as { id: number, student_id: number, name: string, ra: string, dv: string }[];
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
   async qActiveSc(studentId: number) {
     let conn;
     try {
@@ -1164,24 +1120,6 @@ export class GenericController<T> {
       return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qCurrentStudentClassroom(studentId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query = `
-        SELECT *
-        FROM student_classroom sc
-        WHERE sc.studentId = ? 
-        AND sc.endedAt IS NULL 
-        LIMIT 1;
-      `
-      const [ queryResult ] = await conn.query(query, [ studentId ])
-      return (queryResult as StudentClassroom[])[0]
-    }
-    catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
@@ -3901,35 +3839,5 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
-  }
-
-  async qBulkUpdateStudentTestStatus(studentTestStatusIds: number[], newStudentClassroomId: number, userId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      if (!studentTestStatusIds || studentTestStatusIds.length === 0) { await conn.commit(); return }
-
-      const placeholders = studentTestStatusIds.map(() => '?').join(',');
-
-      const query = `
-          UPDATE student_test_status
-          SET
-              studentClassroomId = ?,
-              updatedAt = NOW(),
-              updatedByUser = ?
-          WHERE id IN (${placeholders})
-            AND active = 1
-            AND studentClassroomId != ?
-      `;
-
-      const params = [newStudentClassroomId, userId, ...studentTestStatusIds, newStudentClassroomId];
-
-      await conn.query(query, params);
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
-    finally { if (conn) conn.release() }
   }
 }

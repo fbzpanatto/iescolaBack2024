@@ -17,7 +17,7 @@ import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
-import { AllClassrooms, AlphaHeaders, CityHall, insertStudentsBody, notIncludedInterface, qReadingFluenciesHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { Helper } from "../utils/helpers";
@@ -356,35 +356,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getAllToInsert(request: Request) {
-    const testId = request?.params.id
-    const classroomId = request?.params.classroom
-    const yearName = request.params.year
-
-    try {
-      return await AppDataSource.transaction(async (CONN) => {
-        const test = await this.getTest(Number(testId), Number(yearName), CONN)
-        if(!test) { return { status: 404, message: "Teste não encontrado" } }
-        if(!test.active) { return { status: 400, message: "Não é possível incluir um aluno em uma avaliação já encerrada." } }
-
-        let data;
-        switch (test.category.id) {
-          case TEST_CATEGORIES_IDS.READ_2:
-          case TEST_CATEGORIES_IDS.READ_3: {
-            data = await this.notIncludedRF(test, Number(classroomId), Number(yearName), CONN)
-            break;
-          }
-          case TEST_CATEGORIES_IDS.AVL_ITA: {
-            data = await this.qNotTestIncluded(yearName, Number(classroomId), test.id )
-            break;
-          }
-        }
-        return { status: 200, data };
-      })
-    }
-    catch (error: any) { return { status: 500, message: error.message } }
-  }
-
   async deleteStudentFromTest(req: Request) {
     const studentClassroomId = !isNaN(parseInt(req.query.studentClassroomId as string)) ? parseInt(req.query.studentClassroomId as string) : null
     const testId = !isNaN(parseInt(req.query.testId as string)) ? parseInt(req.query.testId as string) : null
@@ -418,69 +389,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       console.log('deleteStudent', error)
       return { status: 500, message: error.message }
     }
-  }
-
-  async insertStudents(req: Request) {
-    const body = req.body as insertStudentsBody
-
-    try {
-      return await AppDataSource.transaction(async (CONN) => {
-
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
-
-        const test = await this.getTest(body.test.id, body.year, CONN)
-
-        if(!test) return { status: 404, message: "Teste não encontrado" }
-        switch (test.category.id) {
-          case (TEST_CATEGORIES_IDS.READ_2):
-          case (TEST_CATEGORIES_IDS.READ_3): {
-            const stClassrooms = await this.notIncludedRF(test, body.classroom.id, body.year, CONN)
-            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
-            const filteredSC = stClassrooms.filter(studentClassroom => body.studentClassrooms.includes(studentClassroom.id))
-            const headers = await this.qReadingFluencyHeaders()
-            await this.linkReadingSql(headers, filteredSC, test, qUserTeacher.person.user.id, body.classroom.id,  String(body.year))
-            break;
-          }
-
-          case (TEST_CATEGORIES_IDS.AVL_ITA):
-          case (TEST_CATEGORIES_IDS.SIM_ITA): {
-            const stClassrooms = await this.qNotTestIncluded(String(body.year), body.classroom.id, test.id )
-
-            if(!stClassrooms || stClassrooms.length < 1) return { status: 404, message: "Alunos não encontrados." }
-            const filteredSC = stClassrooms.filter(el => body.studentClassrooms.includes(el.id)) as unknown as StudentClassroom[]
-            const testQuestions = await this.getTestQuestions(test.id, CONN)
-            const linkResult = await this.unifiedTestQuestLinkSql(true, filteredSC, test, testQuestions, qUserTeacher.person.user.id, true)
-            if(linkResult && linkResult?.length > 0) {
-              return { status: 400, message: `${linkResult.join(', ')} já relizou a prova.` }
-            }
-            break;
-          }
-        }
-        return { status: 200, data: {} };
-      })
-    }
-    catch (error: any) {
-      console.log('insertStudents', error)
-      return { status: 500, message: error.message }
-    }
-  }
-
-  async notIncludedRF(test: Test, classroomId: number, yearName: number, CONN: EntityManager) {
-    return await CONN.getRepository(StudentClassroom)
-      .createQueryBuilder("studentClassroom")
-      .select([ 'studentClassroom.id AS id', 'studentClassroom.rosterNumber AS rosterNumber', 'studentClassroom.startedAt AS startedAt', 'studentClassroom.endedAt AS endedAt', 'person.name AS name', 'student.ra AS ra', 'student.dv AS dv' ])
-      .leftJoin("studentClassroom.year", "year")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.readingFluency", "readingFluency")
-      .leftJoin("studentClassroom.studentStatus", "studentStatus")
-      .leftJoin("studentStatus.test", "test", "test.id = :testId", {testId: test.id})
-      .leftJoin("student.person", "person")
-      .where("studentClassroom.classroom = :classroomId", {classroomId})
-      .andWhere("studentClassroom.startedAt > :testCreatedAt", {testCreatedAt: test.createdAt})
-      .andWhere("studentClassroom.endedAt IS NULL")
-      .andWhere("year.name = :yearName", {yearName})
-      .andWhere("readingFluency.id IS NULL")
-      .getRawMany() as unknown as notIncludedInterface[]
   }
 
   async findAllByYear(req: Request) {

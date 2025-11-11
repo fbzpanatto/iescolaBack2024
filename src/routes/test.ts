@@ -25,16 +25,8 @@ TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermi
   const response = await controller.getGraphic(req); return res.status(response.status).json(response)
 });
 
-TestRouter.get('/:id/:year/:classroom/include', ...CHECK_PARAMS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.getAllToInsert(req); return res.status(response.status).json(response)
-});
-
 TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request, res: any) => {
   const response = await controller.getById(req); return res.status(response.status).json(response)
-});
-
-TestRouter.post('/:id/:classroom/include', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.insertStudents(req); return res.status(response.status).json(response)
 });
 
 TestRouter.post('/', havePermission, async (req: Request, res: any) => {

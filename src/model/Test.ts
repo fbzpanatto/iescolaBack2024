@@ -60,6 +60,9 @@ export class Test {
   createdAt: Date
 
   @Column({ nullable: true })
+  endedAt: Date
+
+  @Column({ nullable: true })
   updatedAt: Date
 
   @Column({ nullable: true })

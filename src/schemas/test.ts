@@ -73,6 +73,9 @@ export const TEST_SCHEMA: Schema = {
     optional: true,
     escape: true,
   },
+  endedAt: {
+    optional: true
+  },
   active: {
     optional: true,
     escape: true,

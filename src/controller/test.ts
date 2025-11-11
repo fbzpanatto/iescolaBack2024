@@ -495,8 +495,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const test = await CONN.findOne(Test, { ...op })
         if(qUserTeacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
         if (!test) { return { status: 404, message: 'Data not found' } }
+
+        let formatedEndedAt;
+
+        if(test.endedAt) { formatedEndedAt = Helper.formatDateToDDMMYYYY(test.endedAt) }
+
         const testQuestions = await this.getTestQuestions(test.id, CONN)
-        return { status: 200, data: { ...test, testQuestions } };
+        return { status: 200, data: { ...test, endedAt: test.endedAt ? formatedEndedAt: test.endedAt , testQuestions } };
       })
     }
     catch (error: any) { return { status: 500, message: error.message } }
@@ -555,8 +560,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
           return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." };
         }
 
-        // Cria o teste
         const test = new Test();
+
+        if (body.endedAt && body.endedAt.length === 10) { test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(body.endedAt) }
+
         test.name = body.name;
         test.category = body.category as TestCategory;
         test.discipline = body.discipline as Discipline;
@@ -643,7 +650,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(uTeacher.person.id !== test.person.id && !masterUser)
           return { status: 403, message: "Você não tem permissão para editar esse teste." }
 
-        // Atualiza dados básicos do teste
+        if (req.body.endedAt && req.body.endedAt.length === 10) { test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt) }
+
         test.name = req.body.name
         test.active = req.body.active
         test.hideAnswers = req.body.hideAnswers

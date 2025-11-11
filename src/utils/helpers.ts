@@ -1129,4 +1129,31 @@ export class Helper {
       createdBy: string,
     }>
   }
+
+  static parseDDMMYYYYtoEndOfDayUTC(dateString: string): Date {
+    const [day, month, year] = dateString.split('/');
+
+    const numYear = Number(year);
+    const numMonth = Number(month); // O mês vem como 1-12
+    const numDay = Number(day);
+
+    // O construtor do Date.UTC espera o mês como 0-11, por isso "numMonth - 1"
+    return new Date(Date.UTC(numYear, numMonth - 1, numDay, 23, 59, 59));
+  }
+
+  static formatDateToDDMMYYYY(dateObject: Date): string {
+
+    // 1. Pega os componentes da data USANDO UTC
+    const day = dateObject.getUTCDate();
+    const month = dateObject.getUTCMonth() + 1; // +1 porque meses são 0-11
+    const year = dateObject.getUTCFullYear();
+
+    // 2. Formata para ter "0" à esquerda (ex: 01, 05, 10)
+    // O .padStart(2, '0') garante que o número tenha 2 dígitos
+    const dayString = String(day).padStart(2, '0');
+    const monthString = String(month).padStart(2, '0');
+
+    // 3. Monta a string final
+    return `${dayString}/${monthString}/${year}`;
+  }
 }

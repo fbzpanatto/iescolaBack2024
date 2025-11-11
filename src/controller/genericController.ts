@@ -177,9 +177,15 @@ export class GenericController<T> {
       }
 
       let existingStatusScIds = new Set<number>();
-      let existingAlphabeticStudentIds = new Set<number>();
       let studentsWhoCompletedTest = new Set<number>();
-      const alphabeticCategories = new Set([1, 2, 3]);
+
+      // ✅ VERIFICAR SE O TESTE ESTÁ ATIVO/ABERTO
+      const [testRows]: [any[], any] = await conn.query(
+        `SELECT id, active, endedAt FROM test WHERE id = ?`,
+        [test.id]
+      );
+      const currentTest = testRows[0];
+      const isTestActive = currentTest.active === 1 || (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
 
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
         const [completedTestRows]: [any[], any] = await conn.query(
@@ -196,20 +202,11 @@ export class GenericController<T> {
         studentsWhoCompletedTest = new Set(completedTestRows.map((row: any) => row.studentId));
       }
 
-      if (alphabeticCategories.has(test.category.id)) {
-        const [existingAlphabeticRows]: [any[], any] = await conn.query(
-          `SELECT studentId FROM alphabetic WHERE testId = ? AND studentId IN (?)`,
-          [test.id, studentIds]
-        );
-        existingAlphabeticStudentIds = new Set(existingAlphabeticRows.map((row: any) => row.studentId));
-      }
-      else {
-        const [existingStatusesRows]: [any[], any] = await conn.query(
-          `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?)`,
-          [test.id, studentClassroomIds]
-        );
-        existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
-      }
+      const [existingStatusesRows]: [any[], any] = await conn.query(
+        `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?)`,
+        [test.id, studentClassroomIds]
+      );
+      existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
 
       const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`
       const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
@@ -221,7 +218,7 @@ export class GenericController<T> {
         const [personsRows]: [any[], any] = await conn.query(
           `SELECT p.name, s.id as student_id
          FROM person p
-                  INNER JOIN student s ON s.personId = p.id
+         INNER JOIN student s ON s.personId = p.id
          WHERE s.id IN (?)`,
           [studentIds]
         );
@@ -230,7 +227,6 @@ export class GenericController<T> {
 
       const addedNames: string[] = [];
       const statusesToSave: any[] = [];
-      const alphabeticLinksToSave: any[] = [];
       const questionsToSave: any[] = [];
 
       for (const sC of stuClassrooms) {
@@ -242,68 +238,58 @@ export class GenericController<T> {
           continue;
         }
 
-        if (alphabeticCategories.has(test.category.id)) {
-          if (!existingAlphabeticStudentIds.has(studentId)) {
-            alphabeticLinksToSave.push([userId, studentId, test.id]);
-            existingAlphabeticStudentIds.add(studentId);
+        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
+          if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
+            if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
+            continue;
           }
         }
-        else {
-          if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-            if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
-              if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
-              continue;
+
+        // ✅ NOVA VERIFICAÇÃO: Só cria registros se teste ativo OU aluno já tem vínculo
+        const shouldCreateRecords = isTestActive || existingStatusScIds.has(studentClassroomId);
+
+        // ✅ Só cria student_test_status se teste ativo OU aluno já tinha
+        if (createStatus && !existingStatusScIds.has(studentClassroomId) && shouldCreateRecords) {
+          statusesToSave.push([true, test.id, studentClassroomId, '', userId]);
+          existingStatusScIds.add(studentClassroomId);
+        }
+
+        // ✅ Só cria student_question se teste ativo OU aluno já tinha vínculo
+        if (shouldCreateRecords) {
+          for (const tQ of testQuestions) {
+            const uniqueKey = `${studentId}-${tQ.id}`;
+            if (!questionKeys.has(uniqueKey)) {
+              questionsToSave.push(['', tQ.id, studentId, userId]);
+              questionKeys.add(uniqueKey);
             }
           }
-          if (createStatus && !existingStatusScIds.has(studentClassroomId)) {
-            statusesToSave.push([true, test.id, studentClassroomId, '', userId]);
-            existingStatusScIds.add(studentClassroomId);
-          }
         }
-
-        for (const tQ of testQuestions) {
-          const uniqueKey = `${studentId}-${tQ.id}`;
-          if (!questionKeys.has(uniqueKey)) {
-            questionsToSave.push(['', tQ.id, studentId, userId]);
-            questionKeys.add(uniqueKey);
-          }
-        }
-      }
-
-      if (alphabeticLinksToSave.length > 0) {
-        const alphabeticPlaceholders = alphabeticLinksToSave.map(() => '(NOW(), ?, ?, ?)').join(', ');
-        const alphabeticQuery = `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ${alphabeticPlaceholders}`;
-        const alphabeticFlatValues = alphabeticLinksToSave.flat();
-        await conn.query(alphabeticQuery, alphabeticFlatValues);
       }
 
       if (statusesToSave.length > 0) {
-
         const statusPlaceholders = statusesToSave.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
         const statusQuery = `
-          INSERT INTO student_test_status
-          (active, testId, studentClassroomId, observation, createdAt, createdByUser)
-          VALUES ${statusPlaceholders}
-          ON DUPLICATE KEY UPDATE
-                               updatedAt = NOW(),
-                               updatedByUser = VALUES(createdByUser)
+        INSERT INTO student_test_status
+        (active, testId, studentClassroomId, observation, createdAt, createdByUser)
+        VALUES ${statusPlaceholders}
+        ON DUPLICATE KEY UPDATE
+          updatedAt = NOW(),
+          updatedByUser = VALUES(createdByUser)
       `;
         const statusFlatValues = statusesToSave.flat();
         await conn.query(statusQuery, statusFlatValues);
       }
 
       if (questionsToSave.length > 0) {
-
         const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
-        const questionQuery =
-          `
-          INSERT INTO student_question 
-          (answer, testQuestionId, studentId, createdAt, createdByUser)
-          VALUES ${questionPlaceholders}
-          ON DUPLICATE KEY UPDATE
-                               updatedAt = NOW(),
-                               updatedByUser = VALUES(createdByUser)
-        `;
+        const questionQuery = `
+        INSERT INTO student_question 
+        (answer, testQuestionId, studentId, createdAt, createdByUser)
+        VALUES ${questionPlaceholders}
+        ON DUPLICATE KEY UPDATE
+          updatedAt = NOW(),
+          updatedByUser = VALUES(createdByUser)
+      `;
         const questionFlatValues = questionsToSave.flat();
         await conn.query(questionQuery, questionFlatValues);
       }
@@ -312,8 +298,14 @@ export class GenericController<T> {
 
       return addNames ? addedNames.filter(name => name) : undefined;
     }
-    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) {
+      if(conn){ await conn.rollback() }
+      console.error(error);
+      throw error;
+    }
+    finally {
+      if (conn) { conn.release() }
+    }
   }
 
   async getStudentsQuestionsSql(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, studentClassroomId: number | null) {
@@ -531,6 +523,7 @@ export class GenericController<T> {
         
       FROM student_classroom as studentClassroom
       
+      INNER JOIN test tt ON tt.id = ?
       LEFT JOIN year ON year.id = studentClassroom.yearId
       LEFT JOIN student ON student.id = studentClassroom.studentId
       LEFT JOIN person ON person.id = student.personId
@@ -556,9 +549,11 @@ export class GenericController<T> {
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
         AND year.name = ?
         AND (
-          studentClassroom.startedAt <= ?
+          (studentClassroom.startedAt <= tt.createdAt
+           AND (studentClassroom.endedAt IS NULL OR studentClassroom.endedAt >= tt.createdAt))
           OR
-          (studentClassroom.endedAt IS NULL AND sts.id IS NULL)
+          ((tt.active = 1 OR NOW() <= tt.endedAt)
+           AND studentClassroom.endedAt IS NULL)
           OR
           sts.id IS NOT NULL
         )
@@ -581,23 +576,22 @@ export class GenericController<T> {
         )
     `;
 
-      const params: any[] = [test.id, test.id, classroomId];
+      const params: any[] = [test.id, test.id, test.id, classroomId];
 
-      if (studentClassroomId) { params.push(studentClassroomId) }
+      if (studentClassroomId) { params.push(studentClassroomId); }
 
       params.push(
         yearName,
-        test.createdAt,
         test.id,
         classroomId
       );
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.readingFluency(rows as Array<{[key:string]:any}>)
+      return Helper.readingFluency(rows as Array<{[key:string]:any}>);
     }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) { console.error(error); throw error; }
+    finally { if (conn) { conn.release(); } }
   }
 
   async updateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
@@ -739,6 +733,7 @@ export class GenericController<T> {
         
       FROM student_classroom as studentClassroom
       
+      INNER JOIN test tt ON tt.id = ?
       LEFT JOIN student ON student.id = studentClassroom.studentId
       LEFT JOIN year ON year.id = studentClassroom.yearId
       LEFT JOIN person ON person.id = student.personId
@@ -778,9 +773,11 @@ export class GenericController<T> {
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
         AND year.name = ?
         AND (
-          studentClassroom.startedAt <= ?
+          (studentClassroom.startedAt <= tt.createdAt
+           AND (studentClassroom.endedAt IS NULL OR studentClassroom.endedAt >= tt.createdAt))
           OR
-          (studentClassroom.endedAt IS NULL AND studentStatus.id IS NULL)
+          ((tt.active = 1 OR NOW() <= tt.endedAt)
+           AND studentClassroom.endedAt IS NULL)
           OR
           studentStatus.id IS NOT NULL
         )
@@ -807,23 +804,22 @@ export class GenericController<T> {
         person.name ASC
     `;
 
-      const params: any[] = [test.id, test.id, classroomId];
+      const params: any[] = [test.id, test.id, test.id, classroomId];
 
-      if (studentClassroomId) { params.push(studentClassroomId) }
+      if (studentClassroomId) { params.push(studentClassroomId); }
 
       params.push(
         yearName,
-        test.createdAt,
         test.id,
         classroomId
       );
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.readingFluencyStudents(rows as Array<{[key:string]:any}>, test)
+      return Helper.readingFluencyStudents(rows as Array<{[key:string]:any}>, test);
     }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) { console.error(error); throw error; }
+    finally { if (conn) { conn.release(); } }
   }
 
   async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, classroomId: number, yearName: string) {

@@ -618,12 +618,15 @@ export class GenericController<T> {
           (SELECT COUNT(*) 
            FROM student_question sq
            INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+           INNER JOIN test tt ON tq.testId = tt.id 
            WHERE sq.studentId = sc_current.studentId
              AND tq.testId = ?
+             AND tt.active = 1
              AND sq.answer IS NOT NULL
              AND sq.answer != ''
           ) AS has_any_answers
       FROM student_test_status sts
+      INNER JOIN test tt ON sts.testId = tt.id
       INNER JOIN student_classroom sc_current 
         ON sts.studentClassroomId = sc_current.id
       INNER JOIN year y_current 
@@ -634,6 +637,7 @@ export class GenericController<T> {
       INNER JOIN year y_active 
         ON sc_active.yearId = y_active.id
       WHERE sts.testId = ?
+        AND tt.active = 1
         AND y_current.name = ?
         AND y_active.name = ?
         AND (
@@ -643,14 +647,7 @@ export class GenericController<T> {
         AND sts.studentClassroomId != sc_active.id
     `;
 
-      const [results] = await conn.query(query, [
-        testId,
-        testId,
-        yearName,
-        yearName,
-        classroomId,
-        classroomId
-      ]) as [any[], any];
+      const [results] = await conn.query(query, [testId, testId, yearName, yearName, classroomId, classroomId]) as [any[], any];
 
       for (const row of results) {
         const hasAnyAnswers = row.has_any_answers > 0;
@@ -2030,12 +2027,15 @@ export class GenericController<T> {
           sc_active.classroomId AS active_classroom_id,
           (SELECT COUNT(*) 
            FROM reading_fluency rf
+           INNER JOIN test tt ON rf.testId = tt.id
            WHERE rf.studentId = sc_current.studentId
              AND rf.testId = ?
+             AND tt.active = 1
              AND rf.rClassroomId IS NOT NULL
              AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
           ) AS has_any_data
       FROM student_test_status sts
+      INNER JOIN test tt ON sts.testId = tt.id
       INNER JOIN student_classroom sc_current 
         ON sts.studentClassroomId = sc_current.id
       INNER JOIN year y_current 
@@ -2046,6 +2046,7 @@ export class GenericController<T> {
       INNER JOIN year y_active 
         ON sc_active.yearId = y_active.id
       WHERE sts.testId = ?
+        AND tt.active = 1
         AND y_current.name = ?
         AND y_active.name = ?
         AND (

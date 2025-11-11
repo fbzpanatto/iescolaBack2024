@@ -169,41 +169,34 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
 
-        await this.cleanupOrphanedReadingFluencyRecords(testId, classroomId, test.period.year.name);
+        await this.updateReadingFluencyStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
         const headers = await this.qReadingFluencyHeaders()
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
         const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
 
-        const linking = await this.linkReadingSql(headers, preStudents, test, tUser?.userId as number, classroomId, test.period.year.name)
+        await this.linkReadingSql(headers, preStudents, test, tUser?.userId as number, classroomId, test.period.year.name)
 
         let studentClassrooms = await this.getReadingFluencyStudentsSql(test, classroomId, test.period.year.name, isNaN(scId) ? null : Number(scId))
 
         studentClassrooms = await this.qStudentDisabilities(studentClassrooms) as unknown as StudentClassroom[]
 
         studentClassrooms = studentClassrooms.map((item: any) => {
-
           item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
-            if(item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-
-            if(!item.endedAt && rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
-
-            if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
+            if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) {
+              return { ...rF, gray: true }
+            }
             return rF
           })
-
           return item
         })
 
         const totalNuColumn = []
-
         const allFluencies = studentClassrooms.filter((el: any) => !el.ignore).flatMap((el: any) => el.student.readingFluency)
-
         const percentColumn = headers.reduce((acc, prev) => { const key = prev.readingFluencyExamId; if(!acc[key]) { acc[key] = 0 } return acc }, {} as any)
 
         for(let header of headers) {
-
           const el = allFluencies.filter((el: any) => {
             const sameClassroom = el.rClassroom?.id === classroomId
             const sameReadFluencyId = el.readingFluencyExam.id === header.readingFluencyExamId

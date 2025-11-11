@@ -639,9 +639,17 @@ export class GenericController<T> {
           OR sc_current.classroomId = ?
         )
         AND sts.studentClassroomId != sc_active.id
+      FOR UPDATE  -- 🔒 LOCK PESSIMISTA
     `;
 
-      const [results] = await conn.query(query, [testId, testId, yearName, yearName, classroomId, classroomId]) as [any[], any];
+      const [results] = await conn.query(query, [
+        testId,
+        testId,
+        yearName,
+        yearName,
+        classroomId,
+        classroomId
+      ]) as [any[], any];
 
       for (const row of results) {
         const hasAnyAnswers = row.has_any_answers > 0;
@@ -658,8 +666,13 @@ export class GenericController<T> {
 
       await conn.commit();
     }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
+    catch (error) {
+      if (conn) await conn.rollback();
+      throw error;
+    }
+    finally {
+      if (conn) conn.release();
+    }
   }
 
   async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
@@ -833,6 +846,14 @@ export class GenericController<T> {
 
       const studentIds = studentClassrooms.map(row => row?.student?.id ?? row?.student_id);
 
+      // ✅ ADICIONAR: Verificar se teste está ativo/aberto
+      const [testRows]: [any[], any] = await conn.query(
+        `SELECT id, active, endedAt FROM test WHERE id = ?`,
+        [test.id]
+      );
+      const currentTest = testRows[0];
+      const isTestActive = currentTest.active === 1 || (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
+
       const checkAllExistingQuery = `
       SELECT 
         sts.id, 
@@ -851,6 +872,7 @@ export class GenericController<T> {
       INNER JOIN student_classroom sc_sts ON sts.studentClassroomId = sc_sts.id
       WHERE sts.testId = ?
         AND sc_sts.studentId IN (?)
+      FOR UPDATE
     `;
 
       const [allExisting] = await conn.query(checkAllExistingQuery, [test.id, test.id, studentIds]) as any[];
@@ -873,6 +895,9 @@ export class GenericController<T> {
         const inOtherRoom = existingForStudent.find((e: any) => e.classroomId !== classroomId);
         const inCurrentRoom = existingForStudent.find((e: any) => e.classroomId === classroomId);
 
+        // ✅ ADICIONAR: Verificar se deve criar registros
+        const shouldCreateRecords = isTestActive || inCurrentRoom;
+
         if (inOtherRoom) {
           const hasReadingFluencyFilled = inOtherRoom.has_reading_fluency_filled > 0;
 
@@ -884,16 +909,19 @@ export class GenericController<T> {
           }
         }
 
-        if (!inCurrentRoom) { toInsert.push({ testId: test.id, studentClassroomId }) }
+        // ✅ MODIFICAR: Só insere se teste ativo ou aluno já tem vínculo
+        if (!inCurrentRoom && shouldCreateRecords) {
+          toInsert.push({ testId: test.id, studentClassroomId })
+        }
       }
 
-      if (toDelete.length > 0) { await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [toDelete]) }
+      if (toDelete.length > 0) {
+        await conn.query(`DELETE FROM student_test_status WHERE id IN (?)`, [toDelete])
+      }
 
       if (toUpdate.length > 0) {
         const updateCases = toUpdate.map(u => `WHEN id = ${u.id} THEN ${u.newStudentClassroomId}`).join(' ');
-
         const updateIds = toUpdate.map(u => u.id);
-
         const query = `UPDATE student_test_status SET studentClassroomId = CASE ${updateCases} END, updatedAt = NOW(), updatedByUser = ? WHERE id IN (?)`
         await conn.query(query, [userId, updateIds]);
       }
@@ -914,31 +942,45 @@ export class GenericController<T> {
       const readingFluencyValues: any[] = [];
       const readingFluencyParams: any[] = [];
 
+      // ✅ MODIFICAR: Só cria reading_fluency se teste ativo ou aluno já tem vínculo
       for (let row of studentClassrooms) {
         const studentId = row?.student?.id ?? row?.student_id;
+        const studentClassroomId = row.id;
 
-        for (let exam of headers) {
-          readingFluencyValues.push('(?, ?, ?, NOW(), ?)');
-          readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, userId);
+        const existingForStudent = existingByStudent[studentId] || [];
+        const inCurrentRoom = existingForStudent.find((e: any) => e.classroomId === classroomId);
+
+        const shouldCreateRecords = isTestActive || inCurrentRoom;
+
+        if (shouldCreateRecords) {
+          for (let exam of headers) {
+            readingFluencyValues.push('(?, ?, ?, NOW(), ?)');
+            readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, userId);
+          }
         }
       }
 
       if (readingFluencyValues.length > 0) {
         await conn.query(
           `INSERT INTO reading_fluency
-             (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
+           (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
          VALUES ${readingFluencyValues.join(', ')}
          ON DUPLICATE KEY UPDATE
-                              updatedAt = NOW(),
-                              updatedByUser = VALUES(createdByUser)`,
+           updatedAt = NOW(),
+           updatedByUser = VALUES(createdByUser)`,
           readingFluencyParams
         );
       }
 
       await conn.commit();
     }
-    catch (error) { if (conn) { await conn.rollback() }throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) {
+      if (conn) { await conn.rollback() }
+      throw error;
+    }
+    finally {
+      if (conn) { conn.release() }
+    }
   }
 
   async qNewTraining(yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string) {
@@ -2050,6 +2092,7 @@ export class GenericController<T> {
           OR sc_current.classroomId = ?
         )
         AND sts.studentClassroomId != sc_active.id
+      FOR UPDATE  -- 🔒 LOCK PESSIMISTA
     `;
 
       const [results] = await conn.query(query, [
@@ -2076,8 +2119,13 @@ export class GenericController<T> {
 
       await conn.commit();
     }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
+    catch (error) {
+      if (conn) await conn.rollback();
+      throw error;
+    }
+    finally {
+      if (conn) conn.release();
+    }
   }
 
   async qReadingFluencyHeaders() {

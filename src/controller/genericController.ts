@@ -175,7 +175,7 @@ export class GenericController<T> {
 
       const [testRows]: [any[], any] = await conn.query(`SELECT id, active, endedAt FROM test WHERE id = ?`, [test.id]);
       const currentTest = testRows[0];
-      const isTestActive = currentTest.active === 1 || (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
+      const isTestActive = currentTest.active === 1 && (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
 
       if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
         const [completedTestRows]: [any[], any] = await conn.query(
@@ -566,7 +566,7 @@ export class GenericController<T> {
            INNER JOIN test tt ON tq.testId = tt.id 
            WHERE sq.studentId = sc_current.studentId
              AND tq.testId = ?
-             AND (tt.active = 1 OR NOW() <= tt.endedAt)
+             AND (tt.active = 1 AND NOW() <= tt.endedAt)
              AND sq.answer IS NOT NULL
              AND sq.answer != ''
           ) AS has_any_answers
@@ -582,7 +582,7 @@ export class GenericController<T> {
       INNER JOIN year y_active 
         ON sc_active.yearId = y_active.id
       WHERE sts.testId = ?
-        AND (tt.active = 1 OR NOW() <= tt.endedAt)
+        AND (tt.active = 1 AND NOW() <= tt.endedAt)
         AND y_current.name = ?
         AND y_active.name = ?
         AND (sc_active.classroomId = ? OR sc_current.classroomId = ?)
@@ -784,7 +784,7 @@ export class GenericController<T> {
         [test.id]
       );
       const currentTest = testRows[0];
-      const isTestActive = currentTest.active === 1 || (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
+      const isTestActive = currentTest.active === 1 && (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
 
       const checkAllExistingQuery = `
       SELECT 
@@ -1997,7 +1997,7 @@ export class GenericController<T> {
            INNER JOIN test tt ON rf.testId = tt.id
            WHERE rf.studentId = sc_current.studentId
              AND rf.testId = ?
-             AND (tt.active = 1 OR NOW() <= tt.endedAt)
+             AND (tt.active = 1 AND NOW() <= tt.endedAt)
              AND rf.rClassroomId IS NOT NULL
              AND (rf.readingFluencyExamId IS NOT NULL OR rf.readingFluencyLevelId IS NOT NULL)
           ) AS has_any_data
@@ -2013,7 +2013,7 @@ export class GenericController<T> {
       INNER JOIN year y_active 
         ON sc_active.yearId = y_active.id
       WHERE sts.testId = ?
-        AND (tt.active = 1 OR NOW() <= tt.endedAt)
+        AND (tt.active = 1 AND NOW() <= tt.endedAt)
         AND y_current.name = ?
         AND y_active.name = ?
         AND (

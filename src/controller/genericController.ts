@@ -156,34 +156,24 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number, addNames: boolean = false): Promise<string[] | void> {
+  async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number): Promise<string[] | void> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      if (!stuClassrooms || stuClassrooms.length === 0) {
-        await conn.commit();
-        return addNames ? [] : undefined;
-      }
+      if (!stuClassrooms || stuClassrooms.length === 0) { await conn.commit(); return }
 
       const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
       const studentClassroomIds = stuClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
       const testQuestionIds = testQuestions.map(tq => tq.id);
 
-      if (studentIds.length === 0 || testQuestionIds.length === 0) {
-        await conn.commit();
-        return addNames ? [] : undefined;
-      }
+      if (studentIds.length === 0 || testQuestionIds.length === 0) { await conn.commit(); return }
 
       let existingStatusScIds = new Set<number>();
       let studentsWhoCompletedTest = new Set<number>();
 
-      // ✅ VERIFICAR SE O TESTE ESTÁ ATIVO/ABERTO
-      const [testRows]: [any[], any] = await conn.query(
-        `SELECT id, active, endedAt FROM test WHERE id = ?`,
-        [test.id]
-      );
+      const [testRows]: [any[], any] = await conn.query(`SELECT id, active, endedAt FROM test WHERE id = ?`, [test.id]);
       const currentTest = testRows[0];
       const isTestActive = currentTest.active === 1 || (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
 
@@ -212,20 +202,6 @@ export class GenericController<T> {
       const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
       const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
 
-      let personNamesMap = new Map<number, string>();
-
-      if (addNames) {
-        const [personsRows]: [any[], any] = await conn.query(
-          `SELECT p.name, s.id as student_id
-         FROM person p
-         INNER JOIN student s ON s.personId = p.id
-         WHERE s.id IN (?)`,
-          [studentIds]
-        );
-        personsRows.forEach((row: any) => personNamesMap.set(row.student_id, row.name));
-      }
-
-      const addedNames: string[] = [];
       const statusesToSave: any[] = [];
       const questionsToSave: any[] = [];
 
@@ -233,17 +209,9 @@ export class GenericController<T> {
         const studentId = sC.student?.id ?? sC.student_id;
         const studentClassroomId = sC.student_classroom_id ?? sC.id;
 
-        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) {
-          if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
-          continue;
-        }
+        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) { continue }
 
-        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-          if (sC.endedAt != null || existingStatusScIds.has(studentClassroomId)) {
-            if (addNames) addedNames.push(personNamesMap.get(studentId) || '');
-            continue;
-          }
-        }
+        if ((test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) && (sC.endedAt != null || existingStatusScIds.has(studentClassroomId))) { continue }
 
         // ✅ NOVA VERIFICAÇÃO: Só cria registros se teste ativo OU aluno já tem vínculo
         const shouldCreateRecords = isTestActive || existingStatusScIds.has(studentClassroomId);
@@ -258,24 +226,22 @@ export class GenericController<T> {
         if (shouldCreateRecords) {
           for (const tQ of testQuestions) {
             const uniqueKey = `${studentId}-${tQ.id}`;
-            if (!questionKeys.has(uniqueKey)) {
-              questionsToSave.push(['', tQ.id, studentId, userId]);
-              questionKeys.add(uniqueKey);
-            }
+            if (!questionKeys.has(uniqueKey)) { questionsToSave.push(['', tQ.id, studentId, userId]); questionKeys.add(uniqueKey) }
           }
         }
       }
 
       if (statusesToSave.length > 0) {
         const statusPlaceholders = statusesToSave.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
-        const statusQuery = `
-        INSERT INTO student_test_status
-        (active, testId, studentClassroomId, observation, createdAt, createdByUser)
-        VALUES ${statusPlaceholders}
-        ON DUPLICATE KEY UPDATE
-          updatedAt = NOW(),
-          updatedByUser = VALUES(createdByUser)
-      `;
+        const statusQuery =
+          `
+            INSERT INTO student_test_status
+            (active, testId, studentClassroomId, observation, createdAt, createdByUser)
+            VALUES ${statusPlaceholders}
+            ON DUPLICATE KEY UPDATE
+              updatedAt = NOW(),
+              updatedByUser = VALUES(createdByUser)
+          `;
         const statusFlatValues = statusesToSave.flat();
         await conn.query(statusQuery, statusFlatValues);
       }
@@ -295,17 +261,9 @@ export class GenericController<T> {
       }
 
       await conn.commit();
-
-      return addNames ? addedNames.filter(name => name) : undefined;
     }
-    catch (error) {
-      if(conn){ await conn.rollback() }
-      console.error(error);
-      throw error;
-    }
-    finally {
-      if (conn) { conn.release() }
-    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error; }
+    finally { if (conn) { conn.release() } }
   }
 
   async getStudentsQuestionsSql(test: Test, testQuestions: TestQuestion[], classroomId: number, yearName: string, studentClassroomId: number | null) {
@@ -464,14 +422,7 @@ export class GenericController<T> {
 
       if (test.category.id === TEST_CATEGORIES_IDS.AVL_ITA) { params.push(true) }
 
-      params.push(
-        test.createdAt,
-        test.id,
-        classroomId,
-        test.id,
-        yearName,
-        test.period.id
-      );
+      params.push(test.createdAt, test.id, classroomId, test.id, yearName, test.period.id);
 
       const [rows] = await conn.query(query, params);
 
@@ -634,45 +585,26 @@ export class GenericController<T> {
         AND (tt.active = 1 OR NOW() <= tt.endedAt)
         AND y_current.name = ?
         AND y_active.name = ?
-        AND (
-          sc_active.classroomId = ?
-          OR sc_current.classroomId = ?
-        )
+        AND (sc_active.classroomId = ? OR sc_current.classroomId = ?)
         AND sts.studentClassroomId != sc_active.id
       FOR UPDATE  -- 🔒 LOCK PESSIMISTA
     `;
 
-      const [results] = await conn.query(query, [
-        testId,
-        testId,
-        yearName,
-        yearName,
-        classroomId,
-        classroomId
-      ]) as [any[], any];
+      const [results] = await conn.query(query, [testId, testId, yearName, yearName, classroomId, classroomId]) as [any[], any];
 
       for (const row of results) {
         const hasAnyAnswers = row.has_any_answers > 0;
 
         if (!hasAnyAnswers) {
-          await conn.query(
-            `UPDATE student_test_status
-           SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
-           WHERE id = ?`,
-            [row.active_sc_id, userId, row.sts_id]
-          );
+          const query = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`
+          await conn.query(query, [row.active_sc_id, userId, row.sts_id]);
         }
       }
 
       await conn.commit();
     }
-    catch (error) {
-      if (conn) await conn.rollback();
-      throw error;
-    }
-    finally {
-      if (conn) conn.release();
-    }
+    catch (error) { if (conn) await conn.rollback(); throw error }
+    finally { if (conn) conn.release() }
   }
 
   async getReadingFluencyStudentsSql(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
@@ -1963,31 +1895,22 @@ export class GenericController<T> {
         ORDER BY sc.rosterNumber
       `;
 
-        const [queryResult] = await conn.query(query, [
-          test.id,
-          classroomId,
-          yearName,
-          studentClassroomId,
-          test.createdAt,
-          test.id,
-          classroomId
-        ]);
+        const [queryResult] = await conn.query(query, [test.id, classroomId, yearName, studentClassroomId, test.createdAt, test.id, classroomId]);
         responseQuery = queryResult as qStudentsClassroomsForTest[];
         return responseQuery
       }
 
       const query = `
-      SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-             s.id AS student_id,
-             sts.id AS student_classroom_test_status_id,
-             person.name
+      SELECT 
+        sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+        s.id AS student_id,
+        sts.id AS student_classroom_test_status_id,
+        person.name
       FROM student_classroom AS sc
-      INNER JOIN year AS y ON sc.yearId = y.id
-      INNER JOIN student AS s ON sc.studentId = s.id
-      INNER JOIN person ON s.personId = person.id
-      LEFT JOIN student_test_status AS sts
-        ON sc.id = sts.studentClassroomId
-        AND sts.testId = ?
+        INNER JOIN year AS y ON sc.yearId = y.id
+        INNER JOIN student AS s ON sc.studentId = s.id
+        INNER JOIN person ON s.personId = person.id
+        LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
       WHERE sc.classroomId = ?
         AND y.name = ?
         AND (
@@ -2004,21 +1927,12 @@ export class GenericController<T> {
           SELECT 1
           FROM student_test_status sts_other
           INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
-          WHERE sts_other.testId = ?
-            AND sc_other.studentId = s.id
-            AND sc_other.classroomId != ?
+          WHERE sts_other.testId = ? AND sc_other.studentId = s.id AND sc_other.classroomId != ?
         )
       ORDER BY sc.rosterNumber
     `;
 
-      const [queryResult] = await conn.query(query, [
-        test.id,
-        classroomId,
-        yearName,
-        test.createdAt,
-        test.id,
-        classroomId
-      ]);
+      const [queryResult] = await conn.query(query, [test.id, classroomId, yearName, test.createdAt, test.id, classroomId]);
       responseQuery = queryResult as qStudentsClassroomsForTest[];
       return responseQuery
     }

@@ -193,12 +193,12 @@ export class GenericController<T> {
       }
 
       const [existingStatusesRows]: [any[], any] = await conn.query(
-        `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?)`,
+        `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?) FOR UPDATE`,
         [test.id, studentClassroomIds]
       );
       existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
 
-      const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`
+      const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?) FOR UPDATE`
       const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
       const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
 

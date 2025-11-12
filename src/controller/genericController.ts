@@ -819,11 +819,7 @@ export class GenericController<T> {
       ) as any[];
 
       // Criar Set para verificação rápida de duplicatas
-      const existingRFKeys = new Set(
-        existingReadingFluency.map((row: any) =>
-          `${row.studentId}-${row.readingFluencyExamId}`
-        )
-      );
+      const existingRFKeys = new Set(existingReadingFluency.map((row: any) => `${row.studentId}-${row.readingFluencyExamId}`));
 
       const existingByStudent = allExisting.reduce((acc: any, item: any) => {
         if (!acc[item.studentId]) acc[item.studentId] = [];
@@ -858,9 +854,7 @@ export class GenericController<T> {
         }
 
         // ✅ Só insere se teste ativo ou aluno já tem vínculo
-        if (!inCurrentRoom && shouldCreateRecords) {
-          toInsert.push({ testId: test.id, studentClassroomId })
-        }
+        if (!inCurrentRoom && shouldCreateRecords) { toInsert.push({ testId: test.id, studentClassroomId }) }
       }
 
       if (toDelete.length > 0) {

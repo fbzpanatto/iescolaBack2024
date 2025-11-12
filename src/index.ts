@@ -4,8 +4,10 @@ dotenv.config();
 import express, { Application, Router } from "express";
 import helmet from "helmet";
 import cors from "cors";
-
+import * as schedule from 'node-schedule';
 import authorization from "./middleware/authorization";
+
+import { Schedulers } from "./utils/schedulers";
 
 import { AppDataSource } from "./data-source";
 import { BimesterRouter } from "./routes/bimester";
@@ -83,7 +85,28 @@ app.use(route);
 AppDataSource.initialize()
   .then(() => {
     app.listen(process.env.SERVER_PORT, () => {
+
       console.log("Server running at PORT:", process.env.SERVER_PORT)
+
+      schedule.scheduleJob('0 5 * * *', async () => {
+        try { await Schedulers.closeExpiredTests() }
+        catch (error) { console.error(`[${new Date().toISOString()}] Falha no processo automático:`, error) }
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔧 Modo desenvolvimento: Agendamento de teste ativado (a cada minuto)');
+
+        schedule.scheduleJob('* * * * *', async () => {
+          console.log(`[DEV] Verificando testes expirados...`);
+          const count = await Schedulers.closeExpiredTests();
+          if (count > 0) { console.log(`[DEV] ${count} teste(s) encerrado(s)`) }
+        });
+      }
     })
   })
   .catch((err) => { console.log('err', err) });
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM recebido. Encerrando agendamentos...');
+  schedule.gracefulShutdown().then(() => process.exit(0));
+});

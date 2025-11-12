@@ -778,7 +778,7 @@ export class GenericController<T> {
 
       const studentIds = studentClassrooms.map(row => row?.student?.id ?? row?.student_id);
 
-      // ✅ ADICIONAR: Verificar se teste está ativo/aberto
+      // ✅ Verificar se teste está ativo/aberto
       const [testRows]: [any[], any] = await conn.query(
         `SELECT id, active, endedAt FROM test WHERE id = ?`,
         [test.id]
@@ -809,6 +809,22 @@ export class GenericController<T> {
 
       const [allExisting] = await conn.query(checkAllExistingQuery, [test.id, test.id, studentIds]) as any[];
 
+      // 🔒 NOVA ADIÇÃO: Lock em reading_fluency existentes
+      const [existingReadingFluency] = await conn.query(
+        `SELECT studentId, readingFluencyExamId, testId 
+       FROM reading_fluency 
+       WHERE testId = ? AND studentId IN (?)
+       FOR UPDATE`,
+        [test.id, studentIds]
+      ) as any[];
+
+      // Criar Set para verificação rápida de duplicatas
+      const existingRFKeys = new Set(
+        existingReadingFluency.map((row: any) =>
+          `${row.studentId}-${row.readingFluencyExamId}`
+        )
+      );
+
       const existingByStudent = allExisting.reduce((acc: any, item: any) => {
         if (!acc[item.studentId]) acc[item.studentId] = [];
         acc[item.studentId].push(item);
@@ -827,7 +843,7 @@ export class GenericController<T> {
         const inOtherRoom = existingForStudent.find((e: any) => e.classroomId !== classroomId);
         const inCurrentRoom = existingForStudent.find((e: any) => e.classroomId === classroomId);
 
-        // ✅ ADICIONAR: Verificar se deve criar registros
+        // ✅ Verificar se deve criar registros
         const shouldCreateRecords = isTestActive || inCurrentRoom;
 
         if (inOtherRoom) {
@@ -841,7 +857,7 @@ export class GenericController<T> {
           }
         }
 
-        // ✅ MODIFICAR: Só insere se teste ativo ou aluno já tem vínculo
+        // ✅ Só insere se teste ativo ou aluno já tem vínculo
         if (!inCurrentRoom && shouldCreateRecords) {
           toInsert.push({ testId: test.id, studentClassroomId })
         }
@@ -874,7 +890,7 @@ export class GenericController<T> {
       const readingFluencyValues: any[] = [];
       const readingFluencyParams: any[] = [];
 
-      // ✅ MODIFICAR: Só cria reading_fluency se teste ativo ou aluno já tem vínculo
+      // ✅ Criar reading_fluency com verificação de duplicatas
       for (let row of studentClassrooms) {
         const studentId = row?.student?.id ?? row?.student_id;
         const studentClassroomId = row.id;
@@ -886,8 +902,13 @@ export class GenericController<T> {
 
         if (shouldCreateRecords) {
           for (let exam of headers) {
-            readingFluencyValues.push('(?, ?, ?, NOW(), ?)');
-            readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, userId);
+            // 🔒 NOVA VERIFICAÇÃO: Evita duplicatas usando o Set
+            const rfKey = `${studentId}-${exam.readingFluencyExamId}`;
+            if (!existingRFKeys.has(rfKey)) {
+              readingFluencyValues.push('(?, ?, ?, NOW(), ?)');
+              readingFluencyParams.push(exam.readingFluencyExamId, test.id, studentId, userId);
+              existingRFKeys.add(rfKey); // Adiciona ao Set para evitar duplicatas no batch
+            }
           }
         }
       }
@@ -895,7 +916,7 @@ export class GenericController<T> {
       if (readingFluencyValues.length > 0) {
         await conn.query(
           `INSERT INTO reading_fluency
-           (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
+         (readingFluencyExamId, testId, studentId, createdAt, createdByUser)
          VALUES ${readingFluencyValues.join(', ')}
          ON DUPLICATE KEY UPDATE
            updatedAt = NOW(),

@@ -4,6 +4,7 @@ import { Classroom } from "./Classroom";
 import { Student } from "./Student";
 
 @Index(["testQuestion", "student"], { unique: true })
+@Index("idx_student_testquestion", ["student", "testQuestion"])
 @Entity()
 export class StudentQuestion {
 

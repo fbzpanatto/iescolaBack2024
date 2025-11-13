@@ -554,33 +554,28 @@ export class GenericController<T> {
 
       const query = `
       SELECT
-          sts.id AS sts_id,
-          sts.studentClassroomId AS current_sc_id,
-          sc_current.studentId,
-          sc_current.classroomId AS current_classroom_id,
-          sc_active.id AS active_sc_id,
-          sc_active.classroomId AS active_classroom_id,
-          (SELECT COUNT(*) 
-           FROM student_question sq
-           INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-           INNER JOIN test tt ON tq.testId = tt.id 
-           WHERE sq.studentId = sc_current.studentId
-             AND tq.testId = ?
-             AND (tt.active = 1 AND NOW() <= tt.endedAt)
-             AND sq.answer IS NOT NULL
-             AND sq.answer != ''
-          ) AS has_any_answers
+        sts.id AS sts_id,
+        sts.studentClassroomId AS current_sc_id,
+        sc_current.studentId,
+        sc_current.classroomId AS current_classroom_id,
+        sc_active.id AS active_sc_id,
+        sc_active.classroomId AS active_classroom_id,
+        (SELECT COUNT(*) 
+         FROM student_question sq
+         INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+         INNER JOIN test tt ON tq.testId = tt.id 
+         WHERE sq.studentId = sc_current.studentId
+           AND tq.testId = ?
+           AND (tt.active = 1 AND NOW() <= tt.endedAt)
+           AND sq.answer IS NOT NULL
+           AND sq.answer != ''
+        ) AS has_any_answers
       FROM student_test_status sts
       INNER JOIN test tt ON sts.testId = tt.id
-      INNER JOIN student_classroom sc_current 
-        ON sts.studentClassroomId = sc_current.id
-      INNER JOIN year y_current 
-        ON sc_current.yearId = y_current.id
-      INNER JOIN student_classroom sc_active 
-        ON sc_current.studentId = sc_active.studentId
-        AND sc_active.endedAt IS NULL
-      INNER JOIN year y_active 
-        ON sc_active.yearId = y_active.id
+      INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
+      INNER JOIN year y_current ON sc_current.yearId = y_current.id
+      INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
+      INNER JOIN year y_active ON sc_active.yearId = y_active.id
       WHERE sts.testId = ?
         AND (tt.active = 1 AND NOW() <= tt.endedAt)
         AND y_current.name = ?

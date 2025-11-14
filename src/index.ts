@@ -88,7 +88,6 @@ function startSchedulers() {
     try {
       const result = await Schedulers.closeExpiredTests();
       if (result > 0) { console.log(`[${new Date().toISOString()}] ✅ ${ result } teste(s) encerrado(s)`) }
-      else { console.log(`[${new Date().toISOString()}] Nenhum teste expirado`) }
     }
     catch (error) { console.error(`[${new Date().toISOString()}] ❌ Erro ao encerrar testes:`, error) }
   })

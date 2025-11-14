@@ -9,17 +9,13 @@ export class Schedulers {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const [result] = await conn.query(
-        `UPDATE test 
-       SET active = 0,
-           updatedAt = NOW(),
-           updatedByUser = 1
-       WHERE active = 1 
-         AND endedAt IS NOT NULL
-         AND endedAt <= NOW()`
-      ) as any;
+      const query = `
+        UPDATE test
+        SET active = 0, updatedAt = NOW(), updatedByUser = 1
+        WHERE active = 1 AND endedAt IS NOT NULL AND endedAt <= NOW()
+      `
 
-      if (result.affectedRows > 0) { console.log(`[${new Date().toISOString()}] Testes encerrados automaticamente: ${result.affectedRows}`);}
+      const [result] = await conn.query(query) as any;
 
       await conn.commit();
       return result.affectedRows;

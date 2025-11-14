@@ -4,7 +4,6 @@ dotenv.config();
 import express, { Application, Router } from "express";
 import helmet from "helmet";
 import cors from "cors";
-import * as schedule from 'node-schedule';
 import authorization from "./middleware/authorization";
 
 import { Schedulers } from "./utils/schedulers";
@@ -42,6 +41,7 @@ import { StudentTestRouter } from "./routes/studentTest";
 const app: Application = express();
 const route = Router();
 const PORT = process.env.SERVER_PORT;
+const schedulers = new Schedulers();
 
 app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
 
@@ -83,19 +83,14 @@ route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 
-function startSchedulers() {
-  schedule.scheduleJob('0 5 * * *', async () => {
-    try {
-      const result = await Schedulers.closeExpiredTests();
-      if (result > 0) { console.log(`[${new Date().toISOString()}] ✅ ${ result } teste(s) encerrado(s)`) }
-    }
-    catch (error) { console.error(`[${new Date().toISOString()}] ❌ Erro ao encerrar testes:`, error) }
-  })
-}
-
 AppDataSource.initialize()
-  .then(() => { app.listen(PORT, () => { console.log("Running at PORT:", PORT); startSchedulers() }) })
+  .then(() => {
+    app.listen(PORT, async () => {
+      console.log("Running at PORT:", PORT);
+      await Schedulers.initialize();
+    })
+  })
   .catch((err) => { console.log('err', err) });
 
-process.on('SIGTERM', () => schedule.gracefulShutdown());
-process.on('SIGINT', () => schedule.gracefulShutdown());
+process.on('SIGTERM', () => Schedulers.shutdown());
+process.on('SIGINT', () => Schedulers.shutdown());

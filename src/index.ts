@@ -41,7 +41,6 @@ import { StudentTestRouter } from "./routes/studentTest";
 const app: Application = express();
 const route = Router();
 const PORT = process.env.SERVER_PORT;
-const schedulers = new Schedulers();
 
 app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
 

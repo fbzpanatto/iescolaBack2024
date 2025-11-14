@@ -41,6 +41,7 @@ import { StudentTestRouter } from "./routes/studentTest";
 
 const app: Application = express();
 const route = Router();
+const PORT = process.env.SERVER_PORT;
 
 app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
 
@@ -82,31 +83,20 @@ route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 
-AppDataSource.initialize()
-  .then(() => {
-    app.listen(process.env.SERVER_PORT, () => {
-
-      console.log("Server running at PORT:", process.env.SERVER_PORT)
-
-      schedule.scheduleJob('0 5 * * *', async () => {
-        try { await Schedulers.closeExpiredTests() }
-        catch (error) { console.error(`[${new Date().toISOString()}] Falha no processo automático:`, error) }
-      });
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 Modo desenvolvimento: Agendamento de teste ativado (a cada minuto)');
-
-        schedule.scheduleJob('* * * * *', async () => {
-          console.log(`[DEV] Verificando testes expirados...`);
-          const count = await Schedulers.closeExpiredTests();
-          if (count > 0) { console.log(`[DEV] ${count} teste(s) encerrado(s)`) }
-        });
-      }
-    })
+function startSchedulers() {
+  schedule.scheduleJob('0 5 * * *', async () => {
+    try {
+      const result = await Schedulers.closeExpiredTests();
+      if (result > 0) { console.log(`[${new Date().toISOString()}] ✅ ${ result } teste(s) encerrado(s)`) }
+      else { console.log(`[${new Date().toISOString()}] Nenhum teste expirado`) }
+    }
+    catch (error) { console.error(`[${new Date().toISOString()}] ❌ Erro ao encerrar testes:`, error) }
   })
+}
+
+AppDataSource.initialize()
+  .then(() => { app.listen(PORT, () => { console.log("Running at PORT:", PORT); startSchedulers() }) })
   .catch((err) => { console.log('err', err) });
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM recebido. Encerrando agendamentos...');
-  schedule.gracefulShutdown().then(() => process.exit(0));
-});
+process.on('SIGTERM', () => schedule.gracefulShutdown());
+process.on('SIGINT', () => schedule.gracefulShutdown());

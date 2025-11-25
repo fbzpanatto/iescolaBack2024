@@ -2049,45 +2049,25 @@ export class GenericController<T> {
         AND (tt.active = 1 AND NOW() <= tt.endedAt)
         AND y_current.name = ?
         AND y_active.name = ?
-        AND (
-          sc_active.classroomId = ?
-          OR sc_current.classroomId = ?
-        )
+        AND (sc_active.classroomId = ? OR sc_current.classroomId = ?)
         AND sts.studentClassroomId != sc_active.id
       FOR UPDATE  -- 🔒 LOCK PESSIMISTA
     `;
 
-      const [results] = await conn.query(query, [
-        testId,
-        testId,
-        yearName,
-        yearName,
-        classroomId,
-        classroomId
-      ]) as [any[], any];
+      const [results] = await conn.query(query, [testId, testId, yearName, yearName, classroomId, classroomId]) as [any[], any];
 
       for (const row of results) {
         const hasAnyData = row.has_any_data > 0;
-
         if (!hasAnyData) {
-          await conn.query(
-            `UPDATE student_test_status
-           SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ?
-           WHERE id = ?`,
-            [row.active_sc_id, userId, row.sts_id]
-          );
+          const query = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`
+          await conn.query(query, [row.active_sc_id, userId, row.sts_id])
         }
       }
 
       await conn.commit();
     }
-    catch (error) {
-      if (conn) await conn.rollback();
-      throw error;
-    }
-    finally {
-      if (conn) conn.release();
-    }
+    catch (error) { if (conn) await conn.rollback(); throw error }
+    finally { if (conn) conn.release() }
   }
 
   async qReadingFluencyHeaders() {

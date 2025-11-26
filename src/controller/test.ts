@@ -851,10 +851,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const qTests = await this.qAlphabeticTests(test.category.id, test.discipline.id, test.period.year.name) as unknown as Test[]
 
     let testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
-    let headers = aHeaders.map(bi => {
-      const test = testsMap.get(bi.id);
-      return { ...bi, currTest: { id: test?.id, active: test?.active } };
-    });
+    let headers = aHeaders.map(bi => { const test = testsMap.get(bi.id); return { ...bi, currTest: { id: test?.id, active: test?.active } } });
 
     let preResultScWd = await this.qAlphaStudents(test, classId, test.period.year.id, studentClassroomId)
     let preResultSc = await this.qStudentDisabilities(preResultScWd) as unknown as StudentClassroom[]
@@ -908,10 +905,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
     }))
 
-    const studentCount = studentClassrooms.reduce((acc, item) => {
-      acc[item.student.id] = (acc[item.student.id] || 0) + 1;
-      return acc
-    }, {} as Record<number, number>);
+    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
 
     studentClassrooms = studentClassrooms.reduce((acc: any[], item: any) => {
       const isDuplicated = studentCount[item.student.id] > 1;

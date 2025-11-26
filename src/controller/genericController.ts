@@ -83,49 +83,58 @@ export class GenericController<T> {
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
 
-  async qLinkAlphabetics(stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number) {
+  async qLinkAlphabetics(stuClassrooms: { student?: { id: number }; student_id?: number }[], test: Test, testQuestions: TestQuestion[], userId: number) {
     let conn;
+
     try {
+
+      if (!test?.id) { throw new Error('Test ID é obrigatório') }
+
+      if (!userId || userId <= 0) { throw new Error('userId inválido') }
+
+      if (!stuClassrooms || stuClassrooms.length === 0) { return }
+
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      if (!stuClassrooms || stuClassrooms.length === 0) { await conn.commit(); return }
+      const studentIds = stuClassrooms
+        .map(sC => sC.student?.id ?? sC.student_id)
+        .filter((id): id is number => id !== undefined && id !== null);
 
-      const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
       const testQuestionIds = testQuestions.map(tq => tq.id);
 
-      if (studentIds.length === 0 || testQuestionIds.length === 0) { await conn.commit(); return }
+      if (studentIds.length === 0) { await conn.commit(); return }
 
-      const [existingAlphabeticRows] = await conn.query(
-        `SELECT studentId FROM alphabetic WHERE testId = ? AND studentId IN (?)`,
-        [test.id, studentIds]
-      ) as any[];
+      const [existingAlphabeticRows] = await conn.query(`SELECT studentId FROM alphabetic WHERE testId = ? AND studentId IN (?)`, [test.id, studentIds]) as any[];
 
       const existingAlphabeticStudentIds = new Set(existingAlphabeticRows.map((row: any) => row.studentId));
 
-      const [questionsRows] = await conn.query(
-        `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`,
-        [studentIds, testQuestionIds]
-      ) as any[];
+      let questionKeys = new Set<string>();
+      if (testQuestionIds.length > 0) {
+        const [questionsRows] = await conn.query(`SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?)`, [studentIds, testQuestionIds]) as any[];
+        questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
+      }
 
-      const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
-
-      const alphabeticLinksToSave: any[] = [];
-      const questionsToSave: any[] = [];
+      const alphabeticLinksToSave: [number, number, number][] = [];
+      const questionsToSave: [string, number, number, number][] = [];
 
       for (const sC of stuClassrooms) {
         const studentId = sC.student?.id ?? sC.student_id;
+
+        if (!studentId) continue;
 
         if (!existingAlphabeticStudentIds.has(studentId)) {
           alphabeticLinksToSave.push([userId, studentId, test.id]);
           existingAlphabeticStudentIds.add(studentId);
         }
 
-        for (const tQ of testQuestions) {
-          const uniqueKey = `${studentId}-${tQ.id}`;
-          if (!questionKeys.has(uniqueKey)) {
-            questionsToSave.push(['', tQ.id, studentId, userId]);
-            questionKeys.add(uniqueKey);
+        if (testQuestionIds.length > 0) {
+          for (const tQ of testQuestions) {
+            const uniqueKey = `${studentId}-${tQ.id}`;
+            if (!questionKeys.has(uniqueKey)) {
+              questionsToSave.push(['', tQ.id, studentId, userId]);
+              questionKeys.add(uniqueKey);
+            }
           }
         }
       }
@@ -133,27 +142,21 @@ export class GenericController<T> {
       if (alphabeticLinksToSave.length > 0) {
         const alphabeticPlaceholders = alphabeticLinksToSave.map(() => '(NOW(), ?, ?, ?)').join(', ');
         const alphabeticFlatValues = alphabeticLinksToSave.flat();
-        await conn.query(
-          `INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ${alphabeticPlaceholders}`,
-          alphabeticFlatValues
-        );
+        await conn.query(`INSERT IGNORE INTO alphabetic (createdAt, createdByUser, studentId, testId) VALUES ${alphabeticPlaceholders}`, alphabeticFlatValues);
       }
 
       if (questionsToSave.length > 0) {
         const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
         const questionFlatValues = questionsToSave.flat();
-        await conn.query(
-          `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser)
-           VALUES ${questionPlaceholders}
-           ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)`,
-          questionFlatValues
-        );
-      }
 
+        const queryToInsert = `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser) VALUES ${questionPlaceholders} ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)`
+        await conn.query(queryToInsert, questionFlatValues);
+      }
       await conn.commit();
     }
-    catch (error) { if(conn){ await conn.rollback() } throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error; }
+    finally { if (conn) { conn.release() }
+    }
   }
 
   async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number): Promise<string[] | void> {
@@ -543,6 +546,79 @@ export class GenericController<T> {
     }
     catch (error) { console.error(error); throw error; }
     finally { if (conn) { conn.release(); } }
+  }
+
+  async findAndDeleteStatusAndReadingFluency(testId: number, classroomId: number) {
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const query = `
+    SELECT 
+      sts.id AS studentTestStatusId,
+      sts.studentClassroomId AS studentClassroomId,
+      sts.testId AS testId,
+      sc_current.rosterNumber AS rosterNumber,
+      sc_current.studentId AS studentId
+    FROM student_test_status sts
+    INNER JOIN student_classroom sc_current 
+      ON sts.studentClassroomId = sc_current.id 
+      AND sc_current.classroomId = ? 
+      AND sc_current.endedAt IS NOT NULL
+    INNER JOIN student_classroom sc_active 
+      ON sc_current.studentId = sc_active.studentId 
+      AND sc_active.endedAt IS NULL
+    INNER JOIN test tt 
+      ON sts.testId = tt.id 
+      AND tt.id = ?
+    WHERE sts.studentClassroomId != sc_active.id 
+      AND sc_active.classroomId IN (1216, 1217, 1218)
+      AND (
+        -- Não tem nenhum reading_fluency OU
+        NOT EXISTS (
+          SELECT 1 
+          FROM reading_fluency rf
+          WHERE rf.studentId = sc_current.studentId 
+            AND rf.testId = ?
+        )
+        OR
+        -- Tem reading_fluency mas TODOS os registros estão limpos (nulos)
+        NOT EXISTS (
+          SELECT 1 
+          FROM reading_fluency rf
+          WHERE rf.studentId = sc_current.studentId 
+            AND rf.testId = ?
+            AND (
+              rf.rClassroomId IS NOT NULL 
+              OR rf.readingFluencyExamId IS NOT NULL 
+              OR rf.readingFluencyLevelId IS NOT NULL
+            )
+        )
+      )
+    ORDER BY sc_current.rosterNumber ASC
+    FOR UPDATE
+  `;
+
+      const [results] = await conn.query(query, [classroomId, testId, testId, testId]) as [{ studentTestStatusId: number, studentClassroomId: number, testId: number, rosterNumber: number, studentId: number }[], any];
+
+      if (results.length === 0) { await conn.commit(); return }
+
+      const query2 = `DELETE FROM student_test_status WHERE id IN (?);`;
+      const query3 = `DELETE FROM reading_fluency WHERE studentId IN (?) AND testId = ?;`;
+
+      await conn.query(query2, [results.map(row => row.studentTestStatusId)]);
+      await conn.query(query3, [results.map(row => row.studentId), testId]);
+
+      await conn.commit();
+    }
+    catch (error) {
+      if (conn) await conn.rollback();
+      console.error('Erro ao limpar status e fluência:', error);
+      throw error;
+    }
+    finally { if (conn) conn.release() }
   }
 
   async findAndDeleteStatusAndQuestions(testId: number, classroomId: number) {

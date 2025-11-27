@@ -95,9 +95,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           .getRawMany() as { teacher_id: number, user_id: number, user_email: string }[];
 
         for(let el of teachers) {
-          if(student) {
-            await transferEmail(el.user_email, student.person.name, newClass.shortName, qUserTeacher.person.name, newClass.school.shortName)
-          }
+          if(student) { await transferEmail(el.user_email, student.person.name, newClass.shortName, qUserTeacher.person.name, newClass.school.shortName) }
         }
 
         const transfer = new Transfer();

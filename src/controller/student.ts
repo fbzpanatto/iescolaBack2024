@@ -522,7 +522,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const oldNumber: number  = Number(stClass.classroom.shortName.replace(/\D/g, ""))
 
           if(!isNaN(newNumber) && !isNaN(oldNumber) && ![1216, 1217, 1218].includes(bodyClass.id)) {
-            if (newNumber < oldNumber) { return { status: 404, message: "Não é possível alterar a sala para uma sala com número menor que a atual." }}
+            if (newNumber < oldNumber) { return { status: 404, message: 'Regressão de sala não é permitido.' }}
           }
 
           await CONN.save(StudentClassroom, { ...stClass, endedAt: new Date(), updatedByUser: qUserTeacher.person.user.id });

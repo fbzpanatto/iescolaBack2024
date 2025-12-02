@@ -556,7 +556,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         dbStudent.dv = body.dv;
         dbStudent.updatedAt = new Date();
         dbStudent.updatedByUser = qUserTeacher.person.user.id;
-        dbStudent.person.name = body.name.toUpperCase();
+        dbStudent.person.name = body.name.toUpperCase().trim();
         dbStudent.person.birth = body.birth;
         dbStudent.observationOne = body.observationOne;
         dbStudent.observationTwo = body.observationTwo;

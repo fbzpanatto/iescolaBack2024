@@ -1441,22 +1441,22 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qStudentByRa(ra: string, dv: string) {
+  async qStudentByRa(ra: string, dv: string, birthDate: string) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       const query =
         `
-        SELECT student.*, perc.id AS categoryId, per.name AS name
+        SELECT student.*, perc.id AS categoryId, per.name AS name, DATE_FORMAT(per.birth, '%d/%m/%Y') AS birthDate
         FROM student
         INNER JOIN person per ON student.personId = per.id
         INNER JOIN person_category perc ON per.categoryId = perc.id
-        WHERE student.ra = ? AND student.dv = ? 
+        WHERE student.ra = ? AND student.dv = ? AND DATE_FORMAT(per.birth, '%d/%m/%Y') = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [ra, dv])
+      const [ queryResult ] = await conn.query(format(query), [ra, dv, birthDate])
 
-      return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number }[])[0]
+      return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number, birthDate: string }[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

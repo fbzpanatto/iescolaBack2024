@@ -58,13 +58,14 @@ class LoginController extends GenericController<EntityTarget<User>> {
   }
 
   async studentLogin(req: Request) {
-    const { ra: fullRa } = req.body;
+    const { ra: fullRa, birthDate } = req.body;
+
     try {
 
       const ra = fullRa.slice(0, -1);
       const dv = fullRa.slice(-1);
 
-      const student = await this.qStudentByRa(ra, dv)
+      const student = await this.qStudentByRa(ra, dv, birthDate)
 
       if (!student) { return { status: 404, message: "Credenciais Inválidas" } }
 

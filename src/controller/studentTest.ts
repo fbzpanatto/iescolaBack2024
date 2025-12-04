@@ -113,21 +113,28 @@ class StudentTestController extends GenericController<any> {
     let conn;
 
     try {
+
+      let message;
+
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
       const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
 
-      if (!studentTest) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
+      message = "Teste não encontrado para este aluno."
+      if (!studentTest) { await conn.rollback(); return { status: 404, message } }
 
-      if (!studentTest.studentTestStatusId) { await conn.rollback(); return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas." } }
+      message = "Você precisa acessar a prova antes de enviar respostas."
+      if (!studentTest.studentTestStatusId) { await conn.rollback(); return { status: 400, message } }
 
-      if (!body.questions || body.questions.length === 0) { await conn.rollback(); return { status: 400, message: "Nenhuma resposta foi enviada." } }
+      message = "Nenhuma resposta foi enviada."
+      if (!body.questions || body.questions.length === 0) { await conn.rollback(); return { status: 400, message } }
 
       const lockQuery = `SELECT id, active FROM student_test_status WHERE id = ? FOR UPDATE`;
       const [lockResult] = await conn.query(lockQuery, [studentTest.studentTestStatusId]) as any[];
 
-      if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) { await conn.rollback(); return { status: 400, message: "Esta prova já foi finalizada." } }
+      message = "Esta prova já foi finalizada."
+      if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) { await conn.rollback(); return { status: 400, message } }
 
       const updateStatusQuery = `
         UPDATE student_test_status
@@ -136,7 +143,8 @@ class StudentTestController extends GenericController<any> {
       `;
       const [updateResult] = await conn.execute(updateStatusQuery, [body.user.user, studentTest.studentTestStatusId]) as any[];
 
-      if (updateResult.affectedRows === 0) { await conn.rollback(); return { status: 400, message: "Esta prova já foi finalizada por outra sessão." } }
+      message = "Esta prova já foi finalizada por outra sessão."
+      if (updateResult.affectedRows === 0) { await conn.rollback(); return { status: 400, message } }
 
       const caseAnswerClauses: string[] = [];
       const caseClassroomClauses: string[] = [];

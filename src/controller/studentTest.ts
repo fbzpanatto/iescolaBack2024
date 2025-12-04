@@ -118,45 +118,25 @@ class StudentTestController extends GenericController<any> {
 
       const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
 
-      if (!studentTest) {
-        await conn.rollback();
-        return { status: 404, message: "Teste não encontrado para este aluno." }
-      }
+      if (!studentTest) { await conn.rollback(); return { status: 404, message: "Teste não encontrado para este aluno." } }
 
-      if (!studentTest.studentTestStatusId) {
-        await conn.rollback();
-        return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas." };
-      }
+      if (!studentTest.studentTestStatusId) { await conn.rollback(); return { status: 400, message: "Você precisa acessar a prova antes de enviar respostas." } }
 
-      if (!body.questions || body.questions.length === 0) {
-        await conn.rollback();
-        return { status: 400, message: "Nenhuma resposta foi enviada." };
-      }
+      if (!body.questions || body.questions.length === 0) { await conn.rollback(); return { status: 400, message: "Nenhuma resposta foi enviada." } }
 
-      const lockQuery = `
-          SELECT id, active
-          FROM student_test_status
-          WHERE id = ?
-              FOR UPDATE
-      `;
+      const lockQuery = `SELECT id, active FROM student_test_status WHERE id = ? FOR UPDATE`;
       const [lockResult] = await conn.query(lockQuery, [studentTest.studentTestStatusId]) as any[];
 
-      if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) {
-        await conn.rollback();
-        return { status: 400, message: "Esta prova já foi finalizada." };
-      }
+      if (!lockResult[0] || lockResult[0].active === 0 || lockResult[0].active === false) { await conn.rollback(); return { status: 400, message: "Esta prova já foi finalizada." } }
 
       const updateStatusQuery = `
-          UPDATE student_test_status
-          SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ?
-          WHERE id = ? AND active = 1
+        UPDATE student_test_status
+        SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ?
+        WHERE id = ? AND active = 1
       `;
       const [updateResult] = await conn.execute(updateStatusQuery, [body.user.user, studentTest.studentTestStatusId]) as any[];
 
-      if (updateResult.affectedRows === 0) {
-        await conn.rollback();
-        return { status: 400, message: "Esta prova já foi finalizada por outra sessão." };
-      }
+      if (updateResult.affectedRows === 0) { await conn.rollback(); return { status: 400, message: "Esta prova já foi finalizada por outra sessão." } }
 
       const caseAnswerClauses: string[] = [];
       const caseClassroomClauses: string[] = [];
@@ -178,13 +158,13 @@ class StudentTestController extends GenericController<any> {
       const finalParams = [...answerParams, ...classroomParams, body.user.user, ...questionIds];
 
       const bulkUpdateQuery = `
-          UPDATE student_question
-          SET
-              answer = CASE id ${caseAnswerClauses.join(' ')} END,
-              rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
-              updatedAt = NOW(),
-              updatedByUser = ?
-          WHERE id IN (${questionIds.map(() => '?').join(',')})
+        UPDATE student_question
+        SET
+          answer = CASE id ${caseAnswerClauses.join(' ')} END,
+          rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
+          updatedAt = NOW(),
+          updatedByUser = ?
+        WHERE id IN (${questionIds.map(() => '?').join(',')})
       `;
 
       await conn.execute(bulkUpdateQuery, finalParams);
@@ -192,20 +172,11 @@ class StudentTestController extends GenericController<any> {
       await conn.commit();
       return { status: 200, data: { studentTestStatusId: studentTest.studentTestStatusId, message: "Prova enviada com sucesso!" } };
     }
-    catch (error: any) {
-      if (conn) await conn.rollback();
-      return { status: 500, message: error.message }
-    }
-    finally {
-      if (conn) { conn.release() }
-    }
+    catch (error: any) { if (conn) await conn.rollback(); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
-  async allFilteredStudentTest(
-    body: { user: { user: number, ra: string, category: number } },
-    params: { [key: string]: any },
-    query: { [key: string]: any }
-  ) {
+  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
     try {
 
       const { search, limit: l, offset: o } = query;

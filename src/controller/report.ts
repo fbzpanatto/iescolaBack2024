@@ -176,7 +176,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map((bi: any) => { return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] } })
 
-        let serieFilter = `${ qTest?.test_category_id === 8 ? 0 : qTest?.test_category_id }%`;
+        let serieFilter = `${ qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF ? 0 : qTest?.test_category_id }%`;
 
         let preResult = await testController.alphaQuestions(serieFilter, qTest.year_name, qTest, testQuestionsIds)
 

@@ -998,6 +998,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       };
     });
 
+    const classroomNumber = room.shortName.replace(/\D/g, "").includes("0")
+    if(classroomNumber) { room.shortName = room.name }
+
     return { test, studentClassrooms, classroom: room, alphabeticHeaders: headers }
   }
 

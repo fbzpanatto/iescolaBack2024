@@ -66,7 +66,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           .getMany();
 
         data = data.map(el => {
-          if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) {
+          if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) {
             return { ...el, period: { ...el.period, bimester: { ...el.period.bimester, name: el.period.bimester.testName } } }
           }
           return { ...el }
@@ -141,6 +141,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     if (!qTest) return { status: 404, message: "Teste não encontrado" };
 
     switch (qTest?.test_category_id) {
+      case(TEST_CATEGORIES_IDS.EDU_INF):
       case(TEST_CATEGORIES_IDS.LITE_1):
       case(TEST_CATEGORIES_IDS.LITE_2):
       case(TEST_CATEGORIES_IDS.LITE_3): {
@@ -153,7 +154,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let testQuestionsIds: number[] = []
 
-        if(qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
+        if((qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF) && tests.length > 0) {
+
+          console.log('Provas com questões')
 
           const testIds = tests.map(test => test.id);
           const questionsMap = await this.qTestQuestionsForMultipleTests(testIds);
@@ -173,7 +176,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map((bi: any) => { return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] } })
 
-        const serieFilter = `${qTest?.test_category_id}%`;
+        let serieFilter = `${ qTest?.test_category_id === 8 ? 0 : qTest?.test_category_id }%`;
 
         let preResult = await testController.alphaQuestions(serieFilter, qTest.year_name, qTest, testQuestionsIds)
 

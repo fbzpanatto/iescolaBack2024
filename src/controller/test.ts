@@ -53,7 +53,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let data: any = {}
 
-      if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(test.category.id)) {
+      const checkCategoriesIds = [
+        TEST_CATEGORIES_IDS.LITE_1,
+        TEST_CATEGORIES_IDS.LITE_2,
+        TEST_CATEGORIES_IDS.LITE_3,
+        TEST_CATEGORIES_IDS.EDU_INF
+      ]
+
+      if(checkCategoriesIds.includes(test.category.id)) {
         const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
         data = await this.alphabeticTest(headers, test, classroom, classroomId, tUser?.userId as number, isNaN(scId) ? null : Number(scId))
         return { status: 200, data: data };
@@ -243,7 +250,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getGraphic(req: Request) {
 
+    console.log('getGraphic')
+
     const { id: testId, classroom: classroomId } = req.params
+
+    console.log('getGraphic', testId, classroomId)
 
     try {
 
@@ -265,7 +276,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
 
-      if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(baseTest.category.id)) {
+      if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(baseTest.category.id)) {
 
         const [preheaders, tests] = await Promise.all([
           this.qAlphabeticHeaders(year.name) as Promise<any[]>,
@@ -274,7 +285,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let testQuestionsIds: number[] = []
 
-        if(baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && tests.length > 0) {
+        if((baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF) && tests.length > 0) {
           const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
 
           for(let i = 0; i < tests.length; i++) { tests[i].testQuestions = testQuestionsArr[i]; testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id)) }
@@ -440,25 +451,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
             name: row.test_name,
             period: {
               id: row.period_id,
-              year: {
-                id: row.year_id,
-                name: row.year_name,
-                active: row.year_active
-              },
+              year: { id: row.year_id, name: row.year_name, active: row.year_active },
               bimester: {
                 id: row.bimester_id,
                 name: row.bimester_name,
-                testName: [TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(row.category_id) ? 'TODOS': row.bimester_test_name
+                testName: row.test_name.includes('DIAGNÓSTICA') ? 'TODOS': row.bimester_test_name
               }
             },
-            category: {
-              id: row.category_id,
-              name: row.category_name
-            },
-            discipline: {
-              id: row.discipline_id,
-              name: row.discipline_name
-            },
+            category: { id: row.category_id, name: row.category_name },
+            discipline: { id: row.discipline_id, name: row.discipline_name },
             classrooms: []
           });
         }
@@ -527,23 +528,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!checkYear) return { status: 404, message: "Ano não encontrado" };
         if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." };
 
-        const period = await CONN.findOne(Period, {
-          relations: ["year", "bimester"],
-          where: { year: body.year, bimester: body.bimester }
-        });
+        const period = await CONN.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } });
         if(!period) return { status: 404, message: "Período não encontrado" };
 
-        // Verifica duplicação para categorias LITE
-        if([TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(body.category.id)) {
-          const test = await CONN.findOne(Test, {
-            where: { category: body.category, discipline: body.discipline, period: period }
-          });
-          if(test) {
-            return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` };
-          }
+        const checkCategories = [
+          TEST_CATEGORIES_IDS.LITE_1,
+          TEST_CATEGORIES_IDS.LITE_2,
+          TEST_CATEGORIES_IDS.LITE_3,
+          TEST_CATEGORIES_IDS.EDU_INF
+        ]
+
+        if(checkCategories.includes(body.category.id)) {
+          const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } });
+          if(test) { return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` } }
         }
 
-        // Verifica se há alunos nas turmas
         const classes = await CONN.getRepository(Classroom)
           .createQueryBuilder("classroom")
           .select(["classroom.id", "classroom.name", "classroom.shortName"])
@@ -560,9 +559,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .having("COUNT(studentClassroom.id) > 0")
           .getMany();
 
-        if(!classes || classes.length < 1) {
-          return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." };
-        }
+        if(!classes || classes.length < 1) { return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." } }
 
         const test = new Test();
 
@@ -579,7 +576,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        // Processa questões se a categoria requer
         const haveQuestions = [
           TEST_CATEGORIES_IDS.LITE_2,
           TEST_CATEGORIES_IDS.LITE_3,
@@ -634,6 +630,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           // Salva todas as TestQuestions
           await CONN.save(TestQuestion, testQuestions);
         }
+
         return { status: 201, data: test };
       });
     }

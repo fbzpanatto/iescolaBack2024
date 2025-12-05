@@ -3743,6 +3743,13 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection()
 
+      const DIAGNOSTIC_CATEGORIES = [
+        TEST_CATEGORIES_IDS.LITE_1,
+        TEST_CATEGORIES_IDS.LITE_2,
+        TEST_CATEGORIES_IDS.LITE_3,
+        TEST_CATEGORIES_IDS.EDU_INF
+      ].join(', ');
+
       let query = `
       WITH RankedTests AS (
         SELECT
@@ -3811,7 +3818,6 @@ INNER JOIN year AS y ON tr.yearId = y.id
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 
-      // ✅ Fecha o CTE e adiciona a query principal
       query += `
       )
       SELECT DISTINCT
@@ -3836,8 +3842,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
         school_shortName
       FROM RankedTests
       WHERE 
-        (category_id IN (1, 2, 3) AND rn = 1)
-        OR category_id NOT IN (1, 2, 3)
+        (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1)
+        OR category_id NOT IN (${DIAGNOSTIC_CATEGORIES})
       ORDER BY 
         test_name ASC,
         school_shortName ASC,

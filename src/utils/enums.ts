@@ -13,6 +13,7 @@ export const TEST_CATEGORIES_IDS = {
   READ_3: 5,
   SIM_ITA: 6,
   AVL_ITA: 7,
+  EDU_INF: 8
 }
 
 export const PERSON_CATEGORIES = {

@@ -250,11 +250,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getGraphic(req: Request) {
 
-    console.log('getGraphic')
-
     const { id: testId, classroom: classroomId } = req.params
-
-    console.log('getGraphic', testId, classroomId)
 
     try {
 

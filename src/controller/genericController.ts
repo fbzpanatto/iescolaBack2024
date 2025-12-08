@@ -1,7 +1,34 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
+import {
+  DeviceCheckResult,
+  qAlphabeticLevels,
+  qAlphaTests,
+  qClassroom,
+  qClassrooms,
+  qPendingTransfers,
+  qReadingFluenciesHeaders,
+  qSchools,
+  qState,
+  qStudentClassroomFormated,
+  qStudentsClassroomsForTest,
+  qStudentTests,
+  qTeacherClassrooms,
+  qTeacherDisciplines,
+  qTeacherRelationShip,
+  qTest,
+  qTestClassroom,
+  qTestQuestions,
+  qTransferStatus,
+  qUser,
+  qUserTeacher,
+  qYear,
+  SavePerson,
+  TeacherParam,
+  Training,
+  TrainingResult
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { ResultSetHeader } from "mysql2/promise";

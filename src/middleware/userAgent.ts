@@ -1,13 +1,20 @@
 import { NextFunction, Request, Response } from "express";
 import { DeviceCheckResult } from "../interfaces/interfaces";
+import { connectionPool } from "../services/db";
 
-export default (req: Request, res: Response, next: NextFunction) => {
+export function enableClientHints(req: Request, res: Response, next: NextFunction) {
+  res.setHeader('Accept-CH', 'Sec-CH-UA-Mobile, Sec-CH-Viewport-Width, Sec-CH-UA-Platform, Downlink');
+  res.setHeader('Critical-CH', 'Sec-CH-UA-Mobile, Sec-CH-Viewport-Width, Sec-CH-UA-Platform');
+  next();
+};
+
+export async function userAgent (req: Request, res: Response, next: NextFunction) {
   try {
 
     const result = checkIfMobileDevice(req);
 
     if (result.isMobile && result.confidence !== 'low') {
-      // logMobileAccessAttempt(req, result);
+      await logMobileAccessAttempt(req, result);
       res.status(403).json({
         status: 403,
         message: 'Provas só podem ser realizadas em computadores desktop.',
@@ -62,24 +69,49 @@ function checkIfMobileDevice(req: Request): DeviceCheckResult {
     }
   }
 
-  // 5. Verificação de conexão (opcional, pode indicar mobile)
-  // const downlink = req.headers['downlink'] as string;
-  // if (downlink) {
-  //   const speed = parseFloat(downlink);
-  //   if (!isNaN(speed) && speed < 2) {
-  //     reasons.push(`Conexão lenta detectada: ${speed} Mbps (possível rede móvel)`);
-  //   }
-  // }
-
-  // 6. Accept header - alguns browsers mobile têm padrões específicos
+  // 5. Accept header - alguns browsers mobile têm padrões específicos
   const accept = req.headers['accept'] || '';
-  if (accept.includes('application/vnd.wap.xhtml+xml')) {
-    mobileIndicators++;
-    reasons.push('Accept header indica WAP/mobile');
-  }
+  if (accept.includes('application/vnd.wap.xhtml+xml')) { mobileIndicators++; reasons.push('Accept header indica WAP/mobile') }
 
   const isMobile = mobileIndicators >= 1;
   const confidence: 'high' | 'medium' | 'low' = mobileIndicators >= 3 ? 'high' : mobileIndicators === 2 ? 'medium' : mobileIndicators === 1 ? 'medium' : 'low';
 
   return { isMobile, confidence, reasons, userAgent, timestamp: new Date() }
+}
+
+async function logMobileAccessAttempt(req: Request, result: DeviceCheckResult) {
+  let conn;
+  try {
+    conn = await connectionPool.getConnection();
+    await conn.beginTransaction();
+
+    const blockedReasonsJson = JSON.stringify(result.reasons);
+
+    const clientHintsJson = JSON.stringify({
+      'sec-ch-ua-mobile': req.headers['sec-ch-ua-mobile'] ?? 'N/A',
+      'sec-ch-viewport-width': req.headers['sec-ch-viewport-width'] ?? 'N/A',
+      'sec-ch-ua-platform': req.headers['sec-ch-ua-platform'] ?? 'N/A'
+    });
+
+    const query = `
+      INSERT INTO access_security_log 
+      (ipAddress, requestPath, requestMethod, userAgent, confidenceLevel, blockedReasons, clientHints)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      req.ip || req.socket.remoteAddress || 'unknown',
+      req.path ?? 'N/A_PATH',
+      req.method ?? 'N/A_METHOD',
+      result.userAgent ?? 'N/A_UA',
+      result.confidence,
+      blockedReasonsJson,
+      clientHintsJson
+    ];
+
+    await conn.query(query, values);
+    await conn.commit();
+  }
+  catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+  finally { if (conn) { conn.release() } }
 }

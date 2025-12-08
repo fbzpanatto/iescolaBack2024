@@ -39,8 +39,10 @@ import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 import { Contract } from "./Contract";
 import { TrainingTeacher } from "./TrainingTeacher";
 import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
+import { AccessSecurityLog } from "./MobileSecurityLog";
 
 export const entities = [
+  AccessSecurityLog,
   Alphabetic,
   AlphabeticLevel,
   AlphabeticFirst,

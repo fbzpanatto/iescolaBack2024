@@ -9,6 +9,8 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { Period } from "../model/Period";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 
+export interface DeviceCheckResult { isMobile: boolean; confidence: 'high' | 'medium' | 'low'; reasons: string[]; userAgent: string; timestamp: Date }
+
 export interface Data { status: number; data?: any; message?: any }
 export interface UserInterface { user: number, email: string, username: string, category: number, iat: number, exp: number }
 export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], user: UserInterface, category: PersonCategory, teacherClassesDisciplines: qTeacherRelationShip[], school: number, observation: string }
@@ -21,8 +23,6 @@ export interface StudentClassroomFnOptions { search?: string; year?: string; tea
 export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, endedAt: string, testQuestions?: { id: number, order: number, answer: string, questionGroup: { id: number, name: string }, active: boolean, question: { id: number, title: string, images: number, person: { id: number }, discipline: { id: number, name: string }, classroomCategory: { id: number, name: string }, skill: { id: number, reference: string, description: string } } }[], year: { id: number }, user: UserInterface }
 
 export interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
-export interface insertStudentsBody { user: ObjectLiteral, studentClassrooms: number[], test: { id: number  }, year: number, classroom: { id: number }}
-export interface notIncludedInterface { id: number, rosterNumber: number, startedAt: Date, endedAt: Date, name: string, ra: number, dv: number }
 export interface ReadingHeaders { exam_id: number, exam_name: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string }[] }
 export interface AllClassrooms { id: number, name: string, shortName: string, school: School, totals: { bimesterCounter: number, testQuestions: { counter: number, counterPercentage: number, id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup } | {}[] | undefined, levels: any[], id: number, name: string, periods: Period[] }[] }
 export interface CityHall { id: number, name: string, shortName: string, school: string, totals: { bimesterCounter: number, id: number, name: string, periods: Period[], levels: AlphabeticLevel[], testQuestions?: { id: number, order: number, answer: string, active: boolean, question: Question, questionGroup: QuestionGroup, counter?: number, counterPercentage?: number }[] }[] }

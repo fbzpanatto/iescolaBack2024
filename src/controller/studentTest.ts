@@ -8,48 +8,36 @@ class StudentTestController extends GenericController<any> {
 
   constructor() { super(Student) }
 
-  async getTest(
-    body: { user: { user: number, ra: string, category: number } },
-    params: { [key: string]: any },
-    query: { [key: string]: any }
-  ) {
+  async getTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
 
     let conn;
 
     try {
-      // ✅ Validações iniciais (sem transaction ainda)
       const scId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
       if (!scId) { return { status: 400, message: "Referência inválida." } }
 
       const testId = params.id;
       const studentId = body.user.user;
 
-      // ✅ Valida acesso à prova
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      // ✅ Busca ano atual
       const currentYear = await this.qCurrentYear();
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name;
 
-      // ✅ Valida prova ativa
       const qTest = await this.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
-      // ✅ Valida questões existem
       const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
       if (!qTestQuestions || qTestQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
 
-      // ✅ Verifica se já existe respostas do aluno
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
 
-      // ✅ Se não existe, cria (com proteção contra race condition)
       if (!studentQuestions || studentQuestions.length === 0) {
         conn = await connectionPool.getConnection();
         await conn.beginTransaction();
 
         try {
-          // ✅ Lock para evitar duplicação
           const lockQuery = `
           SELECT id 
           FROM student_test_status 
@@ -58,7 +46,6 @@ class StudentTestController extends GenericController<any> {
         `;
           const [existingStatus] = await conn.query(lockQuery, [stuTestInfo.studentClassroomId, testId]) as any[];
 
-          // ✅ Se não existe, cria o status
           if (!existingStatus || existingStatus.length === 0) {
             const insertStatusQuery = `
             INSERT INTO student_test_status
@@ -68,7 +55,6 @@ class StudentTestController extends GenericController<any> {
             await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
           }
 
-          // ✅ Cria as questões (se não existirem)
           const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
           const insertQuestionsQuery = `
@@ -80,14 +66,12 @@ class StudentTestController extends GenericController<any> {
 
           await conn.commit();
 
-          // ✅ Busca novamente as questões criadas
           studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
         }
         catch (error) { if (conn) await conn.rollback(); throw error }
         finally { if (conn) conn.release() }
       }
 
-      // ✅ Formata questões por grupo
       const groupMap = new Map();
 
       qTestQuestions.forEach((tQ: any) => {

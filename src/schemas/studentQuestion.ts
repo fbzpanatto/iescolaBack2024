@@ -21,8 +21,8 @@ export const STUDENT_QUESTIONSANSWER_SCHEMA: Schema = {
     isLength: { options: { max: 1 } }, // Mudou de 2 para 1
     toUpperCase: true, // Adicionar
     isIn: {
-      options: [['A', 'B', 'C', 'D', 'E', '']], // Validar valores
-      errorMessage: 'Resposta deve ser A, B, C, D, E ou vazio'
+      options: [['A', 'B', 'C', 'D', '']], // Validar valores
+      errorMessage: 'Resposta deve ser A, B, C, D ou vazio'
     }
   },
   studentClassroom: { exists: true },

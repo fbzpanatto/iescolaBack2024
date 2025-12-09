@@ -14,10 +14,9 @@ export default (req: Request, res: any, next: NextFunction) => {
 
     req.body.user = jwt.verify(token, 'SECRET')
     next()
-  } catch (error: any) {
-
+  }
+  catch (error: any) {
     console.log(error)
-
     return res.status(401).json({ message: 'Não foi possível continuar com a sua requisição. Faça o login novamente.' }) 
   }
 }

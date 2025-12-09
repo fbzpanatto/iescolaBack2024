@@ -17,7 +17,7 @@ export async function userAgent (req: Request, res: Response, next: NextFunction
       await logMobileAccessAttempt(req, result);
       res.status(403).json({
         status: 403,
-        message: 'Provas só podem ser realizadas em computadores desktop.',
+        message: 'Dispositivo não permitido.',
         error: 'MOBILE_ACCESS_DENIED',
         code: 'DEVICE_NOT_ALLOWED',
         details: process.env.NODE_ENV === 'development' ? { confidence: result.confidence, reasons: result.reasons } : undefined

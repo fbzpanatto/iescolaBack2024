@@ -13,6 +13,11 @@ class StudentTestController extends GenericController<any> {
     let conn;
 
     try {
+
+      const token = query.token as string;
+
+      if(!token || token.length != 9) { return { status: 403, message: "Token não enviado." } }
+
       const scId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
       if (!scId) { return { status: 400, message: "Referência inválida." } }
 

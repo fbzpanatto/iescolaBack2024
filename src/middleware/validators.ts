@@ -13,9 +13,9 @@ import {SUBMIT_TEST_SCHEMA} from "../schemas/studentTestQuestions";
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
 export const YEAR_NAME_PARAM = check('year').not().isEmpty().isLength({ min: 4, max: 4 })
-export const CLASSROOM_NUMBER_PARAM = check('classroomNumber').not().isEmpty().isNumeric()
 export const STUDENT_CLASSROOM_ID = check('studentClassroomId').not().isEmpty().isNumeric()
 export const STUDENT_CLASSROOM_ID_REF = check('ref').not().isEmpty().isNumeric()
+export const TEST_TOKEN = check('token').not().isEmpty().isLength({ min: 9, max: 9 })
 
 //STUDENT_QUESTIONANSWER
 export const VALIDATE_STUDENT_QUESTIONANSWER = checkSchema(STUDENT_QUESTIONSANSWER_SCHEMA)

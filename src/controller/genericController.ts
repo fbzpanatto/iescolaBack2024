@@ -3453,8 +3453,6 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
   async alphaQuestions(serieFilter: number | string, yearName: string, test: any, testQuestionsIds: number[], classroomId?: number, studentClassroomId?: number | null) {
 
-    console.log('serieFilter', serieFilter)
-
     let conn;
     try {
       conn = await connectionPool.getConnection();

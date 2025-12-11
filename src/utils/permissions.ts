@@ -17,6 +17,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "student", methods: allMethods },
       { entity: "transfer", methods: allMethods },
       { entity: "training", methods: allMethods },
+      { entity: "token", methods: allMethods },
       { entity: "test", methods: allMethods },
       { entity: "year", methods: allMethods },
       { entity: "report", methods: allMethods },

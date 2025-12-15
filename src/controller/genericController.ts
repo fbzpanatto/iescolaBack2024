@@ -3978,4 +3978,24 @@ INNER JOIN year AS y ON tr.yearId = y.id
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
+
+  async createTestToken(el: { teacherId: number, maxUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const insertQuery = `INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+      const values = [el.code, el.teacherId, el.maxUses, el.classroomId, el.testId, el.createdAt, el.expiresAt];
+
+      const [ queryResult ]: any = await conn.query(insertQuery, values);
+
+      await conn.commit();
+
+      return el.code;
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 }

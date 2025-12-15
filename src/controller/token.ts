@@ -88,28 +88,43 @@ class TokenController extends GenericController<EntityTarget<any>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async saveToken(body: { user: UserInterface, maxUses: number | string, classroomId: number, testId: number }) {
+  async saveToken(body: { user: UserInterface, maxUses: number, classroomId: number, testId: number }) {
 
     try {
-
-      let result;
 
       const tUser = await this.qUser(body.user.user)
 
       const sqlDateTime = Helper.generateDateTime()
 
-      const element = {
+      let testToken = await this.createTestToken({
         teacherId: tUser.teacherId,
         maxUses: body.maxUses,
         classroomId: body.classroomId,
         testId: body.testId,
-        created_at: sqlDateTime.createdAt,
-        expiresAt: sqlDateTime.expiresAt
-      }
+        createdAt: sqlDateTime.createdAt,
+        expiresAt: sqlDateTime.expiresAt,
+        code: this.generateRandomCode()
+      })
 
-      return { status: 201, data: result };
+      return { status: 201, data: testToken };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
+  }
+
+  generateRandomCode(length: number = 8): string {
+
+    const CHARACTERS_SAFE = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+    const charsLength = CHARACTERS_SAFE.length;
+    const middle = Math.floor(length / 2);
+
+    const randomString = Array.from({ length: length }, () => {
+      const randomIndex = Math.floor(Math.random() * charsLength);
+      return CHARACTERS_SAFE.charAt(randomIndex);
+    }).join('');
+
+    // Insere o hífen no meio
+    return randomString.slice(0, middle) + '-' + randomString.slice(middle);
   }
 }
 

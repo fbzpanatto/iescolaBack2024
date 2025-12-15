@@ -10,7 +10,7 @@ export class TestToken {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column({ length: 8 })
+  @Column({ length: 9 })
   code: string;
 
   @ManyToOne(() => Test, test => test.testToken)

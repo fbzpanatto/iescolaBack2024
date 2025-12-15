@@ -1,19 +1,50 @@
-import { Test } from "../model/Test";
-import {
-  qTest,
-  qAlphaTests,
-  qFormatedYear,
-  qReadingFluenciesHeaders,
-  qTestQuestions,
-  qUserTeacher,
-  qYear,
-  ReadingHeaders,
-  TrainingWithSchedulesResult,
-  TrainingResult
-} from "../interfaces/interfaces";
+import { Test} from "../model/Test";
 import { Classroom } from "../model/Classroom";
+import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
 
 export class Helper {
+
+  static generateDateTime(options: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/Sao_Paulo',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    weekday: 'short'
+  }) {
+    // 1. Instancia o formatador UMA vez (reuso para performance)
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+
+    // 2. Função auxiliar interna para transformar Date -> String SQL
+    const formatToSql = (date: Date): string => {
+      const parts = formatter.formatToParts(date);
+
+      // Helper para extrair valores com fallback
+      const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value || '00';
+
+      const year = getPart('year');
+      const month = getPart('month');
+      const day = getPart('day');
+      const hour = getPart('hour');
+      const minute = getPart('minute');
+      const second = getPart('second');
+
+      return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    };
+
+    // 3. Define os momentos no tempo (Timestamps)
+    const now = new Date();
+    const expirationDate = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+
+    // 4. Formata ambos usando a mesma regra de timezone
+    return {
+      createdAt: formatToSql(now),
+      expiresAt: formatToSql(expirationDate)
+    };
+  }
 
   static readingFluencyStudents(rows: any[], test: Test) {
 

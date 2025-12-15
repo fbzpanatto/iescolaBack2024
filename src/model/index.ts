@@ -40,6 +40,7 @@ import { Contract } from "./Contract";
 import { TrainingTeacher } from "./TrainingTeacher";
 import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
 import { AccessSecurityLog } from "./MobileSecurityLog";
+import { TestToken } from "./Token";
 
 export const entities = [
   AccessSecurityLog,
@@ -76,6 +77,7 @@ export const entities = [
   ReadingFluencyLevel,
   ReadingFluencyGroup,
   Teacher,
+  TestToken,
   TeacherClassDiscipline,
   Test,
   TestCategory,

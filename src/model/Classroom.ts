@@ -8,6 +8,7 @@ import { TestClassroom } from "./TestClassroom";
 import { Alphabetic } from "./Alphabetic";
 import { StudentQuestion } from "./StudentQuestion";
 import { ReadingFluency } from "./ReadingFluency";
+import {TestToken} from "./Token";
 
 @Entity()
 export class Classroom {
@@ -38,6 +39,9 @@ export class Classroom {
 
   @OneToMany(() => Alphabetic, alphabetic => alphabetic.rClassroom)
   alphabetic: Alphabetic[]
+
+  @OneToMany(() => TestToken, testToken => testToken.test)
+  testToken: TestToken[]
 
   @OneToMany(() => ReadingFluency, readingFluency => readingFluency.rClassroom)
   readingFluency: ReadingFluency[]

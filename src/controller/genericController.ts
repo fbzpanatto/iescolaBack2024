@@ -1766,7 +1766,7 @@ export class GenericController<T> {
       const query =
 
         `
-        SELECT pc.id as categoryId, u.id as userId
+        SELECT pc.id as categoryId, u.id as userId, teacher.id as teacherId
         FROM teacher
           INNER JOIN person AS p ON teacher.personId = p.id
           INNER JOIN person_category AS pc ON p.categoryId = pc.id
@@ -1775,7 +1775,7 @@ export class GenericController<T> {
       `
 
       const [ queryResult ] = await conn.query(format(query), [userId])
-      return (queryResult as qUser[])[0]
+      return (queryResult as qUser[])[0] as { categoryId: number, userId: number, teacherId: number }
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -3698,6 +3698,47 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const [result] = await conn.query(query, params);
       return result as Array<Discipline>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async testByClassroomAndTeacher(teacherId: number, yearName: number | string, masterUser: boolean = false) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query =
+        `
+          SELECT 
+            DISTINCT(tc.classroomId) AS cId,
+            cs.shortName AS cName,
+            sh.id AS sId,
+            sh.shortName AS sName,
+            tt.id AS tId,
+            tt.name AS tName,
+            d.id AS dId,
+            UPPER(d.name) AS dName
+          FROM teacher_class_discipline tcd
+            INNER JOIN test_classroom tc ON tcd.classroomId = tc.classroomId
+            INNER JOIN test tt ON tc.testId = tt.id
+            INNER JOIN discipline d ON tt.disciplineId = d.id
+            INNER JOIN classroom cs ON tc.classroomId = cs.id
+            INNER JOIN school sh ON cs.schoolId = sh.id
+          WHERE tcd.teacherId = ?
+            AND tcd.endedAt IS NULL
+            AND tt.categoryId = 6
+            AND tt.active = 1
+            AND tt.hideAnswers = 0
+            AND YEAR(tt.createdAt) = ?
+            AND tcd.disciplineId = tt.disciplineId
+            AND tt.disciplineId = d.id
+          ORDER BY tc.classroomId;
+        `
+
+      const [result] = await conn.query(query, [teacherId, yearName]);
+      return result as Array<{ cId: number, cName: string, sId: number, sName: string, tId: number, tName: string, dId: number, dName: string }>
+
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

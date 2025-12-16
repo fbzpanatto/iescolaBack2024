@@ -3,7 +3,7 @@ import { Test } from "./Test";
 import { Teacher } from "./Teacher";
 import { Classroom } from "./Classroom";
 
-@Index(["code", "test", "teacher", "classroom", "expiresAt"], { unique: true })
+@Index(["test", "teacher", "classroom"], { unique: true })
 @Entity()
 export class TestToken {
 

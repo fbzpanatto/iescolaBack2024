@@ -176,7 +176,7 @@ export class GenericController<T> {
         const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
         const questionFlatValues = questionsToSave.flat();
 
-        const queryToInsert = `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser) VALUES ${questionPlaceholders} ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)`
+        const queryToInsert = `INSERT INTO student_question (answer, testQuestionId, studentId, createdAt, createdByUser) VALUES ${ questionPlaceholders } ON DUPLICATE KEY UPDATE updatedAt = NOW(), updatedByUser = VALUES(createdByUser)`
         await conn.query(queryToInsert, questionFlatValues);
       }
       await conn.commit();
@@ -3985,11 +3985,21 @@ INNER JOIN year AS y ON tr.yearId = y.id
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const insertQuery = `INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      const insertQuery = `
+      INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt, currentUses, isActive) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, true)
+      ON DUPLICATE KEY UPDATE
+        code = VALUES(code),
+        maxUses = VALUES(maxUses),
+        createdAt = VALUES(createdAt),
+        expiresAt = VALUES(expiresAt),
+        currentUses = 0,
+        isActive = true
+    `;
 
       const values = [el.code, el.teacherId, el.maxUses, el.classroomId, el.testId, el.createdAt, el.expiresAt];
 
-      const [ queryResult ]: any = await conn.query(insertQuery, values);
+      await conn.query(insertQuery, values);
 
       await conn.commit();
 

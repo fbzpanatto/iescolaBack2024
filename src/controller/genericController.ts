@@ -3882,7 +3882,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (search && search.trim() !== '') {
         query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;
-        const searchPattern = `${search}%`;
+        const searchPattern = `%${search}%`;
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 

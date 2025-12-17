@@ -4046,7 +4046,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
 
-      const query = `SELECT * FROM test_token WHERE code = ? AND expiresAt > ? AND classroomId = ? AND testId = ? AND leftUses > 0`;
+      const query = `SELECT * FROM test_token WHERE BINARY code = ? AND expiresAt > ? AND classroomId = ? AND testId = ? AND leftUses > 0`;
 
       const [result] = await conn.query(query, [token, Helper.generateDateTime().createdAt, classroomId, testId]);
 

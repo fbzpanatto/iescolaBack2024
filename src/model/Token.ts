@@ -10,7 +10,11 @@ export class TestToken {
   @PrimaryGeneratedColumn()
   id: number
 
-  @Column({ length: 9 })
+  @Column({
+    length: 9,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_bin'
+  })
   code: string;
 
   @Column()

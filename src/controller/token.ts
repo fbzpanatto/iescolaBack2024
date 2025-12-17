@@ -37,12 +37,8 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
     const pBimesterId = !isNaN(parseInt(bimester as string)) ? parseInt(bimester as string) : null;
     const pDisciplineId = !isNaN(parseInt(discipline as string)) ? parseInt(discipline as string) : null;
 
-    const params = { search: pSearch, limit: pLimit, offset: pOffset, bimester: pBimesterId, discipline: pDisciplineId }
-    console.log('params: ', params)
-
     try {
       let result = await this.qGetAllTokens(pSearch, pBimesterId, pDisciplineId, pLimit, pOffset)
-      console.log('result: ', result)
       return { status: 200, data: result };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }

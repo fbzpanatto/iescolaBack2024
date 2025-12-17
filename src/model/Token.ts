@@ -35,10 +35,7 @@ export class TestToken {
   classroom: Classroom
 
   @Column({ type: 'smallint' })
-  maxUses: number
-
-  @Column({ type: 'smallint', default: 0 })
-  currentUses: number;
+  leftUses: number
 
   @Column("datetime")
   createdAt: Date

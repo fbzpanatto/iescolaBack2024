@@ -44,15 +44,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async getToken(request: Request) {
-    try {
-      let result;
-      return { status: 200, data: result };
-    }
-    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
-  }
-
-  async saveToken(body: { user: UserInterface, maxUses: number, classroomId: number, testId: number }) {
+  async saveToken(body: { user: UserInterface, leftUses: number, classroomId: number, testId: number }) {
 
     try {
 
@@ -62,7 +54,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
       let testToken = await this.createTestToken({
         teacherId: tUser.teacherId,
-        maxUses: body.maxUses,
+        leftUses: body.leftUses,
         classroomId: body.classroomId,
         testId: body.testId,
         createdAt: sqlDateTime.createdAt,

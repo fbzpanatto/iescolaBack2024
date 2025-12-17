@@ -1,33 +1,7 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import {
-  qAlphabeticLevels,
-  qAlphaTests,
-  qClassroom,
-  qClassrooms,
-  qPendingTransfers,
-  qReadingFluenciesHeaders,
-  qSchools,
-  qState,
-  qStudentClassroomFormated,
-  qStudentsClassroomsForTest,
-  qStudentTests,
-  qTeacherClassrooms,
-  qTeacherDisciplines,
-  qTeacherRelationShip,
-  qTest,
-  qTestClassroom,
-  qTestQuestions, qTestToken,
-  qTransferStatus,
-  qUser,
-  qUserTeacher,
-  qYear,
-  SavePerson,
-  TeacherParam,
-  Training,
-  TrainingResult
-} from "../interfaces/interfaces";
+import { qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTestToken, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { ResultSetHeader } from "mysql2/promise";
@@ -40,11 +14,11 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Contract } from "../model/Contract";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { TestQuestion } from "../model/TestQuestion";
-import { TEST_CATEGORIES_IDS } from "../utils/enums";
+import { PERSON_CATEGORIES, TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
-import { PERSON_CATEGORIES } from "../utils/enums";
 import { Helper } from "../utils/helpers";
+import { TestToken } from "../model/Token";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1369,7 +1343,7 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(format(query), [studentId, testId, studentId])
 
-      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string }[])[0]
+      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number }[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -3990,29 +3964,28 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const tokenSearch = `%${search.toString()}%`;
 
       let query = `
-          SELECT
-              tk.id,
-              tk.code,
-              tk.maxUses,
-              tk.currentUses,
-              DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
-              DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
-              tt.name AS test,
-              br.name AS bimester,
-              upper(dc.name) AS discipline,
-              pr.name AS teacher,
-              cr.shortName AS classroom,
-              sh.shortName AS school
-          FROM test_token tk
-                   INNER JOIN classroom cr ON tk.classroomId = cr.id
-                   INNER JOIN school sh ON cr.schoolId = sh.id
-                   INNER JOIN test tt ON tk.testId = tt.id
-                   INNER JOIN period pd ON tt.periodId = pd.id
-                   INNER JOIN bimester br ON pd.bimesterId = br.id
-                   INNER JOIN discipline dc ON tt.disciplineId = dc.id
-                   INNER JOIN teacher th ON tk.teacherId = th.id
-                   INNER JOIN person pr ON th.personId = pr.id
-          WHERE (tt.name LIKE ? OR tk.code LIKE ?)
+        SELECT
+          tk.id,
+          tk.code,
+          tk.leftUses,
+          DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
+          DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
+          tt.name AS test,
+          br.name AS bimester,
+          upper(dc.name) AS discipline,
+          pr.name AS teacher,
+          cr.shortName AS classroom,
+          sh.shortName AS school
+        FROM test_token tk
+          INNER JOIN classroom cr ON tk.classroomId = cr.id
+          INNER JOIN school sh ON cr.schoolId = sh.id
+          INNER JOIN test tt ON tk.testId = tt.id
+          INNER JOIN period pd ON tt.periodId = pd.id
+          INNER JOIN bimester br ON pd.bimesterId = br.id
+          INNER JOIN discipline dc ON tt.disciplineId = dc.id
+          INNER JOIN teacher th ON tk.teacherId = th.id
+          INNER JOIN person pr ON th.personId = pr.id
+        WHERE (tt.name LIKE ? OR tk.code LIKE ?)
       `;
 
       const params: any[] = [testSearch, tokenSearch];
@@ -4038,24 +4011,23 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async createTestToken(el: { teacherId: number, maxUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {
+  async createTestToken(el: { teacherId: number, leftUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
       const insertQuery = `
-      INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt, currentUses) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO test_token (code, teacherId, leftUses, classroomId, testId, createdAt, expiresAt) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         code = VALUES(code),
-        maxUses = VALUES(maxUses),
+        leftUses = VALUES(leftUses),
         createdAt = VALUES(createdAt),
-        expiresAt = VALUES(expiresAt),
-        currentUses = 0
+        expiresAt = VALUES(expiresAt)
     `;
 
-      const values = [el.code, el.teacherId, el.maxUses, el.classroomId, el.testId, el.createdAt, el.expiresAt];
+      const values = [el.code, el.teacherId, el.leftUses, el.classroomId, el.testId, el.createdAt, el.expiresAt];
 
       await conn.query(insertQuery, values);
 
@@ -4064,6 +4036,23 @@ INNER JOIN year AS y ON tr.yearId = y.id
       return el.code;
     }
     catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async getTokenByCode(token: string, classroomId: number, testId: number) {
+
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query = `SELECT * FROM test_token WHERE code = ? AND expiresAt > ? AND classroomId = ? AND testId = ? AND leftUses > 0`;
+
+      const [result] = await conn.query(query, [token, Helper.generateDateTime().createdAt, classroomId, testId]);
+
+      return (result as TestToken[])[0]
+    }
+    catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 }

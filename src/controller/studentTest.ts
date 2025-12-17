@@ -1,8 +1,8 @@
 import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import {TestByStudentId, UpdateStudentAnswers} from "../interfaces/interfaces";
 import { TestQuestion } from "../model/TestQuestion";
+import { TestByStudentId, UpdateStudentAnswers } from "../interfaces/interfaces";
 
 class StudentTestController extends GenericController<any> {
 
@@ -27,14 +27,17 @@ class StudentTestController extends GenericController<any> {
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      const currentYear = await this.qCurrentYear();
-      const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currentYear.name;
+      const qToken = await this.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
+      if(!qToken) { return { status: 403, message: 'Token inválido, expirado ou pertencente a uma sala diferente da sua matrícula atual.' } }
+
+      const currYear = await this.qCurrentYear();
+      const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currYear.name;
 
       const qTest = await this.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
-      const qTestQuestions = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
-      if (!qTestQuestions || qTestQuestions.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões cadastradas." } }
+      const qTqs = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
+      if (!qTqs || qTqs.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões." } }
 
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
 
@@ -60,7 +63,7 @@ class StudentTestController extends GenericController<any> {
             await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
           }
 
-          const studentQuestionsToInsert = qTestQuestions.map(tq => [tq.id, studentId, '', new Date(), studentId]);
+          const studentQuestionsToInsert = qTqs.map(tq => [tq.id, studentId, '', new Date(), studentId]);
 
           const insertQuestionsQuery = `
           INSERT IGNORE INTO student_question
@@ -79,15 +82,11 @@ class StudentTestController extends GenericController<any> {
 
       const groupMap = new Map();
 
-      qTestQuestions.forEach((tQ: any) => {
-        const groupId = tQ.questionGroup.id;
-        if (!groupMap.has(groupId)) {
-          groupMap.set(groupId, { id: groupId, name: tQ.questionGroup.name, questions: [] });
-        }
-        tQ.question.images = tQ.question.images > 0
-          ? Array.from({ length: tQ.question.images }, (_, i) => i + 1)
-          : 0;
-        groupMap.get(groupId).questions.push(tQ);
+      qTqs.forEach((tQ: {[key:string]:any}) => {
+        const grpId = tQ.questionGroup.id;
+        if (!groupMap.has(grpId)) { groupMap.set(grpId, { id: grpId, name: tQ.questionGroup.name, questions: [] }) }
+        tQ.question.images = tQ.question.images > 0 ? Array.from({ length: tQ.question.images }, (_, i) => i + 1) : 0;
+        groupMap.get(grpId).questions.push(tQ);
       });
 
       const testQuestions = Array.from(groupMap.values());

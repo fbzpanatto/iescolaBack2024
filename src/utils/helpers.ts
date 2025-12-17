@@ -19,25 +19,13 @@ export class Helper {
     return randomString.slice(0, middle) + '-' + randomString.slice(middle);
   }
 
-  static generateDateTime(options: Intl.DateTimeFormatOptions = {
-    timeZone: 'America/Sao_Paulo',
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    weekday: 'short'
-  }) {
-    // 1. Instancia o formatador UMA vez (reuso para performance)
+  static generateDateTime(options: Intl.DateTimeFormatOptions = { timeZone: 'America/Sao_Paulo', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'short'}) {
+
     const formatter = new Intl.DateTimeFormat('en-US', options);
 
-    // 2. Função auxiliar interna para transformar Date -> String SQL
     const formatToSql = (date: Date): string => {
       const parts = formatter.formatToParts(date);
 
-      // Helper para extrair valores com fallback
       const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value || '00';
 
       const year = getPart('year');
@@ -50,15 +38,10 @@ export class Helper {
       return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
     };
 
-    // 3. Define os momentos no tempo (Timestamps)
     const now = new Date();
     const expirationDate = new Date(now.getTime() + (3 * 60 * 60 * 1000));
 
-    // 4. Formata ambos usando a mesma regra de timezone
-    return {
-      createdAt: formatToSql(now),
-      expiresAt: formatToSql(expirationDate)
-    };
+    return { createdAt: formatToSql(now), expiresAt: formatToSql(expirationDate) };
   }
 
   static readingFluencyStudents(rows: any[], test: Test) {

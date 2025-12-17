@@ -3986,8 +3986,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       conn = await connectionPool.getConnection();
 
-      const testSearch = `${search.toString().toUpperCase()}%`;
-      const tokenSearch = `${search.toString()}%`;
+      const testSearch = `%${search.toString().toUpperCase()}%`;
+      const tokenSearch = `%${search.toString()}%`;
 
       let query = `
           SELECT

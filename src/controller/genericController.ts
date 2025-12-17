@@ -3993,8 +3993,10 @@ INNER JOIN year AS y ON tr.yearId = y.id
           SELECT
               tk.id,
               tk.code,
-              tk.createdAt,
-              tk.expiresAt,
+              tk.maxUses,
+              tk.currentUses,
+              DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
+              DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
               tt.name AS test,
               br.name AS bimester,
               upper(dc.name) AS discipline,

@@ -661,8 +661,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         .leftJoin("studentClassroom.year", "year")
         .where("year.name = :yearName", { yearName })
         .andWhere( new Brackets((qb) => {
-          qb.where("person.name LIKE :search", { search: `%${options.search}%` })
-            .orWhere("student.ra LIKE :search", { search: `%${options.search}%` })
+          qb.where("person.name LIKE :search", { search: `${options.search}%` })
+            .orWhere("student.ra LIKE :search", { search: `${options.search}%` })
             .orWhere("classroom.shortName LIKE :search", { search: `%${options.search}%` })
             .orWhere("school.name LIKE :search", { search: `%${options.search}%` })
             .orWhere("school.shortName LIKE :search", { search: `%${options.search}%` })

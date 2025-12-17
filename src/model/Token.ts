@@ -1,9 +1,9 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Test } from "./Test";
 import { Teacher } from "./Teacher";
 import { Classroom } from "./Classroom";
 
-@Index(["test", "teacher", "classroom"], { unique: true })
+@Index(["testId", "teacherId", "classroomId"], { unique: true })
 @Entity()
 export class TestToken {
 
@@ -13,13 +13,25 @@ export class TestToken {
   @Column({ length: 9 })
   code: string;
 
-  @ManyToOne(() => Test, test => test.testToken)
+  @Column()
+  testId: number;
+
+  @ManyToOne(() => Test, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'testId' })
   test: Test
 
-  @ManyToOne(() => Teacher, teacher => teacher.testToken)
+  @Column()
+  teacherId: number;
+
+  @ManyToOne(() => Teacher, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'teacherId' })
   teacher: Teacher
 
-  @ManyToOne(() => Classroom, classroom => classroom.testToken)
+  @Column()
+  classroomId: number;
+
+  @ManyToOne(() => Classroom, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'classroomId' })
   classroom: Classroom
 
   @Column({ type: 'smallint' })
@@ -27,9 +39,6 @@ export class TestToken {
 
   @Column({ type: 'smallint', default: 0 })
   currentUses: number;
-
-  @Column({ default: true })
-  isActive: boolean;
 
   @Column("datetime")
   createdAt: Date

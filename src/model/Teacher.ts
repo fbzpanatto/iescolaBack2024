@@ -1,11 +1,10 @@
-import {Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Person } from "./Person";
 import { TeacherClassDiscipline } from "./TeacherClassDiscipline";
 import { Transfer } from "./Transfer";
 import { IsEmail, Max } from "class-validator";
 import {School} from "./School";
-import {TrainingTeacher} from "./TrainingTeacher";
-import {TestToken} from "./Token";
+import { TrainingTeacher } from "./TrainingTeacher";
 
 @Entity()
 export class Teacher {
@@ -32,9 +31,6 @@ export class Teacher {
 
   @OneToMany(() => TrainingTeacher, trainingTeacher => trainingTeacher.teacher)
   trainingTeachers: TrainingTeacher[]
-
-  @OneToMany(() => TestToken, testToken => testToken.test)
-  testToken: TestToken[]
 
   @OneToMany(() => Transfer, (transfer) => transfer.requester)
   requester: Transfer[];

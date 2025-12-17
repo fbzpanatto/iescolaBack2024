@@ -51,6 +51,8 @@ public/middleware
 public/model
 ./public
 
+.idea/
+
 # Dependency directories
 node_modules/
 jspm_packages/

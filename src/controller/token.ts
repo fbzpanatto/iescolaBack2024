@@ -1,20 +1,18 @@
 import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
-import { Transfer } from "../model/Transfer";
 import { Request } from "express";
 import { Helper } from "../utils/helpers";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { UserInterface } from "../interfaces/interfaces";
+import { TestToken } from "../model/Token";
 
-class TokenController extends GenericController<EntityTarget<any>> {
+class TokenController extends GenericController<EntityTarget<TestToken>> {
 
-  // TODO: change to Token
-  constructor() { super(Transfer) }
+  constructor() { super(TestToken) }
 
   async getFormData(request: Request) {
 
     try {
-      let result;
 
       const tUser = await this.qUser(request?.body.user.user)
 
@@ -22,59 +20,29 @@ class TokenController extends GenericController<EntityTarget<any>> {
                          tUser?.categoryId === PERSON_CATEGORIES.SUPE ||
                          tUser?.categoryId === PERSON_CATEGORIES.FORM;
 
-      result = await this.testByClassroomAndTeacher(tUser.teacherId, '2025', masterUser)
+      let result = await this.testByClassroomAndTeacher(tUser.teacherId, '2025', masterUser)
 
       return { status: 200, data: result };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async getAllTokens(request: Request) {
+  async getAllTokens(req: Request) {
 
-    const { search, bimester, discipline, limit, offset } = request.query
-    const { year } = request.params
+    const { search, limit, offset, bimester, discipline } = req.query
+
+    const pSearch = search as string || '';
+    const pLimit = !isNaN(parseInt(limit as string)) ? parseInt(limit as string) : 100;
+    const pOffset = !isNaN(parseInt(offset as string)) ? parseInt(offset as string) : 0;
+    const pBimesterId = !isNaN(parseInt(bimester as string)) ? parseInt(bimester as string) : null;
+    const pDisciplineId = !isNaN(parseInt(discipline as string)) ? parseInt(discipline as string) : null;
+
+    const params = { search: pSearch, limit: pLimit, offset: pOffset, bimester: pBimesterId, discipline: pDisciplineId }
+    console.log('params: ', params)
 
     try {
-
-      let result = [
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' },
-        { id: 1, token: 'ASXC-98DC', student: 'JOÃO DA SILVA', test: 'AVALIAÇÃO ITATIBA 4º MAT', period: '4º BIM', discipline: 'MATEMÁTICA', startedAt: '12/12/2012 08:00', endedAt: '12/12/2012 09:00', duration: '01:00' }
-      ]
-
+      let result = await this.qGetAllTokens(pSearch, pBimesterId, pDisciplineId, pLimit, pOffset)
+      console.log('result: ', result)
       return { status: 200, data: result };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
@@ -103,28 +71,12 @@ class TokenController extends GenericController<EntityTarget<any>> {
         testId: body.testId,
         createdAt: sqlDateTime.createdAt,
         expiresAt: sqlDateTime.expiresAt,
-        code: this.generateRandomCode()
+        code: Helper.generateRandomCode()
       })
 
       return { status: 201, data: testToken };
     }
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
-  }
-
-  generateRandomCode(length: number = 8): string {
-
-    const CHARACTERS_SAFE = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-
-    const charsLength = CHARACTERS_SAFE.length;
-    const middle = Math.floor(length / 2);
-
-    const randomString = Array.from({ length: length }, () => {
-      const randomIndex = Math.floor(Math.random() * charsLength);
-      return CHARACTERS_SAFE.charAt(randomIndex);
-    }).join('');
-
-    // Insere o hífen no meio
-    return randomString.slice(0, middle) + '-' + randomString.slice(middle);
   }
 }
 

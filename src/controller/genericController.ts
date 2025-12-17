@@ -2,7 +2,6 @@ import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptio
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
 import {
-  DeviceCheckResult,
   qAlphabeticLevels,
   qAlphaTests,
   qClassroom,
@@ -19,7 +18,7 @@ import {
   qTeacherRelationShip,
   qTest,
   qTestClassroom,
-  qTestQuestions,
+  qTestQuestions, qTestToken,
   qTransferStatus,
   qUser,
   qUserTeacher,
@@ -3883,7 +3882,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (search && search.trim() !== '') {
         query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;
-        const searchPattern = `%${search}%`;
+        const searchPattern = `${search}%`;
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 
@@ -3979,6 +3978,51 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
+  async qGetAllTokens(search: string, bimesterId: number | null, disciplineId: number | null, limit: number, offset: number) {
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const testSearch = `${search.toString().toUpperCase()}%`
+      const tokenSearch = `${search.toString()}%`
+
+      const query =
+        `
+          SELECT 
+            tk.id,  
+            tk.code,
+            tk.createdAt,
+            tk.expiresAt,
+            tt.name AS test,
+            br.name AS bimester,
+            upper(dc.name) AS discipline,
+            pr.name AS teacher,
+            cr.shortName AS classroom,
+            sh.shortName AS school
+          FROM test_token tk
+            INNER JOIN classroom cr ON tk.classroomId = cr.id
+            INNER JOIN school sh ON cr.schoolId = sh.id
+            INNER JOIN test tt ON tk.testId = tt.id
+            INNER JOIN period pd ON tt.periodId = pd.id
+            INNER JOIN bimester br ON pd.bimesterId = br.id
+            INNER JOIN discipline dc ON tt.disciplineId = dc.id
+            INNER JOIN teacher th ON tk.teacherId = th.id
+            INNER JOIN person pr ON th.personId = pr.id
+          WHERE br.id = ?
+            AND dc.id = ?
+            AND (tt.name LIKE ? OR tk.code LIKE ?)
+          LIMIT ? OFFSET ?
+          ;
+        `
+
+      const [selectResult] = await conn.query(query, [bimesterId, disciplineId, testSearch, tokenSearch, limit, offset])
+      return selectResult as Array<qTestToken>
+    }
+    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async createTestToken(el: { teacherId: number, maxUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {
     let conn;
     try {
@@ -3986,15 +4030,14 @@ INNER JOIN year AS y ON tr.yearId = y.id
       await conn.beginTransaction();
 
       const insertQuery = `
-      INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt, currentUses, isActive) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, true)
+      INSERT INTO test_token (code, teacherId, maxUses, classroomId, testId, createdAt, expiresAt, currentUses) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
       ON DUPLICATE KEY UPDATE
         code = VALUES(code),
         maxUses = VALUES(maxUses),
         createdAt = VALUES(createdAt),
         expiresAt = VALUES(expiresAt),
-        currentUses = 0,
-        isActive = true
+        currentUses = 0
     `;
 
       const values = [el.code, el.teacherId, el.maxUses, el.classroomId, el.testId, el.createdAt, el.expiresAt];

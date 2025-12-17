@@ -4,6 +4,21 @@ import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuest
 
 export class Helper {
 
+  static generateRandomCode(length: number = 8): string {
+
+    const CHARACTERS_SAFE = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+    const charsLength = CHARACTERS_SAFE.length;
+    const middle = Math.floor(length / 2);
+
+    const randomString = Array.from({ length: length }, () => {
+      const randomIndex = Math.floor(Math.random() * charsLength);
+      return CHARACTERS_SAFE.charAt(randomIndex);
+    }).join('');
+
+    return randomString.slice(0, middle) + '-' + randomString.slice(middle);
+  }
+
   static generateDateTime(options: Intl.DateTimeFormatOptions = {
     timeZone: 'America/Sao_Paulo',
     hour12: false,

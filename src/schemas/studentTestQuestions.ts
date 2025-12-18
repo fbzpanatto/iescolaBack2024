@@ -155,4 +155,19 @@ export const SUBMIT_TEST_SCHEMA: Schema = {
       },
     },
   },
+  token: {
+    exists: {
+      errorMessage: 'Token is required',
+    }
+  },
+  'token.id': {
+    exists: {
+      errorMessage: 'Token is required',
+    },
+  },
+  'token.code': {
+    exists: {
+      errorMessage: 'Token is required',
+    },
+  }
 };

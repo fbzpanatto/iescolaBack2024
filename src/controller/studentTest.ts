@@ -3,6 +3,7 @@ import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
 import { TestQuestion } from "../model/TestQuestion";
 import { TestByStudentId, UpdateStudentAnswers } from "../interfaces/interfaces";
+import { Helper } from "../utils/helpers";
 
 class StudentTestController extends GenericController<any> {
 
@@ -58,12 +59,12 @@ class StudentTestController extends GenericController<any> {
             const insertStatusQuery = `
             INSERT INTO student_test_status
             (studentClassroomId, testId, active, observation, createdAt, createdByUser)
-            VALUES (?, ?, 1, '', NOW(), ?)
+            VALUES (?, ?, 1, '', Helper.generateDateTime().createdAt, ?)
           `;
             await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
           }
 
-          const studentQuestionsToInsert = qTqs.map(tq => [tq.id, studentId, '', new Date(), studentId]);
+          const studentQuestionsToInsert = qTqs.map(tq => [tq.id, studentId, '', Helper.generateDateTime().createdAt, studentId]);
 
           const insertQuestionsQuery = `
           INSERT IGNORE INTO student_question
@@ -91,7 +92,7 @@ class StudentTestController extends GenericController<any> {
 
       const testQuestions = Array.from(groupMap.values());
 
-      return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions } };
+      return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions, token: { id: qToken.id, code: qToken.code } } };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
@@ -126,13 +127,41 @@ class StudentTestController extends GenericController<any> {
 
       const updateStatusQuery = `
         UPDATE student_test_status
-        SET active = 0, observation = '', updatedAt = NOW(), updatedByUser = ?
+        SET active = 0, observation = '', updatedAt = ?, updatedByUser = ?
         WHERE id = ? AND active = 1
       `;
-      const [updateResult] = await conn.execute(updateStatusQuery, [body.user.user, studentTest.studentTestStatusId]) as any[];
+      const [updateResult] = await conn.execute(updateStatusQuery, [ Helper.generateDateTime().createdAt, body.user.user, studentTest.studentTestStatusId]) as any[];
 
       message = "Esta prova já foi finalizada por outra sessão."
       if (updateResult.affectedRows === 0) { await conn.rollback(); return { status: 400, message } }
+
+      if (body.token && body.token.id) {
+
+        const query =
+          `
+            UPDATE test_token
+            SET leftUses = leftUses - 1
+            WHERE id = ? AND testId = ? AND classroomId = ? AND leftUses > 0 AND expiresAt > ?
+          `;
+
+        const [tokenUpdate]: any = await conn.execute(query, [body.token.id, studentTest.testId, studentTest.classroomId, Helper.generateDateTime().createdAt]);
+
+        if (tokenUpdate.affectedRows === 0) {
+
+          const [exists]: any = await conn.query(
+            "SELECT id FROM test_token WHERE id = ? AND testId = ? AND classroomId = ?",
+            [body.token.id, studentTest.testId, studentTest.classroomId]
+          );
+
+          if (exists.length > 0) {
+            await conn.rollback();
+            return { status: 403, message: "Não foi possível finalizar: limite de usos ou tempo do token esgotado." };
+          }
+
+          await conn.rollback();
+          return { status: 403, message: "Token de acesso inválido ou não encontrado." };
+        }
+      }
 
       const caseAnswerClauses: string[] = [];
       const caseClassroomClauses: string[] = [];

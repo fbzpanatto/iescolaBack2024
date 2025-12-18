@@ -4046,13 +4046,38 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
 
-      const query = `SELECT * FROM test_token WHERE BINARY code = ? AND expiresAt > ? AND classroomId = ? AND testId = ? AND leftUses > 0`;
+      const query = `SELECT * FROM test_token WHERE BINARY code = ? AND expiresAt > ? AND classroomId = ? AND testId = ? AND leftUses > 0 LIMIT 1`;
 
       const [result] = await conn.query(query, [token, Helper.generateDateTime().createdAt, classroomId, testId]);
 
       return (result as TestToken[])[0]
     }
     catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async consumeTokenUsage(tokenId: number) {
+
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const sql = `
+        UPDATE test_token
+        SET leftUses = leftUses - 1
+        WHERE id = ? AND leftUses > 0
+      `;
+
+      const [result]: any = await conn.query(sql, [tokenId]);
+
+      if (result.affectedRows === 0) { return false }
+
+      await conn.commit();
+      return true;
+    }
+    catch (error) { if (conn) { await conn.rollback(); } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 }

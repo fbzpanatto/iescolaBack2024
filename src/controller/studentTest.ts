@@ -59,9 +59,9 @@ class StudentTestController extends GenericController<any> {
             const insertStatusQuery = `
             INSERT INTO student_test_status
             (studentClassroomId, testId, active, observation, createdAt, createdByUser)
-            VALUES (?, ?, 1, '', Helper.generateDateTime().createdAt, ?)
+            VALUES (?, ?, 1, '', ?, ?)
           `;
-            await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, studentId]);
+            await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, Helper.generateDateTime().createdAt, studentId]);
           }
 
           const studentQuestionsToInsert = qTqs.map(tq => [tq.id, studentId, '', Helper.generateDateTime().createdAt, studentId]);

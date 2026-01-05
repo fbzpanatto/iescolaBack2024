@@ -156,8 +156,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if((qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF) && tests.length > 0) {
 
-          console.log('Provas com questões')
-
           const testIds = tests.map(test => test.id);
           const questionsMap = await this.qTestQuestionsForMultipleTests(testIds);
 

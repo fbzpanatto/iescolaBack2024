@@ -1,7 +1,35 @@
 import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Person } from "../model/Person";
-import { qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTestToken, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
+import {
+  InactiveNewClassroom,
+  qAlphabeticLevels,
+  qAlphaTests,
+  qClassroom,
+  qClassrooms,
+  qPendingTransfers,
+  qReadingFluenciesHeaders,
+  qSchools,
+  qState,
+  qStudentClassroomFormated,
+  qStudentsClassroomsForTest,
+  qStudentTests,
+  qTeacherClassrooms,
+  qTeacherDisciplines,
+  qTeacherRelationShip,
+  qTest,
+  qTestClassroom,
+  qTestQuestions,
+  qTestToken,
+  qTransferStatus,
+  qUser,
+  qUserTeacher,
+  qYear,
+  SavePerson,
+  TeacherParam,
+  Training,
+  TrainingResult
+} from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { ResultSetHeader } from "mysql2/promise";
@@ -19,6 +47,7 @@ import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { Helper } from "../utils/helpers";
 import { TestToken } from "../model/Token";
+import {Year} from "../model/Year";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1589,6 +1618,74 @@ export class GenericController<T> {
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async graduateStudentsBatchSQL(body: {list: InactiveNewClassroom[], user: qUserTeacher, year: qYear }) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const { list, user, year } = body;
+
+      if (!list || list.length === 0) { throw new Error("Nenhum aluno para formar.") }
+
+      const teacherId = user.id;
+      const userId = user.person.user.id;
+
+      const studentIds = list.map(item => item.student.id);
+      const now = new Date();
+
+      const updateQuery = `
+      UPDATE student 
+      SET active = 0, 
+          updatedByUser = ?, 
+          updatedAt = ? 
+      WHERE id IN (?)
+    `;
+
+      await conn.query(updateQuery, [userId, now, studentIds]);
+
+      const transferStatusFormado = 6;
+
+      const valuesToInsert = list.map(item => [
+        transferStatusFormado,      // statusId
+        year.id,                       // yearId
+        item.student.id,            // studentId
+        teacherId,                  // requesterId
+        teacherId,                  // receiverId
+        item.oldClassroom.id,       // requestedClassroomId
+        item.oldClassroom.id,       // currentClassroomId
+        now,                        // startedAt
+        now,                        // endedAt
+        userId,                     // createdByUser
+        userId                      // updatedByUser
+      ]);
+
+      const insertQuery = `
+      INSERT INTO transfer (
+        statusId, 
+        yearId, 
+        studentId, 
+        requesterId, 
+        receiverId, 
+        requestedClassroomId, 
+        currentClassroomId, 
+        startedAt, 
+        endedAt, 
+        createdByUser, 
+        updatedByUser
+      ) VALUES ?
+    `;
+
+      await conn.query(insertQuery, [valuesToInsert]);
+
+      await conn.commit();
+
+      return { status: 201, message: `${list.length} alunos processados com sucesso.` };
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error("Erro no graduateStudentsBatchSQL:", error);throw error }
+    finally { if (conn) conn.release() }
   }
 
   async qSetInactiveStudentTest(studentClassroomId: number, testId: number, classroomId: number, userId: number) {

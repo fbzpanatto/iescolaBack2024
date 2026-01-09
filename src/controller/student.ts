@@ -98,26 +98,37 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
 
-      for(let item of body.list) {
-        const oldYearDB = await this.qYearById(item.oldYear)
-        if (!oldYearDB) { throw new Error(JSON.stringify({ status: 404, message: 'Não foi possível encontrar o ano letivo informado.' }))}
+      const everyGraduate = body.list.every((item: any) =>
+        item.newClassroom.name === 'FORMANDO' &&
+        item.newClassroom.school === 'PMI' &&
+        item.oldClassroom.shortName.replace(/\D/g, '') === '9'
+      )
 
-        const el = await this.qActiveSc(item.student.id)
-        if (el) { throw new Error(JSON.stringify({ status: 400, message: `O aluno ${el?.personName} está matriculado na sala ${el?.classroomName} ${el?.schoolName} em ${el?.yearName}. Solicite sua transferência através do menu Matrículas Ativas` }))}
+      if(everyGraduate && body.list.length > 0) {
+        await this.graduateStudentsBatchSQL({list: body.list, user: qUserTeacher, year: lastYearDB })
+      }
+      else {
+        for(let item of body.list) {
+          const oldYearDB = await this.qYearById(item.oldYear)
+          if (!oldYearDB) { throw new Error(JSON.stringify({ status: 404, message: 'Não foi possível encontrar o ano letivo informado.' }))}
 
-        const result = await this.qLastRegister(item.student.id, lastYearDB.id)
-        if (result && result.length > 1 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { throw new Error(JSON.stringify({ status: 409, message: `O aluno ${item.student.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` }))}
+          const el = await this.qActiveSc(item.student.id)
+          if (el) { throw new Error(JSON.stringify({ status: 400, message: `O aluno ${el?.personName} está matriculado na sala ${el?.classroomName} ${el?.schoolName} em ${el?.yearName}. Solicite sua transferência através do menu Matrículas Ativas` }))}
 
-        const classroom = await this.qClassroom(item.newClassroom.id)
-        const oldClassInDb = await this.qClassroom(item.oldClassroom.id)
+          const result = await this.qLastRegister(item.student.id, lastYearDB.id)
+          if (result && result.length > 1 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { throw new Error(JSON.stringify({ status: 409, message: `O aluno ${item.student.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` }))}
 
-        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { throw new Error(JSON.stringify({ status: 400, message: 'Regressão de sala não é permitido.' }))}
+          const classroom = await this.qClassroom(item.newClassroom.id)
+          const oldClassInDb = await this.qClassroom(item.oldClassroom.id)
 
-        const newStudentResult = await this.qNewStudentClassroom(item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id, item.rosterNumber)
+          if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { throw new Error(JSON.stringify({ status: 400, message: 'Regressão de sala não é permitido.' }))}
 
-        const newTransfer = await this.qNewTransfer(qUserTeacher.person.user.id, classroom.id, oldClassInDb.id, qUserTeacher.person.user.id, item.student.id, currentYear.id, qUserTeacher.person.user.id)
+          const newStudentResult = await this.qNewStudentClassroom(item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id, item.rosterNumber)
 
-        if(newTransfer.affectedRows !== 1 && newStudentResult.affectedRows !== 1) { throw new Error(JSON.stringify({ status: 400, message: 'Algum aluno selecionado está' + ' impedindo esta operação. Tente realizar a passagem de forma individual afim de detectar' + ' qual não é possível.' })) }
+          const newTransfer = await this.qNewTransfer(qUserTeacher.person.user.id, classroom.id, oldClassInDb.id, qUserTeacher.person.user.id, item.student.id, currentYear.id, qUserTeacher.person.user.id)
+
+          if(newTransfer.affectedRows !== 1 && newStudentResult.affectedRows !== 1) { throw new Error(JSON.stringify({ status: 400, message: 'Algum aluno selecionado está' + ' impedindo esta operação. Tente realizar a passagem de forma individual afim de detectar' + ' qual não é possível.' })) }
+        }
       }
       return { status: 200, data: {} };
     }

@@ -9,7 +9,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async getHistory(req: Request) {
 
-    const { student, year, limit, offset } = req.query;
+    const { student, year } = req.query;
+
+    if (!year || !student) { return { status: 400, message: "Parâmetros 'student' e 'year' são obrigatórios." } }
 
     try {
 
@@ -28,9 +30,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       if(!studentIds.length) { return { status: 200, data: [] } }
 
-      const studentTests = await this.qStudentTestsByYear(studentIds, qYear.id, limit, offset)
-
-      const studentAlpha = await this.qStudentAlphabeticByYear(studentIds, qYear.id, limit, offset)
+      const [studentTests, studentAlpha] = await Promise.all([
+        this.qStudentTestsByYear(studentIds, qYear.id),
+        this.qStudentAlphabeticByYear(studentIds, qYear.id)
+      ]);
 
       return { status: 200, data: [...studentAlpha, ...studentTests] };
     } catch (error: any) { console.log(error); return { status: 500, message: error.message } }

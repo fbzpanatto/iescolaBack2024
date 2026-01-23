@@ -3349,40 +3349,31 @@ INNER JOIN year AS y ON tr.yearId = y.id
       conn = await connectionPool.getConnection();
       const studentSearch = `%${student.toString().toUpperCase()}%`
 
-      // --- CENÁRIO MASTER TEACHER ---
-      // Mantém como estava: Pode buscar qualquer aluno histórico naquele ano específico
       if(masterTeacher) {
         let query = `
-            SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name
-            FROM student_classroom AS sc
-                     INNER JOIN student AS stu ON sc.studentId = stu.id
-                     INNER JOIN person AS per ON stu.personId = per.id
-            WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.yearId = ?
-            LIMIT ? OFFSET ?
+          SELECT sc.id AS studentClassroomId, stu.id AS studentId, per.name
+          FROM student_classroom AS sc
+            INNER JOIN student AS stu ON sc.studentId = stu.id
+            INNER JOIN person AS per ON stu.personId = per.id
+          WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.yearId = ?
+          LIMIT ? OFFSET ?
         `
         const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, yearId, limit, offset])
         return queryResult as { studentClassroomId: number, studentId: number, name: string }[]
       }
 
-      // --- CENÁRIO PROFESSOR COMUM (A Correção) ---
-      // AQUI ESTÁ O TRUQUE:
-      // Mesmo recebendo o 'yearId' nos argumentos da função, nós NÃO o usamos no WHERE.
-      // Usamos 'sc.endedAt IS NULL' para garantir que é um aluno ATUAL do professor.
-
       let query = `
-      SELECT DISTINCT sc.id, stu.id AS studentId, per.name
-      FROM student_classroom AS sc
-      INNER JOIN student AS stu ON sc.studentId = stu.id
-      INNER JOIN person AS per ON stu.personId = per.id
-      WHERE (per.name LIKE ? OR stu.ra LIKE ?) 
-      AND sc.classroomId IN (?) 
-      AND sc.endedAt IS NULL 
-      LIMIT ? OFFSET ?
+        SELECT DISTINCT sc.id, stu.id AS studentId, per.name
+        FROM student_classroom AS sc
+        INNER JOIN student AS stu ON sc.studentId = stu.id
+        INNER JOIN person AS per ON stu.personId = per.id
+        WHERE (per.name LIKE ? OR stu.ra LIKE ?) 
+        AND sc.classroomId IN (?) 
+        AND (sc.endedAt IS NULL OR sc.yearId = ?)
+        LIMIT ? OFFSET ?
       `
 
-      // Note que passamos 'classrooms' (salas atuais do professor) e removemos 'yearId'
-      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms, limit, offset])
-
+      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms, yearId, limit, offset])
       return queryResult as { id: number, studentId: number, name: string }[]
     }
     catch (error) { console.error(error); throw error }

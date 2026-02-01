@@ -195,110 +195,166 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     }
   }
 
-  async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, CONN: EntityManager) {
-
-    const managerToTeacher = Number(body.category) === Number(PERSON_CATEGORIES.PROF) && Number(teacher.person.category.id) === Number(PERSON_CATEGORIES.COOR)
-    const teacherToManager = Number(body.category) === Number(PERSON_CATEGORIES.COOR) && Number(teacher.person.category.id) === Number(PERSON_CATEGORIES.PROF)
-
-    if(managerToTeacher && !teacherToManager) {
-
-      teacher.person.category = { id: Number(body.category) } as PersonCategory
-
-      await this.qEndAllTeacherRelations(teacher.id)
-      await this.updateTeacherClassesAndDisciplines(teacher, CONN, body)
-    }
-
-    if((!managerToTeacher && (Number(body.school) != Number(teacher.school.id))) || teacherToManager) {
-
-      if(teacherToManager) { teacher.person.category = { id: Number(body.category) } as PersonCategory }
-
-      await this.qEndAllTeacherRelations(teacher.id)
-
-      teacher.school = { id: Number(body.school) } as School
-
-      const disciplines = await CONN.find(Discipline)
-      const classrooms = await CONN.find(Classroom, { where: { school: { id: Number(body.school) } } })
-
-      for(let discipline of disciplines) {
-        for(let classroom of classrooms ) {
-          await CONN.getRepository(TeacherClassDiscipline).save({
-            teacher: { id: teacher.id },
-            discipline: { id: discipline.id },
-            classroom: { id: classroom.id },
-            startedAt: new Date(),
-          })
-        }
-      }
-    }
-
-    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
-  }
-
   async adminSupeFormUpdateMethod(teacher: Teacher, CONN: EntityManager) {
     await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
   }
 
+  async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, CONN: EntityManager) {
+
+    const targetCategory = Number(body.category);
+
+    // Agrupamento dos cargos "Master" (que têm acesso total)
+    const MASTER_ROLES = [
+      Number(PERSON_CATEGORIES.DIRE), // Diretor
+      Number(PERSON_CATEGORIES.VICE), // Vice-Diretor
+      Number(PERSON_CATEGORIES.COOR)  // Coordenador
+    ];
+
+    const isTargetMaster = MASTER_ROLES.includes(targetCategory);
+    const isTargetProfessor = targetCategory === Number(PERSON_CATEGORIES.PROF);
+
+    // ---------------------------------------------------------------------------
+    // CENÁRIO A: Tornando-se (ou trocando entre) DIRETOR, VICE ou COORDENADOR
+    // ---------------------------------------------------------------------------
+    // Cobre: Prof->Dir, Prof->Vice, Prof->Coord, Vice->Dir, Coord->Vice, etc.
+    if (isTargetMaster) {
+
+      // 1. Atualiza dados cadastrais
+      teacher.person.category = { id: targetCategory } as PersonCategory;
+      teacher.school = { id: Number(body.school) } as School;
+
+      // 2. Limpa TODOS os vínculos anteriores (seja de prof ou de outro cargo master)
+      await this.qEndAllTeacherRelations(teacher.id);
+
+      // 3. Gera vínculos com TUDO da escola alvo (Regra Master)
+      const disciplines = await CONN.find(Discipline);
+      const classrooms = await CONN.find(Classroom, { where: { school: { id: Number(body.school) } } });
+
+      // Otimização Bulk Insert (Performance Extrema)
+      const masterRelations = [];
+      const repository = CONN.getRepository(TeacherClassDiscipline);
+
+      for (const discipline of disciplines) {
+        for (const classroom of classrooms) {
+          const relation = repository.create({
+            teacher: { id: teacher.id },
+            discipline: { id: discipline.id },
+            classroom: { id: classroom.id },
+            startedAt: new Date(),
+          });
+          masterRelations.push(relation);
+        }
+      }
+
+      if (masterRelations.length > 0) {
+        await repository.save(masterRelations);
+      }
+    }
+
+      // ---------------------------------------------------------------------------
+      // CENÁRIO B: Tornando-se PROFESSOR (Vindo de qualquer cargo de gestão)
+      // ---------------------------------------------------------------------------
+    // Cobre: Dir->Prof, Vice->Prof, Coord->Prof
+    else if (isTargetProfessor) {
+
+      // 1. Atualiza categoria imediatamente
+      teacher.person.category = { id: targetCategory } as PersonCategory;
+
+      // 2. Limpa os vínculos "Master" antigos (pois agora ele terá vínculos específicos)
+      await this.qEndAllTeacherRelations(teacher.id);
+
+      // 3. Chama o método que lê o body para criar os vínculos específicos de aula
+      // Nota: A escola será atualizada dentro deste método se necessário
+      await this.updateTeacherClassesAndDisciplines(teacher, CONN, body);
+    }
+
+    // Salva o Teacher (Categoria e Escola atualizadas)
+    await CONN.save(Teacher, teacher);
+
+    return { status: 200, data: teacher };
+  }
+
   async updateTeacherClassesAndDisciplines(teacher: Teacher, CONN: EntityManager, body: TeacherBody) {
 
-    // Verifica se é mudança de professor para coordenador
-    const teacherToManager = Number(body.category) === Number(PERSON_CATEGORIES.COOR) && Number(teacher.person.category.id) === Number(PERSON_CATEGORIES.PROF)
-    if (teacherToManager) { return await this.changeTeacherMasterSchool(body, teacher, CONN) }
+    const targetCategory = Number(body.category);
+    const currentCategory = Number(teacher.person.category.id);
 
-    // Busca relacionamentos existentes no banco
-    const qDbRelationShip = (await this.qTeacherRelationship(teacher.id)).teacherClassesDisciplines
-    const repository = CONN.getRepository(TeacherClassDiscipline)
+    // Definição de quem são os "Masters"
+    const MASTER_ROLES = [
+      Number(PERSON_CATEGORIES.DIRE),
+      Number(PERSON_CATEGORIES.VICE),
+      Number(PERSON_CATEGORIES.COOR)
+    ];
 
-    // Processa cada elemento do body
+    // 1. Redirecionamento de Fluxo (Promotion/Role Change Logic)
+    // Se o destino é um cargo Master E o cargo atual é diferente do destino...
+    // ...OU se estou saindo de um cargo Master para virar Professor.
+    const isBecomingMaster = MASTER_ROLES.includes(targetCategory) && targetCategory !== currentCategory;
+    const isDemotingToTeacher = targetCategory === Number(PERSON_CATEGORIES.PROF) && MASTER_ROLES.includes(currentCategory);
+
+    if (isBecomingMaster || isDemotingToTeacher) {
+      return await this.changeTeacherMasterSchool(body, teacher, CONN);
+    }
+
+    // --- DAQUI PRA BAIXO SEGUE O CÓDIGO PADRÃO DE PROFESSOR (OTIMIZADO) ---
+
+    const qDbRelationShip = (await this.qTeacherRelationship(teacher.id)).teacherClassesDisciplines;
+    const repository = CONN.getRepository(TeacherClassDiscipline);
+    const toSave: TeacherClassDiscipline[] = [];
+
     for (const bodyElement of body.teacherClassesDisciplines) {
-      // Encontra linha correspondente no banco de dados
+
       const dataBaseRow = qDbRelationShip.find(dataRow =>
         dataRow.id === bodyElement.id &&
         dataRow.teacherId === bodyElement.teacherId &&
         dataRow.classroomId === bodyElement.classroomId &&
         dataRow.disciplineId === bodyElement.disciplineId
-      )
+      );
 
-      // Desativa relacionamento existente
+      const hasValidData = bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId;
+      const hasValidContract = bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2);
+
+      // Caso A: Desativar
       if (dataBaseRow && !bodyElement.active) {
-        await repository.save({
-          ...(dataBaseRow as any),
-          endedAt: new Date()
-        })
+        const toSavePush = repository.create({ ...dataBaseRow, endedAt: new Date() } as unknown as TeacherClassDiscipline)
+        toSave.push(toSavePush);
+        continue;
       }
 
-      // Verifica se os dados básicos são válidos
-      const hasValidData = bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId
-      const hasValidContract = bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2)
-
-      // Atualiza relacionamento existente
+      // Caso B: Atualizar
       if (bodyElement.id && bodyElement.active && hasValidData && dataBaseRow) {
-        const updateData = { ...(dataBaseRow as any), endedAt: null }
-
-        if (hasValidContract) { updateData.contract = { id: bodyElement.contract } as Contract }
-
-        await repository.save(updateData)
+        const updateData: any = { ...dataBaseRow, endedAt: null };
+        if (hasValidContract) updateData.contract = { id: bodyElement.contract };
+        const toSavePush = repository.create(updateData) as unknown as TeacherClassDiscipline;
+        toSave.push(toSavePush);
+        continue;
       }
 
-      // Cria novo relacionamento
+      // Caso C: Criar Novo
       if (bodyElement.id === null && !dataBaseRow && bodyElement.active && hasValidData) {
         const newRelationship: any = {
           teacher: { id: bodyElement.teacherId },
           discipline: { id: bodyElement.disciplineId },
           classroom: { id: bodyElement.classroomId },
           startedAt: new Date()
-        }
-
-        if (hasValidContract) { newRelationship.contract = { id: bodyElement.contract } as Contract }
-
-        await repository.save(newRelationship)
+        };
+        if (hasValidContract) newRelationship.contract = { id: bodyElement.contract };
+        const toSavePush = repository.create(newRelationship) as unknown as TeacherClassDiscipline;
+        toSave.push(toSavePush);
       }
     }
 
-    // Atualiza escola se necessário
-    if (Number(body.school) !== Number(teacher.school.id)) { teacher.school = { id: Number(body.school) } as School }
+    if (toSave.length > 0) {
+      await repository.save(toSave);
+    }
 
-    await CONN.save(Teacher, teacher)
-    return { status: 200, data: teacher }
+    // Atualiza escola se necessário (Caso Prof -> Prof em outra escola)
+    if (Number(body.school) !== Number(teacher.school.id)) {
+      teacher.school = { id: Number(body.school) } as School;
+    }
+
+    await CONN.save(Teacher, teacher);
+    return { status: 200, data: teacher };
   }
 
   async saveTeacher(body: TeacherBody) {

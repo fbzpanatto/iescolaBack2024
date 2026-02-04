@@ -275,15 +275,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const qYear = await this.qYearByName(String(year))
       if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
-      console.log('qClassroom: ', qClassroom)
-
       const classroomValue = `${Number(qClassroom.shortName.replace(/\D/g, ""))}`;
 
-      console.log('classroomValue: ', classroomValue)
-
       const localTests = (await reportController.listAggregatedTests(Number(classroomValue), Number(bimester), String(year))).data;
-
-      console.log('localTests: ', localTests)
 
       const response: any = { headers: [], schools: [] };
       if (!localTests?.length) { return { status: 200, data: response } }

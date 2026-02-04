@@ -1598,7 +1598,6 @@ export class GenericController<T> {
     try {
       conn = await connectionPool.getConnection()
       const likeClassroom = `%${classroom}%`
-      console.log(likeClassroom)
 
       const query = `
         SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName, t.createdAt

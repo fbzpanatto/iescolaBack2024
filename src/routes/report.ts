@@ -7,7 +7,12 @@ import { ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 export const ReportRouter = Router();
 
 ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, res: any) => {
-  const data: Data = await controller.listAggregatedTests(req);
+
+  const classroom = req.query.classroom ?? req.params.classroom
+  const bimester = req.query.bimester ?? req.params.bimester
+  const year = req.query.year ?? req.params.year
+
+  const data: Data = await controller.listAggregatedTests(Number(classroom), Number(bimester), String(year));
   return res.status(data.status).json(data);
 })
 

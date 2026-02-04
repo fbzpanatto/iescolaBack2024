@@ -1,26 +1,34 @@
-import { GenericController } from "./genericController";
-import { Test } from "../model/Test";
-import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
-import { Classroom } from "../model/Classroom";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TestQuestion } from "../model/TestQuestion";
-import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
-import { PERSON_CATEGORIES } from "../utils/enums";
-import { Year } from "../model/Year";
-import { EntityManager, EntityTarget } from "typeorm";
-import { Question } from "../model/Question";
-import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
-import { TestCategory } from "../model/TestCategory";
-import { ReadingFluency } from "../model/ReadingFluency";
-import { TEST_CATEGORIES_IDS } from "../utils/enums";
-import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, TestBodySave, Totals } from "../interfaces/interfaces";
-import { Person } from "../model/Person";
-import { Skill } from "../model/Skill";
-import { Helper } from "../utils/helpers";
+import {GenericController} from "./genericController";
+import {Test} from "../model/Test";
+import {classroomController} from "./classroom";
+import {AppDataSource} from "../data-source";
+import {Period} from "../model/Period";
+import {Classroom} from "../model/Classroom";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {TestQuestion} from "../model/TestQuestion";
+import {Request} from "express";
+import {QuestionGroup} from "../model/QuestionGroup";
+import {PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
+import {Year} from "../model/Year";
+import {EntityManager, EntityTarget} from "typeorm";
+import {Question} from "../model/Question";
+import {Discipline} from "../model/Discipline";
+import {Bimester} from "../model/Bimester";
+import {TestCategory} from "../model/TestCategory";
+import {ReadingFluency} from "../model/ReadingFluency";
+import {
+  AllClassrooms,
+  AlphaHeaders,
+  CityHall,
+  qReadingFluenciesHeaders,
+  qYear,
+  TestBodySave,
+  Totals
+} from "../interfaces/interfaces";
+import {Person} from "../model/Person";
+import {Skill} from "../model/Skill";
+import {Helper} from "../utils/helpers";
+import {reportController} from "./report";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -246,6 +254,63 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: { classrooms, disciplines, bimesters, testCategories, questionGroup } };
       })
     } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getGroupedFullParallel(req: Request) {
+
+    const classroom = req.query.classroom ?? req.params.classroom
+    const bimester = req.query.bimester ?? req.params.bimester
+    const year = req.query.year ?? req.params.year
+
+    try {
+      const qUt = await this.qTeacherByUser(req.body.user.user)
+      const masterUser = qUt.person.category.id === PERSON_CATEGORIES.ADMN || qUt.person.category.id === PERSON_CATEGORIES.SUPE || qUt.person.category.id === PERSON_CATEGORIES.FORM
+
+      const qClassroom = await this.qClassroom(Number(classroom))
+      if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
+
+      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
+      if(!classrooms.includes(qClassroom.id) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
+
+      const qYear = await this.qYearByName(String(year))
+      if(!qYear) return { status: 404, message: "Ano não encontrado." }
+
+      console.log('qClassroom: ', qClassroom)
+
+      const classroomValue = `${Number(qClassroom.shortName.replace(/\D/g, ""))}`;
+
+      console.log('classroomValue: ', classroomValue)
+
+      const localTests = (await reportController.listAggregatedTests(Number(classroomValue), Number(bimester), String(year))).data;
+
+      console.log('localTests: ', localTests)
+
+      const response: any = { headers: [], schools: [] };
+      if (!localTests?.length) { return { status: 200, data: response } }
+
+      const allPromises = localTests.map(async (el) => (await this.getGroupedFullParallelWrapper(el, qYear, qClassroom)).data);
+
+      const allResults = await Promise.all(allPromises);
+
+      return { status: 200, data: allResults };
+    }
+    catch (error: any) { console.log('getGroupedFullParallel', error); return { status: 500, message: error.message } }
+  }
+
+  async getGroupedFullParallelWrapper(test: { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string  }, year: qYear, qClassroom: Classroom) {
+
+    const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[];
+    if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
+
+    const testQuestionsIds = qTestQuestions.map(tq => tq.id);
+    const questionGroups = await this.qTestQuestionsGroupsOnReport(test.id);
+
+    const classroomNumber = qClassroom.shortName.replace(/\D/g, "");
+    const baseSchoolId = qClassroom.school.id;
+
+    const pResult = Helper.testGraph((await this.qGraphTest(test.id, testQuestionsIds, year)) as Array<any>);
+
+    return { status: 200, data: Helper.classroomDataStructure(pResult, test, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
   }
 
   async getGraphic(req: Request) {

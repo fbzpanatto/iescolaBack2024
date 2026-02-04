@@ -1593,11 +1593,12 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAggregateTest(yearName: string, classroom: number, bimesterId: number, categoryId: number) {
+  async qAggregateTest(yearName: string, classroom: number, bimesterId: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
       const likeClassroom = `%${classroom}%`
+      console.log(likeClassroom)
 
       const query = `
         SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName, t.createdAt
@@ -3804,7 +3805,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qGraphTest(testId: string, testQuestionsIds: number[], year: any) {
+  async qGraphTest(testId: number | string, testQuestionsIds: number[], year: any) {
     let conn;
     try {
       conn = await connectionPool.getConnection();

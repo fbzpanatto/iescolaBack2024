@@ -77,22 +77,23 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
-  async listAggregatedTests(req: Request) {
-    const classroom = req.query.classroom ?? req.params.classroom
-    const bimester = req.query.bimester ?? req.params.bimester
-    const category = req.query.category ?? req.params.category
-    const year = req.params.year as string
+  async listAggregatedTests(classroom: number | string, bimester: number | string, year: number | string) {
     try {
       if(!classroom || !bimester) { return { status: 400, message: "Parâmetros inválidos. É necessário informar o ID da turma e do bimestre." } }
-      let data = await this.qAggregateTest(year, Number(classroom as string), Number(bimester as string), Number(category as string))
+      let data = await this.qAggregateTest(String(year), Number(classroom as string), Number(bimester as string))
       return { status: 200, data };
     }
     catch (error: any) { console.log('getAggregate', error); return { status: 500, message: error.message } }
   }
 
   async aggregatedTestResultFullParallel(req: Request) {
+
+    const classroom = req.query.classroom ?? req.params.classroom
+    const bimester = req.query.bimester ?? req.params.bimester
+    const year = req.query.year ?? req.params.year
+
     try {
-      const localTests = (await this.listAggregatedTests(req)).data;
+      const localTests = (await this.listAggregatedTests(Number(classroom), Number(bimester), String(year))).data;
       const response: any = { headers: [], schools: [] };
 
       if (!localTests?.length) { return { status: 200, data: response } }

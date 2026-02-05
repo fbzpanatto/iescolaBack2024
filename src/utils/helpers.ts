@@ -742,7 +742,7 @@ export class Helper {
     } as unknown as Test
   }
 
-  static alphabeticYearHeader(el: qYear[]){
+  static alphabeticYearHeader(el: qYear[]) {
     return el.reduce((acc: qFormatedYear, prev: qYear) => {
       if (!acc.id) { acc.id = prev.id; acc.name = prev.name; acc.periods = [] }
       acc.periods.push({id: prev.period_id, bimester: {id: prev.bimester_id, name: prev.bimester_name, testName: prev.bimester_testName}});

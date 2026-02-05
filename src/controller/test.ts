@@ -286,7 +286,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const allResults = await Promise.all(allPromises);
 
-      return { status: 200, data: allResults };
+      const headers = [];
+      const classroomMap = new Map();
+
+      for (const item of allResults) {
+        headers.push(item.testName);
+        for (const el of item.classrooms) {
+          if (!classroomMap.has(el.id)) { classroomMap.set(el.id, { id: el.id, school: el.school, shortName: el.shortName, classroomAvg: []}) }
+          classroomMap.get(el.id).classroomAvg.push(el.tRateAvg);
+        }
+      }
+
+      const mappedClassrooms = Array.from(classroomMap.values());
+
+      return { status: 200, data: { headers, classrooms: mappedClassrooms } };
     }
     catch (error: any) { console.log('getGroupedFullParallel', error); return { status: 500, message: error.message } }
   }

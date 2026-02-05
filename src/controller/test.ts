@@ -282,6 +282,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const response: any = { headers: [], schools: [] };
       if (!localTests?.length) { return { status: 200, data: response } }
 
+      const qBimester = localTests[0].bimester
+
       const allPromises = localTests.map(async (el) => (await this.getGroupedFullParallelWrapper(el, qYear, qClassroom)).data);
 
       const allResults = await Promise.all(allPromises);
@@ -299,7 +301,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const mappedClassrooms = Array.from(classroomMap.values());
 
-      return { status: 200, data: { headers, classrooms: mappedClassrooms } };
+      return { status: 200, data: { headers, classrooms: mappedClassrooms, school: qClassroom.school.name, year: qYear.name, bimester: qBimester } };
     }
     catch (error: any) { console.log('getGroupedFullParallel', error); return { status: 500, message: error.message } }
   }

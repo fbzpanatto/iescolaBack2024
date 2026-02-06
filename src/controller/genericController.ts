@@ -25,7 +25,7 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson,
+  SavePerson, StudentClassroomFnOptions, StudentClassroomReturn,
   TeacherParam,
   Training,
   TrainingResult
@@ -42,7 +42,7 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Contract } from "../model/Contract";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { TestQuestion } from "../model/TestQuestion";
-import { PERSON_CATEGORIES, TEST_CATEGORIES_IDS } from "../utils/enums";
+import {IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { Helper } from "../utils/helpers";
@@ -1164,6 +1164,145 @@ export class GenericController<T> {
       const [queryResult] = await conn.query(query, studentIds);
 
       return Helper.studentDisabilities(queryResult as Array<any>, arr);
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async studentsClassroomsNewImplementation(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      let yearName = options?.year;
+
+      const isOwner = options.owner === IS_OWNER.OWNER;
+
+      const params: any[] = [];
+
+      params.push(yearName);
+
+      const searchParam = `%${options.search || ''}%`;
+      params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
+
+      let classroomFilterSQL = "";
+
+      const teacherClassroomIds = options.teacherClasses?.classrooms || [];
+
+      if (!masterUser) {
+        if (teacherClassroomIds.length > 0) {
+          const placeholders = teacherClassroomIds.map(() => '?').join(',');
+          if (isOwner) { classroomFilterSQL = `AND c.id IN (${placeholders})` }
+          else { classroomFilterSQL = `AND c.id NOT IN (${placeholders})` }
+          params.push(...teacherClassroomIds);
+        }
+        else if (isOwner) { classroomFilterSQL = `AND 1 = 0` }
+      }
+      else {
+        if (isOwner && teacherClassroomIds.length > 0) {
+          const placeholders = teacherClassroomIds.map(() => '?').join(',');
+          classroomFilterSQL = `AND c.id IN (${placeholders})`;
+          params.push(...teacherClassroomIds);
+        }
+      }
+
+      params.push(limit, offset);
+
+      const query = `
+      SELECT 
+        sc.id AS studentClassroom_id, 
+        sc.startedAt AS studentClassroom_startedAt, 
+        sc.rosterNumber, 
+        
+        s.id AS student_id, 
+        s.ra AS student_ra, 
+        s.dv AS student_dv, 
+        
+        st.id AS state_id, 
+        st.acronym AS state_acronym, 
+        
+        p.id AS person_id, 
+        p.name AS person_name, 
+        p.birth AS person_birth, 
+        
+        c.id AS classroom_id, 
+        c.shortName AS classroom_shortName, 
+        
+        sch.id AS school_id, 
+        sch.shortName AS school_shortName, 
+        
+        t.id AS transfers_id, 
+        t.startedAt AS transfers_startedAt, 
+        
+        tp.name AS requesterPerson_name, 
+        ts.name AS transfersStatus_name, 
+        
+        rc.shortName AS requestedClassroom_shortName, 
+        rcs.shortName AS requestedClassroomSchool_shortName
+
+      FROM student s
+        LEFT JOIN person p ON s.personId = p.id
+        LEFT JOIN state st ON s.stateId = st.id
+        
+        LEFT JOIN transfer t ON s.id = t.studentId AND t.endedAt IS NULL
+        LEFT JOIN transfer_status ts ON t.statusId = ts.id
+        LEFT JOIN classroom rc ON t.requestedClassroomId = rc.id
+        LEFT JOIN school rcs ON rc.schoolId = rcs.id
+        LEFT JOIN teacher rq ON t.requesterId = rq.id
+        LEFT JOIN person tp ON rq.personId = tp.id
+        
+        LEFT JOIN student_classroom sc ON s.id = sc.studentId AND sc.endedAt IS NULL
+        LEFT JOIN classroom c ON sc.classroomId = c.id
+        LEFT JOIN school sch ON c.schoolId = sch.id
+        LEFT JOIN year y ON sc.yearId = y.id
+
+      WHERE y.name = ?
+        AND (
+          p.name LIKE ? 
+          OR s.ra LIKE ? 
+          OR c.shortName LIKE ? 
+          OR sch.name LIKE ? 
+          OR sch.shortName LIKE ?
+        )
+        ${classroomFilterSQL}
+
+      ORDER BY 
+        ts.id DESC, 
+        sch.shortName ASC, 
+        c.shortName ASC, 
+        sc.rosterNumber ASC, 
+        p.name ASC
+      
+      LIMIT ? OFFSET ?
+    `;
+
+      const [rows] = await conn.query(query, params);
+      return (rows as any[]).map((item) => ({
+        id: item.studentClassroom_id,
+        startedAt: item.studentClassroom_startedAt,
+        classroom: {
+          id: item.classroom_id,
+          shortName: item.classroom_shortName,
+          teacher: options.teacherClasses,
+          school: {shortName: item.school_shortName}
+        },
+        student: {
+          id: item.student_id,
+          ra: item.student_ra,
+          dv: item.student_dv,
+          state: {acronym: item.state_acronym},
+          person: {name: item.person_name, birth: item.person_birth},
+          transfer: item.transfers_id ? {
+            id: item.transfers_id,
+            startedAt: item.transfers_startedAt,
+            status: {name: item.transfersStatus_name},
+            requester: {name: item.requesterPerson_name},
+            requestedClassroom: {
+              classroom: item.requestedClassroom_shortName,
+              school: item.requestedClassroomSchool_shortName
+            }
+          } : false,
+        },
+      })) as StudentClassroomReturn[];
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

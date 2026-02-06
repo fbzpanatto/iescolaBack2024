@@ -1,26 +1,31 @@
-import { StudentClassroom } from "../model/StudentClassroom";
-import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull } from "typeorm";
-import { Student } from "../model/Student";
-import { AppDataSource } from "../data-source";
-import { PersonCategory } from "../model/PersonCategory";
-import { PERSON_CATEGORIES } from "../utils/enums";
-import { StudentDisability } from "../model/StudentDisability";
-import { Disability } from "../model/Disability";
-import { State } from "../model/State";
-import { GraduateBody, InactiveNewClassroom, SaveStudent, StudentClassroomFnOptions, StudentClassroomReturn, UserInterface } from "../interfaces/interfaces";
-import { Person } from "../model/Person";
-import { Request } from "express";
-import { IS_OWNER } from "../utils/enums";
-import { Classroom } from "../model/Classroom";
-import { Transfer } from "../model/Transfer";
-import { TransferStatus } from "../model/TransferStatus";
-import { Year } from "../model/Year";
-import { stateController } from "./state";
-import { teacherClassroomsController } from "./teacherClassrooms";
-import { Teacher } from "../model/Teacher";
-import { TRANSFER_STATUS } from "../utils/enums";
-import { isJSON } from "class-validator";
+import {StudentClassroom} from "../model/StudentClassroom";
+import {GenericController} from "./genericController";
+import {Brackets, EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
+import {Student} from "../model/Student";
+import {AppDataSource} from "../data-source";
+import {PersonCategory} from "../model/PersonCategory";
+import {IS_OWNER, PERSON_CATEGORIES, TRANSFER_STATUS} from "../utils/enums";
+import {StudentDisability} from "../model/StudentDisability";
+import {Disability} from "../model/Disability";
+import {State} from "../model/State";
+import {
+  GraduateBody,
+  InactiveNewClassroom,
+  SaveStudent,
+  StudentClassroomFnOptions,
+  StudentClassroomReturn,
+  UserInterface
+} from "../interfaces/interfaces";
+import {Person} from "../model/Person";
+import {Request} from "express";
+import {Classroom} from "../model/Classroom";
+import {Transfer} from "../model/Transfer";
+import {TransferStatus} from "../model/TransferStatus";
+import {Year} from "../model/Year";
+import {stateController} from "./state";
+import {teacherClassroomsController} from "./teacherClassrooms";
+import {Teacher} from "../model/Teacher";
+import {isJSON} from "class-validator";
 import getTimeZone from "../utils/getTimeZone";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
@@ -239,12 +244,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-      const studentsClassrooms = await this.studentsClassrooms(
-        { search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string },
-        masterTeacher,
-        limit,
-        offset
-      )
+      const options = { search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }
+
+      const studentsClassrooms = await this.studentsClassroomsNewImplementation(options, masterTeacher, limit, offset);
 
       return { status: 200, data: studentsClassrooms }
 
@@ -634,84 +636,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       .where("student.id = :studentId", { studentId })
       .groupBy("studentClassroom.id")
       .getRawOne();
-  }
-
-  async studentsClassrooms(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number) {
-
-    return await AppDataSource.transaction(async(CONN) => {
-
-      const isOwner = options.owner === IS_OWNER.OWNER;
-
-      let yearName: string | undefined = ''
-
-      yearName = options?.year
-
-      if(yearName?.length != 4) {
-        const response = await this.qCurrentYear()
-        yearName = response.name
-      }
-
-      let allClassrooms: Classroom[] = [];
-
-      if (masterUser) { allClassrooms = (await CONN.find(Classroom)) }
-
-      const result = await CONN.createQueryBuilder()
-        .select(["studentClassroom.id", "studentClassroom.startedAt", "studentClassroom.rosterNumber", "student.id", "student.ra", "student.dv", "state.id", "state.acronym", "person.id", "person.name", "person.birth", "classroom.id", "classroom.shortName", "school.id", "school.shortName", "transfers.id", "transfers.startedAt", "requesterPerson.name", "transfersStatus.name", "requestedClassroom.shortName", 'requestedClassroomSchool.shortName' ])
-        .from(Student, "student")
-        .leftJoin("student.person", "person")
-        .leftJoin("student.state", "state")
-        .leftJoin("student.transfers", "transfers", "transfers.endedAt IS NULL")
-        .leftJoin("transfers.status", "transfersStatus")
-        .leftJoin("transfers.requestedClassroom", "requestedClassroom")
-        .leftJoin("requestedClassroom.school", "requestedClassroomSchool")
-        .leftJoin("transfers.requester", "requester")
-        .leftJoin("requester.person", "requesterPerson")
-        .leftJoin("student.studentClassrooms", "studentClassroom", "studentClassroom.endedAt IS NULL")
-        .leftJoin("studentClassroom.classroom", "classroom")
-        .leftJoin("classroom.school", "school")
-        .leftJoin("studentClassroom.year", "year")
-        .where("year.name = :yearName", { yearName })
-        .andWhere( new Brackets((qb) => {
-          qb.where("person.name LIKE :search", { search: `%${options.search}%` })
-            .orWhere("student.ra LIKE :search", { search: `%${options.search}%` })
-            .orWhere("classroom.shortName LIKE :search", { search: `%${options.search}%` })
-            .orWhere("school.name LIKE :search", { search: `%${options.search}%` })
-            .orWhere("school.shortName LIKE :search", { search: `%${options.search}%` })
-        }))
-        .andWhere( new Brackets((qb) => {
-          if (!masterUser) { qb.andWhere(isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: options.teacherClasses?.classrooms } ) } else { qb.andWhere( isOwner ? "classroom.id IN (:...classrooms)" : "classroom.id NOT IN (:...classrooms)", { classrooms: allClassrooms.map((classroom) => classroom.id)})}
-        }))
-        .orderBy("transfersStatus.id", "DESC")
-        .addOrderBy("school.shortName", "ASC")
-        .addOrderBy("classroom.shortName", "ASC")
-        .addOrderBy("studentClassroom.rosterNumber", "ASC")
-        .addOrderBy("person.name", "ASC")
-        .limit(limit)
-        .offset(offset)
-        .getRawMany();
-
-      return result.map((item) => {
-
-        return {
-          id: item.studentClassroom_id,
-          startedAt: item.studentClassroom_startedAt,
-          classroom: {
-            id: item.classroom_id,
-            shortName: item.classroom_shortName,
-            teacher: options.teacherClasses,
-            school: { shortName: item.school_shortName }
-          },
-          student: {
-            id: item.student_id,
-            ra: item.student_ra,
-            dv: item.student_dv,
-            state: { acronym: item.state_acronym },
-            person: { name: item.person_name, birth: item.person_birth },
-            transfer: item.transfers_id ? { id: item.transfers_id, startedAt: item.transfers_startedAt, status: { name: item.transfersStatus_name }, requester: { name: item.requesterPerson_name }, requestedClassroom: { classroom: item.requestedClassroom_shortName, school: item.requestedClassroomSchool_shortName } } : false,
-          },
-        }
-      }) as StudentClassroomReturn[]
-    })
   }
 
   createStudent(body: SaveStudent, person: Person, state: State, userId: number) {

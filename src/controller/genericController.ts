@@ -1176,117 +1176,151 @@ export class GenericController<T> {
 
       let yearName = options?.year;
 
+      // Fallback: Se não vier ano, busca o último ano ativo no banco
       if (!yearName || yearName.length !== 4) {
         const [yearResult] = await conn.query(
           `SELECT name FROM year WHERE active = 1 ORDER BY id DESC LIMIT 1`
         );
-        // Garante que pegou algum valor, senão mantém o que veio (evita crash se tabela vazia)
         if ((yearResult as any[]).length > 0) {
           yearName = (yearResult as any[])[0].name;
         }
       }
 
       const isOwner = options.owner === IS_OWNER.OWNER;
-
       const params: any[] = [];
+      const searchOriginal = options.search || '';
 
+      // --- LÓGICA DE DETECÇÃO DE SALA (REGEX) ---
+      // Procura por padrão de sala: Número(s) seguido de Letra(s), isolado por espaços ou início/fim de string.
+      // Ex: "2A", "10B", "9C"
+      const classroomRegex = /\b(\d+[A-Za-z]+)\b/;
+      const match = searchOriginal.match(classroomRegex);
+
+      let specificClassroomFilter = "";
+      let searchTermCleaned = searchOriginal;
+
+      // Se encontrou algo como '2A', '3B', etc.
+      if (match) {
+        const foundClassroom = match[0]; // Ex: "2A"
+
+        // Remove a sala do termo de busca original para buscar o nome da pessoa "limpo"
+        // Ex: "Maria 2A" vira "Maria "
+        searchTermCleaned = searchOriginal.replace(foundClassroom, '').trim();
+
+        // Adiciona um filtro específico para a sala encontrada
+        specificClassroomFilter = ` AND c.shortName LIKE ? `;
+      }
+      // -------------------------------------------
+
+      // 1. Parâmetro do Ano
       params.push(yearName);
 
-      const searchParam = `%${options.search || ''}%`;
+      // 2. Parâmetros da Busca (Search)
+      const searchParam = `%${searchTermCleaned}%`;
+
+      // Adicionamos os parâmetros para a busca textual (Nome, RA, Escola...)
       params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
 
-      let classroomFilterSQL = "";
+      // Se detectamos uma sala específica via Regex, adicionamos ela aos parâmetros agora
+      if (specificClassroomFilter) {
+        // Usa LIKE com % para garantir que encontre mesmo se houver variação (ex: " 2A ")
+        params.push(`%${match![0]}%`);
+      }
 
+      // 3. Filtros de Sala (Permissões do Professor/Master)
+      let classroomPermissionSQL = "";
       const teacherClassroomIds = options.teacherClasses?.classrooms || [];
 
       if (!masterUser) {
         if (teacherClassroomIds.length > 0) {
           const placeholders = teacherClassroomIds.map(() => '?').join(',');
-          if (isOwner) { classroomFilterSQL = `AND c.id IN (${placeholders})` }
-          else { classroomFilterSQL = `AND c.id NOT IN (${placeholders})` }
+          if (isOwner) { classroomPermissionSQL = `AND c.id IN (${placeholders})` }
+          else { classroomPermissionSQL = `AND c.id NOT IN (${placeholders})` }
           params.push(...teacherClassroomIds);
         }
-        else if (isOwner) { classroomFilterSQL = `AND 1 = 0` }
+        else if (isOwner) { classroomPermissionSQL = `AND 1 = 0` }
       }
       else {
         if (isOwner && teacherClassroomIds.length > 0) {
           const placeholders = teacherClassroomIds.map(() => '?').join(',');
-          classroomFilterSQL = `AND c.id IN (${placeholders})`;
+          classroomPermissionSQL = `AND c.id IN (${placeholders})`;
           params.push(...teacherClassroomIds);
         }
       }
 
+      // 4. Paginação
       params.push(limit, offset);
 
       const query = `
-      SELECT 
-        sc.id AS studentClassroom_id, 
-        sc.startedAt AS studentClassroom_startedAt, 
-        sc.rosterNumber, 
+        SELECT 
+          sc.id AS studentClassroom_id, 
+          sc.startedAt AS studentClassroom_startedAt, 
+          
+          s.id AS student_id, 
+          s.ra AS student_ra, 
+          s.dv AS student_dv, 
+          
+          st.id AS state_id, 
+          st.acronym AS state_acronym, 
+          
+          p.id AS person_id, 
+          p.name AS person_name, 
+          p.birth AS person_birth, 
+          
+          c.id AS classroom_id, 
+          c.shortName AS classroom_shortName, 
+          
+          sch.id AS school_id, 
+          sch.shortName AS school_shortName, 
+          
+          t.id AS transfers_id, 
+          t.startedAt AS transfers_startedAt, 
+          
+          tp.name AS requesterPerson_name, 
+          ts.name AS transfersStatus_name, 
+          
+          rc.shortName AS requestedClassroom_shortName, 
+          rcs.shortName AS requestedClassroomSchool_shortName
+    
+        FROM student s
+          LEFT JOIN person p ON s.personId = p.id
+          LEFT JOIN state st ON s.stateId = st.id
+          
+          LEFT JOIN transfer t ON s.id = t.studentId AND t.endedAt IS NULL
+          LEFT JOIN transfer_status ts ON t.statusId = ts.id
+          LEFT JOIN classroom rc ON t.requestedClassroomId = rc.id
+          LEFT JOIN school rcs ON rc.schoolId = rcs.id
+          LEFT JOIN teacher rq ON t.requesterId = rq.id
+          LEFT JOIN person tp ON rq.personId = tp.id
+          
+          LEFT JOIN student_classroom sc ON s.id = sc.studentId AND sc.endedAt IS NULL
+          LEFT JOIN classroom c ON sc.classroomId = c.id
+          LEFT JOIN school sch ON c.schoolId = sch.id
+          LEFT JOIN year y ON sc.yearId = y.id
+    
+        WHERE y.name = ?
+          AND (
+            p.name LIKE ? 
+            OR s.ra LIKE ? 
+            OR c.shortName LIKE ? 
+            OR sch.name LIKE ? 
+            OR sch.shortName LIKE ?
+          )
+          ${specificClassroomFilter} 
+          ${classroomPermissionSQL}
+    
+        ORDER BY 
+          ts.id DESC, 
+          sch.shortName ASC, 
+          c.shortName ASC, 
+          sc.rosterNumber ASC, 
+          p.name ASC
         
-        s.id AS student_id, 
-        s.ra AS student_ra, 
-        s.dv AS student_dv, 
-        
-        st.id AS state_id, 
-        st.acronym AS state_acronym, 
-        
-        p.id AS person_id, 
-        p.name AS person_name, 
-        p.birth AS person_birth, 
-        
-        c.id AS classroom_id, 
-        c.shortName AS classroom_shortName, 
-        
-        sch.id AS school_id, 
-        sch.shortName AS school_shortName, 
-        
-        t.id AS transfers_id, 
-        t.startedAt AS transfers_startedAt, 
-        
-        tp.name AS requesterPerson_name, 
-        ts.name AS transfersStatus_name, 
-        
-        rc.shortName AS requestedClassroom_shortName, 
-        rcs.shortName AS requestedClassroomSchool_shortName
-
-      FROM student s
-        LEFT JOIN person p ON s.personId = p.id
-        LEFT JOIN state st ON s.stateId = st.id
-        
-        LEFT JOIN transfer t ON s.id = t.studentId AND t.endedAt IS NULL
-        LEFT JOIN transfer_status ts ON t.statusId = ts.id
-        LEFT JOIN classroom rc ON t.requestedClassroomId = rc.id
-        LEFT JOIN school rcs ON rc.schoolId = rcs.id
-        LEFT JOIN teacher rq ON t.requesterId = rq.id
-        LEFT JOIN person tp ON rq.personId = tp.id
-        
-        LEFT JOIN student_classroom sc ON s.id = sc.studentId AND sc.endedAt IS NULL
-        LEFT JOIN classroom c ON sc.classroomId = c.id
-        LEFT JOIN school sch ON c.schoolId = sch.id
-        LEFT JOIN year y ON sc.yearId = y.id
-
-      WHERE y.name = ?
-        AND (
-          p.name LIKE ? 
-          OR s.ra LIKE ? 
-          OR c.shortName LIKE ? 
-          OR sch.name LIKE ? 
-          OR sch.shortName LIKE ?
-        )
-        ${classroomFilterSQL}
-
-      ORDER BY 
-        ts.id DESC, 
-        sch.shortName ASC, 
-        c.shortName ASC, 
-        sc.rosterNumber ASC, 
-        p.name ASC
-      
-      LIMIT ? OFFSET ?
-    `;
+        LIMIT ? OFFSET ?
+      `;
 
       const [rows] = await conn.query(query, params);
+
       return (rows as any[]).map((item) => ({
         id: item.studentClassroom_id,
         startedAt: item.studentClassroom_startedAt,
@@ -1294,19 +1328,19 @@ export class GenericController<T> {
           id: item.classroom_id,
           shortName: item.classroom_shortName,
           teacher: options.teacherClasses,
-          school: {shortName: item.school_shortName}
+          school: { shortName: item.school_shortName }
         },
         student: {
           id: item.student_id,
           ra: item.student_ra,
           dv: item.student_dv,
-          state: {acronym: item.state_acronym},
-          person: {name: item.person_name, birth: item.person_birth},
+          state: { acronym: item.state_acronym },
+          person: { name: item.person_name, birth: item.person_birth },
           transfer: item.transfers_id ? {
             id: item.transfers_id,
             startedAt: item.transfers_startedAt,
-            status: {name: item.transfersStatus_name},
-            requester: {name: item.requesterPerson_name},
+            status: { name: item.transfersStatus_name },
+            requester: { name: item.requesterPerson_name },
             requestedClassroom: {
               classroom: item.requestedClassroom_shortName,
               school: item.requestedClassroomSchool_shortName

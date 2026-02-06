@@ -1173,7 +1173,18 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
+
       let yearName = options?.year;
+
+      if (!yearName || yearName.length !== 4) {
+        const [yearResult] = await conn.query(
+          `SELECT name FROM year WHERE active = 1 ORDER BY id DESC LIMIT 1`
+        );
+        // Garante que pegou algum valor, senão mantém o que veio (evita crash se tabela vazia)
+        if ((yearResult as any[]).length > 0) {
+          yearName = (yearResult as any[])[0].name;
+        }
+      }
 
       const isOwner = options.owner === IS_OWNER.OWNER;
 

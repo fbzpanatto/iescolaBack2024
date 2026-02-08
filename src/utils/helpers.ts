@@ -333,7 +333,10 @@ export class Helper {
     const allResultsMap = new Map<number, any>();
 
     for (const school of pResult) {
-      for (const classroom of school.classrooms) {
+
+      const relevantClassrooms = school.classrooms.filter((c: any) => c.shortName.replace(/\D/g, "") === classroomNumber);
+
+      for (const classroom of relevantClassrooms) {
 
         const { filtered, questionMap } = Helper.processClassroomData(classroom);
 

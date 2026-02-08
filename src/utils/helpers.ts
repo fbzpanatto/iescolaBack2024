@@ -323,9 +323,9 @@ export class Helper {
 
     const schoolAggregate = {
       id: targetSchool.id,
-      name: targetSchool.name,
-      shortName: targetSchool.shortName,
-      school: targetSchool.name,
+      name: 'ESCOLA',
+      shortName: 'ESCOLA',
+      school: 'ESCOLA',
       schoolId: targetSchool.id,
       totals: schoolTotals
     };

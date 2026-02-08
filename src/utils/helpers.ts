@@ -287,23 +287,16 @@ export class Helper {
       .filter((c: any) => c.shortName.replace(/\D/g, "") === classroomNumber && c.studentClassrooms.some((sc: any) => sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)))
       .map((classroom: any) => {
         const studentCountMap = new Map<number, number>();
-
         for (const sc of classroom.studentClassrooms) { const count = studentCountMap.get(sc.student.id) || 0; studentCountMap.set(sc.student.id, count + 1) }
-
         const filtered = classroom.studentClassrooms.filter((sc: any) => {
           const hasValidAnswers = sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id);
-
           if (!hasValidAnswers) return false;
-
           const studentCount = studentCountMap.get(sc.student.id);
           if (!studentCount) return true;
-
-          const isDuplicate = studentCount > 1 && sc.endedAt;
-          return !isDuplicate;
+          return !(studentCount > 1 && sc.endedAt);
         });
 
         const questionMap = new Map<number, any[]>();
-
         for (const sc of filtered) {
           for (const sq of sc.student.studentQuestions) {
             if (sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id) {
@@ -313,29 +306,13 @@ export class Helper {
           }
         }
 
-        // Calcular totais por questão
         const totals = qTestQuestions.map((tQ: any) => {
-          if (!tQ.active) {
-            return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
-          }
-
+          if (!tQ.active) return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
           const studentsQuestions = questionMap.get(tQ.id) || [];
-          const matchedQuestions = studentsQuestions.filter(sq =>
-            tQ.answer?.includes(sq.answer.toUpperCase())
-          ).length;
-
+          const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
           const total = filtered.length;
-          const tRate = matchedQuestions > 0 && total > 0
-            ? Math.floor((matchedQuestions / total) * 10000) / 100
-            : 0;
-
-          return {
-            id: tQ.id,
-            order: tQ.order,
-            tNumber: matchedQuestions,
-            tPercent: total,
-            tRate
-          };
+          const tRate = matchedQuestions > 0 && total > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
+          return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
         });
 
         return {
@@ -349,29 +326,43 @@ export class Helper {
         };
       });
 
+    const schoolTotalsMap = new Map<number, any>();
+
+    for (const cr of classroomResults) {
+      for (const t of cr.totals) {
+        const existing = schoolTotalsMap.get(t.id);
+        if (!existing) { schoolTotalsMap.set(t.id, { ...t }) }
+        else { existing.tNumber += t.tNumber; existing.tPercent += t.tPercent }
+      }
+    }
+
+    const schoolTotals = Array.from(schoolTotalsMap.values()).map(item => ({ ...item, tRate: item.tPercent > 0 ? Math.floor((item.tNumber / item.tPercent) * 10000) / 100 : 0 }));
+
+    const schoolAggregate = {
+      id: targetSchool.id,
+      name: targetSchool.name,
+      shortName: targetSchool.shortName,
+      school: targetSchool.name,
+      schoolId: targetSchool.id,
+      totals: schoolTotals
+    };
+
     const allResultsMap = new Map<number, any>();
 
     for (const school of pResult) {
       for (const classroom of school.classrooms) {
-
         const studentCountMap = new Map<number, number>();
-
         for (const sc of classroom.studentClassrooms) { const count = studentCountMap.get(sc.student.id) || 0; studentCountMap.set(sc.student.id, count + 1) }
 
         const filtered = classroom.studentClassrooms.filter((sc: any) => {
           const hasValidAnswers = sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id);
-
           if (!hasValidAnswers) return false;
-
           const studentCount = studentCountMap.get(sc.student.id);
           if (!studentCount) return true;
-
-          const isDuplicate = studentCount > 1 && sc.endedAt;
-          return !isDuplicate;
+          return !(studentCount > 1 && sc.endedAt);
         });
 
         const questionMap = new Map<number, any[]>();
-
         for (const sc of filtered) {
           for (const sq of sc.student.studentQuestions) {
             if (sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id) {
@@ -383,12 +374,9 @@ export class Helper {
 
         for (const tQ of qTestQuestions) {
           if (!tQ.active) continue;
-
           const studentsQuestions = questionMap.get(tQ.id) || [];
           const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
-
           const total = filtered.length;
-
           const existing = allResultsMap.get(tQ.id);
 
           if (!existing) { allResultsMap.set(tQ.id, {id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate: 0 }) }
@@ -401,18 +389,21 @@ export class Helper {
 
     const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults };
 
-    const allClassrooms = [ ...classroomResults.sort((a: any, b: any) => a.shortName.localeCompare(b.shortName)), cityHall ]
-      .map(c => {
-        const { tNumber, tPercent } = c.totals.reduce((acc: any, item: any) => {
-          acc.tNumber += Number(item.tNumber);
-          acc.tPercent += Number(item.tPercent);
-          return acc;
-        }, { tNumber: 0, tPercent: 0 });
+    const allClassrooms = [
+      ...classroomResults.sort((a: any, b: any) => a.shortName.localeCompare(b.shortName)),
+      schoolAggregate,
+      cityHall
+    ]
+    .map(c => {
+      const { tNumber, tPercent } = c.totals.reduce((acc: any, item: any) => {
+        acc.tNumber += Number(item.tNumber);
+        acc.tPercent += Number(item.tPercent);
+        return acc;
+      }, { tNumber: 0, tPercent: 0 });
+      const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0;
 
-        const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0;
-
-        return { ...c, tRateAvg };
-      });
+      return { ...c, tRateAvg };
+    });
 
     return { ...formatedTest, testQuestions: qTestQuestions, questionGroups, classrooms: allClassrooms };
   }

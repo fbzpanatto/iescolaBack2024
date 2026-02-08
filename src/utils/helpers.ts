@@ -286,25 +286,8 @@ export class Helper {
     const classroomResults = targetSchool.classrooms
       .filter((c: any) => c.shortName.replace(/\D/g, "") === classroomNumber && c.studentClassrooms.some((sc: any) => sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)))
       .map((classroom: any) => {
-        const studentCountMap = new Map<number, number>();
-        for (const sc of classroom.studentClassrooms) { const count = studentCountMap.get(sc.student.id) || 0; studentCountMap.set(sc.student.id, count + 1) }
-        const filtered = classroom.studentClassrooms.filter((sc: any) => {
-          const hasValidAnswers = sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id);
-          if (!hasValidAnswers) return false;
-          const studentCount = studentCountMap.get(sc.student.id);
-          if (!studentCount) return true;
-          return !(studentCount > 1 && sc.endedAt);
-        });
 
-        const questionMap = new Map<number, any[]>();
-        for (const sc of filtered) {
-          for (const sq of sc.student.studentQuestions) {
-            if (sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id) {
-              if (!questionMap.has(sq.testQuestion.id)) { questionMap.set(sq.testQuestion.id, []) }
-              questionMap.get(sq.testQuestion.id)!.push(sq);
-            }
-          }
-        }
+        const { filtered, questionMap } = Helper.processClassroomData(classroom);
 
         const totals = qTestQuestions.map((tQ: any) => {
           if (!tQ.active) return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
@@ -351,26 +334,8 @@ export class Helper {
 
     for (const school of pResult) {
       for (const classroom of school.classrooms) {
-        const studentCountMap = new Map<number, number>();
-        for (const sc of classroom.studentClassrooms) { const count = studentCountMap.get(sc.student.id) || 0; studentCountMap.set(sc.student.id, count + 1) }
 
-        const filtered = classroom.studentClassrooms.filter((sc: any) => {
-          const hasValidAnswers = sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id);
-          if (!hasValidAnswers) return false;
-          const studentCount = studentCountMap.get(sc.student.id);
-          if (!studentCount) return true;
-          return !(studentCount > 1 && sc.endedAt);
-        });
-
-        const questionMap = new Map<number, any[]>();
-        for (const sc of filtered) {
-          for (const sq of sc.student.studentQuestions) {
-            if (sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id) {
-              if (!questionMap.has(sq.testQuestion.id)) { questionMap.set(sq.testQuestion.id, []) }
-              questionMap.get(sq.testQuestion.id)!.push(sq);
-            }
-          }
-        }
+        const { filtered, questionMap } = Helper.processClassroomData(classroom);
 
         for (const tQ of qTestQuestions) {
           if (!tQ.active) continue;
@@ -406,6 +371,41 @@ export class Helper {
     });
 
     return { ...formatedTest, testQuestions: qTestQuestions, questionGroups, classrooms: allClassrooms };
+  }
+
+  static processClassroomData(classroom: any) {
+    const studentCountMap = new Map<number, number>();
+    for (const sc of classroom.studentClassrooms) {
+      const count = studentCountMap.get(sc.student.id) || 0;
+      studentCountMap.set(sc.student.id, count + 1);
+    }
+
+    const filtered = classroom.studentClassrooms.filter((sc: any) => {
+      const hasValidAnswers = sc.student.studentQuestions.some((sq: any) =>
+        sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id
+      );
+
+      if (!hasValidAnswers) return false;
+
+      const studentCount = studentCountMap.get(sc.student.id);
+      const isDuplicateInactive = studentCount! > 1 && sc.endedAt;
+
+      return !isDuplicateInactive;
+    });
+
+    const questionMap = new Map<number, any[]>();
+    for (const sc of filtered) {
+      for (const sq of sc.student.studentQuestions) {
+        if (sq.answer?.length > 0 && sq.rClassroom?.id === classroom.id) {
+          if (!questionMap.has(sq.testQuestion.id)) {
+            questionMap.set(sq.testQuestion.id, []);
+          }
+          questionMap.get(sq.testQuestion.id)!.push(sq);
+        }
+      }
+    }
+
+    return { filtered, questionMap };
   }
 
   static studentQuestions(test: Test, rows: any[]) {

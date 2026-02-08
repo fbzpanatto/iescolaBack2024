@@ -1,6 +1,14 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
+import {
+  DeepPartial,
+  EntityManager,
+  EntityTarget,
+  FindManyOptions,
+  FindOneOptions,
+  ObjectLiteral,
+  SaveOptions
+} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
 import {
   InactiveNewClassroom,
   qAlphabeticLevels,
@@ -25,29 +33,30 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson, StudentClassroomFnOptions, StudentClassroomReturn,
+  SavePerson,
+  StudentClassroomFnOptions,
+  StudentClassroomReturn,
   TeacherParam,
   Training,
   TrainingResult
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { ResultSetHeader } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
-import { Transfer } from "../model/Transfer";
-import { Discipline } from "../model/Discipline";
-import { Teacher } from "../model/Teacher";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Contract } from "../model/Contract";
-import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
-import { TestQuestion } from "../model/TestQuestion";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {ResultSetHeader} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
+import {Discipline} from "../model/Discipline";
+import {Teacher} from "../model/Teacher";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Contract} from "../model/Contract";
+import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import {TestQuestion} from "../model/TestQuestion";
 import {IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
-import { connectionPool } from "../services/db";
-import { PersonCategory } from "../model/PersonCategory";
-import { Helper } from "../utils/helpers";
-import { TestToken } from "../model/Token";
-import {Year} from "../model/Year";
+import {connectionPool} from "../services/db";
+import {PersonCategory} from "../model/PersonCategory";
+import {Helper} from "../utils/helpers";
+import {TestToken} from "../model/Token";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -111,6 +120,63 @@ export class GenericController<T> {
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
+
+  async qGetAllSchools(year: string, search: string) {
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const searchTerm = search ? `%${search}%` : null;
+
+      const sqlQuery = `
+        WITH target_year AS (SELECT id FROM year WHERE name = ?),
+        school_stats AS (
+          SELECT
+            CAST(s.id AS CHAR) as id, 
+            s.name,
+            -- Contagem de Ativos (endedAt é Nulo)
+            COALESCE(SUM(CASE WHEN sc.endedAt IS NULL THEN 1 ELSE 0 END), 0) as activeStudents,
+            -- Contagem de Inativos (endedAt Preenchido)
+            COALESCE(SUM(CASE WHEN sc.endedAt IS NOT NULL THEN 1 ELSE 0 END), 0) as inactiveStudents
+          FROM school s
+          INNER JOIN classroom c ON c.schoolId = s.id
+          INNER JOIN student_classroom sc ON sc.classroomId = c.id
+          INNER JOIN target_year ty ON sc.yearId = ty.id
+          WHERE
+            (? IS NULL OR (s.name LIKE ? OR s.shortName LIKE ?))
+          GROUP BY s.id, s.name
+        ),
+        total_stats AS (
+          SELECT
+            '--' as id,
+            'PREFEITURA DO MUNICÍPIO DE ITATIBA' as name,
+            COALESCE(SUM(activeStudents), 0) as activeStudents,
+            COALESCE(SUM(inactiveStudents), 0) as inactiveStudents,
+            1 as sort_priority
+          FROM school_stats
+        )
+        
+        SELECT id, name, activeStudents, inactiveStudents, sort_priority FROM total_stats
+        UNION ALL
+        SELECT id, name, activeStudents, inactiveStudents, 2 as sort_priority FROM school_stats
+        ORDER BY sort_priority ASC, activeStudents DESC
+        `;
+
+      const [ queryResult ] = await conn.query(sqlQuery, [year, searchTerm, searchTerm, searchTerm]);
+
+      console.log(queryResult);
+
+      return (queryResult as any[]).map(row => ({
+        id: row.id,
+        name: row.name,
+        activeStudents: Number(row.activeStudents),
+        inactiveStudents: Number(row.inactiveStudents)
+      }));
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 
   async qLinkAlphabetics(stuClassrooms: { student?: { id: number }; student_id?: number }[], test: Test, testQuestions: TestQuestion[], userId: number) {
     let conn;

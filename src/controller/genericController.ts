@@ -135,9 +135,7 @@ export class GenericController<T> {
           SELECT
             CAST(s.id AS CHAR) as id, 
             s.name,
-            -- Contagem de Ativos (endedAt é Nulo)
             COALESCE(SUM(CASE WHEN sc.endedAt IS NULL THEN 1 ELSE 0 END), 0) as activeStudents,
-            -- Contagem de Inativos (endedAt Preenchido)
             COALESCE(SUM(CASE WHEN sc.endedAt IS NOT NULL THEN 1 ELSE 0 END), 0) as inactiveStudents
           FROM school s
           INNER JOIN classroom c ON c.schoolId = s.id
@@ -164,8 +162,6 @@ export class GenericController<T> {
         `;
 
       const [ queryResult ] = await conn.query(sqlQuery, [year, searchTerm, searchTerm, searchTerm]);
-
-      console.log(queryResult);
 
       return (queryResult as any[]).map(row => ({
         id: row.id,

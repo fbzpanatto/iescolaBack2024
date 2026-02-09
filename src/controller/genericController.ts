@@ -953,11 +953,7 @@ export class GenericController<T> {
 
       if (studentClassroomId) { params.push(studentClassroomId); }
 
-      params.push(
-        yearName,
-        test.id,
-        classroomId
-      );
+      params.push(yearName, test.id, classroomId);
 
       const [rows] = await conn.query(query, params);
 
@@ -1121,13 +1117,8 @@ export class GenericController<T> {
 
       await conn.commit();
     }
-    catch (error) {
-      if (conn) { await conn.rollback() }
-      throw error;
-    }
-    finally {
-      if (conn) { conn.release() }
-    }
+    catch (error) { if (conn) { await conn.rollback() } throw error }
+    finally { if (conn) { conn.release() } }
   }
 
   async qNewTraining(yearId: number, category: number, month: number, meeting: number, createdByUser: number, classroom?: number, discipline?: number, observation?: string) {
@@ -2504,6 +2495,7 @@ export class GenericController<T> {
         FROM reading_fluency_group AS rfg
           INNER JOIN reading_fluency_level AS rfl ON rfg.readingFluencyLevelId = rfl.id
           INNER JOIN reading_fluency_exam as rfe ON rfg.readingFluencyExamId = rfe.id
+#         WHERE rfe.id IN (1, 2, 3, 4)
       `
 
       const [ queryResult ] = await conn.query(format(query), [])

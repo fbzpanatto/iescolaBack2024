@@ -2480,26 +2480,27 @@ export class GenericController<T> {
     finally { if (conn) conn.release() }
   }
 
-  async qReadingFluencyHeaders() {
+  async qReadingFluencyHeaders(examIds: number[]) {
+
+    if (!examIds || examIds.length === 0) { return [] }
+
     let conn;
-    try{
+
+    try {
       conn = await connectionPool.getConnection();
 
-      const query =
-
-        `
-        SELECT 
-            rfg.id AS id,
-            rfl.id AS readingFluencyLevelId, rfl.name AS readingFluencyLevelName, rfl.color AS readingFluencyLevelColor,
-            rfe.id AS readingFluencyExamId, rfe.name AS readingFluencyExamName, rfe.color AS readingFluencyExamColor
+      const query = `
+        SELECT
+          rfg.id AS id,
+          rfl.id AS readingFluencyLevelId, rfl.name AS readingFluencyLevelName, rfl.color AS readingFluencyLevelColor, rfl.description AS readingFluencyLevelDescription,
+          rfe.id AS readingFluencyExamId, rfe.name AS readingFluencyExamName, rfe.color AS readingFluencyExamColor, rfe.description AS readingFluencyExamDescription
         FROM reading_fluency_group AS rfg
           INNER JOIN reading_fluency_level AS rfl ON rfg.readingFluencyLevelId = rfl.id
           INNER JOIN reading_fluency_exam as rfe ON rfg.readingFluencyExamId = rfe.id
-#         WHERE rfe.id IN (1, 2, 3, 4)
-      `
+        WHERE rfe.id IN (?)
+      `;
 
-      const [ queryResult ] = await conn.query(format(query), [])
-
+      const [ queryResult ] = await conn.query(query, [examIds]);
       return queryResult as Array<qReadingFluenciesHeaders>
     }
     catch (error) { console.error(error); throw error }

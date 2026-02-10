@@ -4,7 +4,7 @@ import { Test } from "../model/Test";
 import { AppDataSource } from "../data-source";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import {EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES} from "../utils/enums";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { testController } from "./test";
 import { Helper } from "../utils/helpers";
@@ -224,6 +224,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         break;
       }
 
+      case(TEST_CATEGORIES_IDS.PRO_TXT):
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
@@ -233,7 +234,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
-        const headers = await this.qReadingFluencyHeaders()
+        const examIds = TEST_CATEGORIES_IDS.PRO_TXT === qTest?.test_category_id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
+
+        const headers = await this.qReadingFluencyHeaders(examIds)
 
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 

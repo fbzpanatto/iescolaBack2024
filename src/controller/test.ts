@@ -8,7 +8,7 @@ import {StudentClassroom} from "../model/StudentClassroom";
 import {TestQuestion} from "../model/TestQuestion";
 import {Request} from "express";
 import {QuestionGroup} from "../model/QuestionGroup";
-import {PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
+import {EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
 import {Year} from "../model/Year";
 import {EntityManager, EntityTarget} from "typeorm";
 import {Question} from "../model/Question";
@@ -184,13 +184,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: data };
       }
 
-      if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3].includes(test.category.id)) {
+      if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3, TEST_CATEGORIES_IDS.PRO_TXT].includes(test.category.id)) {
+
+        const examIds = TEST_CATEGORIES_IDS.PRO_TXT === test.category.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
 
         await this.findAndDeleteStatusAndReadingFluency(testId, classroomId)
 
         await this.updateReadingFluencyStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
-        const headers = await this.qReadingFluencyHeaders()
+        const headers = await this.qReadingFluencyHeaders(examIds)
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
         const preStudents = await this.stuClassReadFSql(test, Number(classroomId), test.period.year.name, isNaN(scId) ? null : Number(scId))
@@ -405,11 +407,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
         let data;
 
         switch (baseTest.category?.id) {
+          case TEST_CATEGORIES_IDS.PRO_TXT:
           case TEST_CATEGORIES_IDS.READ_2:
           case TEST_CATEGORIES_IDS.READ_3: {
 
+            const examIds = TEST_CATEGORIES_IDS.PRO_TXT === baseTest.category?.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
+
             const [headers, test] = await Promise.all([
-              this.qReadingFluencyHeaders(),
+              this.qReadingFluencyHeaders(examIds),
               this.getReadingFluencyForGraphic(testId, String(year.id), typeOrmConnection) as Promise<Test>
             ])
 

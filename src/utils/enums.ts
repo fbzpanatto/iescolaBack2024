@@ -13,7 +13,8 @@ export const TEST_CATEGORIES_IDS = {
   READ_3: 5,
   SIM_ITA: 6,
   AVL_ITA: 7,
-  EDU_INF: 8
+  EDU_INF: 8,
+  PRO_TXT: 9
 }
 
 export const PERSON_CATEGORIES = {
@@ -33,3 +34,7 @@ export enum IS_OWNER {
   OWNER = '1',
   NOTOWNER = '2',
 }
+
+export const EXAMS_IDS_READING = [1, 2, 3, 4, 5, 6, 7]
+
+export const EXAMS_IDS_PRODUCTION = [8, 9, 10, 11]

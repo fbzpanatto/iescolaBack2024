@@ -553,6 +553,7 @@ export class Helper {
           exam_id: prev.readingFluencyExamId,
           exam_name: prev.readingFluencyExamName,
           exam_color: prev.readingFluencyExamColor,
+          exam_description: prev.readingFluencyExamDescription,
           exam_levels: []
         };
         acc.push(exam);
@@ -560,7 +561,8 @@ export class Helper {
       exam.exam_levels.push({
         level_id: prev.readingFluencyLevelId,
         level_name: prev.readingFluencyLevelName,
-        level_color: prev.readingFluencyLevelColor
+        level_color: prev.readingFluencyLevelColor,
+        level_description: prev.readingFluencyLevelDescription
       });
       return acc;
     }, []);

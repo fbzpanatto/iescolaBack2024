@@ -98,6 +98,8 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const teacher = await this.qTeacherByUser(body.user.user);
 
+      if(body.discipline != existingTraining.discipline) { await this.qDeleteTrainingTeacher(existingTraining.id) }
+
       await this.qUpdateTraining(trainingId, meeting, category, month, teacher.person.user.id, classroom, discipline, observation);
 
       return { status: 200, data: { message: 'Formação atualizado com sucesso.' } };

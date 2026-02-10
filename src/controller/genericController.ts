@@ -3360,6 +3360,21 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
+  async qDeleteTrainingTeacher(trainingId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query = `DELETE FROM training_teacher WHERE training_teacher.trainingId = ?`
+
+      const [ queryResult ] = await conn.query(format(query), [trainingId])
+
+      return queryResult
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error('qDeleteTrainingTeacher', error); throw error }
+    finally { if (conn) conn.release() }
+  }
+
   async qTrainings(yearId: number, search: string, peb: number, limit: number, offset: number) {
     let conn;
     try {

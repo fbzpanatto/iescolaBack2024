@@ -2139,26 +2139,24 @@ export class GenericController<T> {
   }
 
   async qYearByName(yearName: string) {
+    if (!yearName || yearName.trim() === '') { throw new Error('Nome do ano é obrigatório') }
+
+    let year: qYear | undefined;
     let conn;
 
     try {
-      if (!yearName || yearName.trim() === '') { throw new Error('Nome do ano é obrigatório') }
-
-      let year;
-
       conn = await connectionPool.getConnection();
-
       const query = `SELECT y.id, y.name FROM year AS y WHERE y.name = ?`;
-
       const [queryResult] = await conn.query(query, [yearName]);
 
-      if(!(queryResult as qYear[])[0]) { year = await this.qCurrentYear() }
-      else { year = (queryResult as qYear[])[0] }
-
-      return year;
+      year = (queryResult as qYear[])[0];
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+
+    if (!year) { year = await this.qCurrentYear() }
+
+    return year;
   }
 
   async qYearById(yearId: number | string) {

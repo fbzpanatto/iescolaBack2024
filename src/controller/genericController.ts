@@ -1740,9 +1740,13 @@ export class GenericController<T> {
   }
 
   async listTestsSql(req: Request, masterUser: boolean, teacherClasses: { classrooms: number[] }) {
+
     let conn;
+
     try {
       conn = await connectionPool.getConnection();
+
+      const DIAGNOSTIC_CATEGORIES = [ TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.EDU_INF ].join(', ');
 
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -1787,50 +1791,72 @@ export class GenericController<T> {
         : '';
 
       const idsQuery = `
-        SELECT t.id
-        FROM test t
-        LEFT JOIN period per ON t.periodId = per.id
-        LEFT JOIN year y ON per.yearId = y.id
-        LEFT JOIN bimester b ON per.bimesterId = b.id
-        LEFT JOIN discipline d ON t.disciplineId = d.id
-        LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
-        LEFT JOIN classroom c ON tc_join.classroomId = c.id
-        ${whereClause}
-        GROUP BY t.id, t.name, b.name
-        ORDER BY t.name ASC, b.name ASC
-        LIMIT ? OFFSET ?
+        WITH RankedTests AS (
+          SELECT
+            t.id AS test_id,
+            t.name AS test_name,
+            t.categoryId AS category_id,
+            b.name AS bimester_name,
+            ROW_NUMBER() OVER (
+              PARTITION BY t.categoryId, t.disciplineId, c.id, y.name
+              ORDER BY b.id DESC
+              ) AS rn
+          FROM test t
+           LEFT JOIN period per ON t.periodId = per.id
+           LEFT JOIN year y ON per.yearId = y.id
+           LEFT JOIN bimester b ON per.bimesterId = b.id
+           LEFT JOIN discipline d ON t.disciplineId = d.id
+           LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+           LEFT JOIN classroom c ON tc_join.classroomId = c.id
+          ${whereClause}
+          )
+          SELECT DISTINCT
+            test_id,
+            test_name,
+            bimester_name
+          FROM RankedTests
+          WHERE (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1) OR (category_id NOT IN (${DIAGNOSTIC_CATEGORIES}) OR category_id IS NULL)
+          ORDER BY test_name ASC, bimester_name ASC
+          LIMIT ? OFFSET ?
       `;
 
       const idsParams = [...queryParams, limit, offset];
 
       const [idRows] = await conn.query(format(idsQuery, idsParams));
-      const testIds = (idRows as any[]).map(row => row.id);
+
+      const testIds = (idRows as any[]).map(row => row.test_id);
 
       if (testIds.length === 0) { return [] }
 
       const dataQuery = `
-      SELECT 
-        t.id AS test_id, t.name AS test_name, t.active AS test_active, t.hideAnswers AS test_hideAnswers, t.createdAt AS test_createdAt,
-        p.id AS person_id, p.name AS person_name,
-        per.id AS period_id,
-        y.id AS year_id, y.name AS year_name,
-        b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName,
-        cat.id AS category_id, cat.name AS category_name,
-        d.id AS discipline_id, d.name AS discipline_name,
-        c.id AS classroom_id, c.name AS classroom_name, c.shortName AS classroom_shortName,
-        s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep
-      FROM test t
-      LEFT JOIN person p ON t.personId = p.id
-      LEFT JOIN period per ON t.periodId = per.id
-      LEFT JOIN year y ON per.yearId = y.id
-      LEFT JOIN bimester b ON per.bimesterId = b.id
-      LEFT JOIN test_category cat ON t.categoryId = cat.id
-      LEFT JOIN discipline d ON t.disciplineId = d.id
-      LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
-      LEFT JOIN classroom c ON tc_join.classroomId = c.id
-      LEFT JOIN school s ON c.schoolId = s.id
-      WHERE t.id IN (?)
-      ORDER BY t.name ASC, b.name ASC
+        SELECT
+          t.id AS test_id, t.name AS test_name, t.active AS test_active, t.hideAnswers AS test_hideAnswers, t.createdAt AS test_createdAt,
+          p.id AS person_id, p.name AS person_name,
+          per.id AS period_id,
+          y.id AS year_id, y.name AS year_name,
+          b.id AS bimester_id, b.name AS bimester_name,
+            
+            CASE
+                WHEN t.name LIKE '%DIAGNÓSTICA%' THEN 'TODOS'
+                ELSE b.testName
+                END AS bimester_testName,
+
+            cat.id AS category_id, cat.name AS category_name,
+            d.id AS discipline_id, d.name AS discipline_name,
+            c.id AS classroom_id, c.name AS classroom_name, c.shortName AS classroom_shortName,
+            s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep
+        FROM test t
+           LEFT JOIN person p ON t.personId = p.id
+           LEFT JOIN period per ON t.periodId = per.id
+           LEFT JOIN year y ON per.yearId = y.id
+           LEFT JOIN bimester b ON per.bimesterId = b.id
+           LEFT JOIN test_category cat ON t.categoryId = cat.id
+           LEFT JOIN discipline d ON t.disciplineId = d.id
+           LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+           LEFT JOIN classroom c ON tc_join.classroomId = c.id
+           LEFT JOIN school s ON c.schoolId = s.id
+        WHERE t.id IN (?)
+        ORDER BY t.name ASC, b.name ASC
     `;
 
       const [dataRows] = await conn.query(format(dataQuery, [testIds]));

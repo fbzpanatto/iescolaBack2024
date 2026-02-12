@@ -290,18 +290,49 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const allResults = await Promise.all(allPromises);
 
-      const headers = [];
+      const headers: string[] = [];
       const classroomMap = new Map();
 
-      for (const item of allResults) {
+      // 1. Agrupamento (Correção do índice aplicada anteriormente)
+      allResults.forEach((item, i) => {
         headers.push(item.testName);
         for (const el of item.classrooms) {
-          if (!classroomMap.has(el.id)) { classroomMap.set(el.id, { id: el.id, school: el.school, shortName: el.shortName, classroomAvg: []}) }
-          classroomMap.get(el.id).classroomAvg.push(el.tRateAvg);
+          if (!classroomMap.has(el.id)) {
+            classroomMap.set(el.id, {
+              id: el.id,
+              school: el.school,
+              shortName: el.shortName,
+              classroomAvg: new Array(allResults.length).fill(null)
+            });
+          }
+          classroomMap.get(el.id).classroomAvg[i] = el.tRateAvg;
         }
-      }
+      });
 
-      const mappedClassrooms = Array.from(classroomMap.values());
+      let mappedClassrooms = Array.from(classroomMap.values());
+
+      // --- CORREÇÃO DA ORDEM AQUI ---
+
+      // 2. Separa os elementos especiais (Município e Escola Agregada) das salas comuns
+      const cityHallId = 999;
+      const schoolAggregateId = qClassroom.school.id; // O ID da escola agregada geralmente é o mesmo da escola da sala
+
+      const cityHall = mappedClassrooms.find((c: any) => c.id === cityHallId);
+      const schoolAggregate = mappedClassrooms.find((c: any) => c.id === schoolAggregateId && c.name === 'ESCOLA'); // Validação extra pelo nome se necessário
+
+      // Filtra para deixar apenas as salas comuns
+      let sortedClassrooms = mappedClassrooms.filter((c: any) => c.id !== cityHallId && (c.id !== schoolAggregateId || c.name !== 'ESCOLA'));
+
+      // 3. Ordena as salas comuns alfabeticamente (ShortName)
+      sortedClassrooms.sort((a: any, b: any) => a.shortName.localeCompare(b.shortName));
+
+      // 4. Reconstrói o array na ordem desejada: [Salas..., Escola, Município]
+      mappedClassrooms = [...sortedClassrooms];
+
+      if (schoolAggregate) { mappedClassrooms.push(schoolAggregate); }
+      if (cityHall) { mappedClassrooms.push(cityHall); }
+
+      // -----------------------------
 
       return { status: 200, data: { headers, classrooms: mappedClassrooms, school: qClassroom.school.name, year: qYear.name, bimester: qBimester } };
     }

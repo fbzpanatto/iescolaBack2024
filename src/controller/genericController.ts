@@ -1739,6 +1739,108 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async listTestsSql(req: Request, masterUser: boolean, teacherClasses: { classrooms: number[] }) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const yearName = req.params.year;
+
+      const searchParam = req.query.search as string;
+      const search = (searchParam && searchParam !== 'null' && searchParam !== 'undefined')
+        ? `%${searchParam}%`
+        : '%%';
+
+      const bimesterId = req.query.bimesterId;
+      const disciplineId = req.query.disciplineId;
+
+      const whereConditions: string[] = [];
+      const queryParams: any[] = [];
+
+      whereConditions.push("y.name = ?");
+      queryParams.push(yearName);
+
+      whereConditions.push("t.name LIKE ?");
+      queryParams.push(search);
+
+      if (!masterUser) {
+        if (teacherClasses?.classrooms?.length > 0) {
+          whereConditions.push("c.id IN (?)");
+          queryParams.push(teacherClasses.classrooms);
+        } else { return [] }
+      }
+
+      if (bimesterId) {
+        whereConditions.push("b.id = ?");
+        queryParams.push(bimesterId);
+      }
+
+      if (disciplineId) {
+        whereConditions.push("d.id = ?");
+        queryParams.push(disciplineId);
+      }
+
+      const whereClause = whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(' AND ')}`
+        : '';
+
+      const idsQuery = `
+        SELECT t.id
+        FROM test t
+        LEFT JOIN period per ON t.periodId = per.id
+        LEFT JOIN year y ON per.yearId = y.id
+        LEFT JOIN bimester b ON per.bimesterId = b.id
+        LEFT JOIN discipline d ON t.disciplineId = d.id
+        LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+        LEFT JOIN classroom c ON tc_join.classroomId = c.id
+        ${whereClause}
+        GROUP BY t.id, t.name, b.name
+        ORDER BY t.name ASC, b.name ASC
+        LIMIT ? OFFSET ?
+      `;
+
+      const idsParams = [...queryParams, limit, offset];
+
+      const [idRows] = await conn.query(format(idsQuery, idsParams));
+      const testIds = (idRows as any[]).map(row => row.id);
+
+      if (testIds.length === 0) { return [] }
+
+      const dataQuery = `
+      SELECT 
+        t.id AS test_id, t.name AS test_name, t.active AS test_active, t.hideAnswers AS test_hideAnswers, t.createdAt AS test_createdAt,
+        p.id AS person_id, p.name AS person_name,
+        per.id AS period_id,
+        y.id AS year_id, y.name AS year_name,
+        b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName,
+        cat.id AS category_id, cat.name AS category_name,
+        d.id AS discipline_id, d.name AS discipline_name,
+        c.id AS classroom_id, c.name AS classroom_name, c.shortName AS classroom_shortName,
+        s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep
+      FROM test t
+      LEFT JOIN person p ON t.personId = p.id
+      LEFT JOIN period per ON t.periodId = per.id
+      LEFT JOIN year y ON per.yearId = y.id
+      LEFT JOIN bimester b ON per.bimesterId = b.id
+      LEFT JOIN test_category cat ON t.categoryId = cat.id
+      LEFT JOIN discipline d ON t.disciplineId = d.id
+      LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+      LEFT JOIN classroom c ON tc_join.classroomId = c.id
+      LEFT JOIN school s ON c.schoolId = s.id
+      WHERE t.id IN (?)
+      ORDER BY t.name ASC, b.name ASC
+    `;
+
+      const [dataRows] = await conn.query(format(dataQuery, [testIds]));
+      return Helper.mapTestRowsToEntity(dataRows as any[]);
+
+    }
+    catch (error) { console.error("Error in listTestsSql:", error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qTeacherByUser(userId: number) {
     let conn;
     try {

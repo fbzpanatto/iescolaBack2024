@@ -1,13 +1,12 @@
 import { GenericController } from "./genericController";
-import { Brackets, EntityTarget } from "typeorm";
+import { EntityTarget } from "typeorm";
 import { Test } from "../model/Test";
-import { AppDataSource } from "../data-source";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
-import {EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES} from "../utils/enums";
-import { TEST_CATEGORIES_IDS } from "../utils/enums";
-import { testController } from "./test";
 import { Helper } from "../utils/helpers";
+import { testController } from "./test";
+import { TEST_CATEGORIES_IDS } from "../utils/enums";
+import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES } from "../utils/enums";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -26,57 +25,22 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   }
 
   async reportFindAll(req: Request) {
-
-    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
-    const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
-    const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null
-    const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null
-
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+      const teacher = await this.qTeacherByUser(req.body.user.user);
+      const teacherClasses = await this.qTeacherClassrooms(req.body.user.user);
 
-        const teacher = await this.qTeacherByUser(req.body.user.user)
-        const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
-        const masterUser = teacher.person.category.id === PERSON_CATEGORIES.ADMN || teacher.person.category.id === PERSON_CATEGORIES.SUPE || teacher.person.category.id === PERSON_CATEGORIES.FORM;
+      const MASTER_CATEGORIES = [PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM];
+      const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);
 
-        // TODO: MAKE MYSQL2
-        let data = await CONN.getRepository(Test)
-          .createQueryBuilder("test")
-          .leftJoinAndSelect("test.person", "person")
-          .leftJoinAndSelect("test.period", "period")
-          .leftJoinAndSelect("test.category", "category")
-          .leftJoinAndSelect("period.year", "year")
-          .leftJoinAndSelect("period.bimester", "bimester")
-          .leftJoinAndSelect("test.discipline", "discipline")
-          .leftJoinAndSelect("test.classrooms", "classroom")
-          .leftJoinAndSelect("classroom.school", "school")
-          .where( new Brackets((qb) => {
-            if (!masterUser) {
-              qb.where("classroom.id IN (:...teacherClasses)", { teacherClasses: teacherClasses.classrooms })
-            }
-            if(bimesterId) { qb.andWhere("bimester.id = :bimesterId", { bimesterId }) }
-            if(disciplineId) { qb.andWhere("discipline.id = :disciplineId", { disciplineId }) }
-          }))
-          .andWhere("year.name = :yearName", { yearName: req.params.year as string })
-          .andWhere("test.name LIKE :search", { search: `%${ req.query.search as string }%` })
-          .take(limit)
-          .skip(offset)
-          .addOrderBy('test.name')
-          .addOrderBy('bimester.name')
-          .getMany();
-
-        data = data.map(el => {
-          if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(el.category.id)) {
-            return { ...el, period: { ...el.period, bimester: { ...el.period.bimester, name: el.period.bimester.testName } } }
-          }
-          return { ...el }
-        })
-
-        return { status: 200, data };
-      })
+      const data = await this.listTestsSql(req, masterUser, teacherClasses);
+      return { status: 200, data };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.error("reportFindAll error:", error);
+      return { status: 500, message: error.message };
+    }
   }
+
   async listAggregatedTests(classroom: number | string, bimester: number | string, year: number | string) {
     try {
       if(!classroom || !bimester) { return { status: 400, message: "Parâmetros inválidos. É necessário informar o ID da turma e do bimestre." } }

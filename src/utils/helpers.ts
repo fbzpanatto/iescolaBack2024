@@ -545,6 +545,62 @@ export class Helper {
     return arr;
   }
 
+  static mapTestRowsToEntity(rows: any[]) {
+    const testsMap = new Map<number, any>();
+
+    rows.forEach(row => {
+      if (!testsMap.has(row.test_id)) {
+        testsMap.set(row.test_id, {
+          id: row.test_id,
+          name: row.test_name,
+          active: row.test_active === 1 || row.test_active === true,
+          hideAnswers: row.test_hideAnswers === 1 || row.test_hideAnswers === true,
+          createdAt: row.test_createdAt,
+          person: row.person_id ? {
+            id: row.person_id,
+            name: row.person_name
+          } : null,
+          period: row.period_id ? {
+            id: row.period_id,
+            year: row.year_id ? { id: row.year_id, name: row.year_name } : null,
+            bimester: row.bimester_id ? { id: row.bimester_id, name: row.bimester_name, testName: row.bimester_testName } : null
+          } : null,
+          category: row.category_id ? {
+            id: row.category_id,
+            name: row.category_name
+          } : null,
+          discipline: row.discipline_id ? {
+            id: row.discipline_id,
+            name: row.discipline_name
+          } : null,
+          classrooms: []
+        });
+      }
+
+      const test = testsMap.get(row.test_id);
+
+      if (row.classroom_id) {
+        const classroomExists = test.classrooms.find((c: any) => c.id === row.classroom_id);
+
+        if (!classroomExists) {
+          test.classrooms.push({
+            id: row.classroom_id,
+            name: row.classroom_name,
+            shortName: row.classroom_shortName,
+            school: row.school_id ? {
+              id: row.school_id,
+              name: row.school_name,
+              shortName: row.school_shortName,
+              inep: row.school_inep
+            } : null
+          });
+        }
+      }
+    });
+
+    return Array.from(testsMap.values());
+  }
+
   static readingFluencyHeaders(preHeaders: qReadingFluenciesHeaders[]) {
     return preHeaders.reduce((acc: ReadingHeaders[], prev) => {
       let exam = acc.find(el => el.exam_id === prev.readingFluencyExamId);

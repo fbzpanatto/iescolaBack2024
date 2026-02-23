@@ -3056,7 +3056,7 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection()
       let query = '';
 
-      if (!referencedTraining.disciplineId && referencedTraining.categoryId === 1) {
+      if (!referencedTraining.disciplineId && (referencedTraining.categoryId === 1 || referencedTraining.categoryId === 3)) {
         query = `
           SELECT
               t.id,
@@ -3260,7 +3260,7 @@ export class GenericController<T> {
     try {
       conn = await connectionPool.getConnection()
       const shouldFilterBySchool = teacher.school?.id !== null && ![1, 2, 10].includes(teacher.person.category.id);
-      const shouldFilterByClassroom = referencedTraining.categoryId === 1 && referencedTraining.classroom !== null && referencedTraining.classroom !== undefined;
+      const shouldFilterByClassroom = (referencedTraining.categoryId === 1 || referencedTraining.categoryId === 3) && referencedTraining.classroom !== null && referencedTraining.classroom !== undefined;
       const shouldFilterByDiscipline = referencedTraining.categoryId === 2 && referencedTraining.disciplineId !== null && referencedTraining.disciplineId !== undefined;
       const shouldFilterByTeacher = [7, 8].includes(teacher.person.category.id);
 
@@ -3268,7 +3268,7 @@ export class GenericController<T> {
         SELECT
             t.id,
             p.name,
-            CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END AS discipline,
+            CASE WHEN cc.id IN (1, 3) THEN 'POLIVALENTE' ELSE d.name END AS discipline,
             ${referencedTraining.categoryId === 2 ?
         `GROUP_CONCAT(DISTINCT CAST(LEFT(c.shortName, 1) AS UNSIGNED) ORDER BY CAST(LEFT(c.shortName, 1) AS UNSIGNED) SEPARATOR ', ') AS classroom` :
         `CAST(LEFT(MIN(c.shortName), 1) AS UNSIGNED) AS classroom`
@@ -3298,13 +3298,13 @@ export class GenericController<T> {
             ${ shouldFilterByClassroom ? 'CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND' : '' }
             ${ shouldFilterBySchool ? 'c.schoolId = ? AND' : '' }
             (
-            (cc.id = 1 AND d.id NOT IN (6, 7, 8, 9)) OR
+            (cc.id IN (1, 3) AND d.id NOT IN (6, 7, 8, 9)) OR
             (cc.id = 2 AND ${ shouldFilterByDiscipline ? 'tcd.disciplineId = ?' : 'tcd.disciplineId = COALESCE(?, tcd.disciplineId)' })
             )
         GROUP BY
             ${referencedTraining.categoryId === 2 ?
-        `t.id, p.id, p.name, s.id, s.shortName, d.id, CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END` :
-        `t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED), CASE WHEN cc.id = 1 THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END`
+        `t.id, p.id, p.name, s.id, s.shortName, d.id, CASE WHEN cc.id IN (1, 3) THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END` :
+        `t.id, p.id, p.name, s.id, s.shortName, CAST(LEFT(c.shortName, 1) AS UNSIGNED), CASE WHEN cc.id IN (1, 3) THEN 'POLIVALENTE' ELSE d.name END, CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END`
       }
         ORDER BY s.shortName
     `;
@@ -3365,7 +3365,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             tcd.teacherId = ? AND
             s.id = ? AND
             CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
-            c.categoryId = 1 AND
+            c.categoryId IN (1, 3) AND
             tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
             ${isCurrentYear
         ? 'tcd.endedAt IS NULL'
@@ -3411,7 +3411,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE
             tcd.teacherId = ? AND
             s.id = ? AND
-            c.categoryId = 1 AND
+            c.categoryId IN (1, 3) AND
             tcd.disciplineId = ? AND
             ${isCurrentYear
         ? 'tcd.endedAt IS NULL'
@@ -3432,7 +3432,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
           typeof teacher.classroom === 'string' &&
           teacher.classroom.split(',').some(c => parseInt(c.trim()) >= 1 && parseInt(c.trim()) <= 5);
 
-        if (categoryId === 1) {
+        if ([1,3].includes(categoryId)) {
           // PEBI - usa classroom específico
           const classroom = typeof teacher.classroom === 'string' ?
             parseInt(teacher.classroom.split(',')[0].trim()) :
@@ -3659,7 +3659,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
           FROM classroom AS c
                    INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
           WHERE c.active = 1
-            AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) BETWEEN 1 AND 9
+            AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) BETWEEN 0 AND 9
           ORDER BY classroom_number
       `
       const [ queryResult ] = await conn.query(format(query))

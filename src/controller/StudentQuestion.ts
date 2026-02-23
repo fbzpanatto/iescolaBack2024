@@ -54,7 +54,6 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
         const messageErr1: string = 'Você não pode alterar um nível de alfabetização que já foi registrado em outra sala/escola.'
         if(readingFluency?.readingFluencyLevel && readingFluency?.rClassroom && readingFluency?.rClassroom.id != body.classroom.id) { return { status: 403, message: messageErr1 } }
 
-        // Se readingFluencyLevel for nulo, rClassroom também deve ser nulo
         readingFluency.readingFluencyLevel = body.readingFluencyLevel
         readingFluency.rClassroom = body.readingFluencyLevel?.id ? body.classroom : null
 

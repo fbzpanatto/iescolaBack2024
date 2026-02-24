@@ -27,6 +27,9 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     const { body } = request as { body: TeacherBody };
     const { testCategory } = request.params;
     try {
+
+      // TODO: Create testCategory classroom numbers.
+
       const qUserT = await this.qTeacherByUser(body.user.user);
       const tClasses = await this.qTeacherClassrooms(request?.body.user.user);
       const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];

@@ -10,6 +10,12 @@ export class TestCategory {
   @Column({ unique: true })
   name: string
 
+  @Column({ nullable: true })
+  startClassroomNumber: number
+
+  @Column({ nullable: true })
+  endClassroomNumber: number
+
   @OneToMany(() => Test, test => test.category)
   tests: Test[]
 }

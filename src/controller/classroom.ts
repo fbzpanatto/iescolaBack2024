@@ -27,14 +27,12 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     const { body } = request as { body: TeacherBody };
     const { testCategory } = request.params;
     try {
-
-      // TODO: Create testCategory classroom numbers.
-
       const qUserT = await this.qTeacherByUser(body.user.user);
       const tClasses = await this.qTeacherClassrooms(request?.body.user.user);
       const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];
       const masterUser = qUserT.person.category.id === PERSON_CATEGORIES.ADMN || qUserT.person.category.id === PERSON_CATEGORIES.SUPE || qUserT.person.category.id === PERSON_CATEGORIES.FORM;
-      const result = await this.getTeacherClassroomsByTestCategory(masterUser, allClassrooms, 0, 0)
+      const qTestCategory = await this.qTestCategory(Number(testCategory))
+      const result = await this.getTeacherClassroomsByTestCategory(masterUser, allClassrooms, qTestCategory.startClassroomNumber, qTestCategory.endClassroomNumber)
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }

@@ -57,6 +57,7 @@ import {connectionPool} from "../services/db";
 import {PersonCategory} from "../model/PersonCategory";
 import {Helper} from "../utils/helpers";
 import {TestToken} from "../model/Token";
+import {TestCategory} from "../model/TestCategory";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1665,6 +1666,24 @@ export class GenericController<T> {
       const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
 
       return { id: qTeacherClassrooms?.id, personCategoryId: qTeacherClassrooms?.categoryId, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qTestCategory(testCategoryId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query =
+        `
+          SELECT *
+          FROM test_category AS tg
+          WHERE tg.id = ?
+        `
+
+      const [ queryResult ] = await conn.query(format(query), [testCategoryId])
+      return (queryResult as TestCategory[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

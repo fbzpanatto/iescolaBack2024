@@ -242,19 +242,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
-  async getFormData(req: Request) {
+  async getFormData(_: Request) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        let classrooms = (await classroomController.getAllClassrooms(req)).data
-
-        classrooms = classrooms?.filter(el => ![1216,1217,1218].includes(el.id))
-
         const disciplines = await CONN.find(Discipline)
         const bimesters = await CONN.find(Bimester)
         const testCategories = await CONN.find(TestCategory)
         const questionGroup = await CONN.findOneBy(QuestionGroup, { id: 1 });
-        return { status: 200, data: { classrooms, disciplines, bimesters, testCategories, questionGroup } };
+        return { status: 200, data: { disciplines, bimesters, testCategories, questionGroup } };
       })
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getFormDataByTestCategory(req: Request) {
+    try {
+      let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req)).data) as Array<{ id: number, name: string, school: string }>;
+      classrooms = classrooms?.filter((el: any) => ![1216,1217,1218].includes(el.id))
+      return { status: 200, data: classrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

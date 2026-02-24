@@ -4101,6 +4101,36 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
+  async getTeacherClassroomsByTestCategory(masterUser: boolean, allClassrooms: number[], classroomStartNumber: number, classroomEndNumber: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      let query = `
+          SELECT
+              classroom.id AS id,
+              classroom.shortName AS name,
+              school.shortName AS school
+          FROM classroom
+                   LEFT JOIN school ON classroom.schoolId = school.id
+          WHERE CAST(LEFT(classroom.shortName, 1) AS UNSIGNED) BETWEEN ? AND ?
+      `;
+      const params: any[] = [classroomStartNumber, classroomEndNumber];
+
+      if (!masterUser) {
+        if (allClassrooms.length === 0) { return { status: 200, data: [] }; }
+        query += ` AND classroom.id IN (?)`;
+        params.push(allClassrooms);
+      } else { query += ` AND classroom.id > 0` }
+
+      const [queryResult] = await conn.query(query, params);
+
+      return queryResult as Array<{ id: number, name: string, school: string }>;
+    }
+    catch (error) {console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async findPersonCategories(excludeIds: number[]){
     let conn;
     try {

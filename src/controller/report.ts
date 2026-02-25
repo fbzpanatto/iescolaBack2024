@@ -106,6 +106,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     if (!qTest) return { status: 404, message: "Teste não encontrado" };
 
     switch (qTest?.test_category_id) {
+      case(TEST_CATEGORIES_IDS.EDU_INF_PART):
       case(TEST_CATEGORIES_IDS.EDU_INF):
       case(TEST_CATEGORIES_IDS.LITE_1):
       case(TEST_CATEGORIES_IDS.LITE_2):
@@ -119,7 +120,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let testQuestionsIds: number[] = []
 
-        if((qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF) && tests.length > 0) {
+        if((qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF_PART) && tests.length > 0) {
 
           const testIds = tests.map(test => test.id);
           const questionsMap = await this.qTestQuestionsForMultipleTests(testIds);
@@ -139,7 +140,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         headers = headers.map((bi: any) => { return { ...bi, testQuestions: testsByBimesterId.get(bi.id)?.testQuestions || [] } })
 
-        let serieFilter = `${ qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF ? 0 : qTest?.test_category_id }%`;
+        let serieFilter = `${ qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF || qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF_PART ? 0 : qTest?.test_category_id }%`;
 
         let preResult = await testController.alphaQuestions(serieFilter, qTest.year_name, qTest, testQuestionsIds)
 

@@ -65,7 +65,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         TEST_CATEGORIES_IDS.LITE_1,
         TEST_CATEGORIES_IDS.LITE_2,
         TEST_CATEGORIES_IDS.LITE_3,
-        TEST_CATEGORIES_IDS.EDU_INF
+        TEST_CATEGORIES_IDS.EDU_INF,
+        TEST_CATEGORIES_IDS.EDU_INF_PART
       ]
 
       if(checkCategoriesIds.includes(test.category.id)) {
@@ -383,7 +384,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
 
-      if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3].includes(baseTest.category.id)) {
+      if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.EDU_INF_PART].includes(baseTest.category.id)) {
 
         const [preheaders, tests] = await Promise.all([
           this.qAlphabeticHeaders(year.name) as Promise<any[]>,
@@ -392,7 +393,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let testQuestionsIds: number[] = []
 
-        if((baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF) && tests.length > 0) {
+        if((baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF_PART) && tests.length > 0) {
           const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
 
           for(let i = 0; i < tests.length; i++) { tests[i].testQuestions = testQuestionsArr[i]; testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id)) }
@@ -645,7 +646,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
           TEST_CATEGORIES_IDS.LITE_1,
           TEST_CATEGORIES_IDS.LITE_2,
           TEST_CATEGORIES_IDS.LITE_3,
-          TEST_CATEGORIES_IDS.EDU_INF
+          TEST_CATEGORIES_IDS.EDU_INF,
+          TEST_CATEGORIES_IDS.EDU_INF_PART,
         ]
 
         if(checkCategories.includes(body.category.id)) {

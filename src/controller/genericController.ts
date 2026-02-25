@@ -1765,7 +1765,7 @@ export class GenericController<T> {
     try {
       conn = await connectionPool.getConnection();
 
-      const DIAGNOSTIC_CATEGORIES = [ TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.EDU_INF ].join(', ');
+      const DIAGNOSTIC_CATEGORIES = [ TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.EDU_INF_PART ].join(', ');
 
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -4305,7 +4305,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
         TEST_CATEGORIES_IDS.LITE_1,
         TEST_CATEGORIES_IDS.LITE_2,
         TEST_CATEGORIES_IDS.LITE_3,
-        TEST_CATEGORIES_IDS.EDU_INF
+        TEST_CATEGORIES_IDS.EDU_INF,
+        TEST_CATEGORIES_IDS.EDU_INF_PART
       ].join(', ');
 
       let query = `

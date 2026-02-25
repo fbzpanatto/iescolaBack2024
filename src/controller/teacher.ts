@@ -373,7 +373,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         if (registerExists) { return { status: 409,  message } }
 
         const emailExists = await CONN.findOne(Teacher, { where: { email: body.email.toLowerCase().trim() }});
-        if (emailExists) {return {status: 409,message: "Já existe um registro com este email."}}
+        if (emailExists) { return {status: 409,message: "Já existe um registro com este email."} }
 
         const category = (await CONN.findOne(PersonCategory, {where: { id: body.category.id }})) as PersonCategory;
 

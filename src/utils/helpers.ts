@@ -173,6 +173,14 @@ export class Helper {
     });
   }
 
+  static parseQueryParam(value: any) {
+    if (value === 'null' || value === undefined || value === '') {
+      return null;
+    }
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? value : parsed;
+  };
+
   static schoolDataStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any) {
 
     const answersLettersMap = new Map<string, Map<string, any>>()

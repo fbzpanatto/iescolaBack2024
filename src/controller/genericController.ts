@@ -1776,8 +1776,8 @@ export class GenericController<T> {
         ? `%${searchParam}%`
         : '%%';
 
-      const bimesterId = req.query.bimesterId;
-      const disciplineId = req.query.disciplineId;
+      const bimesterId = Helper.parseQueryParam(req.query.bimester);
+      const disciplineId = Helper.parseQueryParam(req.query.discipline);
 
       const whereConditions: string[] = [];
       const queryParams: any[] = [];

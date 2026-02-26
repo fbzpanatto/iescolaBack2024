@@ -5,6 +5,8 @@ let INFO: SMTPTransport.SentMessageInfo;
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+const sender = 'appescola7@gmail.com'
+
 const FRONT_URL: string = isDevelopment
   ? (process.env.FRONT_URL_DEV as string)
   : (process.env.FRONT_URL as string);
@@ -14,6 +16,7 @@ const RESET_URL: string = isDevelopment
   : (process.env.RESET_URL as string);
 
 const transport = {
+  service: "gmail",
   host: "smtp.gmail.com",
   port: 465,
   secure: true,
@@ -28,7 +31,7 @@ const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodem
 export async function transferEmail(email: string, student: string, rClassroom: string, requester: string, rSchool: string): Promise<void> {
 
   INFO = await TRANSPORTER.sendMail({
-    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
+    from: `"EscolApp - Prefeitura de Itatiba" <${sender}>`,
     to: email,
     subject: `EscolApp: Solicitação de transferência para: ${student}`,
     html: `
@@ -49,7 +52,7 @@ export async function transferEmail(email: string, student: string, rClassroom: 
 
 export async function resetPassword(email: string, token: string) {
   INFO = await TRANSPORTER.sendMail({
-    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
+    from: `"EscolApp - Prefeitura de Itatiba" <${sender}>`,
     to: email,
     subject: "EscolApp: Redefinir Senha",
     html: `
@@ -69,7 +72,7 @@ export async function credentialsEmail(email: string, password: string, post: bo
   if (!post) { return }
 
   INFO = await TRANSPORTER.sendMail({
-    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
+    from: `"EscolApp - Prefeitura de Itatiba" <${sender}>`,
     to: email,
     subject: "EscolApp: Conta criada com sucesso.",
     html: `

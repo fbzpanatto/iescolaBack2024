@@ -28,7 +28,7 @@ const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodem
 export async function transferEmail(email: string, student: string, rClassroom: string, requester: string, rSchool: string): Promise<void> {
 
   INFO = await TRANSPORTER.sendMail({
-    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
     to: email,
     subject: `EscolApp: Solicitação de transferência para: ${student}`,
     html: `
@@ -49,7 +49,7 @@ export async function transferEmail(email: string, student: string, rClassroom: 
 
 export async function resetPassword(email: string, token: string) {
   INFO = await TRANSPORTER.sendMail({
-    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
+    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
     to: email,
     subject: "EscolApp: Redefinir Senha",
     html: `
@@ -66,12 +66,13 @@ export async function resetPassword(email: string, token: string) {
 
 export async function credentialsEmail(email: string, password: string, post: boolean ): Promise<void> {
 
-  if (post) {
-    INFO = await TRANSPORTER.sendMail({
-      from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
-      to: email,
-      subject: "EscolApp: Conta criada com sucesso.",
-      html: `
+  if (!post) { return }
+
+  INFO = await TRANSPORTER.sendMail({
+    from: `"EscolApp - Prefeitura de Itatiba" <${process.env.EMAIL}>`,
+    to: email,
+    subject: "EscolApp: Conta criada com sucesso.",
+    html: `
         <p>Olá,</p>
         <p>Uma conta EscolApp acabou de ser criada para você.</p>
         <p>Usuário: <b>${email}</b></p>
@@ -80,24 +81,9 @@ export async function credentialsEmail(email: string, password: string, post: bo
         <p>Atenciosamente,</p>
         <p>Equipe EscolApp - Prefeitura de Itatiba</p>
       `,
-    });
-    console.log("Message sent POST: " + INFO.messageId);
-    return;
-  }
-
-  INFO = await TRANSPORTER.sendMail({
-    from: "EscolApp - Prefeitura de Itatiba <fbzpanatto@gmail.com@gmail.com>",
-    to: email,
-    subject: "EscolApp: Lembrete de senha",
-    html: `
-      <p>Olá,</p>
-      <p>Você solicitou um lembrete de senha para sua conta EscolApp</p>
-      <p>Usuário: <b>${email}</b></p>
-      <p>Senha: <b>${password}</b></p>
-      <p>Atenciosamente,</p>
-      <p>Equipe EscolApp - Prefeitura de Itatiba</p>
-    `,
   });
-  console.log("Message sent PUT: " + INFO.messageId);
+
+  console.log("Message sent POST: " + INFO.messageId);
+
   return;
 }

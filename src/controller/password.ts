@@ -5,6 +5,8 @@ import { sign } from "jsonwebtoken";
 import { User } from "../model/User";
 import { EntityManager } from "typeorm";
 
+const tokenSecret = process.env.SECRET;
+
 class PasswordController {
   constructor() {}
 
@@ -29,7 +31,7 @@ class PasswordController {
   }
 
   createResetToken(payload: { id: number, email: string, category: number }): string {
-    return sign(payload, "SECRET", { expiresIn: 86400 })
+    return sign(payload, tokenSecret ?? '', { expiresIn: 86400 })
   }
 }
 

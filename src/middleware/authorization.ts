@@ -1,6 +1,8 @@
 import { NextFunction, Request } from "express";
 import jwt from 'jsonwebtoken';
 
+const tokenSecret = process.env.SECRET;
+
 export default (req: Request, res: any, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -8,11 +10,11 @@ export default (req: Request, res: any, next: NextFunction) => {
     if(!authHeader) { return res.status(401).json({ message: 'Credenciais Inválidas' }) }
     const token = authHeader.split(' ')[1];
 
-    const user = jwt.verify(token, 'SECRET')
+    const user = jwt.verify(token, tokenSecret ?? '')
 
     req.body = { ...req.body, user }
 
-    req.body.user = jwt.verify(token, 'SECRET')
+    req.body.user = jwt.verify(token, tokenSecret ?? '')
     next()
   }
   catch (error: any) {

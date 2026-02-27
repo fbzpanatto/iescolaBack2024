@@ -10,6 +10,8 @@ import { TRANSFER_STATUS } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import bcrypt from 'bcrypt';
 
+const tokenSecret = process.env.SECRET;
+
 interface Response { status: number, data: { token: string, expiresIn: number | undefined, role: any, person: string, pendingTransfers?: qPendingTransfers[] } }
 
 class LoginController extends GenericController<EntityTarget<User>> {
@@ -31,8 +33,8 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
         const payload = { user: user.id, email: user.email, category: user.person.category.id };
 
-        const token = sign(payload, "SECRET", { expiresIn: 10800 })
-        const decoded = verify(token, "SECRET") as JwtPayload;
+        const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
+        const decoded = verify(token, tokenSecret ?? '') as JwtPayload;
         const expiresIn = decoded.exp;
         const role = decoded.category;
 
@@ -71,8 +73,8 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       const payload = { user: student.id, ra: `${student.ra}${student.dv}`, category: student.categoryId };
 
-      const token = sign(payload, "SECRET", { expiresIn: 10800 })
-      const decoded = verify(token, "SECRET") as JwtPayload;
+      const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
+      const decoded = verify(token, tokenSecret ?? '') as JwtPayload;
       const expiresIn = decoded.exp;
       const role = decoded.category;
 
@@ -94,7 +96,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const frontDecoded = verify(frontToken, "SECRET") as JwtPayload;
+        const frontDecoded = verify(frontToken, tokenSecret ?? '') as JwtPayload;
 
         if(!frontDecoded) {
           return { status: 401, message: 'Pedido expirado, faça uma nova solicitação para redefinir sua senha na tela de login da aplicação.' }
@@ -110,8 +112,8 @@ class LoginController extends GenericController<EntityTarget<User>> {
         await CONN.save(User, user)
 
         const payload = { user: user.id, email: user.email, category: user.person.category.id };
-        const backendToken = sign(payload, "SECRET", { expiresIn: 10800 })
-        const decoded = verify(backendToken, "SECRET") as JwtPayload;
+        const backendToken = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
+        const decoded = verify(backendToken, tokenSecret ?? '') as JwtPayload;
         const expiresIn = decoded.exp;
         const role = decoded.category;
 

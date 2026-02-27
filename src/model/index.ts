@@ -41,6 +41,7 @@ import { TrainingTeacher } from "./TrainingTeacher";
 import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
 import { AccessSecurityLog } from "./MobileSecurityLog";
 import { TestToken } from "./Token";
+import { TokenReset } from "./TokenReset";
 
 export const entities = [
   AccessSecurityLog,
@@ -78,6 +79,7 @@ export const entities = [
   ReadingFluencyGroup,
   Teacher,
   TestToken,
+  TokenReset,
   TeacherClassDiscipline,
   Test,
   TestCategory,

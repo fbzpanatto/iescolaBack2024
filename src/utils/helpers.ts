@@ -19,7 +19,7 @@ export class Helper {
     return randomString.slice(0, middle) + '-' + randomString.slice(middle);
   }
 
-  static generateDateTime(options: Intl.DateTimeFormatOptions = { timeZone: 'America/Sao_Paulo', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'short'}) {
+  static generateDateTime(expiresInHours: number = 3, options: Intl.DateTimeFormatOptions = {timeZone: 'America/Sao_Paulo', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'short'}) {
 
     const formatter = new Intl.DateTimeFormat('en-US', options);
 
@@ -39,7 +39,7 @@ export class Helper {
     };
 
     const now = new Date();
-    const expirationDate = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    const expirationDate = new Date(now.getTime() + (expiresInHours * 60 * 60 * 1000));
 
     return { createdAt: formatToSql(now), expiresAt: formatToSql(expirationDate) };
   }

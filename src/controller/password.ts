@@ -1,9 +1,8 @@
 import { Request } from "express";
-import { AppDataSource } from "../data-source";
 import { resetPasswordEmailService } from "../services/email";
 import { sign } from "jsonwebtoken";
-import { User } from "../model/User";
-import { EntityManager } from "typeorm";
+import { Helper } from "../utils/helpers";
+import { connectionPool } from "../services/db";
 
 const tokenSecret = process.env.SECRET;
 
@@ -11,28 +10,76 @@ class PasswordController {
   constructor() {}
 
   async resetPassword(req: Request) {
+    let conn;
+
     try {
-      return await AppDataSource.transaction(async(CONN: EntityManager) => {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
 
-        const uTeacher: User | null = await CONN.findOne(User,{ relations: ["person.category"], where: { email: req.body.email } });
+      const email = req.body.email;
 
-        if (!uTeacher) { return { status: 404, message: "Não foi possível encontrar o usuário informado." } }
+      const selectQuery = `
+        SELECT u.id, u.email, p.categoryId 
+        FROM user u
+        INNER JOIN person p ON u.personId = p.id
+        WHERE u.email = ?
+      `;
 
-        const token = this.createResetToken({ id: uTeacher.id, email: uTeacher.email, category: uTeacher.person.category.id })
+      const [userRows] = await conn.query(selectQuery, [email]);
+      const uTeacher = (userRows as any[])[0];
 
-        uTeacher.password = token
+      if (!uTeacher) {
+        await conn.rollback();
+        return { status: 404, message: "Não foi possível encontrar o usuário informado." };
+      }
 
-        await resetPasswordEmailService(uTeacher.email, token)
-        await CONN.save(User, uTeacher)
+      // 1. Gera as datas com 24 horas de validade
+      const sqlDateTime = Helper.generateDateTime(24);
 
-        return { status: 200, data: { message: "Um link para redefinir sua senha foi enviado para o email informado. Confira sua caixa de entrada." } };
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
+      // 2. Bloqueia se já houver token válido usando o createdAt (que representa o momento atual)
+      const checkTokenQuery = `
+        SELECT expiresAt 
+        FROM token_reset 
+        WHERE userId = ? AND expiresAt > ?
+      `;
+
+      const [tokenRows] = await conn.query(checkTokenQuery, [uTeacher.id, sqlDateTime.createdAt]);
+      const activeToken = (tokenRows as any[])[0];
+
+      if (activeToken) {
+        const message = "Um link de redefinição já foi enviado recentemente. Aguarde o prazo expirar para solicitar novamente, ou verifique sua caixa de entrada/spam."
+        await conn.rollback(); return { status: 200, data: { message }}
+      }
+
+      // 3. Cria o JWT e salva na senha
+      const token = this.createResetToken({ id: uTeacher.id, email: uTeacher.email, category: uTeacher.categoryId });
+
+      const updateQuery = `UPDATE user SET password = ? WHERE id = ?`;
+      await conn.query(updateQuery, [token, uTeacher.id]);
+
+      // 4. Insere ou atualiza a expiração na tabela token_reset usando o expiresAt (momento futuro)
+      const upsertTokenResetQuery = `
+        INSERT INTO token_reset (userId, expiresAt) 
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE expiresAt = ?
+      `;
+
+      await conn.query(upsertTokenResetQuery, [uTeacher.id, sqlDateTime.expiresAt, sqlDateTime.expiresAt]);
+
+      // 5. Envia o email e commita a transação
+      await resetPasswordEmailService(uTeacher.email, token);
+
+      await conn.commit();
+
+      const message = "Um link para redefinir sua senha foi enviado para o email informado. Confira sua caixa de entrada.";
+      return { status: 200, data: { message }};
+    }
+
+    catch (error: any) { if (conn) { await conn.rollback() } console.log('error', error); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
-  createResetToken(payload: { id: number, email: string, category: number }): string {
-    return sign(payload, tokenSecret ?? '', { expiresIn: 86400 })
-  }
+  createResetToken(payload: { id: number, email: string, category: number }): string { return sign(payload, tokenSecret ?? '', { expiresIn: 86400 }) }
 }
 
 export const passwordController = new PasswordController();

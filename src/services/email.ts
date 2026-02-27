@@ -5,7 +5,7 @@ let INFO: SMTPTransport.SentMessageInfo;
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-const sender = 'appescola7@gmail.com'
+const sender = process.env.EMAIL;
 
 const FRONT_URL: string = isDevelopment
   ? (process.env.FRONT_URL_DEV as string)
@@ -15,11 +15,18 @@ const RESET_URL: string = isDevelopment
   ? (process.env.RESET_URL_DEV as string)
   : (process.env.RESET_URL as string);
 
-const transport = {
-  service: "gmail",
+const transport_backup = {
   host: "smtp.gmail.com",
   port: 465,
   secure: true,
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.EMAIL_PASS
+  }
+};
+
+const transport = {
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASS
@@ -50,7 +57,7 @@ export async function transferEmail(email: string, student: string, rClassroom: 
   return;
 }
 
-export async function resetPassword(email: string, token: string) {
+export async function resetPasswordEmailService(email: string, token: string) {
   INFO = await TRANSPORTER.sendMail({
     from: `"EscolApp - Prefeitura de Itatiba" <${sender}>`,
     to: email,

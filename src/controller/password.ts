@@ -1,6 +1,6 @@
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { resetPassword } from "../services/email";
+import { resetPasswordEmailService } from "../services/email";
 import { sign } from "jsonwebtoken";
 import { User } from "../model/User";
 import { EntityManager } from "typeorm";
@@ -16,11 +16,11 @@ class PasswordController {
 
         if (!uTeacher) { return { status: 404, message: "Não foi possível encontrar o usuário informado." } }
 
-        const token = this.resetToken({ id: uTeacher.id, email: uTeacher.email, category: uTeacher.person.category.id })
+        const token = this.createResetToken({ id: uTeacher.id, email: uTeacher.email, category: uTeacher.person.category.id })
 
         uTeacher.password = token
 
-        await resetPassword(uTeacher.email, token)
+        await resetPasswordEmailService(uTeacher.email, token)
         await CONN.save(User, uTeacher)
 
         return { status: 200, data: { message: "Um link para redefinir sua senha foi enviado para o email informado. Confira sua caixa de entrada." } };
@@ -28,8 +28,8 @@ class PasswordController {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  resetToken(payload: { id: number, email: string, category: number }): string {
-    return sign(payload, "SECRET", { expiresIn: 900 })
+  createResetToken(payload: { id: number, email: string, category: number }): string {
+    return sign(payload, "SECRET", { expiresIn: 86400 })
   }
 }
 

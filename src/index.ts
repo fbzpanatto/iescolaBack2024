@@ -86,7 +86,6 @@ app.use(route);
 
 AppDataSource.initialize()
   .then(() => {
-    console.log('testing... nova atualização')
     app.listen(PORT, async () => {
       console.log("Running at PORT:", PORT);
       await Schedulers.initialize();

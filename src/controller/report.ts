@@ -11,7 +11,7 @@ import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES } from "../u
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
 
-  async getSchoolAvg(request: Request) {
+  async getSchoolAvg(request: Request<{ id: string, year: string }>) {
     try {
       const data = (await this.getReport(request) as any).data;
       if (!data) return { status: 404, message: "Teste não encontrado" };
@@ -19,7 +19,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getReport(request: Request) {
+  async getReport(request: Request<{ id: string, year: string }>) {
     try { return await this.wrapper(request?.params.id, request?.params.year) }
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
@@ -50,7 +50,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.log('getAggregate', error); return { status: 500, message: error.message } }
   }
 
-  async aggregatedTestResultFullParallel(req: Request) {
+  async aggregatedTestResultFullParallel(req: Request<{ classroom: string, year: string, bimester: string }>) {
 
     const classroom = req.query.classroom ?? req.params.classroom
     const bimester = req.query.bimester ?? req.params.bimester

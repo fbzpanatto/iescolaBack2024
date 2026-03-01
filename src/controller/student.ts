@@ -234,7 +234,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async allStudents(req: Request) {
+  async allStudents(req: Request<{ year: string }>) {
     try {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user)

@@ -16,7 +16,7 @@ ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, r
   return res.status(data.status).json(data);
 })
 
-ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermission, async (req: Request, res: any) => {
+ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermission, async (req: Request<{ classroom: string, year: string, bimester: string }>, res: any) => {
   const data: Data = await controller.aggregatedTestResultFullParallel(req);
   return res.status(data.status).json(data);
 })
@@ -25,10 +25,10 @@ ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request,
   { const data: Data = await controller.reportFindAll(req); return res.status(data.status).json(data) }
 )
 
-ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request, res: any) =>
+ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: any) =>
   { const data: Data = await controller.getReport(req); return res.status(data.status).json(data) }
 )
 
-ReportRouter.get('/:id/:year/avg', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request, res: any) =>
+ReportRouter.get('/:id/:year/avg', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: any) =>
   { const data: Data = await controller.getSchoolAvg(req); return res.status(data.status).json(data) }
 )

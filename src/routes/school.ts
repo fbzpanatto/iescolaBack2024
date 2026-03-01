@@ -4,6 +4,6 @@ import { YEAR_NAME_PARAM } from "../middleware/validators";
 
 export const SchoolRouter = Router();
 
-SchoolRouter.get('/:year', YEAR_NAME_PARAM, async (req: Request, res: any) => {
+SchoolRouter.get('/:year', YEAR_NAME_PARAM, async (req: Request<{ year: string }>, res: any) => {
   const response = await controller.getAllSchools(req); return res.status(response.status).json(response)
 })

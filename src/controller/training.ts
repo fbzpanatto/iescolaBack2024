@@ -7,7 +7,7 @@ import { TrainingAndSchedulesBody, UserInterface } from "../interfaces/interface
 class TrainingController extends GenericController<EntityTarget<Training>> {
   constructor() { super(Training) }
 
-  async getAll(req: Request) {
+  async getAll(req: Request<{ year: string }>) {
     const { year } = req.params;
     const { search, peb, limit, offset } = req.query;
 
@@ -22,7 +22,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getOne(req: Request) {
+  async getOne(req: Request<{ id: string }>) {
     const { id } = req.params;
     try {
       const result = await this.qOneTraining(parseInt(id));

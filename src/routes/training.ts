@@ -18,12 +18,12 @@ TrainingRouter.get('/presence', havePermission, async (req: Request, res: any) =
   return res.status(response.status as number).json(response)
 })
 
-TrainingRouter.get('/identifier/:id', havePermission, async (req: Request, res: any) => {
+TrainingRouter.get('/identifier/:id', havePermission, async (req: Request<{ id: string }>, res: any) => {
   const response = await trainingController.getOne(req)
   return res.status(response.status as number).json(response)
 })
 
-TrainingRouter.get('/:year', havePermission, async (req: Request, res: any) => {
+TrainingRouter.get('/:year', havePermission, async (req: Request<{ year: string }>, res: any) => {
   const response = await trainingController.getAll(req)
   return res.status(response.status as number).json(response)
 })
@@ -43,7 +43,7 @@ TrainingRouter.put('/teacher-presence/observation/:id', havePermission, async (r
   return res.status(response.status as number).json(response)
 })
 
-TrainingRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
+TrainingRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: string }>, res: any) => {
   const response = await trainingController.updateTraining(req.params.id, req.body)
   return res.status(response.status as number).json(response)
 })

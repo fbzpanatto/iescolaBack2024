@@ -16,7 +16,7 @@ StudentRouter.get("/inactive/:year", YEAR_NAME_PARAM, havePermission, async (req
   const response = await controller.getAllInactivates(req); return res.status(response.status as number).json(response)
 })
 
-StudentRouter.get("/:year/all", YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
+StudentRouter.get("/:year/all", YEAR_NAME_PARAM, havePermission, async (req: Request<{ year: string }>, res: any) => {
   const response = await controller.allStudents(req); return res.status(response.status as number).json(response)
 })
 
@@ -36,7 +36,7 @@ StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Reques
   const response = await controller.save(req.body); return res.status(response.status).json(response)
 })
 
-StudentRouter.put("/:id/graduate", ID_PARAM, havePermission, async (req: Request, res: any) => {
+StudentRouter.put("/:id/graduate", ID_PARAM, havePermission, async (req: Request<{ id: number | string }>, res: any) => {
   const response = await controller.graduate(req.params.id, req.body); return res.status(response.status).json(response)
 })
 
@@ -44,6 +44,6 @@ StudentRouter.put("/:id/first-level", ID_PARAM, VALIDATE_USER_FIRST_LEVEL, BODY_
   const response = await controller.setFirstLevel(req.body); return res.status(response.status).json(response)
 })
 
-StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
+StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: number | string }>, res: any) => {
   const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 })

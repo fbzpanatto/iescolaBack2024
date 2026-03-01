@@ -6,7 +6,7 @@ import { Request } from "express";
 class SchoolController extends GenericController<EntityTarget<School>> {
   constructor() { super(School) }
 
-  async getAllSchools(req: Request) {
+  async getAllSchools(req: Request<{ year: string }>) {
 
     const { year } = req.params
     const { search } = req.query

@@ -73,7 +73,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async findOneTeacher(id: string | number, request?: Request) {
+  async findOneTeacher(id: string | number, request?: Request<{ id: string | number }>) {
 
     const body = request?.body as TeacherBody;
 

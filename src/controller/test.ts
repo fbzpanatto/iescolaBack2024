@@ -360,7 +360,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { status: 200, data: Helper.classroomDataStructure(pResult, test, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
   }
 
-  async getGraphic(req: Request) {
+  async getGraphic(req: Request<{ id: string, classroom: string }>) {
 
     const { id: testId, classroom: classroomId } = req.params
 
@@ -517,7 +517,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async findAllByYear(req: Request) {
+  async findAllByYear(req: Request<{ year: string }>) {
     try {
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
       const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null;
@@ -601,7 +601,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.error('Error in findAllByYear:', error); return { status: 500, message: error.message } }
   }
 
-  async getById(req: Request) {
+  async getById(req: Request<{ id: string }>) {
     const { id } = req.params
     try {
       return await AppDataSource.transaction(async(CONN) => {
@@ -749,7 +749,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTest(id: number | string, req: Request) {
+  async updateTest(id: number | string, req: Request<{ id: number | string }>) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
         const uTeacher = await this.qTeacherByUser(req.body.user.user)

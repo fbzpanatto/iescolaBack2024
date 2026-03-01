@@ -8,7 +8,7 @@ TeacherClassDisciplineRouter.get('/', async (req: Request, res: any) => {
   const response = await teacherRelationController.findAllWhere({}); return res.status(response.status).json(response)
 })
 
-TeacherClassDisciplineRouter.get('/:id', ID_PARAM, async (req: Request, res: any) => {
+TeacherClassDisciplineRouter.get('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => {
   const response = await teacherRelationController.findOneById(req.params.id, req); return res.status(response.status).json(response)
 })
 
@@ -20,6 +20,6 @@ TeacherClassDisciplineRouter.put('/contract/:id', ID_PARAM, async (req: Request,
   const response = await teacherRelationController.updateContract(req.body); return res.status(response.status).json(response)
 });
 
-TeacherClassDisciplineRouter.put('/:id', ID_PARAM, async (req: Request, res: any) => {
+TeacherClassDisciplineRouter.put('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => {
   const response = await teacherRelationController.updateId(req.params.id, req.body); return res.status(response.status).json(response)
 });

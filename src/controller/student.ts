@@ -51,7 +51,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const offset = !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0;
 
     const rawSearch = (request.query.search as string) ?? "";
-    const search = `%${rawSearch.trim()}%`;
+    const search = `%${rawSearch.trim()}%`
 
     try {
       const currentYear = await this.qCurrentYear();

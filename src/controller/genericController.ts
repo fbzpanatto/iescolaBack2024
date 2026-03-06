@@ -1408,6 +1408,91 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async qGetAllInactivates(search: string, year: any, currentYearId: any, lastYearId: any, limit: number, offset: number) {
+
+    let conn;
+
+    try {
+
+      conn = await connectionPool.getConnection();
+
+      const query = `
+      SELECT 
+        stu.id AS student_id,
+        stu.ra AS student_ra,
+        stu.dv AS student_dv,
+        stu.observationOne AS student_observationOne,
+        stu.observationTwo AS student_observationTwo,
+        stu.active AS student_active,
+        
+        per.id AS person_id,
+        per.name AS person_name,
+        per.birth AS person_birth,
+        
+        stt.id AS state_id,
+        stt.name AS state_name,
+        stt.acronym AS state_acronym,
+        
+        sc.id AS sc_id,
+        sc.rosterNumber AS sc_rosterNumber,
+        sc.startedAt AS sc_startedAt,
+        sc.endedAt AS sc_endedAt,
+        
+        cla.id AS classroom_id,
+        cla.name AS classroom_name,
+        cla.shortName AS classroom_shortName,
+        
+        sch.id AS school_id,
+        sch.name AS school_name,
+        sch.shortName AS school_shortName,
+        sch.inep AS school_inep,
+        sch.active AS school_active,
+        
+        yr.id AS year_id,
+        yr.name AS year_name,
+        yr.active AS year_active
+
+      FROM student stu
+      LEFT JOIN person per ON stu.personId = per.id
+      LEFT JOIN state stt ON stu.stateId = stt.id
+      LEFT JOIN student_classroom sc ON sc.studentId = stu.id
+      LEFT JOIN classroom cla ON sc.classroomId = cla.id
+      LEFT JOIN school sch ON cla.schoolId = sch.id
+      LEFT JOIN year yr ON sc.yearId = yr.id
+      
+      WHERE sc.endedAt IS NOT NULL
+        AND stu.active = 1
+        AND (
+          per.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+          stu.ra LIKE ? OR
+          sch.shortName COLLATE utf8mb4_unicode_ci LIKE ? OR
+          sch.name COLLATE utf8mb4_unicode_ci LIKE ?
+        )
+        AND yr.name = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM student_classroom sc1 
+          WHERE sc1.studentId = stu.id 
+            AND sc1.yearId = ? 
+            AND sc1.endedAt IS NULL
+        )
+        AND sc.endedAt = (
+          SELECT MAX(sc2.endedAt) FROM student_classroom sc2 
+          WHERE sc2.studentId = stu.id 
+            AND sc2.yearId <= ?
+        )
+      ORDER BY sch.shortName ASC, cla.shortName ASC, sc.rosterNumber ASC
+      LIMIT ? OFFSET ?;
+    `;
+
+      const queryParams = [search, search, search, search, year, currentYearId, lastYearId, limit, offset];
+
+      const [rows] = await conn.query(format(query), queryParams) as Array<any>;
+      return rows;
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qCurrentYear() {
     let conn;
     try {

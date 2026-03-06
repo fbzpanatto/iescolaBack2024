@@ -27,6 +27,7 @@ import {teacherClassroomsController} from "./teacherClassrooms";
 import {Teacher} from "../model/Teacher";
 import {isJSON} from "class-validator";
 import getTimeZone from "../utils/getTimeZone";
+import {Helper} from "../utils/helpers";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -46,48 +47,34 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async getAllInactivates(request: Request) {
 
-    const limit =  !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100
-    const offset =  !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0
+    const limit = !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100;
+    const offset = !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0;
+
+    const rawSearch = (request.query.search as string) ?? "";
+    const search = `%${rawSearch.trim()}%`;
 
     try {
-      const currentYear = await this.qCurrentYear()
+      const currentYear = await this.qCurrentYear();
 
-      if (!currentYear) { return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
+      if (!currentYear) {
+        const message = "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema."
+        return { status: 404, message }
+      }
 
-      const lastYearName = Number(currentYear.name) - 1
-      const lastYearDB = await this.qYearByName(String(lastYearName))
+      const lastYearName = Number(currentYear.name) - 1;
+      const lastYearDB = await this.qYearByName(String(lastYearName));
 
-      if (!lastYearDB) { return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`} }
+      if (!lastYearDB) {
+        return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`}
+      }
 
-      const preResult = await AppDataSource.getRepository(Student)
-        .createQueryBuilder("student")
-        .leftJoinAndSelect("student.person", "person")
-        .leftJoinAndSelect("student.state", "state")
-        .leftJoinAndSelect("student.studentClassrooms", "studentClassroom")
-        .leftJoinAndSelect("studentClassroom.classroom", "classroom")
-        .leftJoinAndSelect("classroom.school", "school")
-        .leftJoinAndSelect("studentClassroom.year", "year")
-        .where("studentClassroom.endedAt IS NOT NULL")
-        .andWhere("student.active = 1")
-        .andWhere( new Brackets((qb) => {
-          qb.where("person.name LIKE :search", { search: `%${ request.query.search} %` })
-            .orWhere("student.ra LIKE :search", { search: `%${ request.query.search }%` })
-            .orWhere("school.shortName LIKE :search", { search: `%${ request.query.search }%` })
-            .orWhere("school.name LIKE :search", { search: `%${ request.query.search }%` })
-        }))
-        .andWhere("year.name = :yearName", { yearName: request.params.year })
-        .andWhere((qb) => { const subQueryNoCurrentYear = qb.subQuery().select("1").from("student_classroom", "sc1").where("sc1.studentId = student.id").andWhere("sc1.yearId = :currentYearId", { currentYearId: currentYear.id }).andWhere("sc1.endedAt IS NULL").getQuery(); return `NOT EXISTS ${subQueryNoCurrentYear}` })
-        .andWhere((qb) => { const subQueryLastYearOrOlder = qb.subQuery().select("MAX(sc2.endedAt)").from("student_classroom", "sc2").where("sc2.studentId = student.id").andWhere("sc2.yearId <= :lastYearId", { lastYearId: lastYearDB.id }).getQuery(); return `studentClassroom.endedAt = (${subQueryLastYearOrOlder})` })
-        .orderBy("school.shortName", "ASC")
-        .addOrderBy("classroom.shortName", "ASC")
-        .addOrderBy("studentClassroom.rosterNumber", "ASC")
-        .take(limit)
-        .skip(offset)
-        .getMany();
+      const rows = await this.qGetAllInactivates(search, request.params.year, currentYear.id, lastYearDB.id, limit, offset)
 
-      return { status: 200, data: preResult.map((student) => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) }))};
+      const preResult = Helper.inactivesMappedResult(rows)
+
+      return { status: 200, data: preResult.map((student: any) => ({ ...student, studentClassrooms: this.getOneClassroom(student.studentClassrooms) })) };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
   async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[], user: UserInterface }) {

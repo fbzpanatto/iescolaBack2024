@@ -420,6 +420,50 @@ export class Helper {
     return { filtered, questionMap };
   }
 
+  static inactivesMappedResult(rows: any) {
+    return rows.map((row: any) => ({
+      id: row.student_id,
+      ra: row.student_ra,
+      dv: row.student_dv,
+      observationOne: row.student_observationOne,
+      observationTwo: row.student_observationTwo,
+      active: row.student_active === 1 || row.student_active === true,
+      person: row.person_id ? {
+        id: row.person_id,
+        name: row.person_name,
+        birth: row.person_birth
+      } : null,
+      state: row.state_id ? {
+        id: row.state_id,
+        name: row.state_name,
+        acronym: row.state_acronym
+      } : null,
+      studentClassrooms: row.sc_id ? [{
+        id: row.sc_id,
+        rosterNumber: row.sc_rosterNumber,
+        startedAt: row.sc_startedAt,
+        endedAt: row.sc_endedAt,
+        classroom: row.classroom_id ? {
+          id: row.classroom_id,
+          name: row.classroom_name,
+          shortName: row.classroom_shortName,
+          school: row.school_id ? {
+            id: row.school_id,
+            name: row.school_name,
+            shortName: row.school_shortName,
+            inep: row.school_inep,
+            active: row.school_active === 1 || row.school_active === true
+          } : null
+        } : null,
+        year: row.year_id ? {
+          id: row.year_id,
+          name: row.year_name,
+          active: row.year_active === 1 || row.year_active === true
+        } : null
+      }] : []
+    }))
+  }
+
   static userResponse(row: any) {
     return {
       id: row.userId,

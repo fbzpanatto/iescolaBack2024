@@ -12,54 +12,156 @@ import { transferEmail } from "../services/email";
 import { Student } from "../model/Student";
 import { PERSON_CATEGORIES } from "../utils/enums";
 import { Year } from "../model/Year";
+import {connectionPool} from "../services/db";
+import {format} from "mysql2";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   constructor() { super(Transfer) }
 
-  override async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+  async findAllWhere(_: any, request?: Request) {
+    const year = request?.params.year as string;
+    const rawSearch = (request?.query.search as string) ?? "";
+    const search = `%${rawSearch}%`;
 
-    const year = request?.params.year as string
-    const search = (request?.query.search as string) ?? "";
+    const limit = !isNaN(parseInt(request?.query.limit as string)) ? parseInt(request?.query.limit as string) : 100;
+    const offset = !isNaN(parseInt(request?.query.offset as string)) ? parseInt(request?.query.offset as string) : 0;
 
-    const limit =  !isNaN(parseInt(request?.query.limit as string)) ? parseInt(request?.query.limit as string) : 100
-    const offset =  !isNaN(parseInt(request?.query.offset as string)) ? parseInt(request?.query.offset as string) : 0
-
+    let conn;
     try {
-      return await AppDataSource.transaction(async(CONN)=> {
-        const result = await CONN.getRepository(Transfer)
-          .createQueryBuilder('transfer')
-          .leftJoinAndSelect('transfer.status', 'status')
-          .leftJoin('transfer.year', 'year')
-          .leftJoinAndSelect('transfer.requester', 'requester')
-          .leftJoinAndSelect('requester.person', 'requesterPerson')
-          .leftJoinAndSelect('transfer.student', 'student')
-          .leftJoinAndSelect('student.person', 'studentPerson')
-          .leftJoinAndSelect('transfer.receiver', 'receiver')
-          .leftJoinAndSelect('receiver.person', 'receiverPerson')
-          .leftJoinAndSelect('transfer.requestedClassroom', 'requestedClassroom')
-          .leftJoinAndSelect('transfer.currentClassroom', 'currentClassroom')
-          .leftJoinAndSelect('requestedClassroom.school', 'school')
-          .leftJoinAndSelect('currentClassroom.school', 'currentSchool')
-          .where(new Brackets(qb => {
-            qb.where('studentPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('student.ra LIKE :search', { search: `%${search}%` })
-              .orWhere('requesterPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('receiverPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('school.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('currentSchool.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('school.shortName COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-              .orWhere('currentSchool.shortName COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
-          }))
-          .andWhere('year.name = :year', { year })
-          .take(limit)
-          .skip(offset)
-          .orderBy('transfer.id', 'DESC')
-          .getMany()
+      conn = await connectionPool.getConnection();
+      const query = `
+      SELECT 
+        t.id AS transfer_id,
+        t.startedAt AS transfer_startedAt,
+        t.endedAt AS transfer_endedAt,
+        
+        ts.id AS status_id,
+        ts.name AS status_name,
+        
+        y.id AS year_id,
+        y.name AS year_name,
+        
+        req.id AS requester_id,
+        reqP.id AS requesterPerson_id,
+        reqP.name AS requesterPerson_name,
+        
+        stu.id AS student_id,
+        stu.ra AS student_ra,
+        stuP.id AS studentPerson_id,
+        stuP.name AS studentPerson_name,
+        
+        rec.id AS receiver_id,
+        recP.id AS receiverPerson_id,
+        recP.name AS receiverPerson_name,
+        
+        reqC.id AS requestedClassroom_id,
+        reqC.name AS requestedClassroom_name,
+        reqC.shortName AS requestedClassroom_shortName,
+        reqS.id AS school_id,
+        reqS.name AS school_name,
+        reqS.shortName AS school_shortName,
+        
+        curC.id AS currentClassroom_id,
+        curC.name AS currentClassroom_name,
+        curC.shortName AS currentClassroom_shortName,
+        curS.id AS currentSchool_id,
+        curS.name AS currentSchool_name,
+        curS.shortName AS currentSchool_shortName
 
-        return { status: 200, data: result };
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
+      FROM transfer t
+      LEFT JOIN transfer_status ts ON t.statusId = ts.id
+      LEFT JOIN year y ON t.yearId = y.id
+      
+      -- Requester e Receiver agora buscam da tabela teacher, conforme suas models
+      LEFT JOIN teacher req ON t.requesterId = req.id
+      LEFT JOIN person reqP ON req.personId = reqP.id
+      
+      LEFT JOIN student stu ON t.studentId = stu.id
+      LEFT JOIN person stuP ON stu.personId = stuP.id
+      
+      LEFT JOIN teacher rec ON t.receiverId = rec.id
+      LEFT JOIN person recP ON rec.personId = recP.id
+      
+      LEFT JOIN classroom reqC ON t.requestedClassroomId = reqC.id
+      LEFT JOIN school reqS ON reqC.schoolId = reqS.id
+      
+      LEFT JOIN classroom curC ON t.currentClassroomId = curC.id
+      LEFT JOIN school curS ON curC.schoolId = curS.id
+      
+      WHERE y.name = ?
+      AND (
+        stuP.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+        stu.ra LIKE ? OR
+        reqP.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+        recP.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+        reqS.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+        curS.name COLLATE utf8mb4_unicode_ci LIKE ? OR
+        reqS.shortName COLLATE utf8mb4_unicode_ci LIKE ? OR
+        curS.shortName COLLATE utf8mb4_unicode_ci LIKE ?
+      )
+      ORDER BY t.id DESC
+      LIMIT ? OFFSET ?;
+    `;
+
+      const queryParams = [
+        year,
+        search, search, search, search, search, search, search, search, // 8 parâmetros do LIKE
+        limit, offset
+      ];
+
+      const [rows] = await conn.query(format(query), queryParams) as Array<any>;
+
+      const result = rows.map((row: any) => ({
+        id: row.transfer_id,
+        startedAt: row.transfer_startedAt,
+        endedAt: row.transfer_endedAt,
+
+        status: row.status_id ? {
+          id: row.status_id,
+          name: row.status_name
+        } : null,
+
+        year: row.year_id ? {
+          id: row.year_id,
+          name: row.year_name
+        } : null,
+
+        requester: row.requester_id ? {
+          id: row.requester_id,
+          person: row.requesterPerson_id ? { id: row.requesterPerson_id, name: row.requesterPerson_name } : null
+        } : null,
+
+        student: row.student_id ? {
+          id: row.student_id,
+          ra: row.student_ra,
+          person: row.studentPerson_id ? { id: row.studentPerson_id, name: row.studentPerson_name } : null
+        } : null,
+
+        receiver: row.receiver_id ? {
+          id: row.receiver_id,
+          person: row.receiverPerson_id ? { id: row.receiverPerson_id, name: row.receiverPerson_name } : null
+        } : null,
+
+        requestedClassroom: row.requestedClassroom_id ? {
+          id: row.requestedClassroom_id,
+          name: row.requestedClassroom_name,
+          shortName: row.requestedClassroom_shortName,
+          school: row.school_id ? { id: row.school_id, name: row.school_name, shortName: row.school_shortName } : null
+        } : null,
+
+        currentClassroom: row.currentClassroom_id ? {
+          id: row.currentClassroom_id,
+          name: row.currentClassroom_name,
+          shortName: row.currentClassroom_shortName,
+          school: row.currentSchool_id ? { id: row.currentSchool_id, name: row.currentSchool_name, shortName: row.currentSchool_shortName } : null
+        } : null
+      }));
+
+      return { status: 200, data: result };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
   override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {

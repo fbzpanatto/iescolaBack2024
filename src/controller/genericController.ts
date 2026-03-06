@@ -3689,7 +3689,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qPendingTransferStatusBySchool(year: number, transferStatus: number, schoolId: number) {
+  async qPendingTransferBySchool(year: number, transferStatus: number, schoolId: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -3745,7 +3745,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qAllPendingTransferStatusBySchool(year: number, transferStatus: number) {
+  async qAllPendingTransferBySchool(year: number, transferStatus: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();

@@ -1,6 +1,7 @@
 import { Test} from "../model/Test";
 import { Classroom } from "../model/Classroom";
 import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
+import {User} from "../model/User";
 
 export class Helper {
 
@@ -417,6 +418,27 @@ export class Helper {
     }
 
     return { filtered, questionMap };
+  }
+
+  static userResponse(row: any) {
+    return {
+      id: row.userId,
+      email: row.email,
+      password: row.password,
+      person: {
+        id: row.personId,
+        name: row.personName,
+        category: {
+          id: row.categoryId
+        },
+        teacher: row.teacherId ? {
+          id: row.teacherId,
+          school: row.schoolId ? {
+            id: row.schoolId
+          } : null
+        } : null
+      }
+    } as User
   }
 
   static studentQuestions(test: Test, rows: any[]) {

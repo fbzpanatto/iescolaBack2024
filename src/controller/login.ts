@@ -8,6 +8,7 @@ import { generatePassword } from "../utils/generatePassword";
 import { PERSON_CATEGORIES as pc } from "../utils/enums";
 import { TRANSFER_STATUS as ts } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
+import { Helper } from "../utils/helpers";
 import bcrypt from 'bcrypt';
 
 const tokenSecret = process.env.SECRET;
@@ -32,24 +33,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       if (!condition) { return { status: 401, message: "Credenciais Inválidas" } }
 
-      const user: any = {
-        id: row.userId,
-        email: row.email,
-        password: row.password,
-        person: {
-          id: row.personId,
-          name: row.personName,
-          category: {
-            id: row.categoryId
-          },
-          teacher: row.teacherId ? {
-            id: row.teacherId,
-            school: row.schoolId ? {
-              id: row.schoolId
-            } : null
-          } : null
-        }
-      };
+      const user = Helper.userResponse(row);
 
       const payload = { user: user.id, email: user.email, category: user.person.category.id };
 
@@ -58,17 +42,17 @@ class LoginController extends GenericController<EntityTarget<User>> {
       const expiresIn = decoded.exp;
       const role = decoded.category;
 
-      if(this.selectedCategories.includes(user.person.category.id)) {
+      if(this.categories.includes(user.person.category.id)) {
 
         const currentYear = await this.qCurrentYear();
 
         if(user.person.category.id === pc.ADMN) {
-          const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, ts.PENDING);
+          const allPendingTransfers = await this.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
           return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
         }
 
         if(user.person.teacher?.school?.id) {
-          const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
+          const pendingTransfers = await this.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
           return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
         }
       }
@@ -142,7 +126,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
     return { status: 200, data: { token, expiresIn, role, person: user.person.name } }
   }
 
-  get selectedCategories() { return [pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR] }
+  get categories() { return [pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR] }
 }
 
 export const loginCtrl = new LoginController();

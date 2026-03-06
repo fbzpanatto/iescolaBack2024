@@ -5,8 +5,8 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
-import { PERSON_CATEGORIES } from "../utils/enums";
-import { TRANSFER_STATUS } from "../utils/enums";
+import { PERSON_CATEGORIES as pc } from "../utils/enums";
+import { TRANSFER_STATUS as ts } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import bcrypt from 'bcrypt';
 
@@ -19,42 +19,60 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
   async login(req: Request) {
 
-    const { email, password: frontPass } = req.body;
+    const email = req.body.email?.toLowerCase();
+    const { password: frontPass } = req.body;
 
     try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const user = await CONN.findOne(User,{ relations: ["person.category", "person.teacher.school"], where: { email } });
 
-        if (!user) { return { status: 404, message: "Credenciais Inválidas" } }
+      const row = await this.qLogin(email);
 
-        const condition = bcrypt.compareSync(frontPass, user.password)
+      if (!row) { return { status: 404, message: "Credenciais Inválidas" } }
 
-        if (!user || !condition) { return { status: 401, message: "Credenciais Inválidas" } }
+      const condition = bcrypt.compareSync(frontPass, row.password);
 
-        const payload = { user: user.id, email: user.email, category: user.person.category.id };
+      if (!condition) { return { status: 401, message: "Credenciais Inválidas" } }
 
-        const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
-        const decoded = verify(token, tokenSecret ?? '') as JwtPayload;
-        const expiresIn = decoded.exp;
-        const role = decoded.category;
+      const user: any = {
+        id: row.userId,
+        email: row.email,
+        password: row.password,
+        person: {
+          id: row.personId,
+          name: row.personName,
+          category: {
+            id: row.categoryId
+          },
+          teacher: row.teacherId ? {
+            id: row.teacherId,
+            school: row.schoolId ? {
+              id: row.schoolId
+            } : null
+          } : null
+        }
+      };
 
-        if([PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(user.person.category.id)) {
+      const payload = { user: user.id, email: user.email, category: user.person.category.id };
 
-          const currentYear = await this.qCurrentYear()
+      const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 });
+      const decoded = verify(token, tokenSecret ?? '') as JwtPayload;
+      const expiresIn = decoded.exp;
+      const role = decoded.category;
 
-          if(user.person.category.id === PERSON_CATEGORIES.ADMN) {
-            const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, TRANSFER_STATUS.PENDING)
-            return this.loginResponse(token, expiresIn, role, user, allPendingTransfers)
-          }
+      if(this.selectedCategories.includes(user.person.category.id)) {
 
-          if(user.person.teacher.school?.id) {
-            const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, TRANSFER_STATUS.PENDING, user.person.teacher.school.id)
-            return this.loginResponse(token, expiresIn, role, user, pendingTransfers)
-          }
+        const currentYear = await this.qCurrentYear();
+
+        if(user.person.category.id === pc.ADMN) {
+          const allPendingTransfers = await this.qAllPendingTransferStatusBySchool(currentYear.id, ts.PENDING);
+          return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
         }
 
-        return this.loginResponse(token, expiresIn, role, user)
-      })
+        if(user.person.teacher?.school?.id) {
+          const pendingTransfers = await this.qPendingTransferStatusBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
+          return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
+        }
+      }
+      return this.loginResponse(token, expiresIn, role, user);
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -82,11 +100,6 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
     }
     catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {
-    if(pendingTransfers && pendingTransfers.length > 0) { return { status: 200, data: { token, expiresIn, role, person: user.person.name, pendingTransfers } } }
-    return { status: 200, data: { token, expiresIn, role, person: user.person.name } }
   }
 
   async renewPassword(req: Request) {
@@ -123,6 +136,13 @@ class LoginController extends GenericController<EntityTarget<User>> {
       const message: string = 'Pedido expirado. Acesse a aplicação novamente em nova aba de seu navegador, e na tela de login, insira seu email e clique em ESQUECI MINHA SENHA.'
       return { status: 401, message }}
   }
+
+  loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {
+    if(pendingTransfers && pendingTransfers.length > 0) { return { status: 200, data: { token, expiresIn, role, person: user.person.name, pendingTransfers } } }
+    return { status: 200, data: { token, expiresIn, role, person: user.person.name } }
+  }
+
+  get selectedCategories() { return [pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR] }
 }
 
 export const loginCtrl = new LoginController();

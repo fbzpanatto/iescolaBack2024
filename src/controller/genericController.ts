@@ -58,6 +58,7 @@ import {PersonCategory} from "../model/PersonCategory";
 import {Helper} from "../utils/helpers";
 import {TestToken} from "../model/Token";
 import {TestCategory} from "../model/TestCategory";
+import {User} from "../model/User";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -3710,6 +3711,35 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const [ queryResult ] = await conn.query(format(query), [year, transferStatus, schoolId])
       return  queryResult as Array<qPendingTransfers>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qLogin(email: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const userQuery = `
+      SELECT 
+        u.id AS userId, 
+        u.email, 
+        u.password, 
+        p.id AS personId,
+        p.name AS personName,
+        c.id AS categoryId,
+        t.id AS teacherId,
+        s.id AS schoolId
+      FROM user AS u
+      INNER JOIN person AS p ON u.personId = p.id
+      INNER JOIN person_category AS c ON p.categoryId = c.id
+      LEFT JOIN teacher AS t ON p.id = t.personId
+      LEFT JOIN school AS s ON t.schoolId = s.id
+      WHERE LOWER(u.email) = ?;
+    `;
+
+      const [ userRows ] = await conn.query(format(userQuery), [email]);
+      return (userRows as Array<any>)[0];
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

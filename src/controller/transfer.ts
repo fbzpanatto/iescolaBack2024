@@ -17,9 +17,10 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   constructor() { super(Transfer) }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+  override async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+
     const year = request?.params.year as string
-    const search = request?.query.search as string
+    const search = (request?.query.search as string) ?? "";
 
     const limit =  !isNaN(parseInt(request?.query.limit as string)) ? parseInt(request?.query.limit as string) : 100
     const offset =  !isNaN(parseInt(request?.query.offset as string)) ? parseInt(request?.query.offset as string) : 0
@@ -41,20 +42,21 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           .leftJoinAndSelect('requestedClassroom.school', 'school')
           .leftJoinAndSelect('currentClassroom.school', 'currentSchool')
           .where(new Brackets(qb => {
-            qb.where('studentPerson.name LIKE :search', { search: `%${search}%` })
+            qb.where('studentPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
               .orWhere('student.ra LIKE :search', { search: `%${search}%` })
-              .orWhere('requesterPerson.name LIKE :search', { search: `%${search}%` })
-              .orWhere('receiverPerson.name LIKE :search', { search: `%${search}%` })
-              .orWhere('school.name LIKE :search', { search: `%${search}%` })
-              .orWhere('currentSchool.name LIKE :search', { search: `%${search}%` })
-              .orWhere('school.shortName LIKE :search', { search: `%${search}%` })
-              .orWhere('currentSchool.shortName LIKE :search', { search: `%${search}%` })
+              .orWhere('requesterPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
+              .orWhere('receiverPerson.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
+              .orWhere('school.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
+              .orWhere('currentSchool.name COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
+              .orWhere('school.shortName COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
+              .orWhere('currentSchool.shortName COLLATE utf8mb4_unicode_ci LIKE :search', { search: `%${search}%` })
           }))
           .andWhere('year.name = :year', { year })
           .take(limit)
           .skip(offset)
           .orderBy('transfer.id', 'DESC')
           .getMany()
+
         return { status: 200, data: result };
       })
     } catch (error: any) { return { status: 500, message: error.message } }

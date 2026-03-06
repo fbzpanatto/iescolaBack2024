@@ -2101,24 +2101,24 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection()
-      const personSearch = `%${search.toString().toUpperCase()}%`
+      const personSearch = `%${search}%`;
 
       const query =
         `
-          SELECT t.id, t.email, t.register,
-                 p.id AS pId, p.name, p.birth,
-                 pc.id AS pcId, pc.name AS catName, pc.active
-          FROM teacher AS t
-                   LEFT JOIN person AS p ON t.personId = p.id
-                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-          WHERE EXISTS (
-              SELECT 1
-              FROM teacher_class_discipline AS tcd
-              WHERE tcd.teacherId = t.id
-          )
-            AND p.name LIKE ?
-          ORDER BY p.name;
-      `
+            SELECT t.id, t.email, t.register,
+                   p.id AS pId, p.name, p.birth,
+                   pc.id AS pcId, pc.name AS catName, pc.active
+            FROM teacher AS t
+                     LEFT JOIN person AS p ON t.personId = p.id
+                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+            WHERE EXISTS (
+                SELECT 1
+                FROM teacher_class_discipline AS tcd
+                WHERE tcd.teacherId = t.id
+            )
+              AND p.name COLLATE utf8mb4_unicode_ci LIKE ?
+            ORDER BY p.name;
+        `
 
       const [ queryResult ] = await conn.query(format(query), [personSearch])
 
@@ -2133,25 +2133,27 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
-      const personSearch = `%${search.toString().toUpperCase()}%`;
+
+      // Deixa a string do jeito que veio
+      const personSearch = `%${search}%`;
 
       const query = `
-      SELECT t.id, t.email, t.register,
-             p.id AS pId, p.name, p.birth,
-             pc.id AS pcId, pc.name AS catName, pc.active
-      FROM teacher AS t
-               LEFT JOIN person AS p ON t.personId = p.id
-               LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-      WHERE EXISTS (
-          SELECT 1
-          FROM teacher_class_discipline AS tcd
-          WHERE tcd.teacherId = t.id 
-            AND tcd.classroomId IN (?)
-            AND tcd.endedAt IS NULL
-      )
-        AND p.name LIKE ?
-      ORDER BY p.name
-    `;
+          SELECT t.id, t.email, t.register,
+                 p.id AS pId, p.name, p.birth,
+                 pc.id AS pcId, pc.name AS catName, pc.active
+          FROM teacher AS t
+                   LEFT JOIN person AS p ON t.personId = p.id
+                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+          WHERE EXISTS (
+              SELECT 1
+              FROM teacher_class_discipline AS tcd
+              WHERE tcd.teacherId = t.id
+                AND tcd.classroomId IN (?)
+                AND tcd.endedAt IS NULL
+          )
+            AND p.name COLLATE utf8mb4_unicode_ci LIKE ?
+          ORDER BY p.name
+      `;
 
       const [queryResult] = await conn.query(query, [classroomsIds, personSearch]);
 
@@ -2166,7 +2168,7 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
-      const personSearch = `%${search.toString().toUpperCase()}%`;
+      const personSearch = `%${search}%`;
 
       const query = `
       SELECT t.id, t.email, t.register,
@@ -2183,7 +2185,7 @@ export class GenericController<T> {
             AND tcd.endedAt IS NULL
       )
         AND pc.id = ?
-        AND p.name LIKE ?
+        AND p.name COLLATE utf8mb4_unicode_ci LIKE ?
       ORDER BY p.name
     `;
 

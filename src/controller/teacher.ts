@@ -45,32 +45,34 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   async findAllWhereTeacher(request: Request ) {
+    const search = (request?.query.search as string) ?? "";
 
-    const search = request?.query.search ?? "";
     const body = request?.body as TeacherBody;
-    const option = Number(request?.query.option)
+    const option = Number(request?.query.option);
 
     try {
-
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
-      const qTeacherClasses = await this.qTeacherClassrooms(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(body.user.user);
+      const qTeacherClasses = await this.qTeacherClassrooms(body.user.user);
       let response: {}[] = [];
 
       if([PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM].includes(qUserTeacher.person.category.id)) {
-        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser((search as string) ?? '') } : { status: 200, data: [] }
+        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
       }
 
       if(option === 1) {
-        response = await this.qTeacherThatBelongs(qTeacherClasses.classrooms, (search as string) ?? '')
+        response = await this.qTeacherThatBelongs(qTeacherClasses.classrooms, search);
       }
 
       if(option === 2) {
-        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, PERSON_CATEGORIES.PROF,(search as string) ?? '')
+        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, PERSON_CATEGORIES.PROF, search);
       }
 
       return { status: 200, data: response };
     }
-    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log(error);
+      return { status: 500, message: error.message };
+    }
   }
 
   async findOneTeacher(id: string | number, request?: Request<{ id: string | number }>) {

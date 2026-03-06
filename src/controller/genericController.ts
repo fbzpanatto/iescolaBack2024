@@ -1355,7 +1355,7 @@ export class GenericController<T> {
     
         WHERE y.name = ?
           AND (
-            p.name LIKE ? 
+            p.name COLLATE utf8mb4_unicode_ci LIKE ? 
             OR s.ra LIKE ? 
             OR c.shortName LIKE ? 
             OR sch.name LIKE ? 

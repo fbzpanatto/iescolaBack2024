@@ -20,6 +20,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
   constructor() { super(Transfer) }
 
   async findAllWhere(_: any, request?: Request) {
+
     const year = request?.params.year as string;
     const rawSearch = (request?.query.search as string) ?? "";
     const search = `%${rawSearch}%`;
@@ -48,6 +49,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         
         stu.id AS student_id,
         stu.ra AS student_ra,
+        stu.dv AS student_dv,
         stuP.id AS studentPerson_id,
         stuP.name AS studentPerson_name,
         
@@ -135,6 +137,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
         student: row.student_id ? {
           id: row.student_id,
           ra: row.student_ra,
+          dv: row.student_dv,
           person: row.studentPerson_id ? { id: row.studentPerson_id, name: row.studentPerson_name } : null
         } : null,
 

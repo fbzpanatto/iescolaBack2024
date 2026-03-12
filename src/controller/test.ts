@@ -541,7 +541,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const testsMap = new Map<number, any>();
 
-      const rows = await this.qfindAllByYear(
+      const rows = await this.qfindAllByYearNewImplementation(
         masterTeacher,
         yearName,
         classrooms,

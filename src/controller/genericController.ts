@@ -4413,7 +4413,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qfindAllByYear(masterTeacher: boolean, yearName: string, classrooms: number[], disciplines: number[], bimesterId: number | null, disciplineId: number | null, search: string, limit: number, offset: number){
+  async qfindAllByYearNewImplementation(masterTeacher: boolean, yearName: string, classrooms: number[], disciplines: number[], bimesterId: number | null, disciplineId: number | null, search: string, limit: number, offset: number){
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -4426,8 +4426,24 @@ INNER JOIN year AS y ON tr.yearId = y.id
         TEST_CATEGORIES_IDS.EDU_INF_PART
       ].join(', ');
 
+      // --- LÓGICA DE DETECÇÃO DE SALA (REGEX) ---
+      const searchOriginal = search || '';
+      const classroomRegex = /\b(\d+[A-Za-z]+)\b/;
+      const match = searchOriginal.match(classroomRegex);
+
+      let specificClassroomFilter = "";
+      let searchTermCleaned = searchOriginal;
+
+      if (match) {
+        const foundClassroom = match[0];
+        searchTermCleaned = searchOriginal.replace(foundClassroom, '').trim();
+        specificClassroomFilter = ` AND c.shortName COLLATE utf8mb4_unicode_ci LIKE ? `;
+      }
+
+      // -------------------------------------------
+
       let query = `
-      WITH RankedTests AS (
+        WITH RankedTests AS (
         SELECT
             t.id AS test_id,
             t.name AS test_name,
@@ -4461,8 +4477,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             INNER JOIN test_classroom test_c ON t.id = test_c.testId
             INNER JOIN classroom c ON test_c.classroomId = c.id
             INNER JOIN school s ON c.schoolId = s.id
-        WHERE y.name = ?
-    `;
+      WHERE y.name = ?`;
 
       const params: any[] = [yearName];
 
@@ -4488,45 +4503,52 @@ INNER JOIN year AS y ON tr.yearId = y.id
         params.push(disciplineId)
       }
 
-      if (search && search.trim() !== '') {
-        query += ` AND (t.name LIKE ? OR c.shortName LIKE ? OR s.name LIKE ? OR s.shortName LIKE ?)`;
-        const searchPattern = `%${search}%`;
+      if (searchTermCleaned && searchTermCleaned.trim() !== '') {
+        query += ` AND (
+          t.name COLLATE utf8mb4_unicode_ci LIKE ? 
+          OR c.shortName COLLATE utf8mb4_unicode_ci LIKE ? 
+          OR s.name COLLATE utf8mb4_unicode_ci LIKE ? 
+          OR s.shortName COLLATE utf8mb4_unicode_ci LIKE ?
+        )`;
+        const searchPattern = `%${searchTermCleaned}%`;
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 
+      if (specificClassroomFilter) { query += specificClassroomFilter; params.push(`%${match![0]}%`) }
+
       query += `
-      )
-      SELECT DISTINCT
-        test_id,
-        test_name,
-        period_id,
-        category_id,
-        category_name,
-        year_id,
-        year_name,
-        year_active,
-        bimester_id,
-        bimester_name,
-        bimester_test_name,
-        discipline_id,
-        discipline_name,
-        classroom_id,
-        classroom_name,
-        classroom_shortName,
-        school_id,
-        school_name,
-        school_shortName
-      FROM RankedTests
-      WHERE 
-        (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1)
-        OR category_id NOT IN (${DIAGNOSTIC_CATEGORIES})
-      ORDER BY 
-        test_name ASC,
-        school_shortName ASC,
-        classroom_shortName ASC,
-        bimester_name DESC
-      LIMIT ? OFFSET ?
-    `;
+        )
+        SELECT DISTINCT
+          test_id,
+          test_name,
+          period_id,
+          category_id,
+          category_name,
+          year_id,
+          year_name,
+          year_active,
+          bimester_id,
+          bimester_name,
+          bimester_test_name,
+          discipline_id,
+          discipline_name,
+          classroom_id,
+          classroom_name,
+          classroom_shortName,
+          school_id,
+          school_name,
+          school_shortName
+        FROM RankedTests
+        WHERE 
+          (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1)
+          OR category_id NOT IN (${DIAGNOSTIC_CATEGORIES})
+        ORDER BY 
+          test_name ASC,
+          school_shortName ASC,
+          classroom_shortName ASC,
+          bimester_name DESC
+        LIMIT ? OFFSET ?
+      `;
 
       params.push(limit, offset);
 

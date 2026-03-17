@@ -56,7 +56,7 @@ async function createClassroom(school: School, classroom: {name: string, shortNa
 
 async function createAdminUser(person: Person) {
 
-  const passObject: { password: string, hashedPassword: string } = generatePassword()
+  const passObject: { password: string, hashedPassword: string } = await generatePassword()
 
   const userSource = new dataSourceController(User).entity
   const user = new User()

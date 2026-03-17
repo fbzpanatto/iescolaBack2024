@@ -12,5 +12,5 @@ LoginRouter.post('/', async (req: Request, res: any) => {
 })
 
 LoginRouter.post('/renew-password', async (req: Request, res: any) => {
-  const response = await controller.renewPassword(req); return res.status(response.status as number).json(response)
+  const response = await controller.updatePassword(req); return res.status(response.status as number).json(response)
 })

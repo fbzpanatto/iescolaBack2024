@@ -69,10 +69,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 200, data: response };
     }
-    catch (error: any) {
-      console.log(error);
-      return { status: 500, message: error.message };
-    }
+    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
   async findOneTeacher(id: string | number, request?: Request<{ id: string | number }>) {
@@ -161,7 +158,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
           teacher.email = body.email
 
-          const { password, hashedPassword } = generatePassword()
+          const { password, hashedPassword } = await generatePassword()
 
           const user = { id: teacher.person.user.id, username: body.email, email: body.email, password: hashedPassword }
 
@@ -191,10 +188,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       return { status: 200, data: { message: 'done.' } }
     }
-    catch ( error: any ) {
-      console.error( error );
-      return { status: 500, message: error.message }
-    }
+    catch ( error: any ) { console.error( error ); return { status: 500, message: error.message } }
   }
 
   async adminSupeFormUpdateMethod(teacher: Teacher, CONN: EntityManager) {
@@ -205,34 +199,25 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     const targetCategory = Number(body.category);
 
-    // Agrupamento dos cargos "Master" (que têm acesso total)
     const MASTER_ROLES = [
-      Number(PERSON_CATEGORIES.DIRE), // Diretor
-      Number(PERSON_CATEGORIES.VICE), // Vice-Diretor
-      Number(PERSON_CATEGORIES.COOR)  // Coordenador
+      Number(PERSON_CATEGORIES.DIRE),
+      Number(PERSON_CATEGORIES.VICE),
+      Number(PERSON_CATEGORIES.COOR)
     ];
 
     const isTargetMaster = MASTER_ROLES.includes(targetCategory);
     const isTargetProfessor = targetCategory === Number(PERSON_CATEGORIES.PROF);
 
-    // ---------------------------------------------------------------------------
-    // CENÁRIO A: Tornando-se (ou trocando entre) DIRETOR, VICE ou COORDENADOR
-    // ---------------------------------------------------------------------------
-    // Cobre: Prof->Dir, Prof->Vice, Prof->Coord, Vice->Dir, Coord->Vice, etc.
     if (isTargetMaster) {
 
-      // 1. Atualiza dados cadastrais
       teacher.person.category = { id: targetCategory } as PersonCategory;
       teacher.school = { id: Number(body.school) } as School;
 
-      // 2. Limpa TODOS os vínculos anteriores (seja de prof ou de outro cargo master)
       await this.qEndAllTeacherRelations(teacher.id);
 
-      // 3. Gera vínculos com TUDO da escola alvo (Regra Master)
       const disciplines = await CONN.find(Discipline);
       const classrooms = await CONN.find(Classroom, { where: { school: { id: Number(body.school) } } });
 
-      // Otimização Bulk Insert (Performance Extrema)
       const masterRelations = [];
       const repository = CONN.getRepository(TeacherClassDiscipline);
 
@@ -247,30 +232,17 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           masterRelations.push(relation);
         }
       }
-
-      if (masterRelations.length > 0) {
-        await repository.save(masterRelations);
-      }
+      if (masterRelations.length > 0) { await repository.save(masterRelations) }
     }
-
-      // ---------------------------------------------------------------------------
-      // CENÁRIO B: Tornando-se PROFESSOR (Vindo de qualquer cargo de gestão)
-      // ---------------------------------------------------------------------------
-    // Cobre: Dir->Prof, Vice->Prof, Coord->Prof
     else if (isTargetProfessor) {
 
-      // 1. Atualiza categoria imediatamente
       teacher.person.category = { id: targetCategory } as PersonCategory;
 
-      // 2. Limpa os vínculos "Master" antigos (pois agora ele terá vínculos específicos)
       await this.qEndAllTeacherRelations(teacher.id);
 
-      // 3. Chama o método que lê o body para criar os vínculos específicos de aula
-      // Nota: A escola será atualizada dentro deste método se necessário
       await this.updateTeacherClassesAndDisciplines(teacher, CONN, body);
     }
 
-    // Salva o Teacher (Categoria e Escola atualizadas)
     await CONN.save(Teacher, teacher);
 
     return { status: 200, data: teacher };
@@ -281,24 +253,16 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const targetCategory = Number(body.category);
     const currentCategory = Number(teacher.person.category.id);
 
-    // Definição de quem são os "Masters"
     const MASTER_ROLES = [
       Number(PERSON_CATEGORIES.DIRE),
       Number(PERSON_CATEGORIES.VICE),
       Number(PERSON_CATEGORIES.COOR)
     ];
 
-    // 1. Redirecionamento de Fluxo (Promotion/Role Change Logic)
-    // Se o destino é um cargo Master E o cargo atual é diferente do destino...
-    // ...OU se estou saindo de um cargo Master para virar Professor.
     const isBecomingMaster = MASTER_ROLES.includes(targetCategory) && targetCategory !== currentCategory;
     const isDemotingToTeacher = targetCategory === Number(PERSON_CATEGORIES.PROF) && MASTER_ROLES.includes(currentCategory);
 
-    if (isBecomingMaster || isDemotingToTeacher) {
-      return await this.changeTeacherMasterSchool(body, teacher, CONN);
-    }
-
-    // --- DAQUI PRA BAIXO SEGUE O CÓDIGO PADRÃO DE PROFESSOR (OTIMIZADO) ---
+    if (isBecomingMaster || isDemotingToTeacher) { return await this.changeTeacherMasterSchool(body, teacher, CONN) }
 
     const qDbRelationShip = (await this.qTeacherRelationship(teacher.id)).teacherClassesDisciplines;
     const repository = CONN.getRepository(TeacherClassDiscipline);
@@ -316,14 +280,12 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const hasValidData = bodyElement.teacherId && bodyElement.disciplineId && bodyElement.classroomId;
       const hasValidContract = bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2);
 
-      // Caso A: Desativar
       if (dataBaseRow && !bodyElement.active) {
         const toSavePush = repository.create({ ...dataBaseRow, endedAt: new Date() } as unknown as TeacherClassDiscipline)
         toSave.push(toSavePush);
         continue;
       }
 
-      // Caso B: Atualizar
       if (bodyElement.id && bodyElement.active && hasValidData && dataBaseRow) {
         const updateData: any = { ...dataBaseRow, endedAt: null };
         if (hasValidContract) updateData.contract = { id: bodyElement.contract };
@@ -332,7 +294,6 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         continue;
       }
 
-      // Caso C: Criar Novo
       if (bodyElement.id === null && !dataBaseRow && bodyElement.active && hasValidData) {
         const newRelationship: any = {
           teacher: { id: bodyElement.teacherId },
@@ -346,21 +307,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
 
-    if (toSave.length > 0) {
-      await repository.save(toSave);
-    }
+    if (toSave.length > 0) { await repository.save(toSave) }
 
-    // Atualiza escola se necessário (Caso Prof -> Prof em outra escola)
-    if (Number(body.school) !== Number(teacher.school.id)) {
-      teacher.school = { id: Number(body.school) } as School;
-    }
+    if (Number(body.school) !== Number(teacher.school.id)) { teacher.school = { id: Number(body.school) } as School }
 
     await CONN.save(Teacher, teacher);
     return { status: 200, data: teacher };
   }
 
   async saveTeacher(body: TeacherBody) {
-
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
@@ -370,63 +325,52 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
 
         const registerExists = await CONN.findOne(Teacher, { where: { register: body.register } });
-
-        const message = "Já existe um registro com este número de matrícula."
-        if (registerExists) { return { status: 409,  message } }
+        if (registerExists) { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
 
         const emailExists = await CONN.findOne(Teacher, { where: { email: body.email.toLowerCase().trim() }});
-        if (emailExists) { return {status: 409,message: "Já existe um registro com este email."} }
+        if (emailExists) { return { status: 409, message: "Já existe um registro com este email." } }
 
         const category = (await CONN.findOne(PersonCategory, {where: { id: body.category.id }})) as PersonCategory;
 
-        const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth,category });
-
+        const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
         const teacher = await CONN.save(Teacher, this.createTeacher(qUserTeacher.person.user.id, person, body));
 
-        const { username, passwordObject, email } = this.generateUser(body);
-
+        const { username, passwordObject, email } = await this.generateUser(body);
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
-        if(body.category.id === PERSON_CATEGORIES.ADMN || body.category.id === PERSON_CATEGORIES.SUPE || body.category.id === PERSON_CATEGORIES.FORM ) {
-          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e) );
-          return { status: 201, data: teacher }
-        }
+        if (
+          body.category.id === PERSON_CATEGORIES.DIRE || body.category.id === PERSON_CATEGORIES.VICE ||
+          body.category.id === PERSON_CATEGORIES.COOR || body.category.id === PERSON_CATEGORIES.SECR ||
+          body.category.id === PERSON_CATEGORIES.MONI
+        ) {
+          const disciplines = await CONN.getRepository(Discipline).find();
+          const classrooms = await CONN.getRepository(Classroom).find({ where: { school: { id: body.school } } });
 
-        if(body.category.id === PERSON_CATEGORIES.DIRE || body.category.id === PERSON_CATEGORIES .VICE || body.category.id === PERSON_CATEGORIES.COOR || body.category.id === PERSON_CATEGORIES.SECR || body.category.id === PERSON_CATEGORIES.MONI) {
-
-          const disciplines = await CONN.getRepository(Discipline).find()
-          const classrooms = await CONN.getRepository(Classroom).find({ where: { school: { id: body.school } } })
+          const relationsToSave = [];
 
           for(let discipline of disciplines) {
             for(let classroom of classrooms) {
-              await CONN.save(TeacherClassDiscipline, { teacher: teacher, classroom: { id: classroom.id }, discipline: { id: discipline.id }, startedAt: new Date() })
+              relationsToSave.push({ teacher: teacher, classroom: { id: classroom.id }, discipline: { id: discipline.id }, startedAt: new Date() });
             }
           }
 
-          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
-
-          return { status: 201, data: teacher }
+          if (relationsToSave.length > 0) await CONN.save(TeacherClassDiscipline, relationsToSave);
         }
 
-        if(body.category.id === PERSON_CATEGORIES.PROF) {
-          for (const rel of body.teacherClassesDisciplines) {
+        if (body.category.id === PERSON_CATEGORIES.PROF) {
+          const relationsToSave = body.teacherClassesDisciplines.map(rel => {
+            const saveData = { teacher: teacher, classroom: { id: rel.classroomId }, discipline: { id: rel.disciplineId }, startedAt: new Date() };
+            if(rel.contract && (rel.contract === 1 || rel.contract === 2)) { Object.assign(saveData, { contract: { id: rel.contract } as Contract }) }
+            return saveData;
+          });
 
-            const saveData = { teacher: teacher, classroom: { id: rel.classroomId }, discipline: { id: rel.disciplineId }, startedAt: new Date() }
-
-            if(rel.contract && rel.contract === 1 || rel.contract === 2) { Object.assign(saveData, { contract: { id: rel.contract } as Contract }) }
-
-            await CONN.save(TeacherClassDiscipline, saveData)
-          }
-
-          await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
-
-          return { status: 201, data: teacher }
+          if (relationsToSave.length > 0) await CONN.save(TeacherClassDiscipline, relationsToSave);
         }
 
-        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e))
+        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e));
 
-        return { status: 201, data: teacher }
-      })
+        return { status: 201, data: teacher };
+      });
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -446,10 +390,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return teacher;
   }
 
-  generateUser(body: TeacherBody) {
+  async generateUser(body: TeacherBody) {
     const username = body.email;
     const email = body.email;
-    const passwordObject = generatePassword()
+    const passwordObject = await generatePassword()
 
     return { username, passwordObject, email };
   }
@@ -469,7 +413,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   }
 
   private canChange(uCategory: number, tCategory: number): boolean {
-    // Define quem pode alterar quem
+
     const permissions: Record<number, number[]> = {
       [PERSON_CATEGORIES.SECR]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI],
 
@@ -484,10 +428,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       [PERSON_CATEGORIES.ADMN]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.SUPE]
     };
 
-    // Se o usuário não estiver na lista (ex: PROF), retorna false (Fail-safe)
     const allowedTargets = permissions[uCategory];
 
-    // Verifica se o alvo está na lista de permitidos desse usuário
     return allowedTargets ? allowedTargets.includes(tCategory) : false;
   }
 }

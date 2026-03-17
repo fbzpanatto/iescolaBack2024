@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 
-export function generatePassword(userPass?: string) {
+export async function generatePassword(userPass?: string) {
 
   if (!userPass) {
     const lowerLetters = "abcdefghijklmnopqrstuvwxyz";
@@ -8,23 +9,28 @@ export function generatePassword(userPass?: string) {
     const numbers = "0123456789";
     const allChar = lowerLetters + upperLetters + numbers;
 
-    let password = "";
+    let passwordChars: string[] = [];
 
-    password += lowerLetters[Math.floor(Math.random() * lowerLetters.length)];
-    password += upperLetters[Math.floor(Math.random() * upperLetters.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
+    const getRandomChar = (str: string) => str[crypto.randomInt(str.length)];
 
-    for (let i = 3; i < 8; i++) {
-      const index: number = Math.floor(Math.random() * allChar.length);
-      password += allChar[index];
+    passwordChars.push(getRandomChar(lowerLetters));
+    passwordChars.push(getRandomChar(upperLetters));
+    passwordChars.push(getRandomChar(numbers));
+
+    for (let i = 3; i < 8; i++) { passwordChars.push(getRandomChar(allChar)) }
+
+    for (let i = passwordChars.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      [passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]];
     }
 
-    password = password.split('').sort(() => 0.5 - Math.random()).join('');
-    const hashedPassword: string = bcrypt.hashSync(password, 10);
+    const password = passwordChars.join('');
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     return { password, hashedPassword };
   }
 
-  const hashedPassword: string = bcrypt.hashSync(userPass, 10);
-  return { password: userPass, hashedPassword }
+  const hashedPassword = await bcrypt.hash(userPass, 10);
+  return { password: userPass, hashedPassword };
 }

@@ -965,7 +965,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     let preResultScWd = await this.qAlphaStudents(test, classId, test.period.year.id, studentClassroomId)
     let preResultSc = await this.qStudentDisabilities(preResultScWd) as unknown as StudentClassroom[]
 
-    const studentDisabilitiesMap = new Map<number, any[]>();
+    const studentDisabilitiesMap = new Map<number, any[]>()
 
     for (const item of preResultSc) {
       if (item.student?.studentDisabilities && item.student.studentDisabilities.length > 0) {

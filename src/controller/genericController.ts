@@ -40,25 +40,24 @@ import {
   Training,
   TrainingResult
 } from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {ResultSetHeader} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
-import {Transfer} from "../model/Transfer";
-import {Discipline} from "../model/Discipline";
-import {Teacher} from "../model/Teacher";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Contract} from "../model/Contract";
-import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
-import {TestQuestion} from "../model/TestQuestion";
-import {IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
-import {connectionPool} from "../services/db";
-import {PersonCategory} from "../model/PersonCategory";
-import {Helper} from "../utils/helpers";
-import {TestToken} from "../model/Token";
-import {TestCategory} from "../model/TestCategory";
-import {User} from "../model/User";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { ResultSetHeader } from "mysql2/promise";
+import { format } from "mysql2";
+import { Test } from "../model/Test";
+import { Transfer } from "../model/Transfer";
+import { Discipline } from "../model/Discipline";
+import { Teacher } from "../model/Teacher";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Contract } from "../model/Contract";
+import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
+import { TestQuestion } from "../model/TestQuestion";
+import { IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS } from "../utils/enums";
+import { connectionPool } from "../services/db";
+import { PersonCategory } from "../model/PersonCategory";
+import { Helper } from "../utils/helpers";
+import { TestToken } from "../model/Token";
+import { TestCategory } from "../model/TestCategory";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}

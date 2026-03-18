@@ -36,6 +36,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getStudents(req?: Request) {
 
+    console.log('getStudents studentDisabilities')
+
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom);
     const scId = Number(req?.query.stc);
@@ -962,16 +964,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     let testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
     let headers = aHeaders.map(bi => { const test = testsMap.get(bi.id); return { ...bi, currTest: { id: test?.id, active: test?.active } } });
 
-    let preResultScWd = await this.qAlphaStudents(test, classId, test.period.year.id, studentClassroomId)
-    let preResultSc = await this.qStudentDisabilities(preResultScWd) as unknown as StudentClassroom[]
-
-    const studentDisabilitiesMap = new Map<number, any[]>()
-
-    for (const item of preResultSc) {
-      if (item.student?.studentDisabilities && item.student.studentDisabilities.length > 0) {
-        studentDisabilitiesMap.set(item.student.id, item.student.studentDisabilities);
-      }
-    }
+    // 1. Buscamos apenas os alunos (removemos o qStudentDisabilities daqui)
+    let preResultSc = await this.qAlphaStudents(test, classId, test.period.year.id, studentClassroomId)
 
     const allQuestionsRaw = await this.bactchQueryAlphaQuestions(qTests.map(t => t.id)) as any
 
@@ -1001,20 +995,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     const serieFilter = `${Number(room.shortName.replace(/\D/g, ""))}%`;
 
+    // 2. O alphaQuestions é chamado. Ele JÁ TRAZ as deficiências junto com tudo!
     const currentResult = await this.alphaQuestions(serieFilter, test.period.year.name, test, testQuestionsIds, classId, studentClassroomId);
     preResultSc = currentResult.flatMap(school => school.classrooms.flatMap((classroom: any) => classroom.studentClassrooms));
 
-    for (const item of preResultSc) {
-      if (item.student && studentDisabilitiesMap.has(item.student.id)) { item.student.studentDisabilities = studentDisabilitiesMap.get(item.student.id) || [] }
-      else { item.student.studentDisabilities = [] }
-    }
+    // ❌ O LOOP DE SOBRESCRITA QUE APAGAVA OS DADOS FOI DELETADO DAQUI!
 
-    let studentClassrooms = preResultSc.map(el => ({
+    let studentClassrooms = preResultSc.map((el: any) => ({
       ...el,
-      studentRowTotal: el.student.alphabetic.reduce((acc, curr) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
+      // 3. Garantia de Segurança: Se o Helper não achar deficiência, garante que será um array vazio para o frontend não quebrar
+      student: {
+        ...el.student,
+        studentDisabilities: el.student.studentDisabilities || []
+      },
+      studentRowTotal: el.student.alphabetic.reduce((acc: number, curr: any) => acc + (curr.alphabeticLevel?.id ? 1 : 0), 0)
     }))
 
-    const studentCount = studentClassrooms.reduce((acc, item) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
+    const studentCount = studentClassrooms.reduce((acc: Record<number, number>, item: any) => { acc[item.student.id] = (acc[item.student.id] || 0) + 1; return acc }, {} as Record<number, number>);
 
     studentClassrooms = studentClassrooms.reduce((acc: any[], item: any) => {
       const isDuplicated = studentCount[item.student.id] > 1;

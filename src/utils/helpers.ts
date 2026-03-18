@@ -1203,7 +1203,8 @@ export class Helper {
           id: row.studentDisability_id,
           disability: {
             id: row.disability_id,
-            name: row.disability_name
+            name: row.disability_name,
+            official: row.disability_official
           }
         });
       }

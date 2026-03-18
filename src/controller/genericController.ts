@@ -4088,7 +4088,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
       -- StudentDisability
       sd.id AS studentDisability_id,
       sd.disabilityId AS disability_id,
-      d.name AS disability_name`;
+      d.name AS disability_name,
+      d.official AS disability_official`;
 
       if (hasQuestions) {
         query += `,

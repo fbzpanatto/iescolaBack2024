@@ -36,8 +36,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getStudents(req?: Request) {
 
-    console.log('getStudents studentDisabilities')
-
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom);
     const scId = Number(req?.query.stc);

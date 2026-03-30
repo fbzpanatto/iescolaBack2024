@@ -262,6 +262,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   override async save(body: SaveStudent) {
+
     const rosterNumber = parseInt(body.rosterNumber, 10);
     let conn;
 
@@ -275,11 +276,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const state = await this.qState(body.state) as State;
       const classroom = await this.qClassroom(body.classroom);
 
-      // ==========================================
-      // DATA SEGURA: Extrai apenas "YYYY-MM-DD"
-      // ==========================================
       const safeBirthDate = (body.birth as any).split('T')[0];
-      console.log('safeBirthDate', safeBirthDate)
 
       // Busca das Deficiências
       let disabilities: any[] = [];
@@ -294,54 +291,38 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const category = (categoryRows as any[])[0];
       if (!category) { await conn.rollback(); return { status: 500, message: "Erro interno: Categoria de aluno não encontrada no sistema." } }
 
-      // Monta o objeto base de Pessoa com a data segura
-      const personData: any = {
-        name: body.name.toUpperCase().trim(),
-        birth: safeBirthDate, // Utilizando a data fatiada aqui
-        category: category
-      };
+      const personData: any = { name: body.name.toUpperCase().trim(), birth: safeBirthDate, category: category };
 
       if (!qCurrentYear) { await conn.rollback(); return { status: 404, message: "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema." } }
 
-      // ==========================================
       // BUSCA 1: CHECAGEM DE POTENCIAIS DUPLICATAS
-      // ==========================================
       const sqlDuplicates = `
-  SELECT 
-    s.id AS s_id, s.ra AS s_ra, s.dv AS s_dv,
-    p.id AS p_id, p.name AS p_name, p.birth AS p_birth,
-    sc.id AS sc_id, sc.endedAt AS sc_endedAt,
-    c.id AS c_id, c.shortName AS c_shortName,
-    sch.id AS sch_id, sch.shortName AS sch_shortName,
-    y.id AS y_id, y.name AS y_name
-  FROM student s
-  LEFT JOIN person p ON s.personId = p.id
-  LEFT JOIN student_classroom sc ON sc.studentId = s.id
-  LEFT JOIN classroom c ON sc.classroomId = c.id
-  LEFT JOIN school sch ON c.schoolId = sch.id
-  LEFT JOIN year y ON sc.yearId = y.id
-  WHERE UPPER(TRIM(p.name)) = ? AND DATE(p.birth) = DATE(?)
-`;
+        SELECT 
+          s.id AS s_id, s.ra AS s_ra, s.dv AS s_dv,
+          p.id AS p_id, p.name AS p_name, p.birth AS p_birth,
+          sc.id AS sc_id, sc.endedAt AS sc_endedAt,
+          c.id AS c_id, c.shortName AS c_shortName,
+          sch.id AS sch_id, sch.shortName AS sch_shortName,
+          y.id AS y_id, y.name AS y_name
+        FROM student s
+        LEFT JOIN person p ON s.personId = p.id
+        LEFT JOIN student_classroom sc ON sc.studentId = s.id
+        LEFT JOIN classroom c ON sc.classroomId = c.id
+        LEFT JOIN school sch ON c.schoolId = sch.id
+        LEFT JOIN year y ON sc.yearId = y.id
+        WHERE UPPER(TRIM(p.name)) = ? AND DATE(p.birth) = DATE(?)
+      `;
+
       // Utilizando a data fatiada no array de parâmetros do MySQL
       const [duplicateRows] = await conn.query(sqlDuplicates, [body.name.toUpperCase().trim(), safeBirthDate]);
 
       const potentialDuplicatesMap = new Map();
+
       for (const row of (duplicateRows as any[])) {
-        if (!potentialDuplicatesMap.has(row.s_id)) {
-          potentialDuplicatesMap.set(row.s_id, {
-            ra: row.s_ra, dv: row.s_dv,
-            person: { name: row.p_name, birth: row.p_birth },
-            studentClassrooms: []
-          });
-        }
-        if (row.sc_id) {
-          potentialDuplicatesMap.get(row.s_id).studentClassrooms.push({
-            endedAt: row.sc_endedAt,
-            classroom: { shortName: row.c_shortName, school: { shortName: row.sch_shortName } },
-            year: { name: row.y_name }
-          });
-        }
+        if (!potentialDuplicatesMap.has(row.s_id)) { potentialDuplicatesMap.set(row.s_id, { ra: row.s_ra, dv: row.s_dv, person: { name: row.p_name, birth: row.p_birth }, studentClassrooms: [] }) }
+        if (row.sc_id) { potentialDuplicatesMap.get(row.s_id).studentClassrooms.push({ endedAt: row.sc_endedAt, classroom: { shortName: row.c_shortName, school: { shortName: row.sch_shortName } }, year: { name: row.y_name } }) }
       }
+
       const potentialDuplicates = Array.from(potentialDuplicatesMap.values());
 
       if (potentialDuplicates.length > 0) {
@@ -354,9 +335,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             let lastRecord;
             const activeRecord = existing.studentClassrooms.find((sc: any) => sc.endedAt === null);
 
-            if (activeRecord) {
-              lastRecord = activeRecord;
-            } else if (existing.studentClassrooms.length > 0) {
+            if (activeRecord) { lastRecord = activeRecord }
+            else if (existing.studentClassrooms.length > 0) {
               lastRecord = existing.studentClassrooms.reduce((prev: any, current: any) => {
                 const prevDate = prev.endedAt ? new Date(prev.endedAt).getTime() : 0;
                 const currDate = current.endedAt ? new Date(current.endedAt).getTime() : 0;
@@ -365,17 +345,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             }
 
             await conn.rollback();
-            return {
-              status: 409,
-              message: `⚠️ ALUNO JÁ CADASTRADO!\n\nJá existe um aluno com os mesmos dados:\n\nNome: ${existing.person.name}\nData de Nascimento: ${new Date(existing.person.birth).toLocaleDateString('pt-BR')}\nRA Existente: ${existing.ra}-${existing.dv}\nRA Tentado: ${body.ra}-${body.dv}\n\n${lastRecord ? `Último registro: ${lastRecord.classroom.shortName} - ${lastRecord.classroom.school.shortName} (${lastRecord.year.name})\n${activeRecord ? `\n⚠️ Este aluno está ATIVO nesta sala. Use o menu MATRÍCULAS ATIVAS para transferência.` : `\n⚠️ Use o menu PASSAR DE ANO no ano ${lastRecord.year.name} para reativar este aluno.`}` : ''}\n\nSe você tem certeza de que são pessoas diferentes, solicite ao Administrador do sistema.`
-            };
+            return { status: 409, message: `⚠️ ALUNO JÁ CADASTRADO!\n\nJá existe um aluno com os mesmos dados:\n\nNome: ${existing.person.name}\nData de Nascimento: ${new Date(existing.person.birth).toLocaleDateString('pt-BR')}\nRA Existente: ${existing.ra}-${existing.dv}\nRA Tentado: ${body.ra}-${body.dv}\n\n${lastRecord ? `Último registro: ${lastRecord.classroom.shortName} - ${lastRecord.classroom.school.shortName} (${lastRecord.year.name})\n${activeRecord ? `\n⚠️ Este aluno está ATIVO nesta sala. Use o menu MATRÍCULAS ATIVAS para transferência.` : `\n⚠️ Use o menu PASSAR DE ANO no ano ${lastRecord.year.name} para reativar este aluno.`}` : ''}\n\nSe você tem certeza de que são pessoas diferentes, solicite ao Administrador do sistema.` };
           }
         }
       }
 
-      // ==========================================
       // BUSCA 2: RAs NA MESMA FAIXA
-      // ==========================================
       const raNumerico = parseInt(body.ra);
       const raBase = Math.floor(raNumerico / 100) * 100;
 
@@ -383,13 +358,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         SELECT s.ra AS s_ra, s.dv AS s_dv, p.name AS p_name, p.birth AS p_birth
         FROM student s
         LEFT JOIN person p ON s.personId = p.id
-        WHERE CAST(s.ra AS UNSIGNED) BETWEEN ? AND ? AND s.ra != ?`;
+        WHERE CAST(s.ra AS UNSIGNED) BETWEEN ? AND ? AND s.ra != ?
+      `;
 
       const [rowsSameRange] = await conn.query(sqlSameRange, [raBase, raBase + 99, body.ra]);
 
-      const studentsSameRARange = (rowsSameRange as any[]).map(r => ({
-        ra: r.s_ra, dv: r.s_dv, person: { name: r.p_name, birth: r.p_birth }
-      }));
+      const studentsSameRARange = (rowsSameRange as any[]).map(r => ({ ra: r.s_ra, dv: r.s_dv, person: { name: r.p_name, birth: r.p_birth } }));
 
       // CRIA A DATA DE EXIBIÇÃO SEGURA (Inverte YYYY-MM-DD para DD/MM/YYYY)
       const displayBirthNew = safeBirthDate.split('-').reverse().join('/');
@@ -407,70 +381,60 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           if (diffDays <= 365) {
             await conn.rollback();
-            return {
-              status: 409,
-              message: `⚠️ POSSÍVEL DUPLICATA DETECTADA!\n\nFoi encontrado um aluno com dados similares:\n\n• Existente: ${existing.person.name} (RA: ${existing.ra}-${existing.dv} | Nasc: ${birthExisting.toLocaleDateString('pt-BR', { timeZone: 'UTC' })})\n• Novo: ${body.name} (RA: ${body.ra}-${body.dv} | Nasc: ${displayBirthNew})\n\nMotivo: RAs na mesma faixa (${raBase} a ${raBase + 99}).\n\nVerifique se não é o mesmo aluno. Em caso de dúvida, consulte o Administrador.`
-            };
+            return { status: 409, message: `⚠️ POSSÍVEL DUPLICATA DETECTADA!\n\nFoi encontrado um aluno com dados similares:\n\n• Existente: ${existing.person.name} (RA: ${existing.ra}-${existing.dv} | Nasc: ${birthExisting.toLocaleDateString('pt-BR', { timeZone: 'UTC' })})\n• Novo: ${body.name} (RA: ${body.ra}-${body.dv} | Nasc: ${displayBirthNew})\n\nMotivo: RAs na mesma faixa (${raBase} a ${raBase + 99}).\n\nVerifique se não é o mesmo aluno. Em caso de dúvida, consulte o Administrador.`};
           }
         }
       }
 
-      // ==========================================
       // BUSCA 3: CHECAGEM SIMPLES PRE-EXISTS
-      // ==========================================
       const sqlPreExists = `
-      SELECT s.ra AS s_ra, p.name AS p_name, p.birth AS p_birth
-      FROM student s
-      LEFT JOIN person p ON s.personId = p.id
-      WHERE s.ra = ? LIMIT 1`;
+        SELECT s.ra AS s_ra, p.name AS p_name, p.birth AS p_birth
+        FROM student s
+        LEFT JOIN person p ON s.personId = p.id
+        WHERE s.ra = ? LIMIT 1
+      `;
+
       const [rowsPreExists] = await conn.query(sqlPreExists, [body.ra]);
       const preExistsRow = (rowsPreExists as any[])[0];
 
       if (preExistsRow) {
         const formattedDate = new Date(preExistsRow.p_birth).toISOString().slice(0, 10);
-        const sameBirthDate = formattedDate === safeBirthDate; // Comparação direta com a data fatiada
+        const sameBirthDate = formattedDate === safeBirthDate;
 
         if (this.isSimilar(preExistsRow.p_name, body.name) && sameBirthDate) {
           await conn.rollback();
-          return { status: 409, message: `Existe um aluno com dados semelhantes ao qual está tentando cadastrar. ${preExistsRow.p_name}, RA ${preExistsRow.s_ra} e nascimento ${ safeBirthDate }. Comunique ao Administrador do sistema.` };
+          const message = `Existe um aluno com dados semelhantes ao qual está tentando cadastrar. ${preExistsRow.p_name}, RA ${preExistsRow.s_ra} e nascimento ${ safeBirthDate }. Comunique ao Administrador do sistema.`
+          return { status: 409, message };
         }
       }
 
-      // ==========================================
       // BUSCA 4: CHECAGEM EXATA DE RA e DV
-      // ==========================================
       const [rowsExists] = await conn.query(`SELECT id FROM student WHERE ra = ? AND dv = ? LIMIT 1`, [body.ra, body.dv]);
       const existsCheck = (rowsExists as any[])[0];
 
       if (existsCheck) {
         const sqlEl = `
-    SELECT 
-      s.id AS s_id, s.active AS s_active, p.name AS p_name,
-      sc.id AS sc_id, sc.endedAt AS sc_endedAt,
-      c.shortName AS c_shortName, sch.shortName AS sch_shortName, y.name AS y_name
-    FROM student s
-    LEFT JOIN person p ON s.personId = p.id
-    LEFT JOIN student_classroom sc ON sc.studentId = s.id
-    LEFT JOIN classroom c ON sc.classroomId = c.id
-    LEFT JOIN school sch ON c.schoolId = sch.id
-    LEFT JOIN year y ON sc.yearId = y.id
-    WHERE s.ra = ? AND s.dv = ? AND (sc.endedAt IS NULL OR sc.endedAt < ?)
-  `;
+          SELECT 
+            s.id AS s_id, s.active AS s_active, p.name AS p_name,
+            sc.id AS sc_id, sc.endedAt AS sc_endedAt,
+            c.shortName AS c_shortName, sch.shortName AS sch_shortName, y.name AS y_name
+            FROM student s
+            LEFT JOIN person p ON s.personId = p.id
+            LEFT JOIN student_classroom sc ON sc.studentId = s.id
+            LEFT JOIN classroom c ON sc.classroomId = c.id
+            LEFT JOIN school sch ON c.schoolId = sch.id
+            LEFT JOIN year y ON sc.yearId = y.id
+            WHERE s.ra = ? AND s.dv = ? AND (sc.endedAt IS NULL OR sc.endedAt < ?)
+        `;
+
         const [rowsEl] = await conn.query(sqlEl, [body.ra, body.dv, new Date()]);
         const typedRowsEl = rowsEl as any[];
 
         if (typedRowsEl.length > 0) {
-          const el: any = {
-            active: typedRowsEl[0].s_active, person: { name: typedRowsEl[0].p_name }, studentClassrooms: []
-          };
+          const el: any = { active: typedRowsEl[0].s_active, person: { name: typedRowsEl[0].p_name }, studentClassrooms: [] };
+
           for (const row of typedRowsEl) {
-            if (row.sc_id) {
-              el.studentClassrooms.push({
-                endedAt: row.sc_endedAt,
-                classroom: { shortName: row.c_shortName, school: { shortName: row.sch_shortName } },
-                year: { name: row.y_name }
-              });
-            }
+            if (row.sc_id) { el.studentClassrooms.push({ endedAt: row.sc_endedAt, classroom: { shortName: row.c_shortName, school: { shortName: row.sch_shortName } }, year: { name: row.y_name } }) }
           }
 
           let preR: any;
@@ -492,9 +456,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const message = "Você não tem permissão para criar um aluno nesta sala.";
       if (body.user.category === PERSON_CATEGORIES.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { await conn.rollback(); return { status: 403, message } } }
 
-      // ==========================================
       // FASE DE ESCRITA
-      // ==========================================
 
       // Formatação do DV
       let formatedDv;
@@ -503,40 +465,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       else { formatedDv = body.dv.toUpperCase(); }
 
       // 1. Inserir Person
-      const [resultPerson]: any = await conn.query(
-        `INSERT INTO person (name, birth, categoryId) VALUES (?, ?, ?)`,
-        [personData.name, personData.birth, personData.category.id]
-      );
+      const insertIntoParams = [personData.name, personData.birth, personData.category.id]
+      const [resultPerson]: any = await conn.query(`INSERT INTO person (name, birth, categoryId) VALUES (?, ?, ?)`, insertIntoParams);
       personData.id = resultPerson.insertId;
 
       // 2. Inserir Student (com observações)
       const [resultStudent]: any = await conn.query(
         `INSERT INTO student (ra, dv, active, personId, stateId, observationOne, observationTwo, createdByUser, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          body.ra,
-          formatedDv,
-          true, // default active
-          personData.id,
-          state.id,
-          body.observationOne,
-          body.observationTwo,
-          qUserTeacher.person.user.id
-        ]
+        [ body.ra, formatedDv, true, personData.id, state.id, body.observationOne, body.observationTwo, qUserTeacher.person.user.id ]
       );
 
       // Constrói o objeto do estudante final para retorno e relacionamentos
-      const studentData: any = {
-        id: resultStudent.insertId,
-        person: personData,
-        ra: body.ra,
-        dv: formatedDv,
-        state: state,
-        observationOne: body.observationOne,
-        observationTwo: body.observationTwo,
-        active: true,
-        createdByUser: qUserTeacher.person.user.id,
-        createdAt: new Date()
-      };
+      const studentData: any = { id: resultStudent.insertId, person: personData, ra: body.ra, dv: formatedDv, state: state, observationOne: body.observationOne, observationTwo: body.observationTwo, active: true, createdByUser: qUserTeacher.person.user.id, createdAt: new Date() };
 
       // 3. Inserir Disabilities (Se houver)
       if (disabilities && disabilities.length > 0) {
@@ -562,17 +502,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       await conn.commit();
 
-      // Retorna o objeto mockado como tipo Student para o front-end
       return { status: 201, data: studentData as unknown as Student };
     }
-    catch (error: any) {
-      if (conn) await conn.rollback();
-      console.error(error);
-      return { status: 500, message: error.message }
-    }
-    finally {
-      if (conn) conn.release()
-    }
+
+    catch (error: any) { if (conn) await conn.rollback(); console.error(error); return { status: 500, message: error.message } }
+    finally { if (conn) conn.release() }
   }
 
   async setFirstLevel(body: any) {

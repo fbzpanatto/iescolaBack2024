@@ -2,82 +2,79 @@ import { Schema } from "express-validator";
 import { USER_SCHEMA } from "./user";
 
 export const STUDENT_SCHEMA: Schema = {
-  birth: {
-    optional: true,
-    escape: true,
+  name: {
+    notEmpty: { errorMessage: "O nome é obrigatório" },
     isString: true,
+    trim: true,
+  },
+  birth: {
+    notEmpty: { errorMessage: "A data de nascimento é obrigatória" },
+    isISO8601: { errorMessage: "O formato da data deve ser válido (ISO8601)" },
+  },
+  ra: {
+    notEmpty: { errorMessage: "O RA é obrigatório" },
+    isString: true,
+    escape: true,
+    trim: true,
+  },
+  dv: {
+    notEmpty: { errorMessage: "O DV do RA é obrigatório" },
+    isString: true,
+    escape: true,
+    trim: true,
+  },
+  state: {
+    notEmpty: { errorMessage: "O estado é obrigatório" },
+    isInt: true,
+    toInt: true,
   },
   classroom: {
-    optional: true,
-    escape: true,
+    notEmpty: { errorMessage: "A sala é obrigatória" },
+    isInt: true,
+    toInt: true,
+  },
+  rosterNumber: {
+    notEmpty: { errorMessage: "O número da chamada é obrigatório" },
     isInt: true,
     toInt: true,
   },
   classroomName: {
     optional: true,
-    escape: true,
     isString: true,
+    escape: true,
   },
   currentStudentClassroomId: {
     optional: true,
-    escape: true
+    escape: true,
   },
+
+  // === VALIDAÇÃO DO ARRAY DE DEFICIÊNCIAS ===
   disabilities: {
     optional: true,
-    escape: true,
-    custom: {
-      options: (value) => {
-        if (!value || !Array.isArray(value)) {
-          throw new Error("disabilities must be an array");
-        }
-        // Apply toInt() to each element to convert to integer
-        value = value.map(element => parseInt(element));
-        if (!value.every(Number.isInteger)) {
-          throw new Error("disabilities must be an array of integers");
-        }
-        return true;
-      },
-    },
+    isArray: { errorMessage: "Disabilities deve ser um array" },
   },
+  // O curinga ".*" aplica as regras a CADA item do array!
+  'disabilities.*': {
+    isInt: { errorMessage: "Cada deficiência deve ser um número inteiro" },
+    toInt: true, // Isso SIM transforma os ['2', '8'] para [2, 8] no seu req.body final
+  },
+
   disabilitiesName: {
     optional: true,
-    escape: true,
     isString: true,
-  },
-  dv: {
-    optional: true,
     escape: true,
-    isString: true,
-  },
-  name: {
-    optional: true,
-    isString: true
   },
   observationOne: {
     optional: true,
-    escape: true
+    isString: true,
+    escape: true,
   },
   observationTwo: {
     optional: true,
-    escape: true
-  },
-  ra: {
-    optional: true,
-    escape: true,
     isString: true,
-  },
-  rosterNumber: {
-    optional: true,
     escape: true,
-    isInt: true,
-    toInt: true,
   },
-  state: {
-    optional: true,
-    escape: true,
-    isInt: true,
-    toInt: true,
-  },
+
   user: { exists: true },
   ...USER_SCHEMA,
-}
+};

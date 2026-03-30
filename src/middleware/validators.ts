@@ -6,9 +6,9 @@ import { TEACHER_SCHEMA } from "../schemas/teacher";
 import { invalidValues, unexpectedFn } from "../utils/bodyValidations";
 import { TEST_SCHEMA } from '../schemas/test';
 import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '../schemas/studentQuestion';
-import {STUDENT_FIRST_LEVEL_SCHEMA} from "../schemas/first-level";
-import {TRAINING_SCHEMA} from "../schemas/training";
-import {SUBMIT_TEST_SCHEMA} from "../schemas/studentTestQuestions";
+import { STUDENT_FIRST_LEVEL_SCHEMA } from "../schemas/first-level";
+import { TRAINING_SCHEMA } from "../schemas/training";
+import { SUBMIT_TEST_SCHEMA } from "../schemas/studentTestQuestions";
 
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
@@ -55,7 +55,7 @@ export const BODY_VALIDATION_TRAINING = (req: Request, res: Response, next: Next
 
 //USER
 export const VALIDATE_USER = checkSchema(STUDENT_SCHEMA)
-export const BODY_VALIDATION_USER = (req: Request, res: Response, next: NextFunction) => {
+export const BODY_VALIDATION_STUDENT_USER = (req: Request, res: Response, next: NextFunction) => {
   return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, STUDENT_SCHEMA)
 }
 

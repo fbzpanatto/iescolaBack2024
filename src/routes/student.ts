@@ -1,10 +1,10 @@
 import { Request, Router } from "express";
 import { stController as controller } from "../controller/student";
-import { BODY_VALIDATION_USER, BODY_VALIDATION_USER_FIRST_LEVEL, ID_PARAM, VALIDATE_USER, VALIDATE_USER_FIRST_LEVEL, YEAR_NAME_PARAM } from "../middleware/validators";
+import { BODY_VALIDATION_STUDENT_USER, BODY_VALIDATION_USER_FIRST_LEVEL, ID_PARAM, VALIDATE_USER, VALIDATE_USER_FIRST_LEVEL, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 
-const CREATE_VALIDATORS = [VALIDATE_USER, BODY_VALIDATION_USER];
-const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_USER, BODY_VALIDATION_USER];
+const CREATE_VALIDATORS = [VALIDATE_USER, BODY_VALIDATION_STUDENT_USER];
+const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_USER, BODY_VALIDATION_STUDENT_USER];
 
 export const StudentRouter = Router();
 

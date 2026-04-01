@@ -40,24 +40,24 @@ import {
   Training,
   TrainingResult
 } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { ResultSetHeader } from "mysql2/promise";
-import { format } from "mysql2";
-import { Test } from "../model/Test";
-import { Transfer } from "../model/Transfer";
-import { Discipline } from "../model/Discipline";
-import { Teacher } from "../model/Teacher";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Contract } from "../model/Contract";
-import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
-import { TestQuestion } from "../model/TestQuestion";
-import { IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS } from "../utils/enums";
-import { connectionPool } from "../services/db";
-import { PersonCategory } from "../model/PersonCategory";
-import { Helper } from "../utils/helpers";
-import { TestToken } from "../model/Token";
-import { TestCategory } from "../model/TestCategory";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {ResultSetHeader} from "mysql2/promise";
+import {format} from "mysql2";
+import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
+import {Discipline} from "../model/Discipline";
+import {Teacher} from "../model/Teacher";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Contract} from "../model/Contract";
+import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import {TestQuestion} from "../model/TestQuestion";
+import {IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
+import {connectionPool} from "../services/db";
+import {PersonCategory} from "../model/PersonCategory";
+import {Helper} from "../utils/helpers";
+import {TestToken} from "../model/Token";
+import {TestCategory} from "../model/TestCategory";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -1971,6 +1971,23 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async qClassroomShift() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+          SELECT cs.id, cs.name
+          FROM classroom_shift AS cs
+        `
+
+      const [ queryResult ] = await conn.query(format(query))
+      return queryResult as { id: number, name: string }[];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qTeacherByUser(userId: number) {
     let conn;
     try {
@@ -2426,6 +2443,26 @@ export class GenericController<T> {
       return queryResult
     }
     catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qGetClassroomFullData(id: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+          SELECT c.id, c.name, c.shortName, c.nickname, c.shiftId, c.categoryId, s.name AS school
+          FROM classroom AS c
+          LEFT JOIN classroom_shift AS cs ON c.shiftId = cs.id
+          INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+          INNER JOIN school AS s ON c.schoolId = s.id
+          WHERE c.id = ?
+        `
+      const [ queryResult ] = await conn.query(format(query), [id])
+      return (queryResult as { id: number, name: string, shortName: string, shiftId: number, categoryId: number, school: string, nickname: string }[])[0]
+    }
+    catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
@@ -4208,30 +4245,105 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async getTeacherClassrooms(masterUser: boolean, allClassrooms: number[]){
+  async getTeacherClassrooms(masterUser: boolean, allClassrooms: number[], search: string, limit: number, offset: number, active: boolean) {
     let conn;
     try {
-      conn = await connectionPool.getConnection()
+      conn = await connectionPool.getConnection();
+
+      if (!masterUser && allClassrooms.length === 0) { return { status: 200, data: [] } }
+
+      // 1. Inicia o SELECT base
       let query = `
-        SELECT
-          classroom.id AS id,
-          classroom.shortName AS name,
-          school.shortName AS school
-        FROM classroom
-        LEFT JOIN school ON classroom.schoolId = school.id
+      SELECT
+        classroom.id AS id,
+        classroom.shortName AS name,
+        classroom.nickname AS nickname,
+        school.shortName AS school
+    `;
+
+      // 2. Adiciona a coluna de contagem e o nome do turno SE active for true
+      if (active) {
+        query += `,
+        classroom_shift.name AS shift,
+        (SELECT COUNT(sc.id) 
+         FROM student_classroom sc 
+         WHERE sc.classroomId = classroom.id 
+           AND sc.startedAt IS NOT NULL 
+           AND sc.endedAt IS NULL
+        ) AS activeStudentsCount
       `;
+      }
+
+      // 3. Adiciona o FROM e o JOIN fixo da escola
+      query += `
+      FROM classroom 
+      LEFT JOIN school ON classroom.schoolId = school.id
+    `;
+
+      // 4. Adiciona o JOIN condicional do Turno (Shift) SE active for true
+      if (active) {
+        query += `
+        LEFT JOIN classroom_shift ON classroom.shiftId = classroom_shift.id
+      `;
+      }
+
+      // 5. Inicia as condições
+      query += ` WHERE 1=1 `;
+
       const params: any[] = [];
 
-      if (!masterUser) {
-        if (allClassrooms.length === 0) { return { status: 200, data: [] } }
-        query += ` WHERE classroom.id IN (?)`;
-        params.push(allClassrooms);
+      // Filtro de permissões do professor
+      if (!masterUser) { query += ` AND classroom.id IN (?)`; params.push(allClassrooms) }
+
+      // ==========================================
+      // FILTRO: Salas com alunos ativos
+      // ==========================================
+      if (active) {
+        // O EXISTS é mantido aqui porque ele é extremamente rápido para filtrar as linhas,
+        // enquanto o COUNT lá em cima apenas calcula o valor para as linhas que passaram no filtro.
+        query += ` AND EXISTS (
+      SELECT 1 
+      FROM student_classroom sc 
+      WHERE sc.classroomId = classroom.id 
+        AND sc.startedAt IS NOT NULL 
+        AND sc.endedAt IS NULL
+      )`;
       }
-      else { query += ` WHERE classroom.id > 0` }
+
+      // Lógica de Busca Textual (Search / Regex)
+      if (search && search.trim() !== '') {
+        const searchOriginal = search.trim();
+
+        const classroomRegex = /\b(\d+[A-Za-z]+)\b/;
+        const match = searchOriginal.match(classroomRegex);
+
+        let searchTermCleaned = searchOriginal;
+        let specificClassroomFilter = "";
+
+        if (match) {
+          const foundClassroom = match[0];
+          searchTermCleaned = searchOriginal.replace(foundClassroom, '').trim();
+          specificClassroomFilter = ` AND classroom.shortName COLLATE utf8mb4_unicode_ci LIKE ? `;
+        }
+
+        if (searchTermCleaned.length > 0) {
+          query += ` AND (classroom.shortName COLLATE utf8mb4_unicode_ci LIKE ? OR school.shortName COLLATE utf8mb4_unicode_ci LIKE ?)`;
+          const searchParam = `%${searchTermCleaned}%`;
+          params.push(searchParam, searchParam);
+        }
+
+        if (specificClassroomFilter) { query += specificClassroomFilter; if (match) { params.push(`%${match[0]}%`) } }
+      }
+
+      // Ordenação e Paginação
+      query += ` ORDER BY school.shortName ASC, classroom.shortName ASC`;
+      query += ` LIMIT ? OFFSET ?`;
+
+      params.push(Number(limit), Number(offset));
 
       const [queryResult] = await conn.query(query, params);
 
-      return queryResult as Array<Classroom>
+      return queryResult as Array<Classroom>;
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

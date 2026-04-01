@@ -42,6 +42,7 @@ import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
 import { AccessSecurityLog } from "./MobileSecurityLog";
 import { TestToken } from "./Token";
 import { TokenReset } from "./TokenReset";
+import { ClassroomShift } from "./ClassroomShift";
 
 export const entities = [
   AccessSecurityLog,
@@ -52,6 +53,7 @@ export const entities = [
   Classroom,
   Contract,
   ClassroomCategory,
+  ClassroomShift,
   Discipline,
   Disability,
   Person,

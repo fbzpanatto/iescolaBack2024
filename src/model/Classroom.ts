@@ -8,6 +8,7 @@ import { TestClassroom } from "./TestClassroom";
 import { Alphabetic } from "./Alphabetic";
 import { StudentQuestion } from "./StudentQuestion";
 import { ReadingFluency } from "./ReadingFluency";
+import {ClassroomShift} from "./ClassroomShift";
 
 @Entity()
 export class Classroom {
@@ -17,6 +18,9 @@ export class Classroom {
 
   @Column()
   name: string
+
+  @Column({ nullable: true })
+  nickname: string
 
   @Column()
   shortName: string
@@ -29,6 +33,9 @@ export class Classroom {
 
   @ManyToOne(() => ClassroomCategory, category => category.classrooms)
   category: ClassroomCategory
+
+  @ManyToOne(() => ClassroomShift, shift => shift.classrooms, { nullable: true })
+  shift: ClassroomShift
 
   @OneToMany(() => TeacherClassDiscipline, teacherClassDiscipline => teacherClassDiscipline.classroom)
   teacherClassDiscipline: TeacherClassDiscipline[]

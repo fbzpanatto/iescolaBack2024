@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { check, checkSchema, validationResult } from 'express-validator'
+import { check, checkSchema, Schema, validationResult } from 'express-validator'
 import { YEAR_SCHEMA } from "../schemas/year";
 import { STUDENT_SCHEMA } from "../schemas/student";
 import { TEACHER_SCHEMA } from "../schemas/teacher";
@@ -9,6 +9,7 @@ import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '.
 import { STUDENT_FIRST_LEVEL_SCHEMA } from "../schemas/first-level";
 import { TRAINING_SCHEMA } from "../schemas/training";
 import { SUBMIT_TEST_SCHEMA } from "../schemas/studentTestQuestions";
+import { CLASSROOM_QUERY } from "../schemas/classroom";
 
 export const ID_PARAM = check('id').not().isEmpty().isNumeric()
 export const CLASSROOM_ID_PARAM = check('classroom').not().isEmpty().isNumeric()
@@ -16,6 +17,11 @@ export const YEAR_NAME_PARAM = check('year').not().isEmpty().isLength({ min: 4, 
 export const STUDENT_CLASSROOM_ID = check('studentClassroomId').not().isEmpty().isNumeric()
 export const STUDENT_CLASSROOM_ID_REF = check('ref').not().isEmpty().isNumeric()
 export const TEST_TOKEN = check('token').not().isEmpty().isLength({ min: 9, max: 9 })
+
+// CLASSROOM_QUERY
+export const REQUEST_CLASSROOM_QUERY = (req: Request, res: Response, next: NextFunction) => {
+  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, CLASSROOM_QUERY)
+}
 
 //STUDENT_QUESTIONANSWER
 export const VALIDATE_STUDENT_QUESTIONANSWER = checkSchema(STUDENT_QUESTIONSANSWER_SCHEMA)

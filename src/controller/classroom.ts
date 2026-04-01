@@ -2,40 +2,73 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
-import { TeacherBody } from "../interfaces/interfaces";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { qUserTeacher, TeacherBody } from "../interfaces/interfaces";
+import { PERSON_CATEGORIES as pc } from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
   constructor() { super(Classroom) }
 
-  async getAllClassrooms(request: Request) {
-    const { body } = request as { body: TeacherBody };
+  async classroomForm(_: Request) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
-      const tClasses = await this.qTeacherClassrooms(request?.body.user.user);
-      const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];
-      const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
-      const result = await this.getTeacherClassrooms(masterUser, allClassrooms) as Array<Classroom>
+      const categories = await this.qClassroomCategories()
+      const shifts = await this.qClassroomShift()
+      return { status: 200, data: { shifts, categories } };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+  }
+
+  async getClassroom(req: Request) {
+    try {
+      const result = await this.qGetClassroomFullData(Number(req.params.id))
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async getAllClassroomsByTestCategory(request: Request) {
+  async getAllClassrooms(req: Request) {
+    const { body } = req as { body: TeacherBody };
 
-    const { body } = request as { body: TeacherBody };
-    const { testCategory } = request.params;
+    const search = (req?.query.search as string) ?? "";
+    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+    const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
+
     try {
-      const qUserT = await this.qTeacherByUser(body.user.user);
-      const tClasses = await this.qTeacherClassrooms(request?.body.user.user);
-      const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];
-      const masterUser = qUserT.person.category.id === PERSON_CATEGORIES.ADMN || qUserT.person.category.id === PERSON_CATEGORIES.SUPE || qUserT.person.category.id === PERSON_CATEGORIES.FORM;
-      const qTestCategory = await this.qTestCategory(Number(testCategory))
-      const result = await this.getTeacherClassroomsByTestCategory(masterUser, allClassrooms, qTestCategory.startClassroomNumber, qTestCategory.endClassroomNumber)
+      const teacher = await this.qTeacherByUser(body.user.user);
+
+      const tClasses = await this.qTeacherClassrooms(req?.body.user.user);
+
+      const active = req.query.active === 'true'
+
+      const includeOthers = req.query.others === 'false'
+
+      const others = [1216, 1217, 1218]
+
+      const allClassrooms = includeOthers ? [...tClasses.classrooms]: [...tClasses.classrooms, ...others]
+
+      const result = await this.getTeacherClassrooms(this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+  }
+
+  async getAllClassroomsByTestCategory(req: Request) {
+
+    const { body } = req as { body: TeacherBody };
+    const { testCategory } = req.params;
+    try {
+      const teacher = await this.qTeacherByUser(body.user.user);
+      const tClasses = await this.qTeacherClassrooms(req?.body.user.user);
+      const allClassrooms = [...tClasses.classrooms, 1216, 1217, 1218];
+      const { startClassroomNumber: start, endClassroomNumber: end } = await this.qTestCategory(Number(testCategory))
+      const result = await this.getTeacherClassroomsByTestCategory(this.isMasterUser(teacher), allClassrooms, start, end)
+      return { status: 200, data: result };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+  }
+
+  isMasterUser(u: qUserTeacher) {
+    return u.person.category.id === pc.ADMN || u.person.category.id === pc.SUPE || u.person.category.id === pc.FORM;
   }
 }
 

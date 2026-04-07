@@ -1068,6 +1068,7 @@ export class Helper {
     return {
       id: res.id,
       name: res.name,
+      nickname: res.nickname,
       shortName: res.shortName,
       school: { id: res.school_id, name: res.school_name, shortName: res.school_shortName }
     } as Classroom

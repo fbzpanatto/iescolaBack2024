@@ -2473,7 +2473,7 @@ export class GenericController<T> {
       const query =
 
         `
-        SELECT c.id, c.name, c.shortName, s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName
+        SELECT c.id, c.name, c.nickname, c.shortName, s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName
         FROM classroom AS c
           INNER JOIN school AS s ON c.schoolId = s.id
         WHERE c.id = ?
@@ -4355,13 +4355,13 @@ INNER JOIN year AS y ON tr.yearId = y.id
       conn = await connectionPool.getConnection();
 
       let query = `
-          SELECT
-              classroom.id AS id,
-              classroom.shortName AS name,
-              school.shortName AS school
-          FROM classroom
-                   LEFT JOIN school ON classroom.schoolId = school.id
-          WHERE CAST(LEFT(classroom.shortName, 1) AS UNSIGNED) BETWEEN ? AND ?
+        SELECT
+          classroom.id AS id,
+          classroom.shortName AS name,
+          school.shortName AS school
+        FROM classroom
+         LEFT JOIN school ON classroom.schoolId = school.id
+        WHERE CAST(LEFT(classroom.shortName, 1) AS UNSIGNED) BETWEEN ? AND ?
       `;
       const params: any[] = [classroomStartNumber, classroomEndNumber];
 
@@ -4369,7 +4369,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
         if (allClassrooms.length === 0) { return { status: 200, data: [] }; }
         query += ` AND classroom.id IN (?)`;
         params.push(allClassrooms);
-      } else { query += ` AND classroom.id > 0` }
+      }
+      else { query += ` AND classroom.id > 0` }
 
       const [queryResult] = await conn.query(query, params);
 
@@ -4407,9 +4408,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const isProfessor = qUserTeacher.person.category.id === PERSON_CATEGORIES.PROF;
 
       if (isProfessor) {
-        if (!teacherDisciplines.disciplines || teacherDisciplines.disciplines.length === 0) {
-          return [];
-        }
+        if (!teacherDisciplines.disciplines || teacherDisciplines.disciplines.length === 0) { return [] }
         query += ` WHERE discipline.id IN (?)`;
         params.push(teacherDisciplines.disciplines);
       }
@@ -4572,6 +4571,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             d.name AS discipline_name,
             c.id AS classroom_id,
             c.name AS classroom_name,
+            c.nickname AS classroom_nickname,
             c.shortName AS classroom_shortName,
             s.id AS school_id,
             s.name AS school_name,
@@ -4646,6 +4646,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
           discipline_name,
           classroom_id,
           classroom_name,
+          classroom_nickname,
           classroom_shortName,
           school_id,
           school_name,

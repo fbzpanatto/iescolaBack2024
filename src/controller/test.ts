@@ -1,34 +1,26 @@
-import {GenericController} from "./genericController";
-import {Test} from "../model/Test";
-import {classroomController} from "./classroom";
-import {AppDataSource} from "../data-source";
-import {Period} from "../model/Period";
-import {Classroom} from "../model/Classroom";
-import {StudentClassroom} from "../model/StudentClassroom";
-import {TestQuestion} from "../model/TestQuestion";
-import {Request} from "express";
-import {QuestionGroup} from "../model/QuestionGroup";
-import {EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
-import {Year} from "../model/Year";
-import {EntityManager, EntityTarget} from "typeorm";
-import {Question} from "../model/Question";
-import {Discipline} from "../model/Discipline";
-import {Bimester} from "../model/Bimester";
-import {TestCategory} from "../model/TestCategory";
-import {ReadingFluency} from "../model/ReadingFluency";
-import {
-  AllClassrooms,
-  AlphaHeaders,
-  CityHall,
-  qReadingFluenciesHeaders,
-  qYear,
-  TestBodySave,
-  Totals
-} from "../interfaces/interfaces";
-import {Person} from "../model/Person";
-import {Skill} from "../model/Skill";
-import {Helper} from "../utils/helpers";
-import {reportController} from "./report";
+import { GenericController } from "./genericController";
+import { Test } from "../model/Test";
+import { classroomController } from "./classroom";
+import { AppDataSource } from "../data-source";
+import { Period } from "../model/Period";
+import { Classroom } from "../model/Classroom";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { TestQuestion } from "../model/TestQuestion";
+import { Request } from "express";
+import { QuestionGroup } from "../model/QuestionGroup";
+import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import { Year } from "../model/Year";
+import { EntityManager, EntityTarget } from "typeorm";
+import { Question } from "../model/Question";
+import { Discipline } from "../model/Discipline";
+import { Bimester } from "../model/Bimester";
+import { TestCategory } from "../model/TestCategory";
+import { ReadingFluency } from "../model/ReadingFluency";
+import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals } from "../interfaces/interfaces";
+import { Person } from "../model/Person";
+import { Skill } from "../model/Skill";
+import { Helper } from "../utils/helpers";
+import { reportController } from "./report";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -61,21 +53,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let data: any = {}
 
-      const checkCategoriesIds = [
-        TEST_CATEGORIES_IDS.LITE_1,
-        TEST_CATEGORIES_IDS.LITE_2,
-        TEST_CATEGORIES_IDS.LITE_3,
-        TEST_CATEGORIES_IDS.EDU_INF,
-        TEST_CATEGORIES_IDS.EDU_INF_PART
-      ]
+      const alphabeticCategories = [tcids.LITE_1, tcids.LITE_2, tcids.LITE_3, tcids.EDU_INF, tcids.EDU_INF_PART]
 
-      if(checkCategoriesIds.includes(test.category.id)) {
+      if(alphabeticCategories.includes(test.category.id)) {
         const headers = await this.qAlphabeticHeaders(test.period.year.name) as unknown as AlphaHeaders[]
         data = await this.alphabeticTest(headers, test, classroom, classroomId, tUser?.userId as number, isNaN(scId) ? null : Number(scId))
         return { status: 200, data: data };
       }
 
-      if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(test.category.id)) {
+      if([tcids.AVL_ITA, tcids.SIM_ITA].includes(test.category.id)) {
 
         await this.findAndDeleteStatusAndQuestions(testId, classroomId)
 
@@ -185,9 +171,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: data };
       }
 
-      if([TEST_CATEGORIES_IDS.READ_2, TEST_CATEGORIES_IDS.READ_3, TEST_CATEGORIES_IDS.PRO_TXT].includes(test.category.id)) {
+      if([tcids.READ_2, tcids.READ_3, tcids.PRO_TXT].includes(test.category.id)) {
 
-        const examIds = TEST_CATEGORIES_IDS.PRO_TXT === test.category.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
+        const examIds = tcids.PRO_TXT === test.category.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
 
         await this.findAndDeleteStatusAndReadingFluency(testId, classroomId)
 
@@ -206,9 +192,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         studentClassrooms = studentClassrooms.map((item: any) => {
           item.student.readingFluency = item.student.readingFluency.map((rF: ReadingFluency) => {
-            if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) {
-              return { ...rF, gray: true }
-            }
+            if(rF.rClassroom?.id && rF.rClassroom.id != classroomId) { return { ...rF, gray: true } }
             return rF
           })
           return item
@@ -384,7 +368,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const serieFilter = `${Number(qClassroom.shortName.replace(/\D/g, ""))}%`;
 
-      if([TEST_CATEGORIES_IDS.EDU_INF, TEST_CATEGORIES_IDS.LITE_1, TEST_CATEGORIES_IDS.LITE_2, TEST_CATEGORIES_IDS.LITE_3, TEST_CATEGORIES_IDS.EDU_INF_PART].includes(baseTest.category.id)) {
+      if([tcids.EDU_INF, tcids.LITE_1, tcids.LITE_2, tcids.LITE_3, tcids.EDU_INF_PART].includes(baseTest.category.id)) {
 
         const [preheaders, tests] = await Promise.all([
           this.qAlphabeticHeaders(year.name) as Promise<any[]>,
@@ -393,7 +377,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         let testQuestionsIds: number[] = []
 
-        if((baseTest.category?.id != TEST_CATEGORIES_IDS.LITE_1 && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF && baseTest.category?.id != TEST_CATEGORIES_IDS.EDU_INF_PART) && tests.length > 0) {
+        if((baseTest.category?.id != tcids.LITE_1 && baseTest.category?.id != tcids.EDU_INF && baseTest.category?.id != tcids.EDU_INF_PART) && tests.length > 0) {
           const testQuestionsArr = await Promise.all(tests.map(test => this.qTestQuestions(test.id)))
 
           for(let i = 0; i < tests.length; i++) { tests[i].testQuestions = testQuestionsArr[i]; testQuestionsIds.push(...tests[i].testQuestions.map((tq: any) => tq.id)) }
@@ -423,7 +407,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: { alphabeticHeaders: headers, ...test, classrooms: resClassrooms } };
       }
 
-      if([TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA].includes(baseTest.category.id)) {
+      if([tcids.AVL_ITA, tcids.SIM_ITA].includes(baseTest.category.id)) {
         const qTestQuestions = await this.qTestQuestions(testId) as TestQuestion[];
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
 
@@ -443,11 +427,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         let data;
 
         switch (baseTest.category?.id) {
-          case TEST_CATEGORIES_IDS.PRO_TXT:
-          case TEST_CATEGORIES_IDS.READ_2:
-          case TEST_CATEGORIES_IDS.READ_3: {
+          case tcids.PRO_TXT:
+          case tcids.READ_2:
+          case tcids.READ_3: {
 
-            const examIds = TEST_CATEGORIES_IDS.PRO_TXT === baseTest.category?.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
+            const examIds = tcids.PRO_TXT === baseTest.category?.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
 
             const [headers, test] = await Promise.all([
               this.qReadingFluencyHeaders(examIds),
@@ -584,6 +568,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           test.classrooms.push({
             id: row.classroom_id,
             name: row.classroom_name,
+            nickname: row.classroom_nickname,
             shortName: row.classroom_shortName,
             school: {
               id: row.school_id,
@@ -643,11 +628,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         if(!period) return { status: 404, message: "Período não encontrado" };
 
         const checkCategories = [
-          TEST_CATEGORIES_IDS.LITE_1,
-          TEST_CATEGORIES_IDS.LITE_2,
-          TEST_CATEGORIES_IDS.LITE_3,
-          TEST_CATEGORIES_IDS.EDU_INF,
-          TEST_CATEGORIES_IDS.EDU_INF_PART,
+          tcids.LITE_1,
+          tcids.LITE_2,
+          tcids.LITE_3,
+          tcids.EDU_INF,
+          tcids.EDU_INF_PART,
         ]
 
         if(checkCategories.includes(body.category.id)) {
@@ -688,12 +673,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await CONN.save(Test, test);
 
-        const haveQuestions = [
-          TEST_CATEGORIES_IDS.LITE_2,
-          TEST_CATEGORIES_IDS.LITE_3,
-          TEST_CATEGORIES_IDS.SIM_ITA,
-          TEST_CATEGORIES_IDS.AVL_ITA
-        ];
+        const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
 
         if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
           const testQuestions = [];

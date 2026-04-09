@@ -36,6 +36,14 @@ export enum IS_OWNER {
   NOTOWNER = '2',
 }
 
+export const CLASSROOM_CATEGORIES = {
+  PEBI: 1,
+  PEBII: 2,
+  EI: 3,
+  EIP: 4,
+  ENC: 5
+}
+
 export const EXAMS_IDS_READING = [1, 2, 3, 4, 5, 6, 7]
 
 export const EXAMS_IDS_PRODUCTION = [8, 9, 10, 11]

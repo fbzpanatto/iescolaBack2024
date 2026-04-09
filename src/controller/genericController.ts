@@ -1,70 +1,31 @@
-import {
-  DeepPartial,
-  EntityManager,
-  EntityTarget,
-  FindManyOptions,
-  FindOneOptions,
-  ObjectLiteral,
-  SaveOptions
-} from "typeorm";
-import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
-import {
-  InactiveNewClassroom,
-  qAlphabeticLevels,
-  qAlphaTests,
-  qClassroom,
-  qClassrooms,
-  qPendingTransfers,
-  qReadingFluenciesHeaders,
-  qSchools,
-  qState,
-  qStudentClassroomFormated,
-  qStudentsClassroomsForTest,
-  qStudentTests,
-  qTeacherClassrooms,
-  qTeacherDisciplines,
-  qTeacherRelationShip,
-  qTest,
-  qTestClassroom,
-  qTestQuestions,
-  qTestToken,
-  qTransferStatus,
-  qUser,
-  qUserTeacher,
-  qYear,
-  SavePerson,
-  StudentClassroomFnOptions,
-  StudentClassroomReturn,
-  TeacherParam,
-  Training,
-  TrainingResult
-} from "../interfaces/interfaces";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {ResultSetHeader} from "mysql2/promise";
-import {format} from "mysql2";
-import {Test} from "../model/Test";
-import {Transfer} from "../model/Transfer";
-import {Discipline} from "../model/Discipline";
-import {Teacher} from "../model/Teacher";
-import {ClassroomCategory} from "../model/ClassroomCategory";
-import {Contract} from "../model/Contract";
-import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
-import {TestQuestion} from "../model/TestQuestion";
-import {IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS} from "../utils/enums";
-import {connectionPool} from "../services/db";
-import {PersonCategory} from "../model/PersonCategory";
-import {Helper} from "../utils/helpers";
-import {TestToken} from "../model/Token";
-import {TestCategory} from "../model/TestCategory";
+import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
+import { AppDataSource } from "../data-source";
+import { Person } from "../model/Person";
+import { InactiveNewClassroom, qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTestToken, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, StudentClassroomFnOptions, StudentClassroomReturn, TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { ResultSetHeader } from "mysql2/promise";
+import { Test } from "../model/Test";
+import { Transfer } from "../model/Transfer";
+import { Discipline } from "../model/Discipline";
+import { Teacher } from "../model/Teacher";
+import { ClassroomCategory } from "../model/ClassroomCategory";
+import { Contract } from "../model/Contract";
+import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
+import { TestQuestion } from "../model/TestQuestion";
+import { IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS, CLASSROOM_CATEGORIES } from "../utils/enums";
+import { connectionPool } from "../services/db";
+import { PersonCategory } from "../model/PersonCategory";
+import { Helper } from "../utils/helpers";
+import { TestToken } from "../model/Token";
+import { TestCategory } from "../model/TestCategory";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 
-  async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager) {
+  async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager) {
     try {
       if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
       const result = await CONN.find(this.entity); return { status: 200, data: result }
@@ -1132,7 +1093,7 @@ export class GenericController<T> {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE observation = VALUES(observation), updatedByUser = VALUES(updatedByUser)
       `;
-      const [queryResult] = await conn.query<ResultSetHeader>(format(insertQuery), [yearId, category, month, meeting, classroom, createdByUser, createdByUser, discipline || null, observation || null])
+      const [queryResult] = await conn.query<ResultSetHeader>(insertQuery, [yearId, category, month, meeting, classroom, createdByUser, createdByUser, discipline || null, observation || null])
       await conn.commit();
       return queryResult;
     }
@@ -1157,7 +1118,7 @@ export class GenericController<T> {
         FROM alphabetic_level AS al
       `;
 
-      const [[qYearResult], [qAlphaLevelsResult]] = await Promise.all([conn.query(format(qYear), [yearName]), conn.query(format(qAlphabeticLevels), [])]);
+      const [[qYearResult], [qAlphaLevelsResult]] = await Promise.all([conn.query(qYear, [yearName]), conn.query(qAlphabeticLevels, [])]);
 
       let year = Helper.alphabeticYearHeader(qYearResult as qYear[]);
       const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[];
@@ -1189,7 +1150,7 @@ export class GenericController<T> {
           sc.endedAt = (SELECT MAX(sc2.endedAt) FROM student_classroom AS sc2 WHERE sc2.studentId = stu.id AND sc2.yearId = ?)
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId, yearId, yearId])
+      const [ queryResult ] = await conn.query(query, [studentId, yearId, yearId])
 
       return (queryResult as { [key: string]: any }[])
     }
@@ -1485,7 +1446,7 @@ export class GenericController<T> {
 
       const queryParams = [search, search, search, search, year, currentYearId, lastYearId, limit, offset];
 
-      const [rows] = await conn.query(format(query), queryParams) as Array<any>;
+      const [rows] = await conn.query(query, queryParams) as Array<any>;
       return rows;
     }
     catch (error) { console.error(error); throw error }
@@ -1504,7 +1465,7 @@ export class GenericController<T> {
         WHERE year.endedAt IS NULL AND year.active = 1
       `
 
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return (queryResult as qYear[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -1528,7 +1489,7 @@ export class GenericController<T> {
         WHERE stu.id = ? AND sc.endedAt IS NULL
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId])
+      const [ queryResult ] = await conn.query(query, [studentId])
       return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -1541,7 +1502,7 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
       const insertQuery = `INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES (?, ?, ?, ?, NOW(), ?)`
-      const [ queryResult ] = await conn.query(format(insertQuery), [studentId, classroomId, yearId, rosterNumber, createdByUser])
+      const [ queryResult ] = await conn.query(insertQuery, [studentId, classroomId, yearId, rosterNumber, createdByUser])
       await conn.commit()
       return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
     }
@@ -1558,7 +1519,7 @@ export class GenericController<T> {
           INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser)
           VALUES (NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?, ?)
       `
-      const [ queryResult ] = await conn.query(format(insertQuery), [requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
+      const [ queryResult ] = await conn.query(insertQuery, [requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
       await conn.commit()
       return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
     }
@@ -1693,7 +1654,7 @@ export class GenericController<T> {
             LIMIT 1
         `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId, testId, studentId])
+      const [ queryResult ] = await conn.query(query, [studentId, testId, studentId])
 
       return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number }[])[0]
     }
@@ -1718,7 +1679,7 @@ export class GenericController<T> {
         GROUP BY t.id
       `
 
-      const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(query, [userId])
 
       const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
 
@@ -1746,7 +1707,7 @@ export class GenericController<T> {
         GROUP BY t.id
       `
 
-      const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(query, [userId])
 
       const qTeacherClassrooms = (queryResult as qTeacherClassrooms[])[0]
 
@@ -1767,7 +1728,7 @@ export class GenericController<T> {
           WHERE tg.id = ?
         `
 
-      const [ queryResult ] = await conn.query(format(query), [testCategoryId])
+      const [ queryResult ] = await conn.query(query, [testCategoryId])
       return (queryResult as TestCategory[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -1786,7 +1747,7 @@ export class GenericController<T> {
           WHERE ts.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [statusId])
+      const [ queryResult ] = await conn.query(query, [statusId])
       return (queryResult as qTransferStatus[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -1801,7 +1762,7 @@ export class GenericController<T> {
 
       const updateQuery = `UPDATE teacher_class_discipline SET endedAt = NOW() where teacherId = ?;`
 
-      const [ queryResult ] = await conn.query(format(updateQuery), [teacherId])
+      const [ queryResult ] = await conn.query(updateQuery, [teacherId])
 
       await conn.commit()
 
@@ -1824,7 +1785,7 @@ export class GenericController<T> {
         WHERE student.ra = ? AND student.dv = ? AND DATE_FORMAT(per.birth, '%d/%m/%Y') = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [ra, dv, birthDate])
+      const [ queryResult ] = await conn.query(query, [ra, dv, birthDate])
 
       return (queryResult as { id: number, name: string, ra: string, dv: string, categoryId: number, birthDate: string }[])[0]
     }
@@ -1836,7 +1797,7 @@ export class GenericController<T> {
     let conn;
     try {
       conn = await connectionPool.getConnection();
-      const [ queryResult ] = await conn.query(format(`SELECT * FROM test WHERE id = ?`), [testId])
+      const [ queryResult ] = await conn.query(`SELECT * FROM test WHERE id = ?`, [testId])
       return (queryResult as Test[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -1926,7 +1887,7 @@ export class GenericController<T> {
 
       const idsParams = [...queryParams, limit, offset];
 
-      const [idRows] = await conn.query(format(idsQuery, idsParams));
+      const [idRows] = await conn.query(idsQuery, idsParams);
 
       const testIds = (idRows as any[]).map(row => row.test_id);
 
@@ -1963,7 +1924,7 @@ export class GenericController<T> {
         ORDER BY t.name ASC, b.name ASC
     `;
 
-      const [dataRows] = await conn.query(format(dataQuery, [testIds]));
+      const [dataRows] = await conn.query(dataQuery, [testIds]);
       return Helper.mapTestRowsToEntity(dataRows as any[]);
 
     }
@@ -1981,7 +1942,7 @@ export class GenericController<T> {
           FROM classroom_shift AS cs
         `
 
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return queryResult as { id: number, name: string }[];
     }
     catch (error) { console.error(error); throw error }
@@ -2005,7 +1966,7 @@ export class GenericController<T> {
         WHERE u.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(query, [userId])
       const data = (queryResult as any[])[0]
 
       return Helper.userTeacher(data)
@@ -2099,7 +2060,7 @@ export class GenericController<T> {
         ORDER BY t.createdAt ASC, d.name ASC;    
       `
 
-      const [ queryResult ] = await conn.query(format(query), [yearName, likeClassroom, bimesterId])
+      const [ queryResult ] = await conn.query(query, [yearName, likeClassroom, bimesterId])
       return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
     }
     catch (error) { console.error(error); throw error }
@@ -2190,7 +2151,7 @@ export class GenericController<T> {
           AND sc.classroomId = ?
     `;
 
-      const [queryResult] = await conn.query(format(updateQuery), [userId, studentClassroomId, testId, classroomId]);
+      const [queryResult] = await conn.query(updateQuery, [userId, studentClassroomId, testId, classroomId]);
       await conn.commit();
       return queryResult;
     }
@@ -2221,7 +2182,7 @@ export class GenericController<T> {
             ORDER BY p.name;
         `
 
-      const [ queryResult ] = await conn.query(format(query), [personSearch])
+      const [ queryResult ] = await conn.query(query, [personSearch])
 
       return Helper.superUsers(queryResult as { [key: string]: any }[])
     }
@@ -2310,7 +2271,7 @@ export class GenericController<T> {
         WHERE state.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [stateId])
+      const [ queryResult ] = await conn.query(query, [stateId])
       return (queryResult as qState[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -2332,7 +2293,7 @@ export class GenericController<T> {
         WHERE u.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [userId])
+      const [ queryResult ] = await conn.query(query, [userId])
       return (queryResult as qUser[])[0] as { categoryId: number, userId: number, teacherId: number }
     }
     catch (error) { console.error(error); throw error }
@@ -2351,7 +2312,7 @@ export class GenericController<T> {
         WHERE tc.testId = ? AND tc.classroomId = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId, classroomId])
+      const [ queryResult ] = await conn.query(query, [testId, classroomId])
       return (queryResult as qTestClassroom[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -2382,7 +2343,7 @@ export class GenericController<T> {
         WHERE t.id = ? AND yr.name = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId, yearName])
+      const [ queryResult ] = await conn.query(query, [testId, yearName])
       return (queryResult as qTest[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -2459,7 +2420,7 @@ export class GenericController<T> {
           INNER JOIN school AS s ON c.schoolId = s.id
           WHERE c.id = ?
         `
-      const [ queryResult ] = await conn.query(format(query), [id])
+      const [ queryResult ] = await conn.query(query, [id])
       return (queryResult as { id: number, name: string, shortName: string, shiftId: number, categoryId: number, school: string, nickname: string }[])[0]
     }
     catch (error) { console.error(error); throw error }
@@ -2479,7 +2440,7 @@ export class GenericController<T> {
         WHERE c.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [classroomId])
+      const [ queryResult ] = await conn.query(query, [classroomId])
 
       return Helper.classroom((queryResult as qClassroom[])[0])
     }
@@ -2499,7 +2460,7 @@ export class GenericController<T> {
         WHERE d.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [disciplineId])
+      const [ queryResult ] = await conn.query(query, [disciplineId])
 
       return (queryResult as Discipline[])[0]
     }
@@ -2519,7 +2480,7 @@ export class GenericController<T> {
         WHERE t.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [teacherId])
+      const [ queryResult ] = await conn.query(query, [teacherId])
 
       return (queryResult as Teacher[])[0]
     }
@@ -2548,7 +2509,7 @@ export class GenericController<T> {
         ORDER BY s.shortName
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId, [28, 29]])
+      const [ queryResult ] = await conn.query(query, [testId, [28, 29]])
       return queryResult as qSchools[]
 
     }
@@ -2571,7 +2532,7 @@ export class GenericController<T> {
         WHERE schoolId = ? AND tc.testId = ? AND c.id NOT IN (?)
       `
 
-      const [ queryResult ] = await conn.query(format(query), [schoolId, testId, [1216, 1217, 1218]])
+      const [ queryResult ] = await conn.query(query, [schoolId, testId, [1216, 1217, 1218]])
       return queryResult as qClassrooms[]
 
     }
@@ -2681,7 +2642,7 @@ export class GenericController<T> {
         WHERE rf.testId = ? AND rf.studentId = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId, studentId])
+      const [ queryResult ] = await conn.query(query, [testId, studentId])
       return queryResult as any[]
 
     }
@@ -2797,7 +2758,7 @@ export class GenericController<T> {
       WHERE tc.id = ? AND d.id = ? AND y.name = ?
     `;
 
-      const [ queryResult ] = await conn.query(format(query), [categoryId, disciplineId, yearName]);
+      const [ queryResult ] = await conn.query(query, [categoryId, disciplineId, yearName]);
       return Helper.alphabeticTests(queryResult as qAlphaTests[]);
     }
     catch (error) { console.error(error); throw error }
@@ -2831,7 +2792,7 @@ export class GenericController<T> {
             ORDER BY tq.testId, qg.id, tq.order
         `;
 
-      const [ queryResult ] = await conn.query(format(query), [testIds]);
+      const [ queryResult ] = await conn.query(query, [testIds]);
 
       return Helper.testQuestionsFormMultipleTests(queryResult as Array<any>)
     }
@@ -2865,7 +2826,7 @@ export class GenericController<T> {
         ORDER BY qg.id, tq.order
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId])
+      const [ queryResult ] = await conn.query(query, [testId])
       return Helper.testQuestions(queryResult as qTestQuestions[])
     }
     catch (error) { console.error(error); throw error }
@@ -2894,7 +2855,7 @@ export class GenericController<T> {
         ORDER BY qg.id, tq.order
       `
 
-      const [ queryResult ] = await conn.query(format(query), [testId])
+      const [ queryResult ] = await conn.query(query, [testId])
       return Helper.testQuestions(queryResult as qTestQuestions[])
     }
     catch (error) { console.error(error); throw error }
@@ -2915,7 +2876,7 @@ export class GenericController<T> {
         WHERE studentId = ? AND tt.id = ?;
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId, testId])
+      const [ queryResult ] = await conn.query(query, [studentId, testId])
 
       return queryResult as Array<{ id: number, answer: string, testQuestionId: string, studentId: number, rClassroomId: number }>
     }
@@ -2938,7 +2899,7 @@ export class GenericController<T> {
         WHERE sc.classroomId = ? AND sc.yearId = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [classroomId, yearId])
+      const [ queryResult ] = await conn.query(query, [classroomId, yearId])
       return  Helper.studentClassroom(queryResult as Array<qStudentClassroomFormated>)
 
     }
@@ -2957,7 +2918,7 @@ export class GenericController<T> {
           ON DUPLICATE KEY UPDATE alphabeticFirstId = VALUES(alphabeticFirstId), updatedByUser = VALUES(updatedByUser), updatedAt = VALUES(updatedAt)
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentId, levelId, userId, userId])
+      const [ queryResult ] = await conn.query(query, [studentId, levelId, userId, userId])
       await conn.commit()
       return queryResult as any
     }
@@ -2982,7 +2943,7 @@ export class GenericController<T> {
         WHERE teacher.id = ?
       `
 
-      const [ teacherQueryResult ] = await conn.query(format(qTeacher), [teacherId])
+      const [ teacherQueryResult ] = await conn.query(qTeacher, [teacherId])
 
       const qRelationships =
         `
@@ -2999,7 +2960,7 @@ export class GenericController<T> {
         ORDER BY classroom.shortName, school.shortName, discipline.name
       `
 
-      const [ teacherClassesDisciplines ] = (await conn.query(format(qRelationships), [teacherId]))
+      const [ teacherClassesDisciplines ] = (await conn.query(qRelationships, [teacherId]))
 
       let relationships = teacherClassesDisciplines as Array<qTeacherRelationShip>
 
@@ -3090,7 +3051,7 @@ export class GenericController<T> {
         ORDER BY student_classroom.rosterNumber, person.name
     `
 
-        const [ queryResult ] = await conn.query(format(query), [test.discipline.id, test.category.id, year, studentClassroomId, year, classroomId])
+        const [ queryResult ] = await conn.query(query, [test.discipline.id, test.category.id, year, studentClassroomId, year, classroomId])
 
         return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
       }
@@ -3148,7 +3109,7 @@ export class GenericController<T> {
       ORDER BY student_classroom.rosterNumber, person.name
     `
 
-      const [ queryResult ] = await conn.query(format(query), [test.discipline.id, test.category.id, year, year, classroomId])
+      const [ queryResult ] = await conn.query(query, [test.discipline.id, test.category.id, year, year, classroomId])
 
       return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
 
@@ -3169,7 +3130,7 @@ export class GenericController<T> {
         WHERE transfer.yearId = ? AND transfer.statusId = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [year, status])
+      const [ queryResult ] = await conn.query(query, [year, status])
       return  queryResult as Array<Transfer>
     }
     catch (error) { console.error(error); throw error }
@@ -3186,7 +3147,7 @@ export class GenericController<T> {
         WHERE t.id = ?
     `;
 
-      const [queryResult] = await conn.query(format(query), [trainingId]);
+      const [queryResult] = await conn.query(query, [trainingId]);
       return (queryResult as Array<Training>)[0]
     }
     catch (error) { console.error(error); throw error }
@@ -3636,7 +3597,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const query = `DELETE FROM training_teacher WHERE training_teacher.trainingId = ?`
 
-      const [ queryResult ] = await conn.query(format(query), [trainingId])
+      const [ queryResult ] = await conn.query(query, [trainingId])
 
       return queryResult
     }
@@ -3716,17 +3677,31 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qClassroomCategories() {
+  async qQuestionGroups() {
     let conn;
     try {
       conn = await connectionPool.getConnection();
-      const query = `SELECT id, name FROM classroom_category`
-      const [ queryResult ] = await conn.query(format(query))
+      const query = `SELECT * FROM question_group`
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<ClassroomCategory>
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
 
+  async qClassroomCategories() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const categoriesToIgnore = [CLASSROOM_CATEGORIES.ENC]
+
+      const query = `SELECT id, name FROM classroom_category WHERE id NOT IN (?)`
+      const [ queryResult ] = await conn.query(query, [categoriesToIgnore]);
+      return  queryResult as Array<ClassroomCategory>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
   }
 
   async qContracts() {
@@ -3734,13 +3709,12 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
       const query = `SELECT id, name FROM contract ORDER BY id DESC`
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<Contract>
 
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
-
   }
 
   async qTeacherTrainingStatus() {
@@ -3748,12 +3722,11 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
       const query = `SELECT id, name FROM training_teacher_status WHERE active = 1`
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<TrainingTeacherStatus>
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
-
   }
 
   async qDisciplines() {
@@ -3761,7 +3734,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
       const query = `SELECT id, name FROM discipline`
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<Discipline>
     }
     catch (error) { console.error(error); throw error }
@@ -3773,7 +3746,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
       const query = `SELECT id, name FROM training_schedules_months_references ORDER BY id`
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<{ id: number, name: string }>
     }
     catch (error) { console.error(error); throw error }
@@ -3785,7 +3758,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
       const query = `SELECT id, name FROM training_schedules_meeting ORDER BY id`
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<{ id: number, name: string }>
     }
     catch (error) { console.error(error); throw error }
@@ -3805,7 +3778,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             AND CAST(LEFT(c.shortName, 1) AS UNSIGNED) BETWEEN 0 AND 9
           ORDER BY classroom_number
       `
-      const [ queryResult ] = await conn.query(format(query))
+      const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<any>
     }
     catch (error) { console.error(error); throw error }
@@ -3832,7 +3805,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE y.id = ? AND ts.id = ? AND currentSchool.id = ?;
       `
 
-      const [ queryResult ] = await conn.query(format(query), [year, transferStatus, schoolId])
+      const [ queryResult ] = await conn.query(query, [year, transferStatus, schoolId])
       return  queryResult as Array<qPendingTransfers>
     }
     catch (error) { console.error(error); throw error }
@@ -3861,7 +3834,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       WHERE LOWER(u.email) = ?;
     `;
 
-      const [ userRows ] = await conn.query(format(userQuery), [email]);
+      const [ userRows ] = await conn.query(userQuery, [email]);
       return (userRows as Array<any>)[0];
     }
     catch (error) { console.error(error); throw error }
@@ -3888,7 +3861,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE y.id = ? AND ts.id = ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [year, transferStatus])
+      const [ queryResult ] = await conn.query(query, [year, transferStatus])
       return  queryResult as Array<qPendingTransfers>
     }
     catch (error) { console.error(error); throw error }
@@ -3910,7 +3883,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
           WHERE (per.name LIKE ? OR stu.ra LIKE ?) AND sc.yearId = ?
           LIMIT ? OFFSET ?
         `
-        const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, yearId, limit, offset])
+        const [ queryResult ] = await conn.query(query, [studentSearch, studentSearch, yearId, limit, offset])
         return queryResult as { studentClassroomId: number, studentId: number, name: string }[]
       }
 
@@ -3925,7 +3898,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         LIMIT ? OFFSET ?
       `
 
-      const [ queryResult ] = await conn.query(format(query), [studentSearch, studentSearch, classrooms, yearId, limit, offset])
+      const [ queryResult ] = await conn.query(query, [studentSearch, studentSearch, classrooms, yearId, limit, offset])
       return queryResult as { id: number, studentId: number, name: string }[]
     }
     catch (error) { console.error(error); throw error }
@@ -3960,7 +3933,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             AND sc.yearId = yr.id
       `;
 
-      const [ queryResult ] = await conn.query(format(query), [studentIds, yearId]);
+      const [ queryResult ] = await conn.query(query, [studentIds, yearId]);
 
       return queryResult as qStudentTests[];
     }
@@ -3996,7 +3969,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
             AND sc.yearId = yr.id
       `;
 
-      const [ queryResult ] = await conn.query(format(query), [studentIds, yearId]);
+      const [ queryResult ] = await conn.query(query, [studentIds, yearId]);
 
       return queryResult as qStudentTests[];
     }

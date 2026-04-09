@@ -1,5 +1,3 @@
-import { qGroupCtrl } from "./questionGroup";
-import { classCatController } from "./classroomCategory";
 import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
@@ -27,13 +25,11 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async questionForm(req: Request) {
+  async questionForm(_: Request) {
     try {
-      return await AppDataSource.transaction(async(CONN)=>{
-        const classroomCategories = (await classCatController.findAllWhere({}, req, CONN)).data;
-        const groups = (await qGroupCtrl.findAllWhere({}, req, CONN)).data;
-        return { status: 200, data: { classroomCategories, groups } };
-      })
+      const classroomCategories = await this.qClassroomCategories()
+      const groups = await this.qQuestionGroups()
+      return { status: 200, data: { classroomCategories, groups } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

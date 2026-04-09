@@ -8,7 +8,13 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import {
+  EXAMS_IDS_PRODUCTION,
+  EXAMS_IDS_READING,
+  OUTSIDERS_CLASSROOMS,
+  PERSON_CATEGORIES,
+  TEST_CATEGORIES_IDS as tcids
+} from "../utils/enums";
 import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
@@ -242,7 +248,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getFormDataByTestCategory(req: Request) {
     try {
       let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req)).data) as Array<{ id: number, name: string, school: string }>;
-      classrooms = classrooms?.filter((el: any) => ![1216,1217,1218].includes(el.id))
+      classrooms = classrooms?.filter((el: any) => !OUTSIDERS_CLASSROOMS.includes(el.id))
       return { status: 200, data: classrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -914,7 +920,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
-      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: [1216,1217,1218] })
+      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: OUTSIDERS_CLASSROOMS })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("readingFluency.test = :testId", { testId })
@@ -965,7 +971,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
     }
 
-    const result = await Promise.all(qTests.map(test => this.qLinkAlphabetics(preResultSc, test, test.testQuestions, userId)));
+    const result = await Promise.all(qTests.map(test => this.qLinkAlphabetic(preResultSc, test, test.testQuestions, userId)));
 
     testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 

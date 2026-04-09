@@ -47,3 +47,5 @@ export const CLASSROOM_CATEGORIES = {
 export const EXAMS_IDS_READING = [1, 2, 3, 4, 5, 6, 7]
 
 export const EXAMS_IDS_PRODUCTION = [8, 9, 10, 11]
+
+export const OUTSIDERS_CLASSROOMS = [1216, 1217, 1218, 1509]

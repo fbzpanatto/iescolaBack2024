@@ -13,12 +13,20 @@ import { ClassroomCategory } from "../model/ClassroomCategory";
 import { Contract } from "../model/Contract";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { TestQuestion } from "../model/TestQuestion";
-import { IS_OWNER, PERSON_CATEGORIES, TEST_CATEGORIES_IDS, CLASSROOM_CATEGORIES } from "../utils/enums";
+import {
+  IS_OWNER,
+  PERSON_CATEGORIES,
+  TEST_CATEGORIES_IDS,
+  CLASSROOM_CATEGORIES,
+  OUTSIDERS_CLASSROOMS
+} from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
 import { Helper } from "../utils/helpers";
 import { TestToken } from "../model/Token";
 import { TestCategory } from "../model/TestCategory";
+import {State} from "../model/State";
+import {Disability} from "../model/Disability";
 
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>) {}
@@ -136,7 +144,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qLinkAlphabetics(stuClassrooms: { student?: { id: number }; student_id?: number }[], test: Test, testQuestions: TestQuestion[], userId: number) {
+  async qLinkAlphabetic(stuClassrooms: { student?: { id: number }; student_id?: number }[], test: Test, testQuestions: TestQuestion[], userId: number) {
     let conn;
 
     try {
@@ -627,7 +635,7 @@ export class GenericController<T> {
       ON sts.testId = tt.id 
       AND tt.id = ?
     WHERE sts.studentClassroomId != sc_active.id 
-      AND sc_active.classroomId IN (1216, 1217, 1218)
+      AND sc_active.classroomId IN (1216, 1217, 1218, 1509)
       AND (
         -- Não tem nenhum reading_fluency OU
         NOT EXISTS (
@@ -686,7 +694,7 @@ export class GenericController<T> {
             INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id AND sc_current.classroomId = ? AND sc_current.endedAt IS NOT NULL
             INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
             INNER JOIN test tt ON sts.testId = tt.id AND tt.id = ?
-          WHERE sts.studentClassroomId != sc_active.id AND sc_active.classroomId IN (1216, 1217, 1218)
+          WHERE sts.studentClassroomId != sc_active.id AND sc_active.classroomId IN (1216, 1217, 1218, 1509)
             AND NOT EXISTS 
               (
                 SELECT 1 
@@ -2532,7 +2540,7 @@ export class GenericController<T> {
         WHERE schoolId = ? AND tc.testId = ? AND c.id NOT IN (?)
       `
 
-      const [ queryResult ] = await conn.query(query, [schoolId, testId, [1216, 1217, 1218]])
+      const [ queryResult ] = await conn.query(query, [schoolId, testId, OUTSIDERS_CLASSROOMS])
       return queryResult as qClassrooms[]
 
     }
@@ -3689,21 +3697,6 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qClassroomCategories() {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-
-      const categoriesToIgnore = [CLASSROOM_CATEGORIES.ENC]
-
-      const query = `SELECT id, name FROM classroom_category WHERE id NOT IN (?)`
-      const [ queryResult ] = await conn.query(query, [categoriesToIgnore]);
-      return  queryResult as Array<ClassroomCategory>
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
   async qContracts() {
     let conn;
     try {
@@ -3711,7 +3704,54 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const query = `SELECT id, name FROM contract ORDER BY id DESC`
       const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<Contract>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 
+  async qStates() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT * FROM state`
+      const [ queryResult ] = await conn.query(query)
+      return  queryResult as Array<State>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qDisabilities() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT ds.id, ds.name, ds.official FROM disability ds ORDER BY ds.official DESC, ds.name ASC`
+      const [ queryResult ] = await conn.query(query)
+      return  queryResult as Array<Disability>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qClassroomCategories(condition: boolean = false) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      let query: string; let queryParams: any[];
+
+      if (condition) {
+        const categoriesToIgnore = [CLASSROOM_CATEGORIES.ENC];
+        query = `SELECT id, name FROM classroom_category WHERE id NOT IN (?)`;
+        queryParams = [categoriesToIgnore];
+      } else {
+        const categoriesToInclude = [CLASSROOM_CATEGORIES.PEBI, CLASSROOM_CATEGORIES.PEBII];
+        query = `SELECT id, name FROM classroom_category WHERE id IN (?)`;
+        queryParams = [categoriesToInclude];
+      }
+
+      const [ queryResult ] = await conn.query(query, queryParams);
+      return queryResult as Array<ClassroomCategory>;
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -4156,7 +4196,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       query += `
     WHERE s.id NOT IN (28, 29)
-    AND c.id NOT IN (1216, 1217, 1218)
+    AND c.id NOT IN (1216, 1217, 1218, 1509)
     ${serieFilter ? 'AND c.shortName LIKE ?' : ''}
     AND atd.id = ?
     AND atc.id = ?
@@ -4479,7 +4519,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE 
           t.id = ?
           AND s.id NOT IN (28, 29)
-          AND c.id NOT IN (1216, 1217, 1218)
+          AND c.id NOT IN (1216, 1217, 1218, 1509)
           AND sc.yearId = ?
           AND p.yearId = ?
         ORDER BY 
@@ -4798,28 +4838,100 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async consumeTokenUsage(tokenId: number) {
-
+  async qAllTClass(masterUser: boolean, teacherId: number) {
     let conn;
-
     try {
       conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
 
-      const sql = `
-        UPDATE test_token
-        SET leftUses = leftUses - 1
-        WHERE id = ? AND leftUses > 0
+      let query: string;
+      const params: any[] = [];
+
+      if (masterUser) {
+        // Query para Super Usuários: Busca todas as salas
+        query = `
+        SELECT 
+          c.id AS id, 
+          c.shortName AS name, 
+          s.shortName AS school
+        FROM classroom AS c
+        LEFT JOIN school AS s ON c.schoolId = s.id
+        GROUP BY c.id
       `;
+      } else {
+        // Query para Professores: Busca apenas as salas onde ele leciona (sem vínculos encerrados)
+        query = `
+        SELECT 
+          c.id AS id, 
+          c.shortName AS name, 
+          s.shortName AS school
+        FROM teacher_class_discipline AS tcd
+        LEFT JOIN classroom AS c ON tcd.classroomId = c.id
+        LEFT JOIN school AS s ON c.schoolId = s.id
+        WHERE tcd.teacherId = ? AND tcd.endedAt IS NULL
+        GROUP BY c.id
+      `;
+        params.push(teacherId);
+      }
 
-      const [result]: any = await conn.query(sql, [tokenId]);
+      const [ queryResult ] = await conn.query(query, params);
 
-      if (result.affectedRows === 0) { return false }
-
-      await conn.commit();
-      return true;
+      return queryResult as Array<{ id: number, name: string, school: string }>;
     }
-    catch (error) { if (conn) { await conn.rollback(); } console.error(error); throw error }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qAllTClassTx(masterUser: boolean, teacherId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      let query: string;
+      const params: any[] = [];
+
+      if (masterUser) {
+        query = `
+      SELECT 
+        c.id AS id, 
+        c.shortName AS name, 
+        s.shortName AS school
+      FROM classroom AS c
+      LEFT JOIN school AS s ON c.schoolId = s.id
+      GROUP BY c.id
+    `;
+      } else {
+        // Usamos o placeholder (?) para a proteção do driver mysql2
+        query = `
+      SELECT 
+        c.id AS id, 
+        c.shortName AS name, 
+        s.shortName AS school
+      FROM teacher_class_discipline AS tcd
+      LEFT JOIN classroom AS c ON tcd.classroomId = c.id
+      LEFT JOIN school AS s ON c.schoolId = s.id
+      WHERE tcd.teacherId = ? AND tcd.endedAt IS NULL
+      GROUP BY c.id
+
+      UNION
+
+      SELECT 
+        c.id AS id, 
+        c.shortName AS name, 
+        s.shortName AS school
+      FROM classroom AS c
+      LEFT JOIN school AS s ON c.schoolId = s.id
+      WHERE c.id IN (?)
+    `;
+
+        // Passamos o teacherId para a primeira interrogação, e o Array para a segunda!
+        params.push(teacherId, OUTSIDERS_CLASSROOMS);
+      }
+
+      const [ queryResult ] = await conn.query(query, params);
+
+      return queryResult as Array<{ id: number, name: string, school: string }>;
+    }
+    catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 }

@@ -9,7 +9,7 @@ import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
-import { TRANSFER_STATUS } from "../utils/enums";
+import {OUTSIDERS_CLASSROOMS, TRANSFER_STATUS} from "../utils/enums";
 import { discController } from "./discipline";
 import { classroomController } from "./classroom";
 import { PERSON_CATEGORIES } from "../utils/enums";
@@ -37,7 +37,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         let schools = await CONN.getRepository(School).find();
         let contracts = await CONN.getRepository(Contract).find();
 
-        classrooms = classrooms?.filter(classroom => ![1216, 1217, 1218].includes(classroom.id))
+        classrooms = classrooms?.filter(classroom => !OUTSIDERS_CLASSROOMS.includes(classroom.id))
 
         return { status: 200, data: { disciplines, classrooms, personCategories, schools, contracts } }
       })

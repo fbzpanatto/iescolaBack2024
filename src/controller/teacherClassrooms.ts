@@ -1,100 +1,24 @@
 import { GenericController } from "./genericController";
-import { Brackets, EntityManager, EntityTarget } from "typeorm";
+import { EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
-import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { PERSON_CATEGORIES } from "../utils/enums";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
   constructor() { super(Classroom) }
 
-  async getAllTClass(request: Request, CONN?: EntityManager) {
+  async getAllTClass(request: Request) {
 
     const body = request?.body
 
     try {
-
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
-
       const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM
 
-      const fields = ['classroom.id as id', 'classroom.shortName as name', 'school.shortName as school']
-
-      if(!CONN){
-        if(masterUser) {
-          const classrooms = await AppDataSource.getRepository(Classroom)
-            .createQueryBuilder('classroom')
-            .select(fields)
-            .leftJoin('classroom.school', 'school')
-            .groupBy( 'classroom.id')
-            .getRawMany() as { id: number, name: string, school: string }[]
-
-          return { status: 200, data: classrooms };
-        }
-        else {
-          const classrooms = await AppDataSource.getRepository(TeacherClassDiscipline)
-            .createQueryBuilder('teacherClassDiscipline')
-            .select(fields)
-            .leftJoin('teacherClassDiscipline.classroom', 'classroom')
-            .leftJoin('classroom.school', 'school')
-            .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-            .where('teacher.id = :id', { id: qUserTeacher.id })
-            .andWhere(new Brackets(qb => { if(!masterUser) { qb.andWhere('teacherClassDiscipline.endedAt IS NULL') } }))
-            .groupBy( 'classroom.id')
-            .getRawMany() as { id: number, name: string, school: string }[]
-
-          return { status: 200, data: classrooms };
-        }
-      }
-
-      if(masterUser) {
-
-        const classrooms = await CONN.getRepository(Classroom)
-          .createQueryBuilder('classroom')
-          .select(fields)
-          .leftJoin('classroom.school', 'school')
-          .groupBy( 'classroom.id')
-          .getRawMany() as { id: number, name: string, school: string }[]
-
-        return { status: 200, data: classrooms };
-      }
-      else {
-
-        let classrooms = await CONN.getRepository(TeacherClassDiscipline)
-          .createQueryBuilder('teacherClassDiscipline')
-          .select(fields)
-          .leftJoin('teacherClassDiscipline.classroom', 'classroom')
-          .leftJoin('classroom.school', 'school')
-          .leftJoin('teacherClassDiscipline.teacher', 'teacher')
-          .where('teacher.id = :id', { id: qUserTeacher.id })
-          .andWhere(new Brackets(qb => { if(!masterUser) { qb.andWhere('teacherClassDiscipline.endedAt IS NULL') } }))
-          .groupBy( 'classroom.id')
-          .getRawMany() as { id: number, name: string, school: string }[]
-
-        const OtherClassrooms = [
-          {
-            id: 1216,
-            name: 'OUTRA REDE PEBI',
-            school: 'OUTRA REDE DE ENSINO'
-          },
-          {
-            id: 1217,
-            name: 'OUTRA REDE PEBII',
-            school: 'OUTRA REDE DE ENSINO'
-          },
-          {
-            id: 1218,
-            name: 'EJA',
-            school: 'EJA'
-          }
-        ]
-
-        classrooms = [...classrooms!, ...OtherClassrooms]
-
-        return { status: 200, data: classrooms };
-      }
+      const classrooms = await this.qAllTClass(masterUser, qUserTeacher.id)
+      return { status: 200, data: classrooms };
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }

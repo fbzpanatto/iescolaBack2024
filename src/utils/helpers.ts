@@ -1117,6 +1117,7 @@ export class Helper {
           id: row.classroom_id,
           name: row.classroom_name,
           shortName: row.classroom_shortName,
+          nickname: row.classroom_nickname,
           school: {
             id: row.school_id,
             name: row.school_name,

@@ -1214,6 +1214,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         id: c.id,
         name: c.name,
         shortName: c.shortName,
+        nickname: c.nickname,
         school: c.school,
         totals
       }

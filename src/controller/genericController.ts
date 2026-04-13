@@ -4097,6 +4097,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       c.id AS classroom_id,
       c.name AS classroom_name,
       c.shortName AS classroom_shortName,
+      c.nickname AS classroom_nickname,
       
       -- StudentClassroom
       sc.id AS studentClassroom_id,

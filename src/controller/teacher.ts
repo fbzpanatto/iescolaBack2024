@@ -9,10 +9,10 @@ import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
 import { StudentClassroom } from "../model/StudentClassroom";
-import {OUTSIDERS_CLASSROOMS, TRANSFER_STATUS} from "../utils/enums";
+import {OUTSIDERS_CLASSROOMS, ROLE_PERMISSIONS, TRANSFER_STATUS} from "../utils/enums";
 import { discController } from "./discipline";
 import { classroomController } from "./classroom";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { PERSON_CATEGORIES as pc } from "../utils/enums";
 import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../services/email";
 import { generatePassword } from "../utils/generatePassword";
@@ -55,11 +55,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const qTeacherClasses = await this.qTeacherClassrooms(body.user.user);
       let response: {}[] = [];
 
-      if([PERSON_CATEGORIES.ADMN].includes(qUserTeacher.person.category.id)) {
+      if([pc.ADMN].includes(qUserTeacher.person.category.id)) {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search, true) } : { status: 200, data: [] };
       }
 
-      if([PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM].includes(qUserTeacher.person.category.id)) {
+      if([pc.SUPE, pc.FORM].includes(qUserTeacher.person.category.id)) {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
       }
 
@@ -68,7 +68,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
 
       if(option === 2) {
-        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, PERSON_CATEGORIES.PROF, search);
+        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, pc.PROF, search);
       }
 
       return { status: 200, data: response };
@@ -84,7 +84,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
       const qUserTeacherClasses = await this.qTeacherClassrooms(body.user.user)
 
-      const cannotChange = [PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.PROF];
+      const cannotChange = [pc.MONI, pc.PROF];
 
       if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
@@ -92,7 +92,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
       const qTeacherClassrooms = qTeacher.teacherClassesDisciplines.map(el => el.classroomId)
 
-      if(![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.SUPE].includes(qUserTeacher.person.category.id) ) {
+      if(![pc.ADMN, pc.FORM, pc.SUPE].includes(qUserTeacher.person.category.id) ) {
         const condition = qUserTeacherClasses.classrooms.some(el => qTeacherClassrooms.includes(el))
         if(!condition) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
       }
@@ -139,7 +139,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
         if (!this.canChange(qUserTeacher.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
 
-        if (qUserTeacher.person.category.id === PERSON_CATEGORIES.PROF || (qUserTeacher.person.category.id === PERSON_CATEGORIES.MONI && qUserTeacher.id !== teacher.id)) {
+        if (qUserTeacher.person.category.id === pc.PROF || (qUserTeacher.person.category.id === pc.MONI && qUserTeacher.id !== teacher.id)) {
           return { status: 403, message: "Você não tem permissão para editar este registro." };
         }
 
@@ -150,7 +150,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         teacher.updatedByUser = qUserTeacher.person.user.id;
         teacher.observation = body.observation;
 
-        if (teacher.person.category.id != PERSON_CATEGORIES.ADMN && teacher.person.category.id != PERSON_CATEGORIES.SUPE && teacher.person.category.id != PERSON_CATEGORIES.FORM && teacher.school === null) {
+        if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.FORM && teacher.school === null) {
 
           teacher.school = { id: Number(body.school) } as School
         }
@@ -204,13 +204,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const targetCategory = Number(body.category);
 
     const MASTER_ROLES = [
-      Number(PERSON_CATEGORIES.DIRE),
-      Number(PERSON_CATEGORIES.VICE),
-      Number(PERSON_CATEGORIES.COOR)
+      Number(pc.DIRE),
+      Number(pc.VICE),
+      Number(pc.COOR)
     ];
 
     const isTargetMaster = MASTER_ROLES.includes(targetCategory);
-    const isTargetProfessor = targetCategory === Number(PERSON_CATEGORIES.PROF);
+    const isTargetProfessor = targetCategory === Number(pc.PROF);
 
     if (isTargetMaster) {
 
@@ -258,13 +258,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const currentCategory = Number(teacher.person.category.id);
 
     const MASTER_ROLES = [
-      Number(PERSON_CATEGORIES.DIRE),
-      Number(PERSON_CATEGORIES.VICE),
-      Number(PERSON_CATEGORIES.COOR)
+      Number(pc.DIRE),
+      Number(pc.VICE),
+      Number(pc.COOR)
     ];
 
     const isBecomingMaster = MASTER_ROLES.includes(targetCategory) && targetCategory !== currentCategory;
-    const isDemotingToTeacher = targetCategory === Number(PERSON_CATEGORIES.PROF) && MASTER_ROLES.includes(currentCategory);
+    const isDemotingToTeacher = targetCategory === Number(pc.PROF) && MASTER_ROLES.includes(currentCategory);
 
     if (isBecomingMaster || isDemotingToTeacher) { return await this.changeTeacherMasterSchool(body, teacher, CONN) }
 
@@ -343,9 +343,9 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
 
         if (
-          body.category.id === PERSON_CATEGORIES.DIRE || body.category.id === PERSON_CATEGORIES.VICE ||
-          body.category.id === PERSON_CATEGORIES.COOR || body.category.id === PERSON_CATEGORIES.SECR ||
-          body.category.id === PERSON_CATEGORIES.MONI
+          body.category.id === pc.DIRE || body.category.id === pc.VICE ||
+          body.category.id === pc.COOR || body.category.id === pc.SECR ||
+          body.category.id === pc.MONI
         ) {
           const disciplines = await CONN.getRepository(Discipline).find();
           const classrooms = await CONN.getRepository(Classroom).find({ where: { school: { id: body.school } } });
@@ -361,7 +361,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
           if (relationsToSave.length > 0) await CONN.save(TeacherClassDiscipline, relationsToSave);
         }
 
-        if (body.category.id === PERSON_CATEGORIES.PROF) {
+        if (body.category.id === pc.PROF) {
           const relationsToSave = body.teacherClassesDisciplines.map(rel => {
             const saveData = { teacher: teacher, classroom: { id: rel.classroomId }, discipline: { id: rel.disciplineId }, startedAt: new Date() };
             if(rel.contract && (rel.contract === 1 || rel.contract === 2)) { Object.assign(saveData, { contract: { id: rel.contract } as Contract }) }
@@ -404,36 +404,20 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   methods(teacher: Teacher, CONN: EntityManager, body: TeacherBody) {
     return {
-      [PERSON_CATEGORIES.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [PERSON_CATEGORIES.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [PERSON_CATEGORIES.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [PERSON_CATEGORIES.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [PERSON_CATEGORIES.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [PERSON_CATEGORIES.COOR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [PERSON_CATEGORIES.SECR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [PERSON_CATEGORIES.MONI]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [PERSON_CATEGORIES.PROF]: async () => await this.updateTeacherClassesAndDisciplines(teacher, CONN, body)
+      [pc.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
+      [pc.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
+      [pc.COOR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
+      [pc.SECR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
+      [pc.MONI]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
+      [pc.PROF]: async () => await this.updateTeacherClassesAndDisciplines(teacher, CONN, body)
     }
   }
 
   private canChange(uCategory: number, tCategory: number): boolean {
-
-    const permissions: Record<number, number[]> = {
-      [PERSON_CATEGORIES.SECR]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI],
-
-      [PERSON_CATEGORIES.COOR]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR],
-
-      [PERSON_CATEGORIES.VICE]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.COOR],
-
-      [PERSON_CATEGORIES.DIRE]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE],
-
-      [PERSON_CATEGORIES.SUPE]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.FORM],
-
-      [PERSON_CATEGORIES.ADMN]: [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.FORM, PERSON_CATEGORIES.SUPE]
-    };
-
-    const allowedTargets = permissions[uCategory];
-
+    const allowedTargets = ROLE_PERMISSIONS[uCategory];
     return allowedTargets ? allowedTargets.includes(tCategory) : false;
   }
 }

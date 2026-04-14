@@ -49,3 +49,19 @@ export const EXAMS_IDS_READING = [1, 2, 3, 4, 5, 6, 7]
 export const EXAMS_IDS_PRODUCTION = [8, 9, 10, 11]
 
 export const OUTSIDERS_CLASSROOMS = [1216, 1217, 1218, 1509]
+
+const level1 = [PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.MONI];
+const level2 = [...level1, PERSON_CATEGORIES.SECR];
+const level3 = [...level2, PERSON_CATEGORIES.COOR];
+const level4 = [...level3, PERSON_CATEGORIES.VICE];
+const level5 = [...level4, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.FORM];
+const level6 = [...level5, PERSON_CATEGORIES.SUPE];
+
+export const ROLE_PERMISSIONS: Record<number, number[]> = {
+  [PERSON_CATEGORIES.SECR]: level1,
+  [PERSON_CATEGORIES.COOR]: level2,
+  [PERSON_CATEGORIES.VICE]: level3,
+  [PERSON_CATEGORIES.DIRE]: level4,
+  [PERSON_CATEGORIES.SUPE]: level5,
+  [PERSON_CATEGORIES.ADMN]: level6
+};

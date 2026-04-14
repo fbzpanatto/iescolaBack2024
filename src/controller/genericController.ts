@@ -1835,7 +1835,7 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async listTestsSql(req: Request, masterUser: boolean, teacherClasses: { classrooms: number[] }) {
+  async listTestsSql(req: Request, isSupeEI: boolean, masterUser: boolean, teacherClasses: { classrooms: number[] }) {
 
     let conn;
 
@@ -1870,6 +1870,10 @@ export class GenericController<T> {
           whereConditions.push("c.id IN (?)");
           queryParams.push(teacherClasses.classrooms);
         } else { return [] }
+      } else {
+        if (isSupeEI) {
+          whereConditions.push(`c.categoryId = ${CLASSROOM_CATEGORIES.EI}`);
+        }
       }
 
       if (bimesterId) {
@@ -1887,34 +1891,34 @@ export class GenericController<T> {
         : '';
 
       const idsQuery = `
-        WITH RankedTests AS (
-          SELECT
-            t.id AS test_id,
-            t.name AS test_name,
-            t.categoryId AS category_id,
-            b.name AS bimester_name,
-            ROW_NUMBER() OVER (
-              PARTITION BY t.categoryId, t.disciplineId, c.id, y.name
-              ORDER BY b.id DESC
-              ) AS rn
-          FROM test t
-           LEFT JOIN period per ON t.periodId = per.id
-           LEFT JOIN year y ON per.yearId = y.id
-           LEFT JOIN bimester b ON per.bimesterId = b.id
-           LEFT JOIN discipline d ON t.disciplineId = d.id
-           LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
-           LEFT JOIN classroom c ON tc_join.classroomId = c.id
-          ${whereClause}
-          )
-          SELECT DISTINCT
-            test_id,
-            test_name,
-            bimester_name
-          FROM RankedTests
-          WHERE (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1) OR (category_id NOT IN (${DIAGNOSTIC_CATEGORIES}) OR category_id IS NULL)
-          ORDER BY test_name ASC, bimester_name ASC
-          LIMIT ? OFFSET ?
-      `;
+      WITH RankedTests AS (
+        SELECT
+          t.id AS test_id,
+          t.name AS test_name,
+          t.categoryId AS category_id,
+          b.name AS bimester_name,
+          ROW_NUMBER() OVER (
+            PARTITION BY t.categoryId, t.disciplineId, c.id, y.name
+            ORDER BY b.id DESC
+            ) AS rn
+        FROM test t
+         LEFT JOIN period per ON t.periodId = per.id
+         LEFT JOIN year y ON per.yearId = y.id
+         LEFT JOIN bimester b ON per.bimesterId = b.id
+         LEFT JOIN discipline d ON t.disciplineId = d.id
+         LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+         LEFT JOIN classroom c ON tc_join.classroomId = c.id
+        ${whereClause}
+        )
+        SELECT DISTINCT
+          test_id,
+          test_name,
+          bimester_name
+        FROM RankedTests
+        WHERE (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1) OR (category_id NOT IN (${DIAGNOSTIC_CATEGORIES}) OR category_id IS NULL)
+        ORDER BY test_name ASC, bimester_name ASC
+        LIMIT ? OFFSET ?
+    `;
 
       const idsParams = [...queryParams, limit, offset];
 
@@ -1925,35 +1929,35 @@ export class GenericController<T> {
       if (testIds.length === 0) { return [] }
 
       const dataQuery = `
-        SELECT
-          t.id AS test_id, t.name AS test_name, t.active AS test_active, t.hideAnswers AS test_hideAnswers, t.createdAt AS test_createdAt,
-          p.id AS person_id, p.name AS person_name,
-          per.id AS period_id,
-          y.id AS year_id, y.name AS year_name,
-          b.id AS bimester_id, b.name AS bimester_name,
-            
-            CASE
-                WHEN t.name LIKE '%DIAGNÓSTICA%' THEN 'TODOS'
-                ELSE b.testName
-                END AS bimester_testName,
+      SELECT
+        t.id AS test_id, t.name AS test_name, t.active AS test_active, t.hideAnswers AS test_hideAnswers, t.createdAt AS test_createdAt,
+        p.id AS person_id, p.name AS person_name,
+        per.id AS period_id,
+        y.id AS year_id, y.name AS year_name,
+        b.id AS bimester_id, b.name AS bimester_name,
+          
+          CASE
+              WHEN t.name LIKE '%DIAGNÓSTICA%' THEN 'TODOS'
+              ELSE b.testName
+              END AS bimester_testName,
 
-            cat.id AS category_id, cat.name AS category_name,
-            d.id AS discipline_id, d.name AS discipline_name,
-            c.id AS classroom_id, c.name AS classroom_name, c.shortName AS classroom_shortName,
-            s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep
-        FROM test t
-           LEFT JOIN person p ON t.personId = p.id
-           LEFT JOIN period per ON t.periodId = per.id
-           LEFT JOIN year y ON per.yearId = y.id
-           LEFT JOIN bimester b ON per.bimesterId = b.id
-           LEFT JOIN test_category cat ON t.categoryId = cat.id
-           LEFT JOIN discipline d ON t.disciplineId = d.id
-           LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
-           LEFT JOIN classroom c ON tc_join.classroomId = c.id
-           LEFT JOIN school s ON c.schoolId = s.id
-        WHERE t.id IN (?)
-        ORDER BY t.name ASC, b.name ASC
-    `;
+          cat.id AS category_id, cat.name AS category_name,
+          d.id AS discipline_id, d.name AS discipline_name,
+          c.id AS classroom_id, c.name AS classroom_name, c.shortName AS classroom_shortName,
+          s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep
+      FROM test t
+         LEFT JOIN person p ON t.personId = p.id
+         LEFT JOIN period per ON t.periodId = per.id
+         LEFT JOIN year y ON per.yearId = y.id
+         LEFT JOIN bimester b ON per.bimesterId = b.id
+         LEFT JOIN test_category cat ON t.categoryId = cat.id
+         LEFT JOIN discipline d ON t.disciplineId = d.id
+         LEFT JOIN test_classroom tc_join ON t.id = tc_join.testId
+         LEFT JOIN classroom c ON tc_join.classroomId = c.id
+         LEFT JOIN school s ON c.schoolId = s.id
+      WHERE t.id IN (?)
+      ORDER BY t.name ASC, b.name ASC
+  `;
 
       const [dataRows] = await conn.query(dataQuery, [testIds]);
       return Helper.mapTestRowsToEntity(dataRows as any[]);

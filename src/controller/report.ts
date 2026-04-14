@@ -32,7 +32,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM, PER_CAT.SUPE_EI];
       const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);
 
-      const data = await this.listTestsSql(req, masterUser, teacherClasses);
+      const isSupeEI = teacher.person.category.id === PER_CAT.SUPE_EI;
+
+      const data = await this.listTestsSql(req, isSupeEI, masterUser, teacherClasses);
       return { status: 200, data };
     }
     catch (error: any) {

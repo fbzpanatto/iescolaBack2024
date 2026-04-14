@@ -43,6 +43,21 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     ]
   },
   {
+    category: PER_CAT.SUPE_EI,
+    permissions: [
+      { entity: "classroom", methods: onlyGET },
+      { entity: "teacher", methods: onlyGET },
+      { entity: "student", methods: onlyGET },
+      { entity: "transfer", methods: onlyGET },
+      { entity: "test", methods: onlyGET },
+      { entity: "year", methods: onlyGET },
+      { entity: "report", methods: onlyGET },
+      { entity: "personcategory", methods: onlyGET },
+      { entity: "studentquestion", methods: onlyGET },
+      { entity: "history", methods: onlyGET }
+    ]
+  },
+  {
     category: PER_CAT.FORM,
     permissions: [
       { entity: "classroom", methods: onlyGET },

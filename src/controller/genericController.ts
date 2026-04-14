@@ -1,30 +1,62 @@
-import { DeepPartial, EntityManager, EntityTarget, FindManyOptions, FindOneOptions, ObjectLiteral, SaveOptions } from "typeorm";
-import { AppDataSource } from "../data-source";
-import { Person } from "../model/Person";
-import { InactiveNewClassroom, qAlphabeticLevels, qAlphaTests, qClassroom, qClassrooms, qPendingTransfers, qReadingFluenciesHeaders, qSchools, qState, qStudentClassroomFormated, qStudentsClassroomsForTest, qStudentTests, qTeacherClassrooms, qTeacherDisciplines, qTeacherRelationShip, qTest, qTestClassroom, qTestQuestions, qTestToken, qTransferStatus, qUser, qUserTeacher, qYear, SavePerson, StudentClassroomFnOptions, StudentClassroomReturn, TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
-import { Classroom } from "../model/Classroom";
-import { Request } from "express";
-import { ResultSetHeader } from "mysql2/promise";
-import { Test } from "../model/Test";
-import { Transfer } from "../model/Transfer";
-import { Discipline } from "../model/Discipline";
-import { Teacher } from "../model/Teacher";
-import { ClassroomCategory } from "../model/ClassroomCategory";
-import { Contract } from "../model/Contract";
-import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
-import { TestQuestion } from "../model/TestQuestion";
 import {
-  IS_OWNER,
-  PER_CAT,
-  TEST_CATEGORIES_IDS,
-  CLASSROOM_CATEGORIES,
-  OUT_CLASSROOMS
-} from "../utils/enums";
-import { connectionPool } from "../services/db";
-import { PersonCategory } from "../model/PersonCategory";
-import { Helper } from "../utils/helpers";
-import { TestToken } from "../model/Token";
-import { TestCategory } from "../model/TestCategory";
+  DeepPartial,
+  EntityManager,
+  EntityTarget,
+  FindManyOptions,
+  FindOneOptions,
+  ObjectLiteral,
+  SaveOptions
+} from "typeorm";
+import {AppDataSource} from "../data-source";
+import {Person} from "../model/Person";
+import {
+  InactiveNewClassroom,
+  qAlphabeticLevels,
+  qAlphaTests,
+  qClassroom,
+  qClassrooms,
+  qPendingTransfers,
+  qReadingFluenciesHeaders,
+  qSchools,
+  qState,
+  qStudentClassroomFormated,
+  qStudentsClassroomsForTest,
+  qStudentTests,
+  qTeacherClassrooms,
+  qTeacherDisciplines,
+  qTeacherRelationShip,
+  qTest,
+  qTestClassroom,
+  qTestQuestions,
+  qTestToken,
+  qTransferStatus,
+  qUser,
+  qUserTeacher,
+  qYear,
+  SavePerson,
+  StudentClassroomFnOptions,
+  StudentClassroomReturn,
+  TeacherParam,
+  Training,
+  TrainingResult
+} from "../interfaces/interfaces";
+import {Classroom} from "../model/Classroom";
+import {Request} from "express";
+import {ResultSetHeader} from "mysql2/promise";
+import {Test} from "../model/Test";
+import {Transfer} from "../model/Transfer";
+import {Discipline} from "../model/Discipline";
+import {Teacher} from "../model/Teacher";
+import {ClassroomCategory} from "../model/ClassroomCategory";
+import {Contract} from "../model/Contract";
+import {TrainingTeacherStatus} from "../model/TrainingTeacherStatus";
+import {TestQuestion} from "../model/TestQuestion";
+import {CLASSROOM_CATEGORIES, IS_OWNER, OUT_CLASSROOMS, PER_CAT, TEST_CATEGORIES_IDS} from "../utils/enums";
+import {connectionPool} from "../services/db";
+import {PersonCategory} from "../model/PersonCategory";
+import {Helper} from "../utils/helpers";
+import {TestToken} from "../model/Token";
+import {TestCategory} from "../model/TestCategory";
 import {State} from "../model/State";
 import {Disability} from "../model/Disability";
 
@@ -1192,14 +1224,13 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async studentsClassroomsNewImplementation(options: StudentClassroomFnOptions, masterUser: boolean, limit: number, offset: number) {
+  async studentsClassroomsNewImplementation(options: StudentClassroomFnOptions, masterUser: boolean, isSuperEI: boolean, limit: number, offset: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
 
       let yearName = options?.year;
 
-      // Fallback: Se não vier ano, busca o último ano ativo no banco
       if (!yearName || yearName.length !== 4) {
         const [yearResult] = await conn.query(
           `SELECT name FROM year WHERE active = 1 ORDER BY id DESC LIMIT 1`
@@ -1213,44 +1244,28 @@ export class GenericController<T> {
       const params: any[] = [];
       const searchOriginal = options.search || '';
 
-      // --- LÓGICA DE DETECÇÃO DE SALA (REGEX) ---
-      // Procura por padrão de sala: Número(s) seguido de Letra(s), isolado por espaços ou início/fim de string.
-      // Ex: "2A", "10B", "9C"
       const classroomRegex = /\b(\d+[A-Za-z]+)\b/;
       const match = searchOriginal.match(classroomRegex);
 
       let specificClassroomFilter = "";
       let searchTermCleaned = searchOriginal;
 
-      // Se encontrou algo como '2A', '3B', etc.
       if (match) {
-        const foundClassroom = match[0]; // Ex: "2A"
+        const foundClassroom = match[0];
 
-        // Remove a sala do termo de busca original para buscar o nome da pessoa "limpo"
-        // Ex: "Maria 2A" vira "Maria "
         searchTermCleaned = searchOriginal.replace(foundClassroom, '').trim();
 
-        // Adiciona um filtro específico para a sala encontrada
         specificClassroomFilter = ` AND c.shortName LIKE ? `;
       }
-      // -------------------------------------------
 
-      // 1. Parâmetro do Ano
       params.push(yearName);
 
-      // 2. Parâmetros da Busca (Search)
       const searchParam = `%${searchTermCleaned}%`;
 
-      // Adicionamos os parâmetros para a busca textual (Nome, RA, Escola...)
       params.push(searchParam, searchParam, searchParam, searchParam, searchParam);
 
-      // Se detectamos uma sala específica via Regex, adicionamos ela aos parâmetros agora
-      if (specificClassroomFilter) {
-        // Usa LIKE com % para garantir que encontre mesmo se houver variação (ex: " 2A ")
-        params.push(`%${match![0]}%`);
-      }
+      if (specificClassroomFilter) { params.push(`%${match![0]}%`) }
 
-      // 3. Filtros de Sala (Permissões do Professor/Master)
       let classroomPermissionSQL = "";
       const teacherClassroomIds = options.teacherClasses?.classrooms || [];
 
@@ -1263,84 +1278,77 @@ export class GenericController<T> {
         }
         else if (isOwner) { classroomPermissionSQL = `AND 1 = 0` }
       }
-      else {
-        if (isOwner && teacherClassroomIds.length > 0) {
-          const placeholders = teacherClassroomIds.map(() => '?').join(',');
-          classroomPermissionSQL = `AND c.id IN (${placeholders})`;
-          params.push(...teacherClassroomIds);
-        }
-      }
+      else { if (isSuperEI) { classroomPermissionSQL = ` AND c.categoryId = ${CLASSROOM_CATEGORIES.EI}` } }
 
-      // 4. Paginação
       params.push(limit, offset);
 
       const query = `
-        SELECT 
-          sc.id AS studentClassroom_id, 
-          sc.startedAt AS studentClassroom_startedAt, 
-          
-          s.id AS student_id, 
-          s.ra AS student_ra, 
-          s.dv AS student_dv, 
-          
-          st.id AS state_id, 
-          st.acronym AS state_acronym, 
-          
-          p.id AS person_id, 
-          p.name AS person_name, 
-          p.birth AS person_birth, 
-          
-          c.id AS classroom_id, 
-          c.shortName AS classroom_shortName, 
-          
-          sch.id AS school_id, 
-          sch.shortName AS school_shortName, 
-          
-          t.id AS transfers_id, 
-          t.startedAt AS transfers_startedAt, 
-          
-          tp.name AS requesterPerson_name, 
-          ts.name AS transfersStatus_name, 
-          
-          rc.shortName AS requestedClassroom_shortName, 
-          rcs.shortName AS requestedClassroomSchool_shortName
-    
-        FROM student s
-          LEFT JOIN person p ON s.personId = p.id
-          LEFT JOIN state st ON s.stateId = st.id
-          
-          LEFT JOIN transfer t ON s.id = t.studentId AND t.endedAt IS NULL
-          LEFT JOIN transfer_status ts ON t.statusId = ts.id
-          LEFT JOIN classroom rc ON t.requestedClassroomId = rc.id
-          LEFT JOIN school rcs ON rc.schoolId = rcs.id
-          LEFT JOIN teacher rq ON t.requesterId = rq.id
-          LEFT JOIN person tp ON rq.personId = tp.id
-          
-          LEFT JOIN student_classroom sc ON s.id = sc.studentId AND sc.endedAt IS NULL
-          LEFT JOIN classroom c ON sc.classroomId = c.id
-          LEFT JOIN school sch ON c.schoolId = sch.id
-          LEFT JOIN year y ON sc.yearId = y.id
-    
-        WHERE y.name = ?
-          AND (
-            p.name COLLATE utf8mb4_unicode_ci LIKE ? 
-            OR s.ra LIKE ? 
-            OR c.shortName LIKE ? 
-            OR sch.name LIKE ? 
-            OR sch.shortName LIKE ?
-          )
-          ${specificClassroomFilter} 
-          ${classroomPermissionSQL}
-    
-        ORDER BY 
-          ts.id DESC, 
-          sch.shortName ASC, 
-          c.shortName ASC, 
-          sc.rosterNumber ASC, 
-          p.name ASC
+      SELECT 
+        sc.id AS studentClassroom_id, 
+        sc.startedAt AS studentClassroom_startedAt, 
         
-        LIMIT ? OFFSET ?
-      `;
+        s.id AS student_id, 
+        s.ra AS student_ra, 
+        s.dv AS student_dv, 
+        
+        st.id AS state_id, 
+        st.acronym AS state_acronym, 
+        
+        p.id AS person_id, 
+        p.name AS person_name, 
+        p.birth AS person_birth, 
+        
+        c.id AS classroom_id, 
+        c.shortName AS classroom_shortName, 
+        
+        sch.id AS school_id, 
+        sch.shortName AS school_shortName, 
+        
+        t.id AS transfers_id, 
+        t.startedAt AS transfers_startedAt, 
+        
+        tp.name AS requesterPerson_name, 
+        ts.name AS transfersStatus_name, 
+        
+        rc.shortName AS requestedClassroom_shortName, 
+        rcs.shortName AS requestedClassroomSchool_shortName
+  
+      FROM student s
+        LEFT JOIN person p ON s.personId = p.id
+        LEFT JOIN state st ON s.stateId = st.id
+        
+        LEFT JOIN transfer t ON s.id = t.studentId AND t.endedAt IS NULL
+        LEFT JOIN transfer_status ts ON t.statusId = ts.id
+        LEFT JOIN classroom rc ON t.requestedClassroomId = rc.id
+        LEFT JOIN school rcs ON rc.schoolId = rcs.id
+        LEFT JOIN teacher rq ON t.requesterId = rq.id
+        LEFT JOIN person tp ON rq.personId = tp.id
+        
+        LEFT JOIN student_classroom sc ON s.id = sc.studentId AND sc.endedAt IS NULL
+        LEFT JOIN classroom c ON sc.classroomId = c.id
+        LEFT JOIN school sch ON c.schoolId = sch.id
+        LEFT JOIN year y ON sc.yearId = y.id
+  
+      WHERE y.name = ?
+        AND (
+          p.name COLLATE utf8mb4_unicode_ci LIKE ? 
+          OR s.ra LIKE ? 
+          OR c.shortName LIKE ? 
+          OR sch.name LIKE ? 
+          OR sch.shortName LIKE ?
+        )
+        ${specificClassroomFilter} 
+        ${classroomPermissionSQL}
+  
+      ORDER BY 
+        ts.id DESC, 
+        sch.shortName ASC, 
+        c.shortName ASC, 
+        sc.rosterNumber ASC, 
+        p.name ASC
+      
+      LIMIT ? OFFSET ?
+    `;
 
       const [rows] = await conn.query(query, params);
 
@@ -1692,6 +1700,21 @@ export class GenericController<T> {
       const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
 
       return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qTeacherClassroomsEI() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection()
+      const query = `SELECT classroom.id FROM classroom where classroom.categoryId = ?;`
+      const [ queryResult ] = await conn.query(query, [CLASSROOM_CATEGORIES.EI])
+
+      const ids = (queryResult as Array<{ id: number }>).map(item => item.id);
+
+      return { id: undefined, personCategoryId: undefined, classrooms: ids }
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

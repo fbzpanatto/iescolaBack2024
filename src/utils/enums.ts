@@ -28,8 +28,11 @@ export const PER_CAT = {
   MONI: 7,
   PROF: 8,
   ALUN: 9,
-  FORM: 10
+  FORM: 10,
+  SUPE_EI: 11,
 }
+
+export const MASTER_USER = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM]
 
 export enum IS_OWNER {
   OWNER = '1',
@@ -55,7 +58,7 @@ const level2 = [...level1, PER_CAT.SECR];
 const level3 = [...level2, PER_CAT.COOR];
 const level4 = [...level3, PER_CAT.VICE];
 const level5 = [...level4, PER_CAT.DIRE, PER_CAT.FORM];
-const level6 = [...level5, PER_CAT.SUPE];
+const level6 = [...level5, PER_CAT.SUPE, PER_CAT.SUPE_EI];
 
 export const ROLE_PERMISSIONS: Record<number, number[]> = {
   [PER_CAT.SECR]: level1,
@@ -63,5 +66,29 @@ export const ROLE_PERMISSIONS: Record<number, number[]> = {
   [PER_CAT.VICE]: level3,
   [PER_CAT.DIRE]: level4,
   [PER_CAT.SUPE]: level5,
+  [PER_CAT.SUPE_EI]: level5,
   [PER_CAT.ADMN]: level6
+};
+
+const excludeBase = [PER_CAT.ALUN];
+const excludeSupe = [...excludeBase, PER_CAT.ADMN];
+const excludeForm = [...excludeSupe, PER_CAT.SUPE, PER_CAT.SUPE_EI];
+const excludeDire = [...excludeForm, PER_CAT.FORM];
+const excludeVice = [...excludeDire, PER_CAT.DIRE];
+const excludeCoor = [...excludeVice, PER_CAT.VICE];
+const excludeSecr = [...excludeCoor, PER_CAT.COOR];
+const excludeMoni = [...excludeSecr, PER_CAT.SECR, PER_CAT.PROF];
+const excludeProf = [...excludeSecr, PER_CAT.SECR, PER_CAT.MONI];
+
+export const EXCLUDED_CATEGORIES_BY_ROLE: Record<number, number[]> = {
+  [PER_CAT.ADMN]: excludeBase,
+  [PER_CAT.SUPE]: excludeSupe,
+  [PER_CAT.SUPE_EI]: excludeSupe,
+  [PER_CAT.FORM]: excludeForm,
+  [PER_CAT.DIRE]: excludeDire,
+  [PER_CAT.VICE]: excludeVice,
+  [PER_CAT.COOR]: excludeCoor,
+  [PER_CAT.SECR]: excludeSecr,
+  [PER_CAT.MONI]: excludeMoni,
+  [PER_CAT.PROF]: excludeProf,
 };

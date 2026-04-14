@@ -59,7 +59,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search, true) } : { status: 200, data: [] };
       }
 
-      if([pc.SUPE, pc.FORM].includes(qUserTeacher.person.category.id)) {
+      if([pc.SUPE_EI, pc.SUPE, pc.FORM].includes(qUserTeacher.person.category.id)) {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
       }
 
@@ -92,7 +92,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
       const qTeacherClassrooms = qTeacher.teacherClassesDisciplines.map(el => el.classroomId)
 
-      if(![pc.ADMN, pc.FORM, pc.SUPE].includes(qUserTeacher.person.category.id) ) {
+      if(![pc.ADMN, pc.FORM, pc.SUPE, pc.SUPE_EI].includes(qUserTeacher.person.category.id) ) {
         const condition = qUserTeacherClasses.classrooms.some(el => qTeacherClassrooms.includes(el))
         if(!condition) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
       }
@@ -150,7 +150,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
         teacher.updatedByUser = qUserTeacher.person.user.id;
         teacher.observation = body.observation;
 
-        if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.FORM && teacher.school === null) {
+        if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.SUPE_EI && teacher.person.category.id != pc.FORM && teacher.school === null) {
 
           teacher.school = { id: Number(body.school) } as School
         }
@@ -406,6 +406,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return {
       [pc.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
       [pc.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
+      [pc.SUPE_EI]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
       [pc.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
       [pc.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
       [pc.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),

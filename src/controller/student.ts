@@ -4,7 +4,7 @@ import {EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
 import {Student} from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {PersonCategory} from "../model/PersonCategory";
-import {OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS} from "../utils/enums";
+import {IS_OWNER, MASTER_USER, OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS} from "../utils/enums";
 import {StudentDisability} from "../model/StudentDisability";
 import {Disability} from "../model/Disability";
 import {State} from "../model/State";
@@ -221,17 +221,17 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
       const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
-      const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
+      const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.SUPE_EI || qUserTeacher.person.category.id === pc.FORM
+      const isSuperEI = qUserTeacher.person.category.id === pc.SUPE_EI
 
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
       const options = { search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }
 
-      const studentsClassrooms = await this.studentsClassroomsNewImplementation(options, masterTeacher, limit, offset);
+      const studentsClassrooms = await this.studentsClassroomsNewImplementation(options, masterTeacher, isSuperEI, limit, offset);
 
       return { status: 200, data: studentsClassrooms }
-
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }

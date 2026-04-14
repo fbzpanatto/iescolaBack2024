@@ -29,7 +29,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const teacher = await this.qTeacherByUser(req.body.user.user);
       const teacherClasses = await this.qTeacherClassrooms(req.body.user.user);
 
-      const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM];
+      const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM, PER_CAT.SUPE_EI];
       const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);
 
       const data = await this.listTestsSql(req, masterUser, teacherClasses);

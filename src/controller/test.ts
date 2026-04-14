@@ -8,13 +8,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import {
-  EXAMS_IDS_PRODUCTION,
-  EXAMS_IDS_READING,
-  OUTSIDERS_CLASSROOMS,
-  PERSON_CATEGORIES,
-  TEST_CATEGORIES_IDS as tcids
-} from "../utils/enums";
+import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, OUTSIDERS_CLASSROOMS, PERSON_CATEGORIES, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
 import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";

@@ -3,7 +3,7 @@ import {EntityTarget} from "typeorm";
 import {Classroom} from "../model/Classroom";
 import {Request} from "express";
 import {qUserTeacher, TeacherBody} from "../interfaces/interfaces";
-import {OUTSIDERS_CLASSROOMS, PERSON_CATEGORIES as pc} from "../utils/enums";
+import {OUT_CLASSROOMS, PER_CAT as pc} from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -42,7 +42,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const includeOthers = req.query.others === 'false'
 
-      const allClassrooms = includeOthers ? [...tClasses.classrooms]: [...tClasses.classrooms, ...(OUTSIDERS_CLASSROOMS)]
+      const allClassrooms = includeOthers ? [...tClasses.classrooms]: [...tClasses.classrooms, ...(OUT_CLASSROOMS)]
 
       const result = await this.getTeacherClassrooms(this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
       return { status: 200, data: result };
@@ -57,7 +57,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     try {
       const teacher = await this.qTeacherByUser(body.user.user);
       const tClasses = await this.qTeacherClassrooms(req?.body.user.user);
-      const allClassrooms = [...tClasses.classrooms, ...OUTSIDERS_CLASSROOMS];
+      const allClassrooms = [...tClasses.classrooms, ...OUT_CLASSROOMS];
       const { startClassroomNumber: start, endClassroomNumber: end } = await this.qTestCategory(Number(testCategory))
       const result = await this.getTeacherClassroomsByTestCategory(this.isMasterUser(teacher), allClassrooms, start, end)
       return { status: 200, data: result };

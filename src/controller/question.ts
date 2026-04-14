@@ -3,7 +3,7 @@ import { EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { PER_CAT } from "../utils/enums";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
   constructor() { super(Question) }
@@ -16,7 +16,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
         const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
-        const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
+        const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
         const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
 
         return { status: 200, data: { isOwner: qUserTeacher.person.id === question?.person.id || masterUser } };

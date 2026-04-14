@@ -10,7 +10,7 @@ import { TransferStatus } from '../model/TransferStatus';
 import { Teacher } from "../model/Teacher";
 import { transferEmail } from "../services/email";
 import { Student } from "../model/Student";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { PER_CAT } from "../utils/enums";
 import { Year } from "../model/Year";
 import {connectionPool} from "../services/db";
 import {format} from "mysql2";
@@ -234,7 +234,7 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           where: { id: Number(transferId), status: { id: TRANSFER_STATUS.PENDING }, endedAt: IsNull() }
         })
 
-        const isAdmin = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN;
+        const isAdmin = qUserTeacher.person.category.id === PER_CAT.ADMN;
 
         if (!currTransfer) return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' }
 
@@ -242,11 +242,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
           return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' }
         }
 
-        if(body.reject && ![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.reject && ![PER_CAT.ADMN, PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar a RECUSA de uma solicitação de transferência.' }
         }
 
-        if(body.accept && ![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
+        if(body.accept && ![PER_CAT.ADMN, PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'O seu cargo não permite realizar o ACEITE de uma solicitação de transferência.' }
         }
 

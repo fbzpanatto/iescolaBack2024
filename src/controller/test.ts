@@ -8,7 +8,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, OUTSIDERS_CLASSROOMS, PERSON_CATEGORIES, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, OUT_CLASSROOMS, PER_CAT, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
 import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
@@ -39,7 +39,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
       const tUser = await this.qUser(req?.body.user.user)
-      const masterUser = tUser?.categoryId === PERSON_CATEGORIES.ADMN || tUser?.categoryId === PERSON_CATEGORIES.SUPE || tUser?.categoryId === PERSON_CATEGORIES.FORM;
+      const masterUser = tUser?.categoryId === PER_CAT.ADMN || tUser?.categoryId === PER_CAT.SUPE || tUser?.categoryId === PER_CAT.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
@@ -242,7 +242,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getFormDataByTestCategory(req: Request) {
     try {
       let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req)).data) as Array<{ id: number, name: string, school: string }>;
-      classrooms = classrooms?.filter((el: any) => !OUTSIDERS_CLASSROOMS.includes(el.id))
+      classrooms = classrooms?.filter((el: any) => !OUT_CLASSROOMS.includes(el.id))
       return { status: 200, data: classrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -255,7 +255,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
       const qUt = await this.qTeacherByUser(req.body.user.user)
-      const masterUser = qUt.person.category.id === PERSON_CATEGORIES.ADMN || qUt.person.category.id === PERSON_CATEGORIES.SUPE || qUt.person.category.id === PERSON_CATEGORIES.FORM
+      const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.FORM
 
       const qClassroom = await this.qClassroom(Number(classroom))
       if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
@@ -355,7 +355,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qUt = await this.qTeacherByUser(req.body.user.user)
 
-      const masterUser = qUt.person.category.id === PERSON_CATEGORIES.ADMN || qUt.person.category.id === PERSON_CATEGORIES.SUPE || qUt.person.category.id === PERSON_CATEGORIES.FORM
+      const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.FORM
 
       const baseTest = Helper.testFormater(await this.qTestByIdAndYear(Number(testId), year.name))
 
@@ -479,7 +479,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
 
-      if(![PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.DIRE, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.SECR].includes(qUserTeacher.person.category.id)) {
+      if(![PER_CAT.ADMN, PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR].includes(qUserTeacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
       }
 
@@ -516,9 +516,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const qUserTeacher = await this.qTeacherByUser(req.body.user.user);
 
       const masterTeacher =
-        qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN ||
-        qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE ||
-        qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
+        qUserTeacher.person.category.id === PER_CAT.ADMN ||
+        qUserTeacher.person.category.id === PER_CAT.SUPE ||
+        qUserTeacher.person.category.id === PER_CAT.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user);
       const { disciplines } = await this.qTeacherDisciplines(req?.body.user.user);
@@ -591,7 +591,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     try {
       return await AppDataSource.transaction(async(CONN) => {
         const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
-        const masterUser = qUserTeacher.person.category.id === PERSON_CATEGORIES.ADMN || qUserTeacher.person.category.id === PERSON_CATEGORIES.SUPE || qUserTeacher.person.category.id === PERSON_CATEGORIES.FORM;
+        const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
         if(qUserTeacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
@@ -614,7 +614,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
-        if([PERSON_CATEGORIES.MONI, PERSON_CATEGORIES.SECR, PERSON_CATEGORIES.PROF, PERSON_CATEGORIES.COOR, PERSON_CATEGORIES.VICE, PERSON_CATEGORIES.DIRE].includes(qUserTeacher.person.category.id)) {
+        if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
           return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
         }
 
@@ -734,9 +734,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return await AppDataSource.transaction(async (CONN) => {
         const uTeacher = await this.qTeacherByUser(req.body.user.user)
         const userId = uTeacher.person.user.id
-        const masterUser = uTeacher.person.category.id === PERSON_CATEGORIES.ADMN ||
-          uTeacher.person.category.id === PERSON_CATEGORIES.SUPE ||
-          uTeacher.person.category.id === PERSON_CATEGORIES.FORM;
+        const masterUser = uTeacher.person.category.id === PER_CAT.ADMN ||
+          uTeacher.person.category.id === PER_CAT.SUPE ||
+          uTeacher.person.category.id === PER_CAT.FORM;
 
         const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
         if(!test) return { status: 404, message: "Teste não encontrado" }
@@ -914,7 +914,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoinAndSelect("student.person", "studentPerson")
       .leftJoin("studentClassroom.year", "studentClassroomYear")
       .where("test.id = :testId", { testId })
-      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: OUTSIDERS_CLASSROOMS })
+      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: OUT_CLASSROOMS })
       .andWhere("periodYear.id = :yearId", { yearId })
       .andWhere("studentClassroomYear.id = :yearId", { yearId })
       .andWhere("readingFluency.test = :testId", { testId })

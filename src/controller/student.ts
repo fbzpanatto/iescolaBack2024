@@ -4,7 +4,7 @@ import {EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
 import {Student} from "../model/Student";
 import {AppDataSource} from "../data-source";
 import {PersonCategory} from "../model/PersonCategory";
-import {OUTSIDERS_CLASSROOMS, PERSON_CATEGORIES as pc, TRANSFER_STATUS} from "../utils/enums";
+import {OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS} from "../utils/enums";
 import {StudentDisability} from "../model/StudentDisability";
 import {Disability} from "../model/Disability";
 import {State} from "../model/State";
@@ -185,7 +185,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         const classroom = await CONN.findOne(Classroom, { where: { id: newClassroom.id } }) as Classroom
         const oldClassInDb = await CONN.findOne(Classroom, { where: { id: oldClassroom.id } }) as Classroom
 
-        if(!OUTSIDERS_CLASSROOMS.includes(classroom.id)) {
+        if(!OUT_CLASSROOMS.includes(classroom.id)) {
           if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
         }
 
@@ -588,7 +588,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const newNumber: number = Number(bodyClass.shortName.replace(/\D/g, ""))
           const oldNumber: number  = Number(stClass.classroom.shortName.replace(/\D/g, ""))
 
-          if(!isNaN(newNumber) && !isNaN(oldNumber) && !OUTSIDERS_CLASSROOMS.includes(bodyClass.id)) {
+          if(!isNaN(newNumber) && !isNaN(oldNumber) && !OUT_CLASSROOMS.includes(bodyClass.id)) {
             if (newNumber < oldNumber) { return { status: 404, message: 'Regressão de sala não é permitido.' }}
           }
 

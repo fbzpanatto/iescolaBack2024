@@ -27,7 +27,7 @@ import { TESTCATEGORY } from "../mock/testCategory";
 import { QUESTION_GROUP } from "../mock/questionGroup";
 import { QuestionGroup } from "../model/QuestionGroup";
 import { Teacher } from "../model/Teacher";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { PER_CAT } from "../utils/enums";
 import { generatePassword } from "../utils/generatePassword";
 import { credentialsEmail } from "../services/email";
 import { ReadingFluencyExam } from "../model/ReadingFluencyExam";
@@ -72,7 +72,7 @@ async function createAdminUser(person: Person) {
 
 async function createAdminPerson() {
   const adminCategorySource = new dataSourceController(PersonCategory).entity
-  const adminCategory = await adminCategorySource.findOneBy({ id: PERSON_CATEGORIES.ADMN }) as PersonCategory
+  const adminCategory = await adminCategorySource.findOneBy({ id: PER_CAT.ADMN }) as PersonCategory
   const personSource = new dataSourceController(Person).entity
   const person = new Person()
   person.name = 'Administrador'

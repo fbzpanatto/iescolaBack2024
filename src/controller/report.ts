@@ -6,7 +6,7 @@ import { Request } from "express";
 import { Helper } from "../utils/helpers";
 import { testController } from "./test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
-import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PERSON_CATEGORIES } from "../utils/enums";
+import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PER_CAT } from "../utils/enums";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -29,7 +29,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       const teacher = await this.qTeacherByUser(req.body.user.user);
       const teacherClasses = await this.qTeacherClassrooms(req.body.user.user);
 
-      const MASTER_CATEGORIES = [PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM];
+      const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM];
       const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);
 
       const data = await this.listTestsSql(req, masterUser, teacherClasses);

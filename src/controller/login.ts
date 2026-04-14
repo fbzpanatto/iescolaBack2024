@@ -5,7 +5,7 @@ import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload, decode } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
-import { PERSON_CATEGORIES as pc } from "../utils/enums";
+import { PER_CAT as pc } from "../utils/enums";
 import { TRANSFER_STATUS as ts } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";

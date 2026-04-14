@@ -5,7 +5,7 @@ import { Bimester } from "../model/Bimester";
 import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
-import { PERSON_CATEGORIES } from "../utils/enums";
+import { PER_CAT } from "../utils/enums";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TRANSFER_STATUS } from "../utils/enums";
 import { Transfer } from "../model/Transfer";
@@ -30,7 +30,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       return await AppDataSource.transaction(async(CONN)=> {
 
         const qUserTeacher = await this.qTeacherByUser(body.user.user)
-        const canCreate = [PERSON_CATEGORIES.ADMN]
+        const canCreate = [PER_CAT.ADMN]
         if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
         const yearExists = await this.checkIfExists(body, CONN)
         if (yearExists && yearExists.name === body.name) { return { status: 404, message: `O ano ${body.name} já existe.` } }

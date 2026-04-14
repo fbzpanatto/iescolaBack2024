@@ -15,10 +15,10 @@ import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { TestQuestion } from "../model/TestQuestion";
 import {
   IS_OWNER,
-  PERSON_CATEGORIES,
+  PER_CAT,
   TEST_CATEGORIES_IDS,
   CLASSROOM_CATEGORIES,
-  OUTSIDERS_CLASSROOMS
+  OUT_CLASSROOMS
 } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { PersonCategory } from "../model/PersonCategory";
@@ -2544,7 +2544,7 @@ export class GenericController<T> {
         WHERE schoolId = ? AND tc.testId = ? AND c.id NOT IN (?)
       `
 
-      const [ queryResult ] = await conn.query(query, [schoolId, testId, OUTSIDERS_CLASSROOMS])
+      const [ queryResult ] = await conn.query(query, [schoolId, testId, OUT_CLASSROOMS])
       return queryResult as qClassrooms[]
 
     }
@@ -4423,7 +4423,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         FROM discipline
       `;
       const params: any[] = [];
-      const isProfessor = qUserTeacher.person.category.id === PERSON_CATEGORIES.PROF;
+      const isProfessor = qUserTeacher.person.category.id === PER_CAT.PROF;
 
       if (isProfessor) {
         if (!teacherDisciplines.disciplines || teacherDisciplines.disciplines.length === 0) { return [] }
@@ -4929,7 +4929,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     `;
 
         // Passamos o teacherId para a primeira interrogação, e o Array para a segunda!
-        params.push(teacherId, OUTSIDERS_CLASSROOMS);
+        params.push(teacherId, OUT_CLASSROOMS);
       }
 
       const [ queryResult ] = await conn.query(query, params);

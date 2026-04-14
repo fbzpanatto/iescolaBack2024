@@ -4565,7 +4565,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qfindAllByYearNewImplementation(masterTeacher: boolean, yearName: string, classrooms: number[], disciplines: number[], bimesterId: number | null, disciplineId: number | null, search: string, limit: number, offset: number){
+  async qfindAllByYearNewImplementation(isSuperEI: boolean, masterTeacher: boolean, yearName: string, classrooms: number[], disciplines: number[], bimesterId: number | null, disciplineId: number | null, search: string, limit: number, offset: number){
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -4595,55 +4595,63 @@ INNER JOIN year AS y ON tr.yearId = y.id
       // -------------------------------------------
 
       let query = `
-        WITH RankedTests AS (
-        SELECT
-            t.id AS test_id,
-            t.name AS test_name,
-            p.id AS period_id,
-            tc.id AS category_id,
-            tc.name AS category_name,
-            y.id AS year_id,
-            y.name AS year_name,
-            y.active AS year_active,
-            b.id AS bimester_id,
-            b.name AS bimester_name,
-            b.testName AS bimester_test_name,
-            d.id AS discipline_id,
-            d.name AS discipline_name,
-            c.id AS classroom_id,
-            c.name AS classroom_name,
-            c.nickname AS classroom_nickname,
-            c.shortName AS classroom_shortName,
-            s.id AS school_id,
-            s.name AS school_name,
-            s.shortName AS school_shortName,
-            ROW_NUMBER() OVER (
-                PARTITION BY tc.id, d.id, c.id, y.name
-                ORDER BY b.id DESC
-            ) AS rn
-        FROM test t
-            INNER JOIN period p ON t.periodId = p.id
-            INNER JOIN test_category tc ON t.categoryId = tc.id
-            INNER JOIN year y ON p.yearId = y.id
-            INNER JOIN bimester b ON p.bimesterId = b.id
-            INNER JOIN discipline d ON t.disciplineId = d.id
-            INNER JOIN test_classroom test_c ON t.id = test_c.testId
-            INNER JOIN classroom c ON test_c.classroomId = c.id
-            INNER JOIN school s ON c.schoolId = s.id
-      WHERE y.name = ?`;
+      WITH RankedTests AS (
+      SELECT
+          t.id AS test_id,
+          t.name AS test_name,
+          p.id AS period_id,
+          tc.id AS category_id,
+          tc.name AS category_name,
+          y.id AS year_id,
+          y.name AS year_name,
+          y.active AS year_active,
+          b.id AS bimester_id,
+          b.name AS bimester_name,
+          b.testName AS bimester_test_name,
+          d.id AS discipline_id,
+          d.name AS discipline_name,
+          c.id AS classroom_id,
+          c.name AS classroom_name,
+          c.nickname AS classroom_nickname,
+          c.shortName AS classroom_shortName,
+          s.id AS school_id,
+          s.name AS school_name,
+          s.shortName AS school_shortName,
+          ROW_NUMBER() OVER (
+              PARTITION BY tc.id, d.id, c.id, y.name
+              ORDER BY b.id DESC
+          ) AS rn
+      FROM test t
+          INNER JOIN period p ON t.periodId = p.id
+          INNER JOIN test_category tc ON t.categoryId = tc.id
+          INNER JOIN year y ON p.yearId = y.id
+          INNER JOIN bimester b ON p.bimesterId = b.id
+          INNER JOIN discipline d ON t.disciplineId = d.id
+          INNER JOIN test_classroom test_c ON t.id = test_c.testId
+          INNER JOIN classroom c ON test_c.classroomId = c.id
+          INNER JOIN school s ON c.schoolId = s.id
+    WHERE y.name = ?`;
 
       const params: any[] = [yearName];
 
-      if (!masterTeacher && classrooms.length > 0) {
-        const classroomPlaceholders = classrooms.map(() => '?').join(',');
-        query += ` AND c.id IN (${classroomPlaceholders})`;
-        params.push(...classrooms);
-      }
+      // Bloco If/Else para separação clara de papéis
+      if (!masterTeacher) {
+        // Regras de Professores
+        if (classrooms.length > 0) {
+          const classroomPlaceholders = classrooms.map(() => '?').join(',');
+          query += ` AND c.id IN (${classroomPlaceholders})`;
+          params.push(...classrooms);
+        }
 
-      if (!masterTeacher && disciplines.length > 0) {
-        const disciplinePlaceholders = disciplines.map(() => '?').join(',');
-        query += ` AND d.id IN (${disciplinePlaceholders})`;
-        params.push(...disciplines);
+        if (disciplines.length > 0) {
+          const disciplinePlaceholders = disciplines.map(() => '?').join(',');
+          query += ` AND d.id IN (${disciplinePlaceholders})`;
+          params.push(...disciplines);
+        }
+      } else {
+        if (isSuperEI) {
+          query += ` AND c.categoryId = ${CLASSROOM_CATEGORIES.EI}`;
+        }
       }
 
       if (bimesterId) {
@@ -4658,51 +4666,54 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (searchTermCleaned && searchTermCleaned.trim() !== '') {
         query += ` AND (
-          t.name COLLATE utf8mb4_unicode_ci LIKE ? 
-          OR c.shortName COLLATE utf8mb4_unicode_ci LIKE ? 
-          OR s.name COLLATE utf8mb4_unicode_ci LIKE ? 
-          OR s.shortName COLLATE utf8mb4_unicode_ci LIKE ?
-        )`;
+        t.name COLLATE utf8mb4_unicode_ci LIKE ? 
+        OR c.shortName COLLATE utf8mb4_unicode_ci LIKE ? 
+        OR s.name COLLATE utf8mb4_unicode_ci LIKE ? 
+        OR s.shortName COLLATE utf8mb4_unicode_ci LIKE ?
+      )`;
         const searchPattern = `%${searchTermCleaned}%`;
         params.push(searchPattern, searchPattern, searchPattern, searchPattern);
       }
 
-      if (specificClassroomFilter) { query += specificClassroomFilter; params.push(`%${match![0]}%`) }
+      if (specificClassroomFilter) {
+        query += specificClassroomFilter;
+        params.push(`%${match![0]}%`);
+      }
 
       query += `
-        )
-        SELECT DISTINCT
-          test_id,
-          test_name,
-          period_id,
-          category_id,
-          category_name,
-          year_id,
-          year_name,
-          year_active,
-          bimester_id,
-          bimester_name,
-          bimester_test_name,
-          discipline_id,
-          discipline_name,
-          classroom_id,
-          classroom_name,
-          classroom_nickname,
-          classroom_shortName,
-          school_id,
-          school_name,
-          school_shortName
-        FROM RankedTests
-        WHERE 
-          (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1)
-          OR category_id NOT IN (${DIAGNOSTIC_CATEGORIES})
-        ORDER BY 
-          test_name ASC,
-          school_shortName ASC,
-          classroom_shortName ASC,
-          bimester_name DESC
-        LIMIT ? OFFSET ?
-      `;
+      )
+      SELECT DISTINCT
+        test_id,
+        test_name,
+        period_id,
+        category_id,
+        category_name,
+        year_id,
+        year_name,
+        year_active,
+        bimester_id,
+        bimester_name,
+        bimester_test_name,
+        discipline_id,
+        discipline_name,
+        classroom_id,
+        classroom_name,
+        classroom_nickname,
+        classroom_shortName,
+        school_id,
+        school_name,
+        school_shortName
+      FROM RankedTests
+      WHERE 
+        (category_id IN (${DIAGNOSTIC_CATEGORIES}) AND rn = 1)
+        OR category_id NOT IN (${DIAGNOSTIC_CATEGORIES})
+      ORDER BY 
+        test_name ASC,
+        school_shortName ASC,
+        classroom_shortName ASC,
+        bimester_name DESC
+      LIMIT ? OFFSET ?
+    `;
 
       params.push(limit, offset);
 

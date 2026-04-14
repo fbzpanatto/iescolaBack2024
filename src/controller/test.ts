@@ -8,7 +8,14 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import { QuestionGroup } from "../model/QuestionGroup";
-import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, OUT_CLASSROOMS, PER_CAT, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import {
+  EXAMS_IDS_PRODUCTION,
+  EXAMS_IDS_READING,
+  OUT_CLASSROOMS,
+  PER_CAT as pc,
+  PER_CAT,
+  TEST_CATEGORIES_IDS as tcids
+} from "../utils/enums";
 import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
@@ -518,7 +525,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const masterTeacher =
         qUserTeacher.person.category.id === PER_CAT.ADMN ||
         qUserTeacher.person.category.id === PER_CAT.SUPE ||
+        qUserTeacher.person.category.id === PER_CAT.SUPE_EI ||
         qUserTeacher.person.category.id === PER_CAT.FORM;
+
+      const isSuperEI = qUserTeacher.person.category.id === pc.SUPE_EI
 
       const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user);
       const { disciplines } = await this.qTeacherDisciplines(req?.body.user.user);
@@ -526,6 +536,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const testsMap = new Map<number, any>();
 
       const rows = await this.qfindAllByYearNewImplementation(
+        isSuperEI,
         masterTeacher,
         yearName,
         classrooms,

@@ -46,7 +46,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
       const tUser = await this.qUser(req?.body.user.user)
-      const masterUser = tUser?.categoryId === PER_CAT.ADMN || tUser?.categoryId === PER_CAT.SUPE || tUser?.categoryId === PER_CAT.FORM;
+      const masterUser = tUser?.categoryId === PER_CAT.ADMN || tUser?.categoryId === PER_CAT.SUPE || tUser?.categoryId === PER_CAT.SUPE_EI || tUser?.categoryId === PER_CAT.FORM;
 
       const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
@@ -362,7 +362,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qUt = await this.qTeacherByUser(req.body.user.user)
 
-      const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.FORM
+      const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.SUPE_EI || qUt.person.category.id === PER_CAT.FORM
 
       const baseTest = Helper.testFormater(await this.qTestByIdAndYear(Number(testId), year.name))
 

@@ -42,9 +42,11 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const includeOthers = req.query.others === 'false'
 
+      const isSuperEI = teacher.person.category.id === pc.SUPE_EI
+
       const allClassrooms = includeOthers ? [...tClasses.classrooms]: [...tClasses.classrooms, ...(OUT_CLASSROOMS)]
 
-      const result = await this.getTeacherClassrooms(this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
+      const result = await this.getTeacherClassrooms(isSuperEI, this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
@@ -66,7 +68,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   }
 
   isMasterUser(u: qUserTeacher) {
-    return u.person.category.id === pc.ADMN || u.person.category.id === pc.SUPE || u.person.category.id === pc.FORM;
+    return u.person.category.id === pc.ADMN || u.person.category.id === pc.SUPE || u.person.category.id === pc.SUPE_EI || u.person.category.id === pc.FORM;
   }
 }
 

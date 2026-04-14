@@ -4286,72 +4286,57 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async getTeacherClassrooms(masterUser: boolean, allClassrooms: number[], search: string, limit: number, offset: number, active: boolean) {
+  async getTeacherClassrooms(isSuperEI: boolean, masterUser: boolean, allClassrooms: number[], search: string, limit: number, offset: number, active: boolean) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
 
       if (!masterUser && allClassrooms.length === 0) { return { status: 200, data: [] } }
 
-      // 1. Inicia o SELECT base
       let query = `
-      SELECT
-        classroom.id AS id,
-        classroom.shortName AS name,
-        classroom.nickname AS nickname,
-        school.shortName AS school
-    `;
+        SELECT
+          classroom.id AS id,
+          classroom.shortName AS name,
+          classroom.nickname AS nickname,
+          school.shortName AS school
+        `;
 
-      // 2. Adiciona a coluna de contagem e o nome do turno SE active for true
       if (active) {
         query += `,
-        classroom_shift.name AS shift,
-        (SELECT COUNT(sc.id) 
-         FROM student_classroom sc 
-         WHERE sc.classroomId = classroom.id 
-           AND sc.startedAt IS NOT NULL 
-           AND sc.endedAt IS NULL
+          classroom_shift.name AS shift,
+          (SELECT COUNT(sc.id) 
+           FROM student_classroom sc 
+           WHERE sc.classroomId = classroom.id 
+             AND sc.startedAt IS NOT NULL 
+             AND sc.endedAt IS NULL
         ) AS activeStudentsCount
-      `;
+        `;
       }
 
-      // 3. Adiciona o FROM e o JOIN fixo da escola
-      query += `
-      FROM classroom 
-      LEFT JOIN school ON classroom.schoolId = school.id
-    `;
+      query += ` FROM classroom LEFT JOIN school ON classroom.schoolId = school.id`;
 
-      // 4. Adiciona o JOIN condicional do Turno (Shift) SE active for true
-      if (active) {
-        query += `
-        LEFT JOIN classroom_shift ON classroom.shiftId = classroom_shift.id
-      `;
-      }
+      if (active) { query += ` LEFT JOIN classroom_shift ON classroom.shiftId = classroom_shift.id` }
 
-      // 5. Inicia as condições
       query += ` WHERE 1=1 `;
 
       const params: any[] = [];
 
-      // Filtro de permissões do professor
-      if (!masterUser) { query += ` AND classroom.id IN (?)`; params.push(allClassrooms) }
+      if (!masterUser) {
+        query += ` AND classroom.id IN (?)`;
+        params.push(allClassrooms);
+      }
+      else { if (isSuperEI) { query += ` AND classroom.categoryId = ${CLASSROOM_CATEGORIES.EI}` } }
 
-      // ==========================================
-      // FILTRO: Salas com alunos ativos
-      // ==========================================
       if (active) {
-        // O EXISTS é mantido aqui porque ele é extremamente rápido para filtrar as linhas,
-        // enquanto o COUNT lá em cima apenas calcula o valor para as linhas que passaram no filtro.
         query += ` AND EXISTS (
-      SELECT 1 
-      FROM student_classroom sc 
-      WHERE sc.classroomId = classroom.id 
-        AND sc.startedAt IS NOT NULL 
-        AND sc.endedAt IS NULL
-      )`;
+          SELECT 1 
+          FROM student_classroom sc 
+          WHERE sc.classroomId = classroom.id 
+            AND sc.startedAt IS NOT NULL 
+            AND sc.endedAt IS NULL
+        )`;
       }
 
-      // Lógica de Busca Textual (Search / Regex)
       if (search && search.trim() !== '') {
         const searchOriginal = search.trim();
 
@@ -4373,10 +4358,12 @@ INNER JOIN year AS y ON tr.yearId = y.id
           params.push(searchParam, searchParam);
         }
 
-        if (specificClassroomFilter) { query += specificClassroomFilter; if (match) { params.push(`%${match[0]}%`) } }
+        if (specificClassroomFilter) {
+          query += specificClassroomFilter;
+          if (match) { params.push(`%${match[0]}%`) }
+        }
       }
 
-      // Ordenação e Paginação
       query += ` ORDER BY school.shortName ASC, classroom.shortName ASC`;
       query += ` LIMIT ? OFFSET ?`;
 

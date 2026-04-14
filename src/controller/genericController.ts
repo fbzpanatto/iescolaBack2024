@@ -2167,32 +2167,36 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAllTeachersForSuperUser(search: string) {
+  async qAllTeachersForSuperUser(search: string, adminSearch: boolean = false) {
     let conn;
     try {
-      conn = await connectionPool.getConnection()
+
+      conn = await connectionPool.getConnection();
       const personSearch = `%${search}%`;
 
-      const query =
-        `
-            SELECT t.id, t.email, t.register,
-                   p.id AS pId, p.name, p.birth,
-                   pc.id AS pcId, pc.name AS catName, pc.active
-            FROM teacher AS t
-                     LEFT JOIN person AS p ON t.personId = p.id
-                     LEFT JOIN person_category AS pc ON p.categoryId = pc.id
-            WHERE EXISTS (
-                SELECT 1
-                FROM teacher_class_discipline AS tcd
-                WHERE tcd.teacherId = t.id
-            )
-              AND p.name COLLATE utf8mb4_unicode_ci LIKE ?
-            ORDER BY p.name;
-        `
+      const existsCondition = adminSearch
+        ? 't.id <> 1 AND'
+        : `EXISTS (
+            SELECT 1
+            FROM teacher_class_discipline AS tcd
+            WHERE tcd.teacherId = t.id
+        ) AND `;
 
-      const [ queryResult ] = await conn.query(query, [personSearch])
+      const query = `
+          SELECT t.id, t.email, t.register,
+                 p.id AS pId, p.name, p.birth,
+                 pc.id AS pcId, pc.name AS catName, pc.active
+          FROM teacher AS t
+                   LEFT JOIN person AS p ON t.personId = p.id
+                   LEFT JOIN person_category AS pc ON p.categoryId = pc.id
+          WHERE ${existsCondition}
+              p.name COLLATE utf8mb4_unicode_ci LIKE ?
+          ORDER BY p.name;
+      `;
 
-      return Helper.superUsers(queryResult as { [key: string]: any }[])
+      const [ queryResult ] = await conn.query(query, [personSearch]);
+
+      return Helper.superUsers(queryResult as { [key: string]: any }[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

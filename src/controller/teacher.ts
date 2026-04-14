@@ -55,7 +55,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const qTeacherClasses = await this.qTeacherClassrooms(body.user.user);
       let response: {}[] = [];
 
-      if([PERSON_CATEGORIES.ADMN, PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM].includes(qUserTeacher.person.category.id)) {
+      if([PERSON_CATEGORIES.ADMN].includes(qUserTeacher.person.category.id)) {
+        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search, true) } : { status: 200, data: [] };
+      }
+
+      if([PERSON_CATEGORIES.SUPE, PERSON_CATEGORIES.FORM].includes(qUserTeacher.person.category.id)) {
         return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
       }
 

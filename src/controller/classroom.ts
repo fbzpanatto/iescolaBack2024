@@ -1,9 +1,9 @@
-import {GenericController} from "./genericController";
-import {EntityTarget} from "typeorm";
-import {Classroom} from "../model/Classroom";
-import {Request} from "express";
-import {qUserTeacher, TeacherBody} from "../interfaces/interfaces";
-import {OUT_CLASSROOMS, PER_CAT as pc} from "../utils/enums";
+import { GenericController } from "./genericController";
+import { EntityTarget } from "typeorm";
+import { Classroom } from "../model/Classroom";
+import { Request } from "express";
+import { qUserTeacher, TeacherBody } from "../interfaces/interfaces";
+import { OUT_CLASSROOMS, PER_CAT as pc } from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 

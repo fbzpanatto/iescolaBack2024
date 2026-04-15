@@ -1,9 +1,9 @@
 import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
-import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
+import { connectionPool } from "../services/db";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -15,29 +15,40 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
 
     try {
       const qUserTeacher = await this.qTeacherByUser(body.user.user)
-      const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM
+
+      const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.SUPE_EI || qUserTeacher.person.category.id === PER_CAT.FORM
 
       const classrooms = await this.qAllTClass(masterUser, qUserTeacher.id)
+
       return { status: 200, data: classrooms };
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  override async save(body: { id: number, classrooms: number[] }) {
-    try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const classrooms = await CONN.getRepository(Classroom)
-        .createQueryBuilder('classroom')
-        .select('classroom.id', 'id')
-        .addSelect('classroom.shortName', 'name')
-        .addSelect('school.shortName', 'school')
-        .leftJoin('classroom.school', 'school')
-        .where('classroom.id IN (:...ids)', { ids: body.classrooms })
-        .getRawMany();
+  override async save(body: { id: number, classrooms: number[], user?: any }) {
 
-        return { status: 200, data: classrooms }
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
+    if (!body.classrooms || body.classrooms.length === 0) { return { status: 403, message: "Somente pessoal autorizado da escola pode executar a transferencia"} }
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const query = `
+        SELECT 
+          c.id AS id, 
+          c.shortName AS name, 
+          s.shortName AS school
+        FROM classroom AS c
+        LEFT JOIN school AS s ON c.schoolId = s.id
+        WHERE c.id IN (?)
+      `;
+
+      const [ queryResult ] = await conn.query(query, [body.classrooms]);
+
+      return { status: 200, data: queryResult };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 }
 

@@ -868,6 +868,14 @@ export class Helper {
     } as unknown as Test
   }
 
+  static studentsClassrooms(arr: { id: number, name: string, shortName: string, nickname: string, shiftId: number, categoryId: number, school: string, rosterNumber: number, student: string, birth: string, studentId: number, ra: string }[]) {
+    return arr.reduce((acc, prev) => {
+      if(!acc.id) { acc.id = prev.id; acc.name = prev.name; acc.shortName = prev.shortName; acc.nickname = prev.nickname; acc.shiftId = prev.shiftId; acc.categoryId = prev.categoryId; acc.school = prev.school; acc.students = [] }
+      acc.students.push({ rosterNumber: prev.rosterNumber, student: prev.student, birth: prev.birth, studentId: prev.studentId, ra: prev.ra });
+      return acc;
+    }, {} as { id: number, name: string, shortName: string, nickname: string, shiftId: number, categoryId: number, school: string, students: { rosterNumber: number, student: string, birth: string, studentId: number, ra: string }[] })
+  }
+
   static alphabeticYearHeader(el: qYear[]) {
     return el.reduce((acc: qFormatedYear, prev: qYear) => {
       if (!acc.id) { acc.id = prev.id; acc.name = prev.name; acc.periods = [] }

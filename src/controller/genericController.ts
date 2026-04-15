@@ -2452,15 +2452,44 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       const query =
         `
-          SELECT c.id, c.name, c.shortName, c.nickname, c.shiftId, c.categoryId, s.name AS school
+          SELECT 
+            c.id, c.name, c.shortName, c.nickname, c.shiftId, c.categoryId, 
+            s.name AS school, 
+            sc.rosterNumber, sc.studentId,
+            p.name AS student, DATE_FORMAT(p.birth, '%d/%m/%Y') AS birth, 
+            CONCAT(
+              SUBSTRING(LPAD(st.ra, 9, '0'), 1, 3), '.',
+              SUBSTRING(LPAD(st.ra, 9, '0'), 4, 3), '.',
+              SUBSTRING(LPAD(st.ra, 9, '0'), 7, 3), '-',
+              st.dv
+            ) AS ra
           FROM classroom AS c
-          LEFT JOIN classroom_shift AS cs ON c.shiftId = cs.id
-          INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
-          INNER JOIN school AS s ON c.schoolId = s.id
-          WHERE c.id = ?
+            LEFT JOIN classroom_shift AS cs ON c.shiftId = cs.id
+            INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+            INNER JOIN school AS s ON c.schoolId = s.id
+            LEFT JOIN student_classroom AS sc ON c.id = sc.classroomId
+            LEFT JOIN student AS st ON sc.studentId = st.id
+            LEFT JOIN person AS p ON st.personId = p.id
+            LEFT JOIN year AS yr ON sc.yearId = yr.id AND yr.active = 1
+          WHERE c.id = ? AND sc.endedAt IS NULL
+          ORDER BY sc.rosterNumber ASC, p.name ASC;
         `
       const [ queryResult ] = await conn.query(query, [id])
-      return (queryResult as { id: number, name: string, shortName: string, shiftId: number, categoryId: number, school: string, nickname: string }[])[0]
+
+      return Helper.studentsClassrooms((queryResult as Array<{
+        id: number,
+        name: string,
+        shortName: string,
+        nickname: string,
+        shiftId: number,
+        categoryId: number,
+        school: string,
+        rosterNumber: number,
+        student: string,
+        birth: string,
+        studentId: number,
+        ra: string
+      }>))
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

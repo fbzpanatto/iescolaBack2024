@@ -19,8 +19,10 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   }
 
   async getClassroom(req: Request) {
+
     try {
       const result = await this.qGetClassroomFullData(Number(req.params.id))
+
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }

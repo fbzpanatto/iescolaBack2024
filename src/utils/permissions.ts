@@ -78,7 +78,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
@@ -94,7 +94,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
@@ -110,7 +110,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: getPostPut },
@@ -126,7 +126,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
       { entity: "teacher", methods: getPostPut },
@@ -142,7 +142,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPostPut },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
       { entity: "teacher", methods: onlyGET },
@@ -158,7 +158,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPost },
-      { entity: "classroom", methods: onlyGET },
+      { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
       { entity: "teacher", methods: onlyGET },

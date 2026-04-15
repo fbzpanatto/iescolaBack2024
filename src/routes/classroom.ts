@@ -12,4 +12,4 @@ ClassroomRouter.get('/:id', ID_PARAM, async (req: Request, res: any) => { const 
 
 ClassroomRouter.post('/', async (req: Request, res: any) => { const response = await controller.save(req.body, {}); return res.status(response.status).json(response)})
 
-ClassroomRouter.put('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => { const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)})
+ClassroomRouter.put('/:id', ID_PARAM, async (req: Request, res: any) => { const response = await controller.putClassroomAndStudents(req); return res.status(response.status).json(response)})

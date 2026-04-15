@@ -69,6 +69,25 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
+  async putClassroomAndStudents(req: Request) {
+
+    const { body } = req as { body: any }
+
+    try {
+      const classroomId = body.id;
+      const userId = body.user.user;
+
+      await this.qUpdateClassroom(classroomId, body.nickname, body.shift);
+
+      if (body.studentsChanges && body.studentsChanges.length > 0) {
+        await this.qUpdateStudentRosters(body.studentsChanges, userId);
+      }
+
+      return { status: 200, data: { message: "Sala e alunos atualizados com sucesso." } };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+  }
+
   isMasterUser(u: qUserTeacher) {
     return u.person.category.id === pc.ADMN || u.person.category.id === pc.SUPE || u.person.category.id === pc.SUPE_EI || u.person.category.id === pc.FORM;
   }

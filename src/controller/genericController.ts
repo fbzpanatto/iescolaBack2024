@@ -2455,7 +2455,7 @@ export class GenericController<T> {
           SELECT 
             c.id, c.name, c.shortName, c.nickname, c.shiftId, c.categoryId, 
             s.name AS school, 
-            sc.rosterNumber, sc.studentId,
+            sc.rosterNumber, sc.studentId, sc.id AS studentClassroomId,
             p.name AS student, DATE_FORMAT(p.birth, '%d/%m/%Y') AS birth, 
             CONCAT(
               SUBSTRING(LPAD(st.ra, 9, '0'), 1, 3), '.',
@@ -2488,7 +2488,8 @@ export class GenericController<T> {
         student: string,
         birth: string,
         studentId: number,
-        ra: string
+        ra: string,
+        studentClassroomId: number
       }>))
     }
     catch (error) { console.error(error); throw error }
@@ -2972,6 +2973,66 @@ export class GenericController<T> {
 
     }
     catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qUpdateClassroom(classroomId: number, nickname: string, shiftId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const query =
+        `
+          UPDATE classroom 
+          SET nickname = ?, shiftId = ?
+          WHERE id = ?
+        `;
+
+      const [ queryResult ] = await conn.query(query, [nickname, shiftId, classroomId]);
+
+      await conn.commit();
+      return queryResult as any;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qUpdateStudentRosters(studentsChanges: any[], userId: number) {
+
+    if (!studentsChanges || studentsChanges.length === 0) return true;
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const ids = studentsChanges.map(change => change.studentClassroomId);
+
+      let caseStatement = 'CASE id ';
+      const queryParams: any[] = [];
+
+      studentsChanges.forEach(change => {
+        caseStatement += 'WHEN ? THEN ? ';
+        queryParams.push(change.studentClassroomId, change.rosterNumber);
+      });
+      caseStatement += 'END';
+
+      const query = `
+        UPDATE student_classroom 
+        SET rosterNumber = ${caseStatement}, 
+            updatedByUser = ?
+        WHERE id IN (?)
+        `;
+
+      queryParams.push(userId, ids);
+
+      await conn.query(query, queryParams);
+
+      await conn.commit();
+      return true;
+    }
+    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 

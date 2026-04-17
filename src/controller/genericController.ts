@@ -4388,23 +4388,23 @@ INNER JOIN year AS y ON tr.yearId = y.id
       if (!masterUser && allClassrooms.length === 0) { return { status: 200, data: [] } }
 
       let query = `
-        SELECT
-          classroom.id AS id,
-          classroom.shortName AS name,
-          classroom.nickname AS nickname,
-          school.shortName AS school
-        `;
+      SELECT
+        classroom.id AS id,
+        classroom.shortName AS name,
+        classroom.nickname AS nickname,
+        school.shortName AS school
+      `;
 
       if (active) {
         query += `,
-          classroom_shift.name AS shift,
-          (SELECT COUNT(sc.id) 
-           FROM student_classroom sc 
-           WHERE sc.classroomId = classroom.id 
-             AND sc.startedAt IS NOT NULL 
-             AND sc.endedAt IS NULL
-        ) AS activeStudentsCount
-        `;
+        classroom_shift.name AS shift,
+        (SELECT COUNT(sc.id) 
+         FROM student_classroom sc 
+         WHERE sc.classroomId = classroom.id 
+           AND sc.startedAt IS NOT NULL 
+           AND sc.endedAt IS NULL
+      ) AS activeStudentsCount
+      `;
       }
 
       query += ` FROM classroom LEFT JOIN school ON classroom.schoolId = school.id`;
@@ -4423,12 +4423,12 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (active) {
         query += ` AND EXISTS (
-          SELECT 1 
-          FROM student_classroom sc 
-          WHERE sc.classroomId = classroom.id 
-            AND sc.startedAt IS NOT NULL 
-            AND sc.endedAt IS NULL
-        )`;
+        SELECT 1 
+        FROM student_classroom sc 
+        WHERE sc.classroomId = classroom.id 
+          AND sc.startedAt IS NOT NULL 
+          AND sc.endedAt IS NULL
+      )`;
       }
 
       if (search && search.trim() !== '') {
@@ -4459,9 +4459,12 @@ INNER JOIN year AS y ON tr.yearId = y.id
       }
 
       query += ` ORDER BY school.shortName ASC, classroom.shortName ASC`;
-      query += ` LIMIT ? OFFSET ?`;
 
-      params.push(Number(limit), Number(offset));
+      // ALTERAÇÃO AQUI: Só aplica paginação se NÃO for masterUser
+      if (!masterUser) {
+        query += ` LIMIT ? OFFSET ?`;
+        params.push(Number(limit), Number(offset));
+      }
 
       const [queryResult] = await conn.query(query, params);
 

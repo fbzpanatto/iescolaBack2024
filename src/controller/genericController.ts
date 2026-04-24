@@ -2078,28 +2078,37 @@ export class GenericController<T> {
   async qAggregateTest(yearName: string, classroom: number, bimesterId: number) {
     let conn;
     try {
-      conn = await connectionPool.getConnection()
-      const likeClassroom = `%${classroom}%`
+      conn = await connectionPool.getConnection();
+      const likeClassroom = `%${classroom}%`;
+
+      // 1. Criamos um array com os valores do seu enum
+      const categories = [TEST_CATEGORIES_IDS.SIM_ITA, TEST_CATEGORIES_IDS.AVL_ITA];
 
       const query = `
-        SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName, t.createdAt
-        FROM test_classroom AS tc
-        INNER JOIN classroom AS c ON tc.classroomId = c.id
-        INNER JOIN test AS t ON tc.testId = t.id
-        INNER JOIN discipline AS d ON t.disciplineId = d.id
-        INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
-        INNER JOIN period AS p ON t.periodId = p.id
-        INNER JOIN bimester AS b ON p.bimesterId = b.id
-        INNER JOIN year AS y ON p.yearId = y.id
-        WHERE y.name = ? AND c.shortName like ? AND p.bimesterId = ?
-        ORDER BY t.createdAt ASC, d.name ASC;    
-      `
+      SELECT DISTINCT(t.id), tcat.id AS categoryId, tcat.name AS category, b.name AS bimester, y.name AS year, t.name AS testName, d.name AS disciplineName, t.createdAt
+      FROM test_classroom AS tc
+      INNER JOIN classroom AS c ON tc.classroomId = c.id
+      INNER JOIN test AS t ON tc.testId = t.id
+      INNER JOIN discipline AS d ON t.disciplineId = d.id
+      INNER JOIN test_category AS tcat ON tcat.id = t.categoryId
+      INNER JOIN period AS p ON t.periodId = p.id
+      INNER JOIN bimester AS b ON p.bimesterId = b.id
+      INNER JOIN year AS y ON p.yearId = y.id
+      WHERE 
+        y.name = ? 
+        AND c.shortName LIKE ? 
+        AND p.bimesterId = ?
+        AND t.categoryId IN (?) -- 2. Usamos o placeholder aqui
+      ORDER BY t.createdAt ASC, d.name ASC;    
+    `;
 
-      const [ queryResult ] = await conn.query(query, [yearName, likeClassroom, bimesterId])
-      return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string }[];
+      // 3. Passamos o array 'categories' como o 4º parâmetro
+      const [ queryResult ] = await conn.query(query, [yearName, likeClassroom, bimesterId, categories]);
+
+      return queryResult as { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string, createdAt: any }[];
     }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
+    catch (error) { console.error(error); throw error; }
+    finally { if (conn) { conn.release(); } }
   }
 
   async graduateStudentsBatchSQL(body: {list: InactiveNewClassroom[], user: qUserTeacher, year: qYear }) {
@@ -4587,6 +4596,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
   }
 
   async qGraphTest(testId: number | string, testQuestionsIds: number[], year: any) {
+
     let conn;
     try {
       conn = await connectionPool.getConnection();

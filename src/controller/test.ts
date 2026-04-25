@@ -289,10 +289,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const headers: string[] = [];
       const classroomMap = new Map();
 
-      // 1. Agrupamento (Correção do índice aplicada anteriormente)
-      allResults.forEach((item, i) => {
-        headers.push(item.testName);
-        for (const el of item.classrooms) {
+      for (const [i, item] of allResults.entries()) {
+
+        headers.push(item?.testName || 'Prova Pendente');
+
+        const safeClassrooms = item?.classrooms || [];
+
+        if (safeClassrooms.length === 0) {
+          continue;
+        }
+
+        for (const el of safeClassrooms) {
           if (!classroomMap.has(el.id)) {
             classroomMap.set(el.id, {
               id: el.id,
@@ -301,9 +308,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
               classroomAvg: new Array(allResults.length).fill(null)
             });
           }
+
           classroomMap.get(el.id).classroomAvg[i] = el.tRateAvg;
         }
-      });
+      }
 
       let mappedClassrooms = Array.from(classroomMap.values());
 
@@ -347,6 +355,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const baseSchoolId = qClassroom.school.id;
 
     const pResult = Helper.testGraph((await this.qGraphTest(test.id, testQuestionsIds, year)) as Array<any>);
+
+    if (!pResult || pResult.length === 0) { return { status: 200, data: [] } }
 
     return { status: 200, data: Helper.classroomDataStructure(pResult, test, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
   }

@@ -4597,6 +4597,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
   async qGraphTest(testId: number | string, testQuestionsIds: number[], year: any) {
 
+    if (!testQuestionsIds || testQuestionsIds.length === 0) { return [] }
+
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -4604,52 +4606,59 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const testQuestionsPlaceholders = testQuestionsIds.map(() => '?').join(',');
 
       const query = `
-        SELECT 
-          s.id AS school_id,
-          s.name AS school_name,
-          s.shortName AS school_shortName,
-          c.id AS classroom_id,
-          c.name AS classroom_name,
-          c.shortName AS classroom_shortName,
-          sc.id AS studentClassroom_id,
-          sc.studentId AS student_id,
-          sc.rosterNumber,
-          sc.startedAt,
-          sc.endedAt,
-          st.id AS student_id_check,
-          sq.id AS studentQuestion_id,
-          sq.answer AS studentQuestion_answer,
-          sq.rClassroomId AS studentQuestion_rClassroomId,
-          tq.id AS testQuestion_id,
-          tq.order AS testQuestion_order,
-          tq.answer AS testQuestion_answer,
-          tq.active AS testQuestion_active,
-          qg.id AS questionGroup_id,
-          qg.name AS questionGroup_name,
-          t.id AS test_id,
-          t.name AS test_name
-        FROM school s
-        LEFT JOIN classroom c ON c.schoolId = s.id
-        LEFT JOIN student_classroom sc ON sc.classroomId = c.id
-        LEFT JOIN student st ON sc.studentId = st.id
-        LEFT JOIN student_question sq ON sq.studentId = st.id
-        LEFT JOIN test_question tq ON sq.testQuestionId = tq.id 
-          AND tq.id IN (${testQuestionsPlaceholders})
-        LEFT JOIN question_group qg ON tq.questionGroupId = qg.id
-        LEFT JOIN test t ON tq.testId = t.id
-        LEFT JOIN period p ON t.periodId = p.id
-        WHERE 
-          t.id = ?
-          AND s.id NOT IN (28, 29)
-          AND c.id NOT IN (1216, 1217, 1218, 1509)
-          AND sc.yearId = ?
-          AND p.yearId = ?
-        ORDER BY 
-          s.shortName ASC,
-          c.id ASC,
-          qg.id ASC,
-          tq.order ASC
-      `;
+      SELECT 
+        s.id AS school_id,
+        s.name AS school_name,
+        s.shortName AS school_shortName,
+        c.id AS classroom_id,
+        c.name AS classroom_name,
+        c.shortName AS classroom_shortName,
+        sc.id AS studentClassroom_id,
+        sc.studentId AS student_id,
+        sc.rosterNumber,
+        sc.startedAt,
+        sc.endedAt,
+        st.id AS student_id_check,
+        sq.id AS studentQuestion_id,
+        sq.answer AS studentQuestion_answer,
+        sq.rClassroomId AS studentQuestion_rClassroomId,
+        tq.id AS testQuestion_id,
+        tq.order AS testQuestion_order,
+        tq.answer AS testQuestion_answer,
+        tq.active AS testQuestion_active,
+        qg.id AS questionGroup_id,
+        qg.name AS questionGroup_name,
+        t.id AS test_id,
+        t.name AS test_name
+      FROM school s
+      LEFT JOIN classroom c ON c.schoolId = s.id
+      LEFT JOIN student_classroom sc ON sc.classroomId = c.id
+      LEFT JOIN student st ON sc.studentId = st.id
+      
+      -- ALTERAÇÃO AQUI: INNER JOIN obriga que o aluno tenha respondido/acessado a questão
+      INNER JOIN student_question sq ON sq.studentId = st.id
+      
+      -- E, por consequência, obriga que a questão pertença a esta prova específica
+      INNER JOIN test_question tq ON sq.testQuestionId = tq.id 
+        AND tq.id IN (${testQuestionsPlaceholders})
+      
+      LEFT JOIN question_group qg ON tq.questionGroupId = qg.id
+      
+      -- Como a prova e o período já são filtrados no WHERE, usar INNER JOIN aqui também melhora a performance
+      INNER JOIN test t ON tq.testId = t.id
+      INNER JOIN period p ON t.periodId = p.id
+      WHERE 
+        t.id = ?
+        AND s.id NOT IN (28, 29)
+        AND c.id NOT IN (1216, 1217, 1218, 1509)
+        AND sc.yearId = ?
+        AND p.yearId = ?
+      ORDER BY 
+        s.shortName ASC,
+        c.id ASC,
+        qg.id ASC,
+        tq.order ASC
+    `;
 
       const params = [...testQuestionsIds, testId, year.id, year.id];
       const [rows] = await conn.query(query, params);

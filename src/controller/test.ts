@@ -291,7 +291,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       for (const [i, item] of allResults.entries()) {
 
-        headers.push(item?.testName || 'Prova Pendente');
+        // 1. Captura o nome da prova
+        let testName = item?.testName || 'Prova Pendente';
+
+        // 2. Aplica as regras de abreviação visual para o Front-End
+        testName = testName
+          .replace(/AVALIAÇÃO/gi, 'AVL')
+          .replace(/ITATIBA/gi, 'ITA')
+          .replace(/SIMULADO/gi, 'SIM');
+
+        // 3. Insere o nome formatado nos cabeçalhos
+        headers.push(testName);
 
         const safeClassrooms = item?.classrooms || [];
 

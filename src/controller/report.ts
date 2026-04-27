@@ -75,14 +75,23 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       for (const { testName, bimester, data: test } of allResults) {
 
-        response.headers.push(testName)
+        // Aplica as regras de abreviação visual usando uma nova constante
+        const formattedTestName = (testName || 'Prova Pendente')
+          .replace(/AVALIAÇÃO/gi, 'AVL')
+          .replace(/ITATIBA/gi, 'ITA')
+          .replace(/SIMULADO/gi, 'SIM');
 
-        response.testName = response.testName || testName;
+        // Usa o nome formatado para os headers e para o nome base da resposta
+        response.headers.push(formattedTestName);
+
+        response.testName = response.testName || formattedTestName;
         response.classroom = response.classroom || `${req.params.classroom}° anos`;
         response.bimester = response.bimester || bimester;
         response.year = response.year || req.params.year;
-        response.testCategory = test?.category.id;
-        response.categoryName = test?.category.name;
+
+        // Usando optional chaining aqui também por segurança, caso 'test' ou 'category' venham vazios
+        response.testCategory = test?.category?.id;
+        response.categoryName = test?.category?.name;
 
         if (!test?.schools) continue;
 

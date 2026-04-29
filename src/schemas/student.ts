@@ -64,13 +64,15 @@ export const STUDENT_SCHEMA: Schema = {
     isString: true,
     escape: true,
   },
+
   observationOne: {
-    optional: true,
+    optional: { options: { values: 'null' } },
     isString: true,
     escape: true,
   },
+
   observationTwo: {
-    optional: true,
+    optional: { options: { values: 'null' } },
     isString: true,
     escape: true,
   },

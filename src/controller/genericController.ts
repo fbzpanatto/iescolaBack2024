@@ -797,9 +797,25 @@ export class GenericController<T> {
       for (const row of results) {
         const hasAnyAnswers = row.has_any_answers > 0;
 
+        // Sua regra de ouro: só mexe se NÃO houver respostas (ou se foram zeradas)
         if (!hasAnyAnswers) {
-          const query = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`
-          await conn.query(query, [row.active_sc_id, userId, row.sts_id]);
+
+          // Verifica se a matrícula ativa já ganhou um vínculo com essa prova por outro fluxo
+          const [existingStatus] = await conn.query(
+            `SELECT id FROM student_test_status WHERE studentClassroomId = ? AND testId = ?`,
+            [row.active_sc_id, testId]
+          ) as [any[], any];
+
+          if (existingStatus.length > 0) {
+            // Se o aluno já tem o vínculo na sala nova, tentar um UPDATE vai gerar o ER_DUP_ENTRY.
+            // Como o vínculo velho não tem respostas, nós apenas deletamos ele para limpar o banco.
+            const queryDelete = `DELETE FROM student_test_status WHERE id = ?`;
+            await conn.query(queryDelete, [row.sts_id]);
+          } else {
+            // Se a sala nova ainda não tem o vínculo, seguimos com a sua automação padrão de transferência.
+            const queryUpdate = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
+            await conn.query(queryUpdate, [row.active_sc_id, userId, row.sts_id]);
+          }
         }
       }
 

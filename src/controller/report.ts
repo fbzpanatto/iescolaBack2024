@@ -166,7 +166,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           element.totals = testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers))
           return element
-        })
+        }).sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
 
         const cityHallName = 'PREFEITURA DO MUNICÍPIO DE ITATIBA'
         const cityHall = {
@@ -181,6 +181,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           cityHall,
           testController.alphabeticTotalizators(preResult.flatMap((school: any) => school.classrooms), headers)
         )
+
+        console.log(mappedSchools)
 
         const schools = [...mappedSchools, cityHall]
 

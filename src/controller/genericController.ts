@@ -487,12 +487,20 @@ export class GenericController<T> {
         ${studentClassroomId ? 'AND studentClassroom.id = ?' : ''}
         ${test.category.id === TEST_CATEGORIES_IDS.AVL_ITA ? 'AND studentStatus.active = ?' : ''}
         AND (
+          (
           studentClassroom.startedAt <= ?
-          OR
+        AND NOT EXISTS (
+          SELECT 1 FROM student_classroom sc_arch
+          WHERE sc_arch.studentId = student.id
+        AND sc_arch.endedAt IS NULL
+        AND sc_arch.classroomId IN (1216, 1217, 1218, 1509)
+          )
+          )
+         OR
           (studentClassroom.endedAt IS NULL AND studentStatus.id IS NULL)
-          OR
+         OR
           studentStatus.id IS NOT NULL
-        )
+          )
         AND NOT EXISTS (
           SELECT 1
           FROM student_test_status sts_other
@@ -2636,46 +2644,55 @@ export class GenericController<T> {
 
   async qStudentClassroomsForTest(test: Test, classroomId: number, yearName: string, studentClassroomId: number | null) {
     let conn;
-    try{
+    try {
+
       conn = await connectionPool.getConnection();
       let responseQuery;
 
       if(studentClassroomId) {
         const query = `
-        SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-               s.id AS student_id,
-               sts.id AS student_classroom_test_status_id,
-               person.name
-        FROM student_classroom AS sc
-        INNER JOIN year AS y ON sc.yearId = y.id
-        INNER JOIN student AS s ON sc.studentId = s.id
-        INNER JOIN person ON s.personId = person.id
-        LEFT JOIN student_test_status AS sts
-          ON sc.id = sts.studentClassroomId
-          AND sts.testId = ?
-        WHERE sc.classroomId = ?
-          AND y.name = ?
-          AND sc.id = ?
-          AND (
-            -- SITUAÇÃO 1: Matriculado antes/no dia do teste
-            sc.startedAt <= ?
-            OR
-            -- Aluno ativo sem sts (entrou depois, ainda não vinculado)
-            (sc.endedAt IS NULL AND sts.id IS NULL)
-            OR
-            -- SITUAÇÃO 2: Tem sts NESTA sala (transferido para cá)
-            sts.id IS NOT NULL
-          )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM student_test_status sts_other
-            INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
-            WHERE sts_other.testId = ?
-              AND sc_other.studentId = s.id
-              AND sc_other.classroomId != ?
-          )
-        ORDER BY sc.rosterNumber
-      `;
+          SELECT sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+                 s.id AS student_id,
+                 sts.id AS student_classroom_test_status_id,
+                 person.name
+          FROM student_classroom AS sc
+          INNER JOIN year AS y ON sc.yearId = y.id
+          INNER JOIN student AS s ON sc.studentId = s.id
+          INNER JOIN person ON s.personId = person.id
+          LEFT JOIN student_test_status AS sts
+            ON sc.id = sts.studentClassroomId
+            AND sts.testId = ?
+          WHERE sc.classroomId = ?
+            AND y.name = ?
+            AND sc.id = ?
+            AND (
+              -- SITUAÇÃO 1: Matriculado antes/no dia do teste E não foi para o arquivo morto
+              (
+                sc.startedAt <= ?
+                AND NOT EXISTS (
+                  SELECT 1 FROM student_classroom sc_arch
+                  WHERE sc_arch.studentId = s.id
+                    AND sc_arch.endedAt IS NULL
+                    AND sc_arch.classroomId IN (1216, 1217, 1218, 1509)
+                )
+              )
+              OR
+              -- Aluno ativo sem sts (entrou depois, ainda não vinculado)
+              (sc.endedAt IS NULL AND sts.id IS NULL)
+              OR
+              -- SITUAÇÃO 2: Tem sts NESTA sala (transferido para cá ou já tem respostas salvas)
+              sts.id IS NOT NULL
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM student_test_status sts_other
+              INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
+              WHERE sts_other.testId = ?
+                AND sc_other.studentId = s.id
+                AND sc_other.classroomId != ?
+            )
+          ORDER BY sc.rosterNumber
+        `;
 
         const [queryResult] = await conn.query(query, [test.id, classroomId, yearName, studentClassroomId, test.createdAt, test.id, classroomId]);
         responseQuery = queryResult as qStudentsClassroomsForTest[];
@@ -2683,36 +2700,44 @@ export class GenericController<T> {
       }
 
       const query = `
-      SELECT 
-        sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
-        s.id AS student_id,
-        sts.id AS student_classroom_test_status_id,
-        person.name
-      FROM student_classroom AS sc
-        INNER JOIN year AS y ON sc.yearId = y.id
-        INNER JOIN student AS s ON sc.studentId = s.id
-        INNER JOIN person ON s.personId = person.id
-        LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
-      WHERE sc.classroomId = ?
-        AND y.name = ?
-        AND (
-          -- SITUAÇÃO 1: Matriculado antes/no dia do teste
-          sc.startedAt <= ?
-          OR
-          -- Aluno ativo sem sts (entrou depois, ainda não vinculado)
-          (sc.endedAt IS NULL AND sts.id IS NULL)
-          OR
-          -- SITUAÇÃO 2: Tem sts NESTA sala (transferido para cá)
-          sts.id IS NOT NULL
-        )
-        AND NOT EXISTS (
-          SELECT 1
-          FROM student_test_status sts_other
-          INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
-          WHERE sts_other.testId = ? AND sc_other.studentId = s.id AND sc_other.classroomId != ?
-        )
-      ORDER BY sc.rosterNumber
-    `;
+        SELECT 
+          sc.id AS student_classroom_id, sc.startedAt, sc.endedAt,
+          s.id AS student_id,
+          sts.id AS student_classroom_test_status_id,
+          person.name
+        FROM student_classroom AS sc
+          INNER JOIN year AS y ON sc.yearId = y.id
+          INNER JOIN student AS s ON sc.studentId = s.id
+          INNER JOIN person ON s.personId = person.id
+          LEFT JOIN student_test_status AS sts ON sc.id = sts.studentClassroomId AND sts.testId = ?
+        WHERE sc.classroomId = ?
+          AND y.name = ?
+          AND (
+            -- SITUAÇÃO 1: Matriculado antes/no dia do teste E não foi para o arquivo morto
+            (
+              sc.startedAt <= ?
+              AND NOT EXISTS (
+                SELECT 1 FROM student_classroom sc_arch
+                WHERE sc_arch.studentId = s.id
+                  AND sc_arch.endedAt IS NULL
+                  AND sc_arch.classroomId IN (1216, 1217, 1218, 1509)
+              )
+            )
+            OR
+            -- Aluno ativo sem sts (entrou depois, ainda não vinculado)
+            (sc.endedAt IS NULL AND sts.id IS NULL)
+            OR
+            -- SITUAÇÃO 2: Tem sts NESTA sala (transferido para cá ou já tem respostas salvas)
+            sts.id IS NOT NULL
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM student_test_status sts_other
+            INNER JOIN student_classroom sc_other ON sts_other.studentClassroomId = sc_other.id
+            WHERE sts_other.testId = ? AND sc_other.studentId = s.id AND sc_other.classroomId != ?
+          )
+        ORDER BY sc.rosterNumber
+      `;
 
       const [queryResult] = await conn.query(query, [test.id, classroomId, yearName, test.createdAt, test.id, classroomId]);
       responseQuery = queryResult as qStudentsClassroomsForTest[];

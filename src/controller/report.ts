@@ -182,8 +182,6 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           testController.alphabeticTotalizators(preResult.flatMap((school: any) => school.classrooms), headers)
         )
 
-        console.log(mappedSchools)
-
         const schools = [...mappedSchools, cityHall]
 
         const test = {

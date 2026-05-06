@@ -315,11 +315,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
               id: el.id,
               school: el.school,
               shortName: el.shortName,
-              classroomAvg: new Array(allResults.length).fill(null)
+              // CORREÇÃO 1: Inicializa o array com 0 em vez de null
+              classroomAvg: new Array(allResults.length).fill(0)
             });
           }
 
-          classroomMap.get(el.id).classroomAvg[i] = el.tRateAvg;
+          // CORREÇÃO 2: Se tRateAvg for null ou undefined, salva como 0
+          classroomMap.get(el.id).classroomAvg[i] = el.tRateAvg ?? 0;
         }
       }
 

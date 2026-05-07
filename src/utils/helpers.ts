@@ -292,6 +292,7 @@ export class Helper {
 
     if (!targetSchool) { return { status: 404, message: "Escola não encontrada" } }
 
+    // 1. Processamento das Turmas
     const classroomResults = targetSchool.classrooms
       .filter((c: any) => c.shortName.replace(/\D/g, "") === classroomNumber && c.studentClassrooms.some((sc: any) => sc.student.studentQuestions.some((sq: any) => sq.answer?.length > 0)))
       .map((classroom: any) => {
@@ -301,7 +302,7 @@ export class Helper {
         const totals = qTestQuestions.map((tQ: any) => {
           if (!tQ.active) return { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 };
           const studentsQuestions = questionMap.get(tQ.id) || [];
-          const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
+          const matchedQuestions = studentsQuestions.filter((sq: any) => tQ.answer?.includes(sq.answer.toUpperCase())).length;
           const total = filtered.length;
           const tRate = matchedQuestions > 0 && total > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
           return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
@@ -318,6 +319,7 @@ export class Helper {
         };
       });
 
+    // 2. Processamento da Escola
     const schoolTotalsMap = new Map<number, any>();
 
     for (const cr of classroomResults) {
@@ -339,7 +341,13 @@ export class Helper {
       totals: schoolTotals
     };
 
+    // 3. Processamento de ITATIBA (Rede)
     const allResultsMap = new Map<number, any>();
+
+    // CORREÇÃO AQUI: Pré-popula o mapa garantindo que a estrutura base tenha todas as questões, ativas ou inativas.
+    for (const tQ of qTestQuestions) {
+      allResultsMap.set(tQ.id, { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 });
+    }
 
     for (const school of pResult) {
 
@@ -350,37 +358,44 @@ export class Helper {
         const { filtered, questionMap } = Helper.processClassroomData(classroom);
 
         for (const tQ of qTestQuestions) {
+          // Se for inativa, o 'continue' pula para a próxima, mas a questão já está garantida como '0' no allResultsMap
           if (!tQ.active) continue;
-          const studentsQuestions = questionMap.get(tQ.id) || [];
-          const matchedQuestions = studentsQuestions.filter(sq => tQ.answer?.includes(sq.answer.toUpperCase())).length;
-          const total = filtered.length;
-          const existing = allResultsMap.get(tQ.id);
 
-          if (!existing) { allResultsMap.set(tQ.id, {id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate: 0 }) }
-          else { existing.tNumber += matchedQuestions; existing.tPercent += total }
+          const studentsQuestions = questionMap.get(tQ.id) || [];
+          const matchedQuestions = studentsQuestions.filter((sq: any) => tQ.answer?.includes(sq.answer.toUpperCase())).length;
+          const total = filtered.length;
+
+          // Como pré-populamos o mapa, 'existing' sempre será encontrado
+          const existing = allResultsMap.get(tQ.id);
+          existing.tNumber += matchedQuestions;
+          existing.tPercent += total;
         }
       }
     }
 
-    const allResults = Array.from(allResultsMap.values()).map(item => ({ ...item, tRate: item.tPercent > 0 ? Math.floor((item.tNumber / item.tPercent) * 10000) / 100 : 0 }));
+    // Mapeia os totais finais calculando a taxa (tRate) e garante a ordenação original das questões
+    const allResults = Array.from(allResultsMap.values())
+      .sort((a: any, b: any) => a.order - b.order)
+      .map(item => ({ ...item, tRate: item.tPercent > 0 ? Math.floor((item.tNumber / item.tPercent) * 10000) / 100 : 0 }));
 
     const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults };
 
+    // 4. Montagem do Retorno
     const allClassrooms = [
       ...classroomResults.sort((a: any, b: any) => a.shortName.localeCompare(b.shortName)),
       schoolAggregate,
       cityHall
     ]
-    .map(c => {
-      const { tNumber, tPercent } = c.totals.reduce((acc: any, item: any) => {
-        acc.tNumber += Number(item.tNumber);
-        acc.tPercent += Number(item.tPercent);
-        return acc;
-      }, { tNumber: 0, tPercent: 0 });
-      const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0;
+      .map(c => {
+        const { tNumber, tPercent } = c.totals.reduce((acc: any, item: any) => {
+          acc.tNumber += Number(item.tNumber);
+          acc.tPercent += Number(item.tPercent);
+          return acc;
+        }, { tNumber: 0, tPercent: 0 });
+        const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0;
 
-      return { ...c, tRateAvg };
-    });
+        return { ...c, tRateAvg };
+      });
 
     return { ...formatedTest, testQuestions: qTestQuestions, questionGroups, classrooms: allClassrooms };
   }

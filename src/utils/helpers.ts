@@ -3,6 +3,13 @@ import { Classroom } from "../model/Classroom";
 import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
 import {User} from "../model/User";
 
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 export class Helper {
 
   static generateRandomCode(length: number = 8): string {

@@ -16,7 +16,7 @@ import {TransferStatus} from "../model/TransferStatus";
 import {Year} from "../model/Year";
 import {Teacher} from "../model/Teacher";
 import {isJSON} from "class-validator";
-import {Helper} from "../utils/helpers";
+import {Helper, HttpError} from "../utils/helpers";
 import getTimeZone from "../utils/getTimeZone";
 import {connectionPool} from "../services/db";
 
@@ -75,145 +75,346 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[], user: UserInterface }) {
+
     try {
+      const currentYear = await this.qCurrentYear();
+      if (!currentYear) throw new HttpError(404, 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.');
 
-      const currentYear = await this.qCurrentYear()
-      if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      const lastYearName = Number(currentYear.name) - 1;
+      const lastYearDB = await this.qYearByName(String(lastYearName));
 
-      const lastYearName = Number(currentYear.name) - 1
-      const lastYearDB = await this.qYearByName(String(lastYearName))
+      if (!lastYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo anterior.');
 
-      if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
-
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
       const everyGraduate = body.list.every((item: any) =>
         item.newClassroom.name === 'FORMANDO' &&
         item.newClassroom.school === 'PMI' &&
         item.oldClassroom.shortName.replace(/\D/g, '') === '9'
-      )
+      );
 
-      if(everyGraduate && body.list.length > 0) {
-        await this.graduateStudentsBatchSQL({list: body.list, user: qUserTeacher, year: lastYearDB })
+      // ==========================================
+      // FLUXO DE FORMANDOS (Mantido intacto)
+      // ==========================================
+      if (everyGraduate && body.list.length > 0) {
+        await this.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB });
+        return { status: 200, data: {} };
       }
-      else {
-        for(let item of body.list) {
-          const oldYearDB = await this.qYearById(item.oldYear)
-          if (!oldYearDB) { throw new Error(JSON.stringify({ status: 404, message: 'Não foi possível encontrar o ano letivo informado.' }))}
 
-          const el = await this.qActiveSc(item.student.id)
-          if (el) { throw new Error(JSON.stringify({ status: 400, message: `O aluno ${el?.personName} está matriculado na sala ${el?.classroomName} ${el?.schoolName} em ${el?.yearName}. Solicite sua transferência através do menu Matrículas Ativas` }))}
+      // ==========================================
+      // FLUXO REGULAR EM LOTE (Transação Única)
+      // ==========================================
+      if (body.list.length > 0) {
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          await conn.beginTransaction();
 
-          const result = await this.qLastRegister(item.student.id, lastYearDB.id)
-          if (result && result.length > 1 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { throw new Error(JSON.stringify({ status: 409, message: `O aluno ${item.student.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` }))}
+          // 1. Extração de IDs para busca em Lote (Evita o N+1)
+          const studentIds = body.list.map(item => item.student.id);
+          const oldYearIds = [...new Set(body.list.map(item => item.oldYear))];
+          const classroomIds = [...new Set(body.list.flatMap(item => [item.newClassroom.id, item.oldClassroom.id]))];
 
-          const classroom = await this.qClassroom(item.newClassroom.id)
-          const oldClassInDb = await this.qClassroom(item.oldClassroom.id)
+          // 2. Busca Anos Anteriores informados
+          const [yearRows] = await conn.query(`SELECT id, name FROM year WHERE id IN (?)`, [oldYearIds]) as any;
+          const yearsMap = new Map(yearRows.map((y: any) => [y.id, y]));
 
-          if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { throw new Error(JSON.stringify({ status: 400, message: 'Regressão de sala não é permitido.' }))}
+          // 3. Verifica Matrículas Ativas em Lote
+          const [activeRows] = await conn.query(`
+          SELECT stu.id AS studentId, p.name AS personName, c.shortName AS classroomName, s.shortName AS schoolName, y.name AS yearName
+          FROM student_classroom sc
+          INNER JOIN student stu ON sc.studentId = stu.id
+          INNER JOIN person p ON stu.personId = p.id
+          INNER JOIN classroom c ON sc.classroomId = c.id
+          INNER JOIN school s ON c.schoolId = s.id
+          INNER JOIN year y ON sc.yearId = y.id
+          WHERE sc.studentId IN (?) AND sc.endedAt IS NULL
+        `, [studentIds]) as any;
 
-          const newStudentResult = await this.qNewStudentClassroom(item.student.id, classroom.id, currentYear.id, qUserTeacher.person.user.id, item.rosterNumber)
+          if (activeRows && activeRows.length > 0) {
+            const el = activeRows[0];
+            throw new HttpError(400, `O aluno ${el.personName} está matriculado na sala ${el.classroomName} ${el.schoolName} em ${el.yearName}. Solicite sua transferência através do menu Matrículas Ativas`);
+          }
 
-          const newTransfer = await this.qNewTransfer(qUserTeacher.person.user.id, classroom.id, oldClassInDb.id, qUserTeacher.person.user.id, item.student.id, currentYear.id, qUserTeacher.person.user.id)
+          // 4. Verifica Último Registro (Gap de Anos) em Lote
+          const [lastRegisterRows] = await conn.query(`
+          SELECT sc.studentId, p.name AS personName
+          FROM student_classroom sc
+          INNER JOIN student stu ON sc.studentId = stu.id
+          INNER JOIN person p ON stu.personId = p.id
+          WHERE sc.studentId IN (?)
+            AND sc.yearId = ?
+            AND sc.endedAt IS NOT NULL
+            AND sc.endedAt = (
+              SELECT MAX(sc2.endedAt) 
+              FROM student_classroom sc2 
+              WHERE sc2.studentId = sc.studentId AND sc2.yearId = ?
+            )
+        `, [studentIds, lastYearDB.id, lastYearDB.id]) as any;
 
-          if(newTransfer.affectedRows !== 1 && newStudentResult.affectedRows !== 1) { throw new Error(JSON.stringify({ status: 400, message: 'Algum aluno selecionado está' + ' impedindo esta operação. Tente realizar a passagem de forma individual afim de detectar' + ' qual não é possível.' })) }
+          const lastRegisterMap = new Map(lastRegisterRows.map((r: any) => [r.studentId, r]));
+
+          // 5. Busca Salas em Lote (para validação de regressão)
+          const [classroomRows] = await conn.query(`SELECT id, name FROM classroom WHERE id IN (?)`, [classroomIds]) as any;
+          const classMap = new Map(classroomRows.map((c: any) => [c.id, c]));
+
+          // 6. Loop de Validação (Ocorre 100% em memória, instantâneo)
+          for (const item of body.list) {
+            const oldYearDB = yearsMap.get(item.oldYear) as any;
+            if (!oldYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo informado.');
+
+            const lr = lastRegisterMap.get(item.student.id);
+            if (lr && (Number(currentYear.name) - Number(oldYearDB.name) > 1)) {
+              throw new HttpError(409, `O aluno ${item.student.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.`);
+            }
+
+            const newC = classMap.get(item.newClassroom.id) as any;
+            const oldC = classMap.get(item.oldClassroom.id) as any;
+
+            if (newC && oldC) {
+              const numNew = Number(newC.name.replace(/\D/g, ''));
+              const numOld = Number(oldC.name.replace(/\D/g, ''));
+              if (numNew < numOld) {
+                throw new HttpError(400, 'Regressão de sala não é permitido.');
+              }
+            }
+          }
+
+          // ==========================================
+          // 7. INSERÇÕES EM MASSA (Batch Inserts)
+          // ==========================================
+          const now = new Date();
+          const createdBy = qUserTeacher.person.user.id;
+          const teacherId = qUserTeacher.id;
+
+          // Monta a Matriz de Valores para student_classroom
+          const studentClassroomValues = body.list.map(item => [
+            item.student.id,
+            item.newClassroom.id,
+            currentYear.id,
+            item.rosterNumber,
+            now,
+            createdBy
+          ]);
+
+          await conn.query(`
+          INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser)
+          VALUES ?
+        `, [studentClassroomValues]);
+
+          // Monta a Matriz de Valores para transfer
+          const transferValues = body.list.map(item => [
+            now,                     // startedAt
+            now,                     // endedAt
+            teacherId,               // requesterId
+            item.newClassroom.id,    // requestedClassroomId
+            item.oldClassroom.id,    // currentClassroomId
+            teacherId,               // receiverId
+            item.student.id,         // studentId
+            1,                       // statusId (1 = 'Aceitada', mapeado conforme seu método original)
+            currentYear.id,          // yearId
+            createdBy                // createdByUser
+          ]);
+
+          await conn.query(`
+          INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser)
+          VALUES ?
+        `, [transferValues]);
+
+          // Tudo deu certo. Confirma a transação.
+          await conn.commit();
+
+        } catch (error) {
+          if (conn) await conn.rollback();
+          throw error; // Repassa o erro para o catch principal
+        } finally {
+          if (conn) conn.release();
         }
       }
+
       return { status: 200, data: {} };
-    }
-    catch (error: any) {
-      if(!isJSON(error.message)) { return { status: 500, message: error.message } }
-      const parsedError = JSON.parse(error.message) as { status: number; message: string }
-      return { status: parsedError.status, message: parsedError.message }
+
+    } catch (error: any) {
+      if (error instanceof HttpError) {
+        return { status: error.status, message: error.message };
+      }
+      // Erros inesperados de banco ou servidor caem aqui
+      return { status: 500, message: error.message || 'Erro interno no servidor' };
     }
   }
 
   async setInactiveNewClassroom(body: InactiveNewClassroom) {
 
-    // TODO: implementar verificação se há mudança de sala para o mesmo classroomNumber e mesmo ano.
-
-    const { student, oldYear, newClassroom, oldClassroom } = body
+    const { student, oldYear, newClassroom, oldClassroom } = body;
+    let conn;
 
     try {
-      return await AppDataSource.transaction(async(CONN)=> {
-        const currentYear = await this.qCurrentYear()
-        if (!currentYear) { return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' } }
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+      const currentYear = await this.qCurrentYear();
+      if (!currentYear) {
+        await conn.rollback();
+        return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
+      }
 
-        const activeSc = await CONN.findOne(StudentClassroom, {
-          relations: ['classroom.school', 'student.person', 'year'], where: { student: { id: student.id }, endedAt: IsNull() }
-        }) as StudentClassroom
+      const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
-        if (activeSc) {
-          return { status: 409, message: `O aluno ${activeSc.student.person.name} está matriculado na sala ${activeSc.classroom.shortName} ${activeSc.classroom.school.shortName} em ${activeSc.year.name}. Solicite sua transferência através do menu Matrículas Ativas` }
+      // ==========================================
+      // 1. Verificação de Matrícula Ativa (activeSc)
+      // ==========================================
+      const [activeScRows] = await conn.query(`
+      SELECT 
+        sc.id, 
+        p.name AS studentPersonName, 
+        c.shortName AS classroomShortName, 
+        sch.shortName AS schoolShortName, 
+        y.name AS yearName
+      FROM student_classroom sc
+      INNER JOIN student s ON s.id = sc.studentId
+      INNER JOIN person p ON p.id = s.personId
+      INNER JOIN classroom c ON c.id = sc.classroomId
+      INNER JOIN school sch ON sch.id = c.schoolId
+      INNER JOIN year y ON y.id = sc.yearId
+      WHERE sc.studentId = ? AND sc.endedAt IS NULL
+      LIMIT 1
+    `, [student.id]) as any;
+
+      if (activeScRows && activeScRows.length > 0) {
+        const activeSc = activeScRows[0];
+        await conn.rollback();
+        return { status: 409, message: `O aluno ${activeSc.studentPersonName} está matriculado na sala ${activeSc.classroomShortName} ${activeSc.schoolShortName} em ${activeSc.yearName}. Solicite sua transferência através do menu Matrículas Ativas` };
+      }
+
+      // ==========================================
+      // 2. Buscas de Ano Letivo (lastYearDB e oldYearDB)
+      // ==========================================
+      const lastYearName = Number(currentYear.name) - 1;
+
+      const [lastYearRows] = await conn.query(`SELECT id, name FROM year WHERE name = ? LIMIT 1`, [lastYearName.toString()]) as any;
+      const lastYearDB = lastYearRows[0];
+
+      const [oldYearRows] = await conn.query(`SELECT id, name FROM year WHERE id = ? LIMIT 1`, [oldYear]) as any;
+      const oldYearDB = oldYearRows[0];
+
+      if (!lastYearDB) {
+        await conn.rollback();
+        return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' };
+      }
+
+      if (!oldYearDB) {
+        await conn.rollback();
+        return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' };
+      }
+
+      // ==========================================
+      // 3. Verificação do Último Registro (lastRegister)
+      // ==========================================
+      const [lastRegisterRows] = await conn.query(`
+      SELECT 
+        s.id, 
+        p.name AS personName
+      FROM student s
+      INNER JOIN person p ON p.id = s.personId
+      INNER JOIN student_classroom sc ON sc.studentId = s.id
+      WHERE s.id = ? 
+        AND sc.yearId = ?
+        AND sc.endedAt IS NOT NULL
+        AND sc.endedAt = (
+          SELECT MAX(sc2.endedAt)
+          FROM student_classroom sc2
+          WHERE sc2.studentId = s.id AND sc2.yearId = ?
+        )
+      LIMIT 1
+    `, [student.id, lastYearDB.id, lastYearDB.id]) as any;
+
+      if (lastRegisterRows && lastRegisterRows.length > 0 && (Number(currentYear.name) - Number(oldYearDB.name) > 1)) {
+        await conn.rollback();
+        return { status: 409, message: `O aluno ${lastRegisterRows[0].personName} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` };
+      }
+
+      // ==========================================
+      // 4. Busca das Salas (classroom e oldClassInDb)
+      // ==========================================
+      const [classroomRows] = await conn.query(`SELECT id, name FROM classroom WHERE id = ? LIMIT 1`, [newClassroom.id]) as any;
+      const classroom = classroomRows[0];
+
+      const [oldClassInDbRows] = await conn.query(`SELECT id, name FROM classroom WHERE id = ? LIMIT 1`, [oldClassroom.id]) as any;
+      const oldClassInDb = oldClassInDbRows[0];
+
+      // ==========================================
+      // 5. Validação de Regressão de Sala
+      // ==========================================
+      if (!OUT_CLASSROOMS.includes(classroom.id)) {
+        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) {
+          await conn.rollback();
+          return { status: 400, message: 'Regressão de sala não é permitido.' };
         }
+      }
 
-        const lastYearName = Number(currentYear.name) - 1
-        const lastYearDB = await CONN.findOne(Year,{ where: { name: lastYearName.toString() } }) as Year
-        const oldYearDB = await CONN.findOne(Year,{ where: { id: oldYear } }) as Year
+      const now = new Date();
 
-        if (!lastYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' } }
-        if (!oldYearDB) { return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' } }
+      // ==========================================
+      // 6. Inserção em StudentClassroom (newStudentClassroom)
+      // ==========================================
+      const [newStudentClassroomResult] = await conn.query(`
+      INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+        student.id,
+        classroom.id,
+        currentYear.id,
+        99,
+        now,
+        qUserTeacher.person.user.id
+      ]) as any;
 
-        const lastRegister: Student | null = await CONN.getRepository(Student)
-          .createQueryBuilder('student')
-          .leftJoinAndSelect('student.person', 'person')
-          .leftJoinAndSelect('student.state', 'state')
-          .leftJoinAndSelect('student.studentClassrooms', 'studentClassroom')
-          .leftJoinAndSelect('studentClassroom.classroom', 'classroom')
-          .leftJoinAndSelect('classroom.school', 'school')
-          .leftJoinAndSelect('studentClassroom.year', 'year')
-          .where('studentClassroom.endedAt IS NOT NULL')
-          .andWhere('student.id = :studentId', { studentId: student.id })
-          .andWhere('year.id = :yearId', { yearId: lastYearDB.id })
-          .andWhere(qb => {
-            const subQueryMaxEndedAt = qb
-              .subQuery()
-              .select('MAX(sc2.endedAt)')
-              .from('student_classroom', 'sc2')
-              .where('sc2.studentId = student.id')
-              .andWhere('sc2.yearId = :yearId', { yearId: lastYearDB.id })
-              .getQuery();
+      // ==========================================
+      // 7. Busca do Status e Inserção em Transfer
+      // ==========================================
+      const [statusRows] = await conn.query(`SELECT id FROM transfer_status WHERE id = 1 AND name = 'Aceitada' LIMIT 1`) as any;
+      const statusId = statusRows.length > 0 ? statusRows[0].id : null;
 
-            return `studentClassroom.endedAt = (${subQueryMaxEndedAt})`;
-          })
-          .getOne();
+      await conn.query(`
+      INSERT INTO transfer (
+        startedAt, endedAt, requesterId, requestedClassroomId, 
+        currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+        now,
+        now,
+        qUserTeacher.id,
+        classroom.id,
+        oldClassInDb.id,
+        qUserTeacher.id,
+        student.id,
+        statusId,
+        currentYear.id,
+        qUserTeacher.person.user.id
+      ]);
 
-        if (lastRegister && lastRegister?.studentClassrooms.length > 0 && Number(currentYear.name) - Number(oldYearDB.name) > 1) { return { status: 409, message: `O aluno ${lastRegister.person.name} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` } }
+      await conn.commit();
 
-        const classroom = await CONN.findOne(Classroom, { where: { id: newClassroom.id } }) as Classroom
-        const oldClassInDb = await CONN.findOne(Classroom, { where: { id: oldClassroom.id } }) as Classroom
-
-        if(!OUT_CLASSROOMS.includes(classroom.id)) {
-          if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) { return { status: 400, message: 'Regressão de sala não é permitido.' } }
-        }
-
-        const newStudentClassroom = await CONN.save(StudentClassroom, {
+      // Retornando a estrutura análoga ao TypeORM
+      return {
+        status: 200,
+        data: {
+          id: newStudentClassroomResult.insertId,
           student: student,
           classroom: classroom,
           year: currentYear,
           rosterNumber: 99,
-          startedAt: new Date(),
+          startedAt: now,
           createdByUser: qUserTeacher.person.user.id
-        }) as StudentClassroom
+        }
+      };
 
-        await AppDataSource.getRepository(Transfer).save({
-          startedAt: new Date(),
-          endedAt: new Date(),
-          requester: qUserTeacher,
-          requestedClassroom: classroom,
-          currentClassroom: oldClassInDb,
-          receiver: qUserTeacher,
-          student: student,
-          status: await CONN.findOne(TransferStatus, { where: { id: 1, name: 'Aceitada' } }) as TransferStatus,
-          year: currentYear,
-          createdByUser: qUserTeacher.person.user.id
-        })
-        return { status: 200, data: newStudentClassroom };
-      })
+    } catch (error: any) {
+      if (conn) await conn.rollback();
+      return { status: 500, message: error.message };
+    } finally {
+      if (conn) conn.release();
     }
-    catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async allStudents(req: Request<{ year: string }>) {

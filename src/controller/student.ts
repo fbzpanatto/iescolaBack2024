@@ -96,10 +96,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       // ==========================================
       // FLUXO DE FORMANDOS (Mantido intacto)
       // ==========================================
-      if (everyGraduate && body.list.length > 0) {
-        await this.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB });
-        return { status: 200, data: {} };
-      }
+      if (everyGraduate && body.list.length > 0) { await this.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB }); return { status: 200, data: {} } }
 
       // ==========================================
       // FLUXO REGULAR EM LOTE (Transação Única)
@@ -129,7 +126,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           INNER JOIN school s ON c.schoolId = s.id
           INNER JOIN year y ON sc.yearId = y.id
           WHERE sc.studentId IN (?) AND sc.endedAt IS NULL
-        `, [studentIds]) as any;
+          `, [studentIds]) as any;
 
           if (activeRows && activeRows.length > 0) {
             const el = activeRows[0];
@@ -150,7 +147,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
               FROM student_classroom sc2 
               WHERE sc2.studentId = sc.studentId AND sc2.yearId = ?
             )
-        `, [studentIds, lastYearDB.id, lastYearDB.id]) as any;
+          `, [studentIds, lastYearDB.id, lastYearDB.id]) as any;
 
           const lastRegisterMap = new Map(lastRegisterRows.map((r: any) => [r.studentId, r]));
 
@@ -188,48 +185,21 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const teacherId = qUserTeacher.id;
 
           // Monta a Matriz de Valores para student_classroom
-          const studentClassroomValues = body.list.map(item => [
-            item.student.id,
-            item.newClassroom.id,
-            currentYear.id,
-            item.rosterNumber,
-            now,
-            createdBy
-          ]);
+          const studentClassroomValues = body.list.map(item => [item.student.id, item.newClassroom.id, currentYear.id, item.rosterNumber, now, createdBy]);
 
-          await conn.query(`
-          INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser)
-          VALUES ?
-        `, [studentClassroomValues]);
+          await conn.query('INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES ?', [studentClassroomValues]);
 
           // Monta a Matriz de Valores para transfer
-          const transferValues = body.list.map(item => [
-            now,                     // startedAt
-            now,                     // endedAt
-            teacherId,               // requesterId
-            item.newClassroom.id,    // requestedClassroomId
-            item.oldClassroom.id,    // currentClassroomId
-            teacherId,               // receiverId
-            item.student.id,         // studentId
-            1,                       // statusId (1 = 'Aceitada', mapeado conforme seu método original)
-            currentYear.id,          // yearId
-            createdBy                // createdByUser
-          ]);
+          const transferValues = body.list.map(item => [now, now, teacherId, item.newClassroom.id, item.oldClassroom.id, teacherId, item.student.id, 1, currentYear.id, createdBy]);
 
-          await conn.query(`
-          INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser)
-          VALUES ?
-        `, [transferValues]);
+          await conn.query('INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser) VALUES ?', [transferValues]);
 
           // Tudo deu certo. Confirma a transação.
           await conn.commit();
-
-        } catch (error) {
-          if (conn) await conn.rollback();
-          throw error; // Repassa o erro para o catch principal
-        } finally {
-          if (conn) conn.release();
         }
+
+        catch (error) { if (conn) await conn.rollback(); throw error }
+        finally { if (conn) conn.release() }
       }
 
       return { status: 200, data: {} };
@@ -240,180 +210,6 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
       // Erros inesperados de banco ou servidor caem aqui
       return { status: 500, message: error.message || 'Erro interno no servidor' };
-    }
-  }
-
-  async setInactiveNewClassroom(body: InactiveNewClassroom) {
-
-    const { student, oldYear, newClassroom, oldClassroom } = body;
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      const currentYear = await this.qCurrentYear();
-      if (!currentYear) {
-        await conn.rollback();
-        return { status: 404, message: 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.' };
-      }
-
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
-
-      // ==========================================
-      // 1. Verificação de Matrícula Ativa (activeSc)
-      // ==========================================
-      const [activeScRows] = await conn.query(`
-      SELECT 
-        sc.id, 
-        p.name AS studentPersonName, 
-        c.shortName AS classroomShortName, 
-        sch.shortName AS schoolShortName, 
-        y.name AS yearName
-      FROM student_classroom sc
-      INNER JOIN student s ON s.id = sc.studentId
-      INNER JOIN person p ON p.id = s.personId
-      INNER JOIN classroom c ON c.id = sc.classroomId
-      INNER JOIN school sch ON sch.id = c.schoolId
-      INNER JOIN year y ON y.id = sc.yearId
-      WHERE sc.studentId = ? AND sc.endedAt IS NULL
-      LIMIT 1
-    `, [student.id]) as any;
-
-      if (activeScRows && activeScRows.length > 0) {
-        const activeSc = activeScRows[0];
-        await conn.rollback();
-        return { status: 409, message: `O aluno ${activeSc.studentPersonName} está matriculado na sala ${activeSc.classroomShortName} ${activeSc.schoolShortName} em ${activeSc.yearName}. Solicite sua transferência através do menu Matrículas Ativas` };
-      }
-
-      // ==========================================
-      // 2. Buscas de Ano Letivo (lastYearDB e oldYearDB)
-      // ==========================================
-      const lastYearName = Number(currentYear.name) - 1;
-
-      const [lastYearRows] = await conn.query(`SELECT id, name FROM year WHERE name = ? LIMIT 1`, [lastYearName.toString()]) as any;
-      const lastYearDB = lastYearRows[0];
-
-      const [oldYearRows] = await conn.query(`SELECT id, name FROM year WHERE id = ? LIMIT 1`, [oldYear]) as any;
-      const oldYearDB = oldYearRows[0];
-
-      if (!lastYearDB) {
-        await conn.rollback();
-        return { status: 404, message: 'Não foi possível encontrar o ano letivo anterior.' };
-      }
-
-      if (!oldYearDB) {
-        await conn.rollback();
-        return { status: 404, message: 'Não foi possível encontrar o ano letivo informado.' };
-      }
-
-      // ==========================================
-      // 3. Verificação do Último Registro (lastRegister)
-      // ==========================================
-      const [lastRegisterRows] = await conn.query(`
-      SELECT 
-        s.id, 
-        p.name AS personName
-      FROM student s
-      INNER JOIN person p ON p.id = s.personId
-      INNER JOIN student_classroom sc ON sc.studentId = s.id
-      WHERE s.id = ? 
-        AND sc.yearId = ?
-        AND sc.endedAt IS NOT NULL
-        AND sc.endedAt = (
-          SELECT MAX(sc2.endedAt)
-          FROM student_classroom sc2
-          WHERE sc2.studentId = s.id AND sc2.yearId = ?
-        )
-      LIMIT 1
-    `, [student.id, lastYearDB.id, lastYearDB.id]) as any;
-
-      if (lastRegisterRows && lastRegisterRows.length > 0 && (Number(currentYear.name) - Number(oldYearDB.name) > 1)) {
-        await conn.rollback();
-        return { status: 409, message: `O aluno ${lastRegisterRows[0].personName} possui matrícula encerrada para o ano letivo de ${lastYearDB.name}. Acesse o ano letivo ${lastYearDB.name} em Passar de Ano e faça a transfêrencia.` };
-      }
-
-      // ==========================================
-      // 4. Busca das Salas (classroom e oldClassInDb)
-      // ==========================================
-      const [classroomRows] = await conn.query(`SELECT id, name FROM classroom WHERE id = ? LIMIT 1`, [newClassroom.id]) as any;
-      const classroom = classroomRows[0];
-
-      const [oldClassInDbRows] = await conn.query(`SELECT id, name FROM classroom WHERE id = ? LIMIT 1`, [oldClassroom.id]) as any;
-      const oldClassInDb = oldClassInDbRows[0];
-
-      // ==========================================
-      // 5. Validação de Regressão de Sala
-      // ==========================================
-      if (!OUT_CLASSROOMS.includes(classroom.id)) {
-        if (Number(classroom.name.replace(/\D/g, '')) < Number(oldClassInDb.name.replace(/\D/g, ''))) {
-          await conn.rollback();
-          return { status: 400, message: 'Regressão de sala não é permitido.' };
-        }
-      }
-
-      const now = new Date();
-
-      // ==========================================
-      // 6. Inserção em StudentClassroom (newStudentClassroom)
-      // ==========================================
-      const [newStudentClassroomResult] = await conn.query(`
-      INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-        student.id,
-        classroom.id,
-        currentYear.id,
-        99,
-        now,
-        qUserTeacher.person.user.id
-      ]) as any;
-
-      // ==========================================
-      // 7. Busca do Status e Inserção em Transfer
-      // ==========================================
-      const [statusRows] = await conn.query(`SELECT id FROM transfer_status WHERE id = 1 AND name = 'Aceitada' LIMIT 1`) as any;
-      const statusId = statusRows.length > 0 ? statusRows[0].id : null;
-
-      await conn.query(`
-      INSERT INTO transfer (
-        startedAt, endedAt, requesterId, requestedClassroomId, 
-        currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-        now,
-        now,
-        qUserTeacher.id,
-        classroom.id,
-        oldClassInDb.id,
-        qUserTeacher.id,
-        student.id,
-        statusId,
-        currentYear.id,
-        qUserTeacher.person.user.id
-      ]);
-
-      await conn.commit();
-
-      // Retornando a estrutura análoga ao TypeORM
-      return {
-        status: 200,
-        data: {
-          id: newStudentClassroomResult.insertId,
-          student: student,
-          classroom: classroom,
-          year: currentYear,
-          rosterNumber: 99,
-          startedAt: now,
-          createdByUser: qUserTeacher.person.user.id
-        }
-      };
-
-    } catch (error: any) {
-      if (conn) await conn.rollback();
-      return { status: 500, message: error.message };
-    } finally {
-      if (conn) conn.release();
     }
   }
 

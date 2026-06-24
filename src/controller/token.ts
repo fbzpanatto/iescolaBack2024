@@ -20,7 +20,13 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
                          tUser?.categoryId === PER_CAT.SUPE ||
                          tUser?.categoryId === PER_CAT.FORM;
 
-      let result = await this.testByClassroomAndTeacher(tUser.teacherId, '2025', masterUser)
+      const currentYear = await this.qCurrentYear();
+
+      if (!currentYear) { return { status: 404, message: 'Nenhum ano letivo ativo foi encontrado no sistema.' } }
+
+      const activeYearValue = currentYear.name;
+
+      let result = await this.testByClassroomAndTeacher(tUser.teacherId, activeYearValue, masterUser)
 
       return { status: 200, data: result };
     }

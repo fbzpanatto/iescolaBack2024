@@ -4595,7 +4595,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async testByClassroomAndTeacher(teacherId: number, yearName: number | string, masterUser: boolean = false) {
+  async testByClassroomAndTeacher_backup(teacherId: number, yearName: number | string, masterUser: boolean = false) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -4634,6 +4634,86 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async testByClassroomAndTeacher(teacherId: number, yearName: number | string, masterUser: boolean = false) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      let query = "";
+      let queryParams: any[] = [];
+
+      // 1. Se for super usuário, ignora a tabela de restrição do professor (tcd)
+      if (masterUser) {
+        query = `
+        SELECT 
+          DISTINCT(tc.classroomId) AS cId,
+          cs.shortName AS cName,
+          sh.id AS sId,
+          sh.shortName AS sName,
+          tt.id AS tId,
+          tt.name AS tName,
+          d.id AS dId,
+          UPPER(d.name) AS dName
+        FROM test_classroom tc
+          INNER JOIN test tt ON tc.testId = tt.id
+          INNER JOIN discipline d ON tt.disciplineId = d.id
+          INNER JOIN classroom cs ON tc.classroomId = cs.id
+          INNER JOIN school sh ON cs.schoolId = sh.id
+        WHERE tt.categoryId = 6
+          AND tt.active = 1
+          AND tt.hideAnswers = 0
+          AND YEAR(tt.createdAt) = ?
+        ORDER BY tc.classroomId;
+      `;
+        // Passa apenas o ano como parâmetro
+        queryParams = [yearName];
+      }
+      // 2. Se for um professor comum, utiliza a query original com a tabela tcd
+      else {
+        query = `
+        SELECT 
+          DISTINCT(tc.classroomId) AS cId,
+          cs.shortName AS cName,
+          sh.id AS sId,
+          sh.shortName AS sName,
+          tt.id AS tId,
+          tt.name AS tName,
+          d.id AS dId,
+          UPPER(d.name) AS dName
+        FROM teacher_class_discipline tcd
+          INNER JOIN test_classroom tc ON tcd.classroomId = tc.classroomId
+          INNER JOIN test tt ON tc.testId = tt.id
+          INNER JOIN discipline d ON tt.disciplineId = d.id
+          INNER JOIN classroom cs ON tc.classroomId = cs.id
+          INNER JOIN school sh ON cs.schoolId = sh.id
+        WHERE tcd.teacherId = ?
+          AND tcd.endedAt IS NULL
+          AND tt.categoryId = 6
+          AND tt.active = 1
+          AND tt.hideAnswers = 0
+          AND YEAR(tt.createdAt) = ?
+          AND tcd.disciplineId = tt.disciplineId
+          AND tt.disciplineId = d.id
+        ORDER BY tc.classroomId;
+      `;
+        // Passa o ID do professor e o ano
+        queryParams = [teacherId, yearName];
+      }
+
+      const [result] = await conn.query(query, queryParams);
+
+      return result as Array<{ cId: number, cName: string, sId: number, sName: string, tId: number, tName: string, dId: number, dName: string }>;
+
+    }
+    catch (error) {
+      console.error(error);
+      throw error;
+    }
+    finally {
+      if (conn) { conn.release(); }
+    }
   }
 
   async qGraphTest(testId: number | string, testQuestionsIds: number[], year: any) {

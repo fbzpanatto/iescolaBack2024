@@ -5107,10 +5107,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         params.push(teacherId); // Insere o ID do professor dinamicamente
       }
 
-      if (bimesterId !== null) {
-        query += ` AND br.id = ?`;
-        params.push(bimesterId);
-      }
+      if (bimesterId !== null) { query += ` AND br.id = ?`; params.push(bimesterId) }
 
       if (disciplineId !== null) {
         query += ` AND dc.id = ?`;

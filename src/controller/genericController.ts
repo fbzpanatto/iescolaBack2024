@@ -4997,7 +4997,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
     finally { if (conn) { conn.release() } }
   }
 
-  async qGetAllTokens(search: string, bimesterId: number | null, disciplineId: number | null, limit: number, offset: number) {
+  async qGetAllTokens_backup(search: string, bimesterId: number | null, disciplineId: number | null, limit: number, offset: number) {
 
     let conn;
 
@@ -5054,6 +5054,83 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async qGetAllTokens(search: string, bimesterId: number | null, disciplineId: number | null, limit: number, offset: number, teacherId: number, masterUser: boolean) {
+
+    let conn;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      const testSearch = `%${search.toString().toUpperCase()}%`;
+      const tokenSearch = `%${search.toString()}%`;
+
+      let query = `
+      SELECT
+        tk.id,
+        tk.code,
+        tk.leftUses,
+        DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
+        DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
+        tt.name AS test,
+        br.name AS bimester,
+        upper(dc.name) AS discipline,
+        pr.name AS teacher,
+        cr.shortName AS classroom,
+        sh.shortName AS school
+      FROM test_token tk
+        INNER JOIN classroom cr ON tk.classroomId = cr.id
+        INNER JOIN school sh ON cr.schoolId = sh.id
+        INNER JOIN test tt ON tk.testId = tt.id
+        INNER JOIN period pd ON tt.periodId = pd.id
+        INNER JOIN bimester br ON pd.bimesterId = br.id
+        INNER JOIN discipline dc ON tt.disciplineId = dc.id
+        INNER JOIN teacher th ON tk.teacherId = th.id
+        INNER JOIN person pr ON th.personId = pr.id
+      WHERE (tt.name LIKE ? OR tk.code LIKE ?)
+    `;
+
+      const params: any[] = [testSearch, tokenSearch];
+
+      // Se NÃO for um super usuário, aplica a restrição de salas do professor
+      if (!masterUser) {
+        query += ` 
+        AND EXISTS (
+          SELECT 1 
+          FROM teacher_class_discipline tcd 
+          WHERE tcd.teacherId = ? 
+            AND tcd.classroomId = tk.classroomId 
+            AND tcd.endedAt IS NULL
+        )
+      `;
+        params.push(teacherId); // Insere o ID do professor dinamicamente
+      }
+
+      if (bimesterId !== null) {
+        query += ` AND br.id = ?`;
+        params.push(bimesterId);
+      }
+
+      if (disciplineId !== null) {
+        query += ` AND dc.id = ?`;
+        params.push(disciplineId);
+      }
+
+      query += ` LIMIT ? OFFSET ?;`;
+      params.push(limit, offset);
+
+      const [selectResult] = await conn.query(query, params);
+      return selectResult as Array<qTestToken>;
+
+    }
+    catch (error) {
+      console.error(error);
+      throw error;
+    }
+    finally {
+      if (conn) { conn.release(); }
+    }
   }
 
   async createTestToken(el: { teacherId: number, leftUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {

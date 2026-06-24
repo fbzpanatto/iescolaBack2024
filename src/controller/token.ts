@@ -35,7 +35,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
   async getAllTokens(req: Request) {
 
-    const { search, limit, offset, bimester, discipline } = req.query
+    const { search, limit, offset, bimester, discipline } = req.query;
 
     const pSearch = search as string || '';
     const pLimit = !isNaN(parseInt(limit as string)) ? parseInt(limit as string) : 100;
@@ -44,10 +44,31 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
     const pDisciplineId = !isNaN(parseInt(discipline as string)) ? parseInt(discipline as string) : null;
 
     try {
-      let result = await this.qGetAllTokens(pSearch, pBimesterId, pDisciplineId, pLimit, pOffset)
+      // 1. Resgata os dados do usuário que está fazendo a requisição
+      const tUser = await this.qUser(req?.body?.user?.user);
+
+      // 2. Define se ele é um "super usuário" (Admin, Supervisor, etc)
+      const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
+        tUser?.categoryId === PER_CAT.SUPE ||
+        tUser?.categoryId === PER_CAT.FORM;
+
+      // 3. Passa o ID do professor e o status de masterUser para a querie
+      let result = await this.qGetAllTokens(
+        pSearch,
+        pBimesterId,
+        pDisciplineId,
+        pLimit,
+        pOffset,
+        tUser.teacherId, // Novo parâmetro
+        masterUser       // Novo parâmetro
+      );
+
       return { status: 200, data: result };
     }
-    catch (error: any) { console.log(error); return { status: 500, message: error.message } }
+    catch (error: any) {
+      console.log(error);
+      return { status: 500, message: error.message };
+    }
   }
 
   async saveToken(body: { user: UserInterface, leftUses: number, classroomId: number, testId: number }) {

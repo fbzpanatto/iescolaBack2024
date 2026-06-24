@@ -5109,10 +5109,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (bimesterId !== null) { query += ` AND br.id = ?`; params.push(bimesterId) }
 
-      if (disciplineId !== null) {
-        query += ` AND dc.id = ?`;
-        params.push(disciplineId);
-      }
+      if (disciplineId !== null) { query += ` AND dc.id = ?`; params.push(disciplineId) }
 
       query += ` LIMIT ? OFFSET ?;`;
       params.push(limit, offset);

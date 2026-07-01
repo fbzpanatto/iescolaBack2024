@@ -4649,9 +4649,9 @@ INNER JOIN year AS y ON tr.yearId = y.id
         query = `
         SELECT 
           DISTINCT(tc.classroomId) AS cId,
-          cs.shortName AS cName,
+          cs.shortName AS name,
           sh.id AS sId,
-          sh.shortName AS sName,
+          sh.shortName AS school,
           tt.id AS tId,
           tt.name AS tName,
           d.id AS dId,
@@ -4675,9 +4675,9 @@ INNER JOIN year AS y ON tr.yearId = y.id
         query = `
         SELECT 
           DISTINCT(tc.classroomId) AS cId,
-          cs.shortName AS cName,
+          cs.shortName AS name,
           sh.id AS sId,
-          sh.shortName AS sName,
+          sh.shortName AS school,
           tt.id AS tId,
           tt.name AS tName,
           d.id AS dId,
@@ -4704,7 +4704,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       const [result] = await conn.query(query, queryParams);
 
-      return result as Array<{ cId: number, cName: string, sId: number, sName: string, tId: number, tName: string, dId: number, dName: string }>;
+      return result as Array<{ cId: number, name: string, sId: number, school: string, tId: number, tName: string, dId: number, dName: string }>;
 
     }
     catch (error) {

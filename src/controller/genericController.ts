@@ -5004,51 +5004,51 @@ INNER JOIN year AS y ON tr.yearId = y.id
     try {
       conn = await connectionPool.getConnection();
 
-      // Tratamento preventivo para runtime e remoção de redundâncias
       const safeSearch = search || '';
       const testSearch = `%${safeSearch.toUpperCase()}%`;
       const classroomSearch = `%${safeSearch}%`;
       const schoolSearch = `%${safeSearch}%`;
 
+      const spTimeNow = Helper.generateDateTime().createdAt;
+
       let query = `
-    SELECT
-      tk.id,
-      tk.code,
-      tk.leftUses,
-      DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
-      DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
-      tt.name AS test,
-      br.name AS bimester,
-      upper(dc.name) AS discipline,
-      pr.name AS teacher,
-      cr.shortName AS classroom,
-      sh.shortName AS school
-    FROM test_token tk
-      INNER JOIN classroom cr ON tk.classroomId = cr.id
-      INNER JOIN school sh ON cr.schoolId = sh.id
-      INNER JOIN test tt ON tk.testId = tt.id
-      INNER JOIN period pd ON tt.periodId = pd.id
-      INNER JOIN bimester br ON pd.bimesterId = br.id
-      INNER JOIN discipline dc ON tt.disciplineId = dc.id
-      INNER JOIN teacher th ON tk.teacherId = th.id
-      INNER JOIN person pr ON th.personId = pr.id
-    WHERE (tt.name LIKE ? OR cr.shortName LIKE ? OR sh.shortName LIKE ?)
-  `;
+        SELECT
+          tk.id,
+          tk.code,
+          tk.leftUses,
+          DATE_FORMAT(tk.createdAt, '%d/%m/%Y %H:%i:%s') AS createdAt,
+          DATE_FORMAT(tk.expiresAt, '%d/%m/%Y %H:%i:%s') AS expiresAt,
+          tt.name AS test,
+          br.name AS bimester,
+          upper(dc.name) AS discipline,
+          pr.name AS teacher,
+          cr.shortName AS classroom,
+          sh.shortName AS school
+        FROM test_token tk
+          INNER JOIN classroom cr ON tk.classroomId = cr.id
+          INNER JOIN school sh ON cr.schoolId = sh.id
+          INNER JOIN test tt ON tk.testId = tt.id
+          INNER JOIN period pd ON tt.periodId = pd.id
+          INNER JOIN bimester br ON pd.bimesterId = br.id
+          INNER JOIN discipline dc ON tt.disciplineId = dc.id
+          INNER JOIN teacher th ON tk.teacherId = th.id
+          INNER JOIN person pr ON th.personId = pr.id
+        WHERE (tt.name LIKE ? OR cr.shortName LIKE ? OR sh.shortName LIKE ?) AND tk.expiresAt > ?`;
 
-      const params: any[] = [testSearch, classroomSearch, schoolSearch];
+      // 3. Adiciona a string de data gerada pelo Node aos parâmetros
+      const params: any[] = [testSearch, classroomSearch, schoolSearch, spTimeNow];
 
-      // Se NÃO for um super usuário, aplica a restrição de salas do professor
       if (!masterUser) {
         query += ` 
-      AND EXISTS (
-        SELECT 1 
-        FROM teacher_class_discipline tcd 
-        WHERE tcd.teacherId = ? 
-          AND tcd.classroomId = tk.classroomId 
-          AND tcd.endedAt IS NULL
-      )
-    `;
-        params.push(teacherId); // Insere o ID do professor dinamicamente
+          AND EXISTS (
+            SELECT 1 
+            FROM teacher_class_discipline tcd 
+            WHERE tcd.teacherId = ? 
+              AND tcd.classroomId = tk.classroomId 
+              AND tcd.endedAt IS NULL
+          )`;
+
+        params.push(teacherId);
       }
 
       if (bimesterId !== null) { query += ` AND br.id = ?`; params.push(bimesterId); }
@@ -5062,13 +5062,8 @@ INNER JOIN year AS y ON tr.yearId = y.id
       return selectResult as Array<qTestToken>;
 
     }
-    catch (error) {
-      console.error(error);
-      throw error;
-    }
-    finally {
-      if (conn) { conn.release(); }
-    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release(); } }
   }
 
   async createTestToken(el: { teacherId: number, leftUses: number, classroomId: number, testId: number, createdAt: string, expiresAt: string, code: string }) {

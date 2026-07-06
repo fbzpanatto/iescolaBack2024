@@ -23,6 +23,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "report", methods: allMethods },
       { entity: "personcategory", methods: allMethods },
       { entity: "studentquestion", methods: allMethods },
+      { entity: "merge", methods: allMethods },
       { entity: "history", methods: onlyGET }
     ]
   },

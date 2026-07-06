@@ -38,6 +38,7 @@ import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 import { PasswordRouter } from "./routes/password";
 import { StudentTestRouter } from "./routes/studentTest";
+import { StudentMergeRouter } from "./routes/studentMerge";
 
 const app: Application = express();
 const route = Router();
@@ -59,6 +60,7 @@ route.use("/person-category", authorization, PeCatRouter);
 route.use("/question", authorization, QuesR);
 route.use("/question-group", QGroupR);
 route.use("/report", authorization, ReportRouter);
+route.use("/merge", authorization, StudentMergeRouter);
 route.use("/school", authorization, SchoolRouter);
 route.use("/state", authorization, StateRouter);
 route.use("/student", authorization, StudentRouter);

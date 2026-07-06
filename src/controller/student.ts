@@ -1,24 +1,23 @@
-import {StudentClassroom} from "../model/StudentClassroom";
-import {GenericController} from "./genericController";
-import {EntityManager, EntityTarget, FindOneOptions, In, IsNull} from "typeorm";
-import {Student} from "../model/Student";
-import {AppDataSource} from "../data-source";
-import {PersonCategory} from "../model/PersonCategory";
-import {IS_OWNER, MASTER_USER, OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS} from "../utils/enums";
-import {StudentDisability} from "../model/StudentDisability";
-import {Disability} from "../model/Disability";
-import {State} from "../model/State";
-import {GraduateBody, InactiveNewClassroom, SaveStudent, UserInterface} from "../interfaces/interfaces";
-import {Request} from "express";
-import {Classroom} from "../model/Classroom";
-import {Transfer} from "../model/Transfer";
-import {TransferStatus} from "../model/TransferStatus";
-import {Year} from "../model/Year";
-import {Teacher} from "../model/Teacher";
-import {isJSON} from "class-validator";
-import {Helper, HttpError} from "../utils/helpers";
+import { connectionPool } from "../services/db";
+import { StudentClassroom } from "../model/StudentClassroom";
+import { GenericController } from "./genericController";
+import { EntityManager, EntityTarget, FindOneOptions, In, IsNull } from "typeorm";
+import { Student } from "../model/Student";
+import { AppDataSource } from "../data-source";
+import { PersonCategory } from "../model/PersonCategory";
+import { OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS } from "../utils/enums";
+import { StudentDisability } from "../model/StudentDisability";
+import { Disability } from "../model/Disability";
+import { State } from "../model/State";
+import { GraduateBody, InactiveNewClassroom, SaveStudent, UserInterface } from "../interfaces/interfaces";
+import { Request } from "express";
+import { Classroom } from "../model/Classroom";
+import { Transfer } from "../model/Transfer";
+import { TransferStatus } from "../model/TransferStatus";
+import { Year } from "../model/Year";
+import { Teacher } from "../model/Teacher";
+import { Helper, HttpError } from "../utils/helpers";
 import getTimeZone from "../utils/getTimeZone";
-import {connectionPool} from "../services/db";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 

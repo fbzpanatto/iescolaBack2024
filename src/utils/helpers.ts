@@ -1344,4 +1344,33 @@ export class Helper {
     // 3. Monta a string final
     return `${dayString}/${monthString}/${year}`;
   }
+
+  static formatDuplicatedStudent(rows: any[]) {
+    return rows.map((item) => ({
+      aluno: item.aluno,
+      dataNascimento: item.data_nascimento_ptbr, // Vai para a coluna visual da tabela
+      justificativa: item.justificativa,
+      certo: {
+        id: item.studentIdCerto,
+        ra: item.ra_certo,
+        dv: item.dv_certo,
+        salasAtivas: item.ativas_certo,
+        questoes: item.questoes_certo
+      },
+      errado: {
+        id: item.studentIdDeletar,
+        ra: item.ra_errado,
+        dv: item.dv_errado,
+        salasAtivas: item.ativas_errado,
+        questoes: item.questoes_errado
+      },
+      payloadAplicar: {
+        studentIdCerto: item.studentIdCerto,
+        studentIdDeletar: item.studentIdDeletar,
+        novoRa: item.ra_certo,
+        novoDv: item.dv_certo,
+        novaDataNascimento: item.data_nascimento_db // Mantém o formato YYYY-MM-DD original para o SQL
+      }
+    }));
+  }
 }

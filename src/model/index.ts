@@ -43,6 +43,7 @@ import { AccessSecurityLog } from "./MobileSecurityLog";
 import { TestToken } from "./Token";
 import { TokenReset } from "./TokenReset";
 import { ClassroomShift } from "./ClassroomShift";
+import { QuestionImage } from "./QuestionImage";
 
 export const entities = [
   AccessSecurityLog,
@@ -60,6 +61,7 @@ export const entities = [
   PersonCategory,
   Period,
   Question,
+  QuestionImage,
   QuestionGroup,
   TestClassroom,
   Training,

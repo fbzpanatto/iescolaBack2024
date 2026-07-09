@@ -39,6 +39,7 @@ import { YearRouter } from "./routes/year";
 import { PasswordRouter } from "./routes/password";
 import { StudentTestRouter } from "./routes/studentTest";
 import { StudentMergeRouter } from "./routes/studentMerge";
+import { UploadRouter } from "./routes/upload";
 
 const app: Application = express();
 const route = Router();
@@ -72,6 +73,7 @@ route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRout
 route.use("/teacher-classroom", authorization, TeacherClassroomsRouter);
 route.use("/test", authorization, TestRouter);
 route.use("/token", authorization, TokenRouter);
+route.use("/upload", authorization, UploadRouter);
 route.use("/history", authorization, HistoryRouter);
 route.use("/test-category", authorization, TestCategoryRouter);
 route.use("/skill", SkillRouter);

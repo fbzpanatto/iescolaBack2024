@@ -4,6 +4,7 @@ import { Person } from "./Person";
 import { Skill } from "./Skill";
 import { Discipline } from "./Discipline";
 import { ClassroomCategory } from "./ClassroomCategory";
+import { QuestionImage } from "./QuestionImage";
 
 @Entity()
 export class Question {
@@ -31,6 +32,9 @@ export class Question {
 
   @OneToMany(() => TestQuestion, testQuestion => testQuestion.question)
   testQuestions: TestQuestion[]
+
+  @OneToMany(() => QuestionImage, questionImage => questionImage.question, { cascade: true })
+  questionImages: QuestionImage[]
 
   @ManyToOne(() => Person, person => person.tests, { nullable: true })
   person: Person

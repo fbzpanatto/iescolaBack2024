@@ -1,8 +1,7 @@
 import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import { TestQuestion } from "../model/TestQuestion";
-import { TestByStudentId, UpdateStudentAnswers } from "../interfaces/interfaces";
+import { TestByStudentId, TestQuestionWithImages, UpdateStudentAnswers } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 
 class StudentTestController extends GenericController<any> {
@@ -37,7 +36,7 @@ class StudentTestController extends GenericController<any> {
       const qTest = await this.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
-      const qTqs = await this.qTestQuestionsWithTitle(testId) as TestQuestion[];
+      const qTqs = await this.qTestQuestionsWithTitle(testId) as TestQuestionWithImages[];
       if (!qTqs || qTqs.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões." } }
 
       let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
@@ -83,10 +82,9 @@ class StudentTestController extends GenericController<any> {
 
       const groupMap = new Map();
 
-      qTqs.forEach((tQ: {[key:string]:any}) => {
+      qTqs.forEach((tQ) => {
         const grpId = tQ.questionGroup.id;
         if (!groupMap.has(grpId)) { groupMap.set(grpId, { id: grpId, name: tQ.questionGroup.name, questions: [] }) }
-        tQ.question.images = tQ.question.images > 0 ? Array.from({ length: tQ.question.images }, (_, i) => i + 1) : 0;
         groupMap.get(grpId).questions.push(tQ);
       });
 

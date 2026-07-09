@@ -27,7 +27,7 @@ import {
   qTeacherRelationShip,
   qTest,
   qTestClassroom,
-  qTestQuestions,
+  qTestQuestions, qTestQuestionsWithImages,
   qTestToken,
   qTransferStatus,
   qUser,
@@ -2958,24 +2958,28 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       const query =
         `
-        SELECT 
-            tq.id AS test_question_id, tq.order AS test_question_order, tq.active AS test_question_active,
-            qt.id AS question_id,
-            qt.title AS question_title,
-            qt.images AS question_images,
-            qg.id AS question_group_id, qg.name AS question_group_name,
-            sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description
-        FROM test_question AS tq
-        INNER JOIN question AS qt ON tq.questionId = qt.id
-            LEFT JOIN skill AS sk ON qt.skillId = sk.id
-        INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
-        INNER JOIN test AS tt ON tq.testId = tt.id
-        WHERE tt.id = ?
-        ORDER BY qg.id, tq.order
-      `
+            SELECT
+                tq.id AS test_question_id, tq.order AS test_question_order, tq.active AS test_question_active,
+                qt.id AS question_id,
+                qt.title AS question_title,
+                qg.id AS question_group_id, qg.name AS question_group_name,
+                sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description,
+                (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
+                    FROM question_image AS qi
+                    WHERE qi.questionId = qt.id AND qi.active = 1
+                ) AS question_images
+            FROM test_question AS tq
+                     INNER JOIN question AS qt ON tq.questionId = qt.id
+                     LEFT JOIN skill AS sk ON qt.skillId = sk.id
+                     INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+                     INNER JOIN test AS tt ON tq.testId = tt.id
+            WHERE tt.id = ?
+            ORDER BY qg.id, tq.order
+        `
 
       const [ queryResult ] = await conn.query(query, [testId])
-      return Helper.testQuestions(queryResult as qTestQuestions[])
+      return Helper.testQuestionsWithTitle(queryResult as qTestQuestionsWithImages[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

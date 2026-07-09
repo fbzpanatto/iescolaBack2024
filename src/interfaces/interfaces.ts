@@ -2,7 +2,6 @@ import { PersonCategory } from "../model/PersonCategory";
 import { Classroom } from "../model/Classroom";
 import { Student } from "../model/Student";
 import { Test } from "../model/Test";
-import { ObjectLiteral } from "typeorm";
 import { School } from "../model/School";
 import { Question } from "../model/Question";
 import { QuestionGroup } from "../model/QuestionGroup";
@@ -60,3 +59,39 @@ export interface TrainingWithSchedulesResult { id: number, classroom: number, ca
 export interface TeacherParam { id: number; name: string; disciplineId?: number | null; discipline: string; contract?: number | null; classroom?: number | string; schoolId: number; shortName: string; isHeadquarterSchool?: number;trainingTeachers?: { id: number; teacherId: number; trainingId: number; statusId: number | string; observation?: string | null }[] }
 export interface UpdateStudentAnswers { user: { user: number, ra: string, category: number, iat: number, exp: number }, testId: number, studentId: number | string, questions: { studentQuestionId: number, answer: string, testQuestionId: number, studentId: number, rClassroomId: number | null }[], token: { id: number, code: string } }
 export interface qTestToken { id: number, code: string, leftUses: number, createdAt: string, expiresAt: string, test: string, bimester: string, discipline: string, teacher: string, classroom: string, school: string }
+
+export interface QuestionImageJson {
+  id: number
+  type: 'main' | 'support'
+  order: number
+  s3Key: string
+}
+
+export interface qTestQuestionsWithImages {
+  test_question_id: number
+  test_question_order: number
+  test_question_answer: string
+  test_question_active: boolean
+  question_id: number
+  question_images: string | null // JSON string agregado pelo MySQL (JSON_ARRAYAGG), ainda não parseado
+  question_title?: string
+  question_group_id: number
+  question_group_name: string
+  skill_id?: number
+  skill_reference?: string
+  skill_description?: string
+}
+
+export interface TestQuestionWithImages {
+  id: number
+  order: number
+  answer: string
+  active: boolean
+  question: {
+    id: number
+    title?: string
+    images: QuestionImageJson[]
+    skill: { reference?: string, description?: string }
+  }
+  questionGroup: { id: number, name: string }
+}

@@ -1,6 +1,10 @@
 import { Test} from "../model/Test";
 import { Classroom } from "../model/Classroom";
-import { qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult } from "../interfaces/interfaces";
+import {
+  qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions,
+  qTestQuestionsWithImages,
+  QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult
+} from "../interfaces/interfaces";
 import {User} from "../model/User";
 
 export class HttpError extends Error {
@@ -836,6 +840,28 @@ export class Helper {
       question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
+  }
+
+  static testQuestionsWithTitle(arr: qTestQuestionsWithImages[]) {
+    return arr.map(el => ({
+      id: el.test_question_id,
+      order: el.test_question_order,
+      answer: el.test_question_answer ?? 'hidden',
+      active: el.test_question_active,
+      question: {
+        id: el.question_id,
+        title: el.question_title,
+        images: this.parseQuestionImages(el.question_images),
+        skill: { reference: el.skill_reference, description: el.skill_description }
+      },
+      questionGroup: { id: el.question_group_id, name: el.question_group_name }
+    }))
+  }
+
+  private static parseQuestionImages(value: unknown): QuestionImageJson[] {
+    if (!value) return [];
+    if (typeof value === 'string') { return JSON.parse(value) as QuestionImageJson[] }
+    return value as QuestionImageJson[];
   }
 
   static alphabeticTests(arr: qAlphaTests[]) {

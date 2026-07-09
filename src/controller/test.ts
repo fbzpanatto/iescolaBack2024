@@ -28,6 +28,9 @@ import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { Helper } from "../utils/helpers";
 import { reportController } from "./report";
+import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
+import {QuestionImage, QuestionImageType} from "../model/QuestionImage";
+import { HttpError } from "../utils/helpers";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -648,17 +651,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
         const qUserTeacher = await this.qTeacherByUser(body.user.user);
 
         if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
-          return { status: 403, message: 'Você não tem permissão para criar uma avaliação.' };
+          throw new HttpError(403, 'Você não tem permissão para criar uma avaliação.');
         }
 
-        if(!qUserTeacher) return { status: 404, message: "Usuário inexistente" };
+        if(!qUserTeacher) throw new HttpError(404, "Usuário inexistente");
 
         const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } });
-        if(!checkYear) return { status: 404, message: "Ano não encontrado" };
-        if(!checkYear.active) return { status: 400, message: "Não é possível criar um teste para um ano letivo inativo." };
+        if(!checkYear) throw new HttpError(404, "Ano não encontrado");
+        if(!checkYear.active) throw new HttpError(400, "Não é possível criar um teste para um ano letivo inativo.");
 
         const period = await CONN.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } });
-        if(!period) return { status: 404, message: "Período não encontrado" };
+        if(!period) throw new HttpError(404, "Período não encontrado");
 
         const checkCategories = [
           tcids.LITE_1,
@@ -670,7 +673,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         if(checkCategories.includes(body.category.id)) {
           const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } });
-          if(test) { return { status: 409, message: `Já existe uma avaliação criada com a categoria, disciplina e período informados.` } }
+          if(test) { throw new HttpError(409, `Já existe uma avaliação criada com a categoria, disciplina e período informados.`) }
         }
 
         const classes = await CONN.getRepository(Classroom)
@@ -689,7 +692,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           .having("COUNT(studentClassroom.id) > 0")
           .getMany();
 
-        if(!classes || classes.length < 1) { return { status: 400, message: "Não existem alunos matriculados em uma ou mais salas informadas." } }
+        if(!classes || classes.length < 1) { throw new HttpError(400, "Não existem alunos matriculados em uma ou mais salas informadas.") }
 
         const test = new Test();
 
@@ -714,15 +717,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           for (const tq of body.testQuestions) {
             let question = tq.question;
-            // Se a questão não tem ID, cria uma nova
-            if (!question.id) {
-              // Valida apenas campos realmente obrigatórios
-              if (!question.classroomCategory?.id) { return { status: 400, message: "Todas as questões devem ter categoria definida" } }
 
-              // Prepara o objeto da questão
+            if (!question.id) {
+              if (!question.classroomCategory?.id) { throw new HttpError(400, "Todas as questões devem ter categoria definida") }
+
               const questionData: any = {
                 title: question.title,
-                images: question.images || 0,
                 person: { id: question.person?.id || qUserTeacher.person.id },
                 discipline: body.discipline,
                 classroomNumber: classroomNumber,
@@ -731,15 +731,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 createdByUser: qUserTeacher.person.user.id
               };
 
-              // Adiciona skill apenas se existir
               if (question.skill?.id) { questionData.skill = { id: question.skill.id } }
 
-              // Cria a questão
+              const incomingImages = question.images; // captura antes de sobrescrever "question" com o retorno do save
+
               const newQuestion = await CONN.save(Question, questionData);
               question = newQuestion;
+
+              if (Array.isArray(incomingImages) && incomingImages.length > 0) {
+                const questionImages = [];
+
+                for (const img of incomingImages) {
+                  const finalKey = await moverParaQuestions(img.s3Key);
+                  questionImages.push({
+                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                    order: img.order,
+                    s3Key: finalKey,
+                    question: newQuestion,
+                    createdAt: new Date(),
+                    createdByUser: qUserTeacher.person.user.id
+                  });
+                }
+
+                await CONN.save(QuestionImage, questionImages);
+              }
             }
 
-            // Prepara a TestQuestion
             testQuestions.push({
               order: tq.order,
               answer: tq.answer,
@@ -752,14 +769,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
             });
           }
 
-          // Salva todas as TestQuestions
           await CONN.save(TestQuestion, testQuestions);
         }
 
         return { status: 201, data: test };
       });
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      if (error instanceof HttpError) { return { status: error.status, message: error.message } }
+      console.error(error);
+      return { status: 500, message: error.message };
+    }
   }
 
   async updateTest(id: number | string, req: Request<{ id: number | string }>) {
@@ -772,9 +792,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
           uTeacher.person.category.id === PER_CAT.FORM;
 
         const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
-        if(!test) return { status: 404, message: "Teste não encontrado" }
-        if(uTeacher.person.id !== test.person.id && !masterUser)
-          return { status: 403, message: "Você não tem permissão para editar esse teste." }
+        if(!test) throw new HttpError(404, "Teste não encontrado")
+        if(uTeacher.person.id !== test.person.id && !masterUser) {
+          throw new HttpError(403, "Você não tem permissão para editar esse teste.")
+        }
 
         if (req.body.endedAt && req.body.endedAt.length === 10) { test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt) }
 
@@ -796,20 +817,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
               // NOVA QUESTÃO - precisa criar Question primeiro se não existir
               let questionToSave = next.question;
 
-              // Se a questão não tem ID, é uma questão completamente nova
               if (!questionToSave.id) {
-                // Valida apenas campos realmente obrigatórios
                 if (!questionToSave.classroomCategory?.id) {
-                  return {
-                    status: 400,
-                    message: "Questão nova deve ter categoria definida"
-                  }
+                  throw new HttpError(400, "Questão nova deve ter categoria definida")
                 }
 
-                // Prepara o objeto da questão
                 const questionData: any = {
                   title: questionToSave.title,
-                  images: questionToSave.images || 0,
                   person: { id: questionToSave.person?.id || uTeacher.person.id },
                   discipline: { id: test.discipline.id },
                   classroomCategory: { id: questionToSave.classroomCategory.id },
@@ -817,15 +831,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   createdByUser: userId
                 };
 
-                // Adiciona skill apenas se existir
                 if (questionToSave.skill?.id) { questionData.skill = { id: questionToSave.skill.id } }
 
-                // Cria a nova questão
                 const newQuestion = await CONN.save(Question, questionData);
+
+                // Se vierem imagens no formato novo (array), move de tmp/ para questions/ e grava os registros
+                if (Array.isArray(questionToSave.images) && questionToSave.images.length > 0) {
+                  const questionImages = [];
+
+                  for (const img of questionToSave.images) {
+                    const finalKey = await moverParaQuestions(img.s3Key);
+                    questionImages.push({
+                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                      order: img.order,
+                      s3Key: finalKey,
+                      question: newQuestion,
+                      createdAt: new Date(),
+                      createdByUser: userId
+                    });
+                  }
+
+                  await CONN.save(QuestionImage, questionImages);
+                }
+
                 questionToSave = newQuestion;
               }
 
-              // Cria a TestQuestion
               await CONN.save(TestQuestion, {
                 order: next.order,
                 answer: next.answer,
@@ -841,8 +872,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
               // QUESTÃO EXISTENTE - atualiza se houver mudanças
               const testQuestionCondition = this.diffs(curr, next);
               if (testQuestionCondition) {
+                // next.question ainda carrega "images" (array novo). Como a relação Question
+                // tem cascade:true, salvar TestQuestion com esse objeto aninhado dispara um
+                // cascade-save da Question, tentando gravar o array na coluna legada e numérica.
+                const { images: _tqImages, ...questionWithoutImages } = (next.question as any) || {};
+
                 await CONN.save(TestQuestion, {
                   ...next,
+                  question: questionWithoutImages,
                   createdAt: curr.createdAt,
                   createdByUser: curr.createdByUser,
                   updatedAt: new Date(),
@@ -850,10 +887,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              // Atualiza a Question se houver mudanças
               if (this.diffs(curr.question, next.question)) {
+                // "images" (array novo) não pode ser gravado na coluna legada e numérica "images" da Question.
+                // O tratamento de imagens é feito separadamente, mais abaixo, via question_image.
+                const { images: _discardedImages, ...questionFieldsOnly } = next.question as any;
+
                 await CONN.save(Question, {
-                  ...next.question,
+                  ...questionFieldsOnly,
                   createdAt: curr.question.createdAt,
                   createdByUser: curr.question.createdByUser,
                   updatedAt: new Date(),
@@ -861,7 +901,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              // Atualiza Skill apenas se existir e houver mudanças
               if (next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
                 await CONN.save(Skill, {
                   ...next.question.skill,
@@ -872,7 +911,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              // Atualiza QuestionGroup se houver mudanças
               if (next.questionGroup && this.diffs(curr.questionGroup, next.questionGroup)) {
                 await CONN.save(QuestionGroup, {
                   ...next.questionGroup,
@@ -882,6 +920,73 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   updatedByUser: userId
                 })
               }
+
+              // --- Diff de imagens (só roda se o front já mandar o formato novo, em array) ---
+              const nextImages = (next.question as any).images;
+
+              if (Array.isArray(nextImages)) {
+                const currImages = (curr.question as any).questionImages || [];
+                const currById = new Map(currImages.map((img: any) => [img.id, img]));
+                const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
+
+                // 1. Imagens removidas: existiam no banco, não vieram mais no array
+                for (const img of currImages as any[]) {
+                  if (!nextIds.has(img.id)) {
+                    await deletarDoS3(img.s3Key);
+                    await CONN.delete(QuestionImage, { id: img.id });
+                  }
+                }
+
+                // 2. Imagens novas ou substituídas
+                for (const img of nextImages) {
+
+                  // 2a. Sem id -> imagem nova
+                  if (!img.id) {
+                    const finalKey = await moverParaQuestions(img.s3Key);
+                    await CONN.save(QuestionImage, {
+                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                      order: img.order,
+                      s3Key: finalKey,
+                      question: { id: curr.question.id },
+                      createdAt: new Date(),
+                      createdByUser: userId
+                    });
+                    continue;
+                  }
+
+                  const existing = currById.get(img.id) as any;
+                  if (!existing) continue; // segurança: id enviado não bate com nenhum registro atual
+
+                  // 2b. s3Key nova apontando pra tmp/ -> substituição de arquivo
+                  if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
+                    const finalKey = await moverParaQuestions(img.s3Key);
+                    const oldKey = existing.s3Key;
+
+                    await CONN.save(QuestionImage, {
+                      id: img.id,
+                      s3Key: finalKey,
+                      order: img.order,
+                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                      updatedAt: new Date(),
+                      updatedByUser: userId
+                    });
+
+                    await deletarDoS3(oldKey);
+                    continue;
+                  }
+
+                  // 2c. Só mudou order/type (reordenação), sem novo arquivo
+                  if (img.order !== existing.order || img.type !== existing.type) {
+                    await CONN.save(QuestionImage, {
+                      id: img.id,
+                      order: img.order,
+                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                      updatedAt: new Date(),
+                      updatedByUser: userId
+                    });
+                  }
+                }
+              }
             }
           }
         }
@@ -890,7 +995,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: result };
       })
     }
-    catch (error: any) { return { status: 500, message: error.message } }
+    catch (error: any) {
+      if (error instanceof HttpError) { return { status: error.status, message: error.message } }
+      console.error(error);
+      return { status: 500, message: error.message };
+    }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
@@ -908,7 +1017,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-    const fields = ["testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active", "question.id", "question.title", "question.images", "person.id", "question.person", "skill.id", "skill.reference", "skill.description", "discipline.id", "discipline.name", "classroomCategory.id", "classroomCategory.name", "questionGroup.id", "questionGroup.name"]
+    const fields = [
+      "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active",
+      "question.id", "question.title", "question.images",
+      "person.id", "question.person",
+      "skill.id", "skill.reference", "skill.description",
+      "discipline.id", "discipline.name",
+      "classroomCategory.id", "classroomCategory.name",
+      "questionGroup.id", "questionGroup.name",
+      "questionImage.id", "questionImage.type", "questionImage.order", "questionImage.s3Key"
+    ]
     return await CONN.getRepository(TestQuestion)
       .createQueryBuilder("testQuestion")
       .select(selectFields ?? fields)
@@ -917,6 +1035,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("question.discipline", "discipline")
       .leftJoin("question.classroomCategory", "classroomCategory")
       .leftJoin("question.skill", "skill")
+      .leftJoin("question.questionImages", "questionImage", "questionImage.active = 1")
       .leftJoin("testQuestion.questionGroup", "questionGroup")
       .where("testQuestion.test = :testId", {testId})
       .orderBy("questionGroup.id", "ASC")

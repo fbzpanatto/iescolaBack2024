@@ -15,9 +15,6 @@ export class Question {
   @Column({ type: "text" })
   title: string
 
-  @Column({ default: 0, nullable: true })
-  images: number
-
   @Column({ nullable: true })
   classroomNumber: number
 

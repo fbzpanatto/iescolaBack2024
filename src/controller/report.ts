@@ -292,7 +292,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const year = await this.qYearByName(yearName)
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
-        const qTestQuestions = await this.qTestQuestions(testId) as TestQuestion[]
+        const qTestQuestions = await this.qTestQuestions(testId) as unknown as TestQuestion[]
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" }
 
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)

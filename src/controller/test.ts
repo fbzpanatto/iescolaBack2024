@@ -77,7 +77,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
         await this.updateStudentTestStatus(testId, classroomId, test.period.year.name, tUser?.userId as number);
 
-        const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[]
+        const qTestQuestions = await this.qTestQuestions(test.id) as unknown as TestQuestion[]
 
         const questionGroups = await this.qTestQuestionsGroupsOnReport(testId)
 
@@ -360,7 +360,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getGroupedFullParallelWrapper(test: { id: number, categoryId: number, category: string, bimester: string, year: string, testName: string, disciplineName: string  }, year: qYear, qClassroom: Classroom) {
 
-    const qTestQuestions = await this.qTestQuestions(test.id) as TestQuestion[];
+    const qTestQuestions = await this.qTestQuestions(test.id) as unknown as TestQuestion[];
     if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
 
     const testQuestionsIds = qTestQuestions.map(tq => tq.id);
@@ -440,7 +440,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       }
 
       if([tcids.AVL_ITA, tcids.SIM_ITA].includes(baseTest.category.id)) {
-        const qTestQuestions = await this.qTestQuestions(testId) as TestQuestion[];
+        const qTestQuestions = await this.qTestQuestions(testId) as unknown as TestQuestion[];
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
 
         const testQuestionsIds = qTestQuestions.map(tq => tq.id);
@@ -836,10 +836,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 const newQuestion = await CONN.save(Question, questionData);
 
                 // Se vierem imagens no formato novo (array), move de tmp/ para questions/ e grava os registros
-                if (Array.isArray(questionToSave.images) && questionToSave.images.length > 0) {
+                const incomingImages = (questionToSave as any).images;
+
+                if (Array.isArray(incomingImages) && incomingImages.length > 0) {
                   const questionImages = [];
 
-                  for (const img of questionToSave.images) {
+                  for (const img of incomingImages) {
                     const finalKey = await moverParaQuestions(img.s3Key);
                     questionImages.push({
                       type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,

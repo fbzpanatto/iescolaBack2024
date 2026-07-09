@@ -1021,7 +1021,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
     const fields = [
       "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active",
-      "question.id", "question.title", "question.images",
+      "question.id", "question.title",
       "person.id", "question.person",
       "skill.id", "skill.reference", "skill.description",
       "discipline.id", "discipline.name",

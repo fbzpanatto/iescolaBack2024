@@ -4909,99 +4909,123 @@ INNER JOIN year AS y ON tr.yearId = y.id
    * Alterações na regra de migração devem ser refletidas nos DOIS métodos.
    */
   async updateAllStudentTestStatus(studentId: number, yearName: string, userId: number): Promise<void> {
-    let conn;
-    let inTransaction = false;
 
-    try {
-      conn = await connectionPool.getConnection();
+    const MAX_ATTEMPTS = 3;
 
-      // Verificação leve, sem transação e sem lock.
-      // Na maioria dos logins o aluno não tem vínculo órfão, e este atalho evita
-      // abrir transação e travar linhas à toa quando não há nada a migrar.
-      const preCheckQuery = `
-      SELECT 1
-      FROM student_test_status sts
-      INNER JOIN test tt ON sts.testId = tt.id
-      INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
-      INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
-      WHERE tt.categoryId = 6
-        AND (tt.active = 1 AND NOW() <= tt.endedAt)
-        AND sc_current.studentId = ?
-        AND sts.studentClassroomId != sc_active.id
-      LIMIT 1
-    `;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 
-      const [preCheck] = await conn.query(preCheckQuery, [studentId]) as [any[], any];
-      if (!preCheck || preCheck.length === 0) { return }
+      let conn;
+      let inTransaction = false;
 
-      // A partir daqui existe pelo menos um vínculo órfão: abre transação e trava as linhas.
-      await conn.beginTransaction();
-      inTransaction = true;
+      try {
+        conn = await connectionPool.getConnection();
 
-      const query = `
-      SELECT
-        sts.id AS sts_id,
-        sts.testId AS test_id,
-        sts.studentClassroomId AS current_sc_id,
-        sc_current.studentId,
-        sc_active.id AS active_sc_id,
-        (SELECT COUNT(*) 
-         FROM student_question sq
-         INNER JOIN test_question tq ON sq.testQuestionId = tq.id
-         WHERE sq.studentId = sc_current.studentId
-           AND tq.testId = sts.testId
-           AND sq.answer IS NOT NULL
-           AND sq.answer != ''
-        ) AS has_any_answers
-      FROM student_test_status sts
-      INNER JOIN test tt ON sts.testId = tt.id
-      INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
-      INNER JOIN year y_current ON sc_current.yearId = y_current.id
-      INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
-      INNER JOIN year y_active ON sc_active.yearId = y_active.id
-      WHERE tt.categoryId = 6
-        AND (tt.active = 1 AND NOW() <= tt.endedAt)
-        AND y_current.name = ?
-        AND y_active.name = ?
-        AND sc_current.studentId = ?
-        AND sts.studentClassroomId != sc_active.id
-      FOR UPDATE
-    `;
+        // Verificação leve, sem transação e sem lock.
+        // Na maioria dos logins o aluno não tem vínculo órfão, e este atalho evita
+        // abrir transação e travar linhas à toa quando não há nada a migrar.
+        const preCheckQuery = `
+        SELECT 1
+        FROM student_test_status sts
+        INNER JOIN test tt ON sts.testId = tt.id
+        INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
+        INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
+        WHERE tt.categoryId = 6
+          AND (tt.active = 1 AND NOW() <= tt.endedAt)
+          AND sc_current.studentId = ?
+          AND sts.studentClassroomId != sc_active.id
+        LIMIT 1
+      `;
 
-      const [results] = await conn.query(query, [yearName, yearName, studentId]) as [any[], any];
+        const [preCheck] = await conn.query(preCheckQuery, [studentId]) as [any[], any];
+        if (!preCheck || preCheck.length === 0) { return }
 
-      if (results.length === 0) { await conn.commit(); inTransaction = false; return }
+        // A partir daqui existe pelo menos um vínculo órfão: abre transação e trava as linhas.
+        await conn.beginTransaction();
+        inTransaction = true;
 
-      for (const row of results) {
-        const hasAnyAnswers = row.has_any_answers > 0;
+        const query = `
+        SELECT
+          sts.id AS sts_id,
+          sts.testId AS test_id,
+          sts.studentClassroomId AS current_sc_id,
+          sc_current.studentId,
+          sc_active.id AS active_sc_id,
+          (SELECT COUNT(*) 
+           FROM student_question sq
+           INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+           WHERE sq.studentId = sc_current.studentId
+             AND tq.testId = sts.testId
+             AND sq.answer IS NOT NULL
+             AND sq.answer != ''
+          ) AS has_any_answers
+        FROM student_test_status sts
+        INNER JOIN test tt ON sts.testId = tt.id
+        INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
+        INNER JOIN year y_current ON sc_current.yearId = y_current.id
+        INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
+        INNER JOIN year y_active ON sc_active.yearId = y_active.id
+        WHERE tt.categoryId = 6
+          AND (tt.active = 1 AND NOW() <= tt.endedAt)
+          AND y_current.name = ?
+          AND y_active.name = ?
+          AND sc_current.studentId = ?
+          AND sts.studentClassroomId != sc_active.id
+        FOR UPDATE
+      `;
 
-        // Regra de ouro: só migra o vínculo se NÃO houver nenhuma resposta gravada.
-        if (!hasAnyAnswers) {
+        const [results] = await conn.query(query, [yearName, yearName, studentId]) as [any[], any];
 
-          // FOR UPDATE aqui fecha a janela de corrida com o fluxo do professor,
-          // que pode inserir este mesmo vínculo (testId + matrícula ativa) simultaneamente.
-          const [existingStatus] = await conn.query(
-            `SELECT id FROM student_test_status WHERE studentClassroomId = ? AND testId = ? FOR UPDATE`,
-            [row.active_sc_id, row.test_id]
-          ) as [any[], any];
+        if (results.length === 0) { await conn.commit(); inTransaction = false; return }
 
-          if (existingStatus.length > 0) {
-            // Matrícula ativa já possui vínculo. O antigo (sem respostas) é removido.
-            const queryDelete = `DELETE FROM student_test_status WHERE id = ?`;
-            await conn.query(queryDelete, [row.sts_id]);
-          } else {
-            // Migra o vínculo da matrícula antiga para a ativa.
-            const queryUpdate = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
-            await conn.query(queryUpdate, [row.active_sc_id, userId, row.sts_id]);
+        for (const row of results) {
+          const hasAnyAnswers = row.has_any_answers > 0;
+
+          // Regra de ouro: só migra o vínculo se NÃO houver nenhuma resposta gravada.
+          if (!hasAnyAnswers) {
+
+            // FOR UPDATE aqui fecha a janela de corrida com o fluxo do professor,
+            // que pode inserir este mesmo vínculo (testId + matrícula ativa) simultaneamente.
+            const [existingStatus] = await conn.query(
+              `SELECT id FROM student_test_status WHERE studentClassroomId = ? AND testId = ? FOR UPDATE`,
+              [row.active_sc_id, row.test_id]
+            ) as [any[], any];
+
+            if (existingStatus.length > 0) {
+              // Matrícula ativa já possui vínculo. O antigo (sem respostas) é removido.
+              const queryDelete = `DELETE FROM student_test_status WHERE id = ?`;
+              await conn.query(queryDelete, [row.sts_id]);
+            } else {
+              // Migra o vínculo da matrícula antiga para a ativa.
+              const queryUpdate = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
+              await conn.query(queryUpdate, [row.active_sc_id, userId, row.sts_id]);
+            }
           }
         }
-      }
 
-      await conn.commit();
-      inTransaction = false;
+        await conn.commit();
+        inTransaction = false;
+
+        return;
+      }
+      catch (error: any) {
+
+        if (conn && inTransaction) { await conn.rollback(); inTransaction = false }
+
+        // Deadlock (1213) ou lock timeout (1205) podem ocorrer quando o fluxo do professor
+        // trava as mesmas linhas simultaneamente. Uma nova tentativa costuma resolver,
+        // pois a transação concorrente já terá liberado os locks.
+        const retryable = error?.errno === 1213 || error?.errno === 1205;
+
+        if (retryable && attempt < MAX_ATTEMPTS) {
+          if (conn) { conn.release(); conn = undefined }
+          await new Promise(resolve => setTimeout(resolve, 50 * attempt));
+          continue;
+        }
+
+        throw error;
+      }
+      finally { if (conn) conn.release() }
     }
-    catch (error) { if (conn && inTransaction) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
   }
 
   async qUpdateAndValidateAnswer(studentQuestionId: number, newAnswer: string, classroomId: number, studentClassroomId: number, userId: number) {

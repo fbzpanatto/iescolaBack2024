@@ -24,14 +24,19 @@ class StudentTestController extends GenericController<any> {
       const testId = params.id;
       const studentId = body.user.user;
 
+      // Ano letivo resolvido antes do gate — necessário para a faxina de vínculo abaixo.
+      const currYear = await this.qCurrentYear();
+      const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currYear.name;
+
+      // Migra vínculos órfãos presos a matrículas antigas (aluno transferido de sala).
+      // Necessário aqui porque a prova pode ser acessada por link direto, sem passar pela listagem.
+      await this.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
+
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
       const qToken = await this.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
       if(!qToken) { return { status: 403, message: 'Token inválido, expirado ou pertencente a uma sala diferente da sua matrícula atual.' } }
-
-      const currYear = await this.qCurrentYear();
-      const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currYear.name;
 
       const qTest = await this.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
@@ -47,29 +52,29 @@ class StudentTestController extends GenericController<any> {
 
         try {
           const lockQuery = `
-          SELECT id 
-          FROM student_test_status 
-          WHERE studentClassroomId = ? AND testId = ? 
-          FOR UPDATE
-        `;
+        SELECT id 
+        FROM student_test_status 
+        WHERE studentClassroomId = ? AND testId = ? 
+        FOR UPDATE
+      `;
           const [existingStatus] = await conn.query(lockQuery, [stuTestInfo.studentClassroomId, testId]) as any[];
 
           if (!existingStatus || existingStatus.length === 0) {
             const insertStatusQuery = `
-            INSERT INTO student_test_status
-            (studentClassroomId, testId, active, observation, createdAt, createdByUser)
-            VALUES (?, ?, 1, '', ?, ?)
-          `;
+          INSERT INTO student_test_status
+          (studentClassroomId, testId, active, observation, createdAt, createdByUser)
+          VALUES (?, ?, 1, '', ?, ?)
+        `;
             await conn.execute(insertStatusQuery, [stuTestInfo.studentClassroomId, testId, Helper.generateDateTime().createdAt, studentId]);
           }
 
           const studentQuestionsToInsert = qTqs.map(tq => [tq.id, studentId, '', Helper.generateDateTime().createdAt, studentId]);
 
           const insertQuestionsQuery = `
-          INSERT IGNORE INTO student_question
-          (testQuestionId, studentId, answer, createdAt, createdByUser)
-          VALUES ?
-        `;
+        INSERT IGNORE INTO student_question
+        (testQuestionId, studentId, answer, createdAt, createdByUser)
+        VALUES ?
+      `;
           await conn.query(insertQuestionsQuery, [studentQuestionsToInsert]);
 
           await conn.commit();
@@ -209,6 +214,10 @@ class StudentTestController extends GenericController<any> {
 
       const year = Number(params.year);
       const studentId = body.user.user;
+
+      // Migra vínculos órfãos (aluno transferido de sala) para a matrícula ativa,
+      // desde que não haja respostas gravadas. Mesma regra do fluxo do professor.
+      await this.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
 
       let result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
 

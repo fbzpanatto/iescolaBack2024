@@ -760,6 +760,14 @@ export class GenericController<T> {
     finally { if (conn) conn.release() }
   }
 
+  /**
+   * Migra vínculo (student_test_status) preso a matrícula antiga para a matrícula ativa.
+   * Escopo: sala (fluxo do professor abrindo a tela de lançamento).
+   *
+   * ⚠️ PAR: existe um método equivalente escopado por aluno — updateAllStudentTestStatus_two —
+   * usado no fluxo de login do aluno (SIMULADO). Alterações na regra de migração
+   * (ex: a checagem de has_any_answers) devem ser refletidas nos DOIS métodos.
+   */
   async updateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
     let conn;
 
@@ -1512,58 +1520,72 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qActiveSc(studentId: number) {
+  async qFilteredTestByStudentId<T>(studentId: number, testId: number) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
       const query =
-
         `
-        SELECT p.name AS personName, c.shortName AS classroomName, s.shortName AS schoolName, y.name AS yearName
-        FROM student_classroom AS sc
-        INNER JOIN classroom AS c ON sc.classroomId = c.id
-        INNER JOIN school AS s ON c.schoolId = s.id
-        INNER JOIN year AS y ON sc.yearId = y.id
-        INNER JOIN student AS stu ON sc.studentId = stu.id
-        INNER JOIN person AS p ON stu.personId = p.id
-        WHERE stu.id = ? AND sc.endedAt IS NULL
+          SELECT
+              sts.id AS studentTestStatusId,
+              sts.active,
+              sc.id AS studentClassroomId,
+              sc.studentId,
+              t.id AS testId,
+              t.name AS testName,
+              bim.name AS bimesterName,
+              yr.name AS yearName,
+              c.id AS classroomId,
+              c.shortName AS classroomName,
+              s.shortName AS schoolName,
+              UPPER(d.name) AS discipline
+          FROM test_classroom tc
+                   INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
+                   INNER JOIN test t ON tc.testId = t.id
+                   INNER JOIN discipline d ON t.disciplineId = d.id
+                   INNER JOIN classroom c ON sc.classroomId = c.id
+                   INNER JOIN school s ON c.schoolId = s.id
+                   INNER JOIN student stu ON sc.studentId = stu.id
+                   INNER JOIN person per ON stu.personId = per.id
+                   INNER JOIN period pri ON t.periodId = pri.id
+                   INNER JOIN year yr ON pri.yearId = yr.id
+                   INNER JOIN bimester bim ON pri.bimesterId = bim.id
+                   LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
+          WHERE
+              sc.studentId = ?
+            AND t.id = ?
+            AND t.categoryId = 6
+            AND (
+              -- Teste já foi iniciado/realizado nesta turma
+              sts.id IS NOT NULL
+                  OR
+                  -- Teste não realizado: aluno na matrícula ativa, prova dentro do prazo,
+                  -- e sem vínculo em nenhuma outra sala.
+              (sts.id IS NULL
+                  AND sc.endedAt IS NULL
+                  AND t.active = 1
+                  AND t.endedAt IS NOT NULL
+                  AND NOW() <= t.endedAt
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM student_test_status sts_check
+                               INNER JOIN student_classroom sc_check ON sts_check.studentClassroomId = sc_check.id
+                      WHERE sts_check.testId = t.id
+                        AND sc_check.studentId = ?
+                  ))
+              )
+          ORDER BY
+              CASE WHEN sts.id IS NOT NULL THEN 0 ELSE 1 END,
+              CASE WHEN sc.endedAt IS NULL THEN 0 ELSE 1 END,
+              sc.endedAt DESC
+          LIMIT 1
       `
 
-      const [ queryResult ] = await conn.query(query, [studentId])
-      return (queryResult as { personName: string, classroomName: string, schoolName: string, yearName: string }[])[0]
+      const [ queryResult ] = await conn.query(query, [studentId, testId, studentId])
+
+      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number }[])[0]
     }
     catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qNewStudentClassroom(studentId: number, classroomId: number, yearId: number, createdByUser: number, rosterNumber: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-      const insertQuery = `INSERT INTO student_classroom (studentId, classroomId, yearId, rosterNumber, startedAt, createdByUser) VALUES (?, ?, ?, ?, NOW(), ?)`
-      const [ queryResult ] = await conn.query(insertQuery, [studentId, classroomId, yearId, rosterNumber, createdByUser])
-      await conn.commit()
-      return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
-    }
-    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qNewTransfer(requesterId: number, requestedClassroomId: number, currentClassroomId: number, receiverId: number, studentId: number, yearId: number, createdByUser: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-      const insertQuery = `
-          INSERT INTO transfer (startedAt, endedAt, requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, statusId, yearId, createdByUser)
-          VALUES (NOW(), NOW(), ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-      const [ queryResult ] = await conn.query(insertQuery, [requesterId, requestedClassroomId, currentClassroomId, receiverId, studentId, 1, yearId, createdByUser])
-      await conn.commit()
-      return queryResult as { fieldCount: number, affectedRows: number, insertId: number, info: string, serverStatus: number, warningStatus: number, changedRows: number }
-    }
-    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
@@ -1575,128 +1597,70 @@ export class GenericController<T> {
 
       const query =
         `
-            SELECT DISTINCT
-                sts.id AS studentTestStatusId,
-                sts.active AS active,
-                sc.id AS studentClassroomId,
-                t.id AS testId,
-                sc.studentId,
-                sc.startedAt,
-                sc.endedAt,
-                t.name AS testName,
-                t.createdAt AS testCreatedAt,
-                bim.name AS bimesterName,
-                yr.name AS yearName,
-                c.shortName AS classroomName,
-                s.shortName AS schoolName,
-                UPPER(d.name) AS discipline
-            FROM test_classroom tc
-                     INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
-                     INNER JOIN test t ON tc.testId = t.id
-                     INNER JOIN discipline d ON t.disciplineId = d.id
-                     INNER JOIN classroom c ON sc.classroomId = c.id
-                     INNER JOIN school s ON c.schoolId = s.id
-                     INNER JOIN student stu ON sc.studentId = stu.id
-                     INNER JOIN person per ON stu.personId = per.id
-                     INNER JOIN period pri ON t.periodId = pri.id
-                     INNER JOIN year yr ON pri.yearId = yr.id
-                     INNER JOIN bimester bim ON pri.bimesterId = bim.id
-                     LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
-            WHERE
-                sc.studentId = ?
-              AND yr.name = ?
-              AND t.categoryId = 6
-              AND t.active = 1
-              AND t.name LIKE ?
-              AND (
-                -- Teste em andamento (ainda pode ser realizado)
-                (sts.id IS NOT NULL AND sts.active = 1)
-                    OR
-                    -- Teste não iniciado E aluno está atualmente na turma E não fez em nenhuma outra sala
-                (sts.id IS NULL AND sc.endedAt IS NULL AND sc.startedAt <= t.createdAt AND NOT EXISTS (
-                    SELECT 1
-                    FROM student_test_status sts_check
-                    WHERE sts_check.testId = t.id
-                      AND sts_check.studentClassroomId IN (
-                        SELECT sc_check.id
-                        FROM student_classroom sc_check
-                        WHERE sc_check.studentId = ?
-                    )
-                ))
-                )
-            ORDER BY
-                CASE WHEN sts.id IS NULL THEN 0 ELSE 1 END,
-                testCreatedAt DESC
-            LIMIT ?
-                OFFSET ?
-        `
+          SELECT DISTINCT
+              sts.id AS studentTestStatusId,
+              sts.active AS active,
+              sc.id AS studentClassroomId,
+              t.id AS testId,
+              sc.studentId,
+              sc.startedAt,
+              sc.endedAt,
+              t.name AS testName,
+              t.createdAt AS testCreatedAt,
+              bim.name AS bimesterName,
+              yr.name AS yearName,
+              c.shortName AS classroomName,
+              s.shortName AS schoolName,
+              UPPER(d.name) AS discipline
+          FROM test_classroom tc
+                   INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
+                   INNER JOIN test t ON tc.testId = t.id
+                   INNER JOIN discipline d ON t.disciplineId = d.id
+                   INNER JOIN classroom c ON sc.classroomId = c.id
+                   INNER JOIN school s ON c.schoolId = s.id
+                   INNER JOIN student stu ON sc.studentId = stu.id
+                   INNER JOIN person per ON stu.personId = per.id
+                   INNER JOIN period pri ON t.periodId = pri.id
+                   INNER JOIN year yr ON pri.yearId = yr.id
+                   INNER JOIN bimester bim ON pri.bimesterId = bim.id
+                   LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
+          WHERE
+              sc.studentId = ?
+            AND yr.name = ?
+            AND t.categoryId = 6
+            AND t.active = 1
+            AND t.name LIKE ?
+            AND (
+              -- Teste em andamento (ainda pode ser realizado)
+              (sts.id IS NOT NULL AND sts.active = 1)
+                  OR
+                  -- Teste não iniciado: aluno na matrícula ativa, prova dentro do prazo,
+                  -- e sem vínculo em nenhuma outra sala.
+              (sts.id IS NULL
+                  AND sc.endedAt IS NULL
+                  AND t.endedAt IS NOT NULL
+                  AND NOW() <= t.endedAt
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM student_test_status sts_check
+                      WHERE sts_check.testId = t.id
+                        AND sts_check.studentClassroomId IN (
+                          SELECT sc_check.id
+                          FROM student_classroom sc_check
+                          WHERE sc_check.studentId = ?
+                      )
+                  ))
+              )
+          ORDER BY
+              CASE WHEN sts.id IS NULL THEN 0 ELSE 1 END,
+              testCreatedAt DESC
+          LIMIT ?
+              OFFSET ?
+      `
 
       const [ queryResult ] = await conn.query(query, [ studentId, yearName, testSearch, studentId, limit, offset ])
 
       return queryResult as T[]
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qFilteredTestByStudentId<T>(studentId: number, testId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query =
-        `
-            SELECT
-                sts.id AS studentTestStatusId,
-                sts.active,
-                sc.id AS studentClassroomId,
-                sc.studentId,
-                t.id AS testId,
-                t.name AS testName,
-                bim.name AS bimesterName,
-                yr.name AS yearName,
-                c.id AS classroomId,
-                c.shortName AS classroomName,
-                s.shortName AS schoolName,
-                UPPER(d.name) AS discipline
-            FROM test_classroom tc
-                     INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
-                     INNER JOIN test t ON tc.testId = t.id
-                     INNER JOIN discipline d ON t.disciplineId = d.id
-                     INNER JOIN classroom c ON sc.classroomId = c.id
-                     INNER JOIN school s ON c.schoolId = s.id
-                     INNER JOIN student stu ON sc.studentId = stu.id
-                     INNER JOIN person per ON stu.personId = per.id
-                     INNER JOIN period pri ON t.periodId = pri.id
-                     INNER JOIN year yr ON pri.yearId = yr.id
-                     INNER JOIN bimester bim ON pri.bimesterId = bim.id
-                     LEFT JOIN student_test_status sts ON sts.studentClassroomId = sc.id AND sts.testId = t.id
-            WHERE
-                sc.studentId = ?
-              AND t.id = ?
-              AND t.categoryId = 6
-              AND (
-                -- Teste já foi iniciado/realizado nesta turma
-                sts.id IS NOT NULL
-                    OR
-                    -- Teste não realizado E aluno está atualmente na turma E não fez em nenhuma outra sala
-                (sts.id IS NULL AND sc.endedAt IS NULL AND sc.startedAt <= t.createdAt AND NOT EXISTS (
-                    SELECT 1
-                    FROM student_test_status sts_check
-                             INNER JOIN student_classroom sc_check ON sts_check.studentClassroomId = sc_check.id
-                    WHERE sts_check.testId = t.id
-                      AND sc_check.studentId = ?
-                ))
-                )
-            ORDER BY
-                CASE WHEN sts.id IS NOT NULL THEN 0 ELSE 1 END,
-                CASE WHEN sc.endedAt IS NULL THEN 0 ELSE 1 END,
-                sc.endedAt DESC
-            LIMIT 1
-        `
-
-      const [ queryResult ] = await conn.query(query, [studentId, testId, studentId])
-
-      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number }[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -1724,21 +1688,6 @@ export class GenericController<T> {
       const qTeacherDisciplines = (queryResult as qTeacherDisciplines[])[0]
 
       return { id: qTeacherDisciplines?.id, disciplines: qTeacherDisciplines?.disciplines?.split(',').map(el => Number(el)) ?? [] }
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qTeacherClassroomsEI() {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection()
-      const query = `SELECT classroom.id FROM classroom where classroom.categoryId = ?;`
-      const [ queryResult ] = await conn.query(query, [CLASSROOM_CATEGORIES.EI])
-
-      const ids = (queryResult as Array<{ id: number }>).map(item => item.id);
-
-      return { id: undefined, personCategoryId: undefined, classrooms: ids }
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -4950,6 +4899,109 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  /**
+   * Migra vínculos (student_test_status) presos a matrículas antigas para a matrícula ativa.
+   * Escopo: aluno (fluxo de login/listagem/abertura de prova do tipo SIMULADO).
+   *
+   * ⚠️ PAR: espelha a regra de updateStudentTestStatus (escopado por sala, fluxo do professor).
+   * Alterações na regra de migração devem ser refletidas nos DOIS métodos.
+   */
+  async updateAllStudentTestStatus(studentId: number, yearName: string, userId: number): Promise<void> {
+    let conn;
+    let inTransaction = false;
+
+    try {
+      conn = await connectionPool.getConnection();
+
+      // Verificação leve, sem transação e sem lock.
+      // Na maioria dos logins o aluno não tem vínculo órfão, e este atalho evita
+      // abrir transação e travar linhas à toa quando não há nada a migrar.
+      const preCheckQuery = `
+      SELECT 1
+      FROM student_test_status sts
+      INNER JOIN test tt ON sts.testId = tt.id
+      INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
+      INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
+      WHERE tt.categoryId = 6
+        AND (tt.active = 1 AND NOW() <= tt.endedAt)
+        AND sc_current.studentId = ?
+        AND sts.studentClassroomId != sc_active.id
+      LIMIT 1
+    `;
+
+      const [preCheck] = await conn.query(preCheckQuery, [studentId]) as [any[], any];
+      if (!preCheck || preCheck.length === 0) { return }
+
+      // A partir daqui existe pelo menos um vínculo órfão: abre transação e trava as linhas.
+      await conn.beginTransaction();
+      inTransaction = true;
+
+      const query = `
+      SELECT
+        sts.id AS sts_id,
+        sts.testId AS test_id,
+        sts.studentClassroomId AS current_sc_id,
+        sc_current.studentId,
+        sc_active.id AS active_sc_id,
+        (SELECT COUNT(*) 
+         FROM student_question sq
+         INNER JOIN test_question tq ON sq.testQuestionId = tq.id
+         WHERE sq.studentId = sc_current.studentId
+           AND tq.testId = sts.testId
+           AND sq.answer IS NOT NULL
+           AND sq.answer != ''
+        ) AS has_any_answers
+      FROM student_test_status sts
+      INNER JOIN test tt ON sts.testId = tt.id
+      INNER JOIN student_classroom sc_current ON sts.studentClassroomId = sc_current.id
+      INNER JOIN year y_current ON sc_current.yearId = y_current.id
+      INNER JOIN student_classroom sc_active ON sc_current.studentId = sc_active.studentId AND sc_active.endedAt IS NULL
+      INNER JOIN year y_active ON sc_active.yearId = y_active.id
+      WHERE tt.categoryId = 6
+        AND (tt.active = 1 AND NOW() <= tt.endedAt)
+        AND y_current.name = ?
+        AND y_active.name = ?
+        AND sc_current.studentId = ?
+        AND sts.studentClassroomId != sc_active.id
+      FOR UPDATE
+    `;
+
+      const [results] = await conn.query(query, [yearName, yearName, studentId]) as [any[], any];
+
+      if (results.length === 0) { await conn.commit(); inTransaction = false; return }
+
+      for (const row of results) {
+        const hasAnyAnswers = row.has_any_answers > 0;
+
+        // Regra de ouro: só migra o vínculo se NÃO houver nenhuma resposta gravada.
+        if (!hasAnyAnswers) {
+
+          // FOR UPDATE aqui fecha a janela de corrida com o fluxo do professor,
+          // que pode inserir este mesmo vínculo (testId + matrícula ativa) simultaneamente.
+          const [existingStatus] = await conn.query(
+            `SELECT id FROM student_test_status WHERE studentClassroomId = ? AND testId = ? FOR UPDATE`,
+            [row.active_sc_id, row.test_id]
+          ) as [any[], any];
+
+          if (existingStatus.length > 0) {
+            // Matrícula ativa já possui vínculo. O antigo (sem respostas) é removido.
+            const queryDelete = `DELETE FROM student_test_status WHERE id = ?`;
+            await conn.query(queryDelete, [row.sts_id]);
+          } else {
+            // Migra o vínculo da matrícula antiga para a ativa.
+            const queryUpdate = `UPDATE student_test_status SET studentClassroomId = ?, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`;
+            await conn.query(queryUpdate, [row.active_sc_id, userId, row.sts_id]);
+          }
+        }
+      }
+
+      await conn.commit();
+      inTransaction = false;
+    }
+    catch (error) { if (conn && inTransaction) await conn.rollback(); throw error }
+    finally { if (conn) conn.release() }
   }
 
   async qUpdateAndValidateAnswer(studentQuestionId: number, newAnswer: string, classroomId: number, studentClassroomId: number, userId: number) {

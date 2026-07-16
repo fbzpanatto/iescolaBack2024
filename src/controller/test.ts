@@ -923,18 +923,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              // --- Diff de imagens (só roda se o front já mandar o formato novo, em array) ---
+              const imagesModified = (next.question as any).imagesModified === true;
+
               const nextImages = (next.question as any).images;
 
-              if (Array.isArray(nextImages)) {
+              if (imagesModified && Array.isArray(nextImages)) {
                 const currImages = (curr.question as any).questionImages || [];
                 const currById = new Map(currImages.map((img: any) => [img.id, img]));
                 const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
 
-                // 1. Imagens removidas: existiam no banco, não vieram mais no array
                 for (const img of currImages as any[]) {
                   if (!nextIds.has(img.id)) {
-                    await deletarDoS3(img.s3Key);
+                    if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
                     await CONN.delete(QuestionImage, { id: img.id });
                   }
                 }
@@ -973,7 +973,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
                       updatedByUser: userId
                     });
 
-                    await deletarDoS3(oldKey);
+                    // Trava de segurança: só apaga o arquivo antigo se ele for do fluxo novo.
+                    if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
                     continue;
                   }
 
@@ -1398,6 +1399,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const filteredClasses: Classroom[] = allClasses.filter(el => el.school.id === baseClassroom.school.id && el.shortName.replace(/\D/g, "") === classroomNumber)
     const cityHall: Classroom = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: { id: 99, name: 'ITATIBA', shortName: 'ITA', inep: null, active: true }, studentClassrooms: allClasses.flatMap(cl => cl.studentClassrooms)} as unknown as Classroom
     return [ ...filteredClasses, cityHall ]
+  }
+
+  podeApagarDoS3(s3Key: string): boolean {
+    if (!s3Key) { return false; }
+    return s3Key.startsWith('questions/') || s3Key.startsWith('tmp/');
   }
 
   readingFluencyTotalizator(headers: qReadingFluenciesHeaders[], classroom: Classroom) {

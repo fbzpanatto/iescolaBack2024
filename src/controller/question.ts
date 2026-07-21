@@ -42,6 +42,10 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
           .leftJoinAndSelect("question.skill", "skill")
           .leftJoinAndSelect("question.discipline", "discipline")
           .leftJoinAndSelect("question.classroomCategory", "classroomCategory")
+          // imagens ativas: o modal precisa exibir o estado real ao reaproveitar a questão
+          .leftJoinAndSelect("question.questionImages", "questionImage", "questionImage.active = :active", { active: 1 })
+          // aqui não existe "prova corrente": qualquer uso já a torna compartilhada
+          .loadRelationCountAndMap("question.inUse", "question.testQuestions")
           .where("discipline.id = :disciplineId", { disciplineId: req.query.discipline })
           .getMany();
         return { status: 200, data: questions };

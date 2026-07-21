@@ -871,17 +871,25 @@ class TestController extends GenericController<EntityTarget<Test>> {
               });
 
             } else {
-              // QUESTÃO EXISTENTE - atualiza se houver mudanças
+              // QUESTÃO EXISTENTE
+
+              // inUse vem do getTestQuestions acima, já descontando a prova corrente.
+              // É calculado no servidor — não confiamos em nada que o front tenha enviado.
+              const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
+
+              console.log(`Questão ${curr.question.id} - inUse:`, (curr.question as any).inUse, '| isShared:', isShared);
+
               const testQuestionCondition = this.diffs(curr, next);
               if (testQuestionCondition) {
-                // next.question ainda carrega "images" (array novo). Como a relação Question
-                // tem cascade:true, salvar TestQuestion com esse objeto aninhado dispara um
-                // cascade-save da Question, tentando gravar o array na coluna legada e numérica.
+                // A relação Question tem cascade:true. Se passarmos o objeto vindo do front
+                // aninhado aqui, o TypeORM tenta gravar a Question junto. Em questão
+                // compartilhada mandamos apenas a referência por id, para não haver escrita.
                 const { images: _tqImages, ...questionWithoutImages } = (next.question as any) || {};
+                const questionRef = isShared ? { id: curr.question.id } : questionWithoutImages;
 
                 await CONN.save(TestQuestion, {
                   ...next,
-                  question: questionWithoutImages,
+                  question: questionRef,
                   createdAt: curr.createdAt,
                   createdByUser: curr.createdByUser,
                   updatedAt: new Date(),
@@ -889,9 +897,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              if (this.diffs(curr.question, next.question)) {
-                // "images" (array novo) não pode ser gravado na coluna legada e numérica "images" da Question.
-                // O tratamento de imagens é feito separadamente, mais abaixo, via question_image.
+              // Título, categoria, habilidade e disciplina vivem em Question: bloqueados quando compartilhada.
+              if (!isShared && this.diffs(curr.question, next.question)) {
                 const { images: _discardedImages, ...questionFieldsOnly } = next.question as any;
 
                 await CONN.save(Question, {
@@ -903,7 +910,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
-              if (next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
+              // Skill é entidade global (compartilhada por várias questões), então também
+              // não é alterada a partir de uma questão compartilhada.
+              if (!isShared && next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
                 await CONN.save(Skill, {
                   ...next.question.skill,
                   createdAt: curr.question.skill.createdAt,
@@ -913,6 +922,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
+              // questionGroup (bloco) pertence ao contexto da prova: segue editável sempre.
               if (next.questionGroup && this.diffs(curr.questionGroup, next.questionGroup)) {
                 await CONN.save(QuestionGroup, {
                   ...next.questionGroup,
@@ -923,15 +933,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 })
               }
 
+              // --- Diff de imagens ---
+              // Duas condições cumulativas:
+              //   isShared === false      -> a questão não pertence a outra prova
+              //   imagesModified === true -> o admin realmente abriu o modal e mexeu nas imagens
               const imagesModified = (next.question as any).imagesModified === true;
-
               const nextImages = (next.question as any).images;
 
-              if (imagesModified && Array.isArray(nextImages)) {
+              if (!isShared && imagesModified && Array.isArray(nextImages)) {
                 const currImages = (curr.question as any).questionImages || [];
                 const currById = new Map(currImages.map((img: any) => [img.id, img]));
                 const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
 
+                // 1. Imagens removidas
                 for (const img of currImages as any[]) {
                   if (!nextIds.has(img.id)) {
                     if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
@@ -942,7 +956,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 // 2. Imagens novas ou substituídas
                 for (const img of nextImages) {
 
-                  // 2a. Sem id -> imagem nova
                   if (!img.id) {
                     const finalKey = await moverParaQuestions(img.s3Key);
                     await CONN.save(QuestionImage, {
@@ -957,9 +970,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   }
 
                   const existing = currById.get(img.id) as any;
-                  if (!existing) continue; // segurança: id enviado não bate com nenhum registro atual
+                  if (!existing) continue;
 
-                  // 2b. s3Key nova apontando pra tmp/ -> substituição de arquivo
                   if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
                     const finalKey = await moverParaQuestions(img.s3Key);
                     const oldKey = existing.s3Key;
@@ -973,12 +985,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
                       updatedByUser: userId
                     });
 
-                    // Trava de segurança: só apaga o arquivo antigo se ele for do fluxo novo.
                     if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
                     continue;
                   }
 
-                  // 2c. Só mudou order/type (reordenação), sem novo arquivo
                   if (img.order !== existing.order || img.type !== existing.type) {
                     await CONN.save(QuestionImage, {
                       id: img.id,
@@ -1040,7 +1050,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .leftJoin("question.skill", "skill")
       .leftJoin("question.questionImages", "questionImage", "questionImage.active = 1")
       .leftJoin("testQuestion.questionGroup", "questionGroup")
-      .where("testQuestion.test = :testId", {testId})
+      // conta usos EXCLUINDO a prova corrente: corrigir imagem da própria prova
+      // continua liberado, que é o fluxo normal de correção pedido pela secretaria
+      .loadRelationCountAndMap(
+        "question.inUse",
+        "question.testQuestions",
+        "tqCount",
+        qb => qb.andWhere("tqCount.testId != :currentTestId", { currentTestId: testId })
+      )
+      .where("testQuestion.test = :testId", { testId })
       .orderBy("questionGroup.id", "ASC")
       .addOrderBy("testQuestion.order", "ASC")
       .getMany()

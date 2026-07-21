@@ -785,6 +785,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async updateTest(id: number | string, req: Request<{ id: number | string }>) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
+
         const uTeacher = await this.qTeacherByUser(req.body.user.user)
         const userId = uTeacher.person.user.id
         const masterUser = uTeacher.person.category.id === PER_CAT.ADMN ||
@@ -792,12 +793,14 @@ class TestController extends GenericController<EntityTarget<Test>> {
           uTeacher.person.category.id === PER_CAT.FORM;
 
         const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
-        if(!test) throw new HttpError(404, "Teste não encontrado")
-        if(uTeacher.person.id !== test.person.id && !masterUser) {
+        if (!test) throw new HttpError(404, "Teste não encontrado")
+        if (uTeacher.person.id !== test.person.id && !masterUser) {
           throw new HttpError(403, "Você não tem permissão para editar esse teste.")
         }
 
-        if (req.body.endedAt && req.body.endedAt.length === 10) { test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt) }
+        if (req.body.endedAt && req.body.endedAt.length === 10) {
+          test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt)
+        }
 
         test.name = req.body.name
         test.active = req.body.active
@@ -806,18 +809,29 @@ class TestController extends GenericController<EntityTarget<Test>> {
         test.updatedByUser = userId
         await CONN.save(Test, test)
 
-        if(req.body.testQuestions?.length) {
+        if (req.body.testQuestions?.length) {
+
+          // Campos que existem só de um lado ou só servem de transporte.
+          // Sem isso a comparação acusaria diferença em todo save.
+          //   questionImages / inUse  -> só existem no objeto vindo do banco
+          //   images / imagesModified -> só existem no payload do front
+          const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified'];
+
           const bodyTq = req.body.testQuestions as TestQuestion[]
           const dataTq = await this.getTestQuestions(test.id, CONN)
 
           for (let next of bodyTq) {
             const curr = dataTq.find(el => el.id === next.id);
 
+            // ------------------------------------------------------------------
+            // NOVA testQuestion (questão nova OU questão existente sendo vinculada)
+            // ------------------------------------------------------------------
             if (!curr) {
-              // NOVA QUESTÃO - precisa criar Question primeiro se não existir
+
               let questionToSave = next.question;
 
               if (!questionToSave.id) {
+                // questão realmente nova: cria a Question e promove as imagens
                 if (!questionToSave.classroomCategory?.id) {
                   throw new HttpError(400, "Questão nova deve ter categoria definida")
                 }
@@ -833,10 +847,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
                 if (questionToSave.skill?.id) { questionData.skill = { id: questionToSave.skill.id } }
 
-                const newQuestion = await CONN.save(Question, questionData);
-
-                // Se vierem imagens no formato novo (array), move de tmp/ para questions/ e grava os registros
+                // captura antes de sobrescrever questionToSave com o retorno do save
                 const incomingImages = (questionToSave as any).images;
+
+                const newQuestion = await CONN.save(Question, questionData);
 
                 if (Array.isArray(incomingImages) && incomingImages.length > 0) {
                   const questionImages = [];
@@ -859,145 +873,158 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 questionToSave = newQuestion;
               }
 
+              // A relação Question tem cascade:true. Ao vincular uma questão que JÁ
+              // existe, passamos apenas a referência por id — assim o TypeORM não
+              // reescreve a Question original com o que o front enviou.
+              const questionRef: any = questionToSave.id
+                ? { id: questionToSave.id }
+                : questionToSave;
+
               await CONN.save(TestQuestion, {
                 order: next.order,
                 answer: next.answer,
                 questionGroup: next.questionGroup,
                 active: next.active,
-                question: questionToSave,
+                question: questionRef,
                 test: test,
                 createdAt: new Date(),
                 createdByUser: userId
               });
 
-            } else {
-              // QUESTÃO EXISTENTE
+              continue;
+            }
 
-              // inUse vem do getTestQuestions acima, já descontando a prova corrente.
-              // É calculado no servidor — não confiamos em nada que o front tenha enviado.
-              const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
+            // ------------------------------------------------------------------
+            // testQuestion EXISTENTE
+            // ------------------------------------------------------------------
 
-              console.log(`Questão ${curr.question.id} - inUse:`, (curr.question as any).inUse, '| isShared:', isShared);
+            // inUse vem do getTestQuestions, já descontando a prova corrente.
+            // É calculado no servidor — não confiamos em nada vindo do front.
+            const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
 
-              const testQuestionCondition = this.diffs(curr, next);
-              if (testQuestionCondition) {
-                // A relação Question tem cascade:true. Se passarmos o objeto vindo do front
-                // aninhado aqui, o TypeORM tenta gravar a Question junto. Em questão
-                // compartilhada mandamos apenas a referência por id, para não haver escrita.
-                const { images: _tqImages, ...questionWithoutImages } = (next.question as any) || {};
-                const questionRef = isShared ? { id: curr.question.id } : questionWithoutImages;
+            if (this.diffsStrict(curr, next, IGNORE)) {
+              const { images: _tqImages, ...questionWithoutImages } = (next.question as any) || {};
+              // questão compartilhada: só a referência, para não disparar cascade-save
+              const questionRef = isShared ? { id: curr.question.id } : questionWithoutImages;
 
-                await CONN.save(TestQuestion, {
-                  ...next,
-                  question: questionRef,
-                  createdAt: curr.createdAt,
-                  createdByUser: curr.createdByUser,
-                  updatedAt: new Date(),
-                  updatedByUser: userId
-                })
+              await CONN.save(TestQuestion, {
+                ...next,
+                question: questionRef,
+                createdAt: curr.createdAt,
+                createdByUser: curr.createdByUser,
+                updatedAt: new Date(),
+                updatedByUser: userId
+              })
+            }
+
+            // Título, categoria, habilidade e disciplina vivem em Question:
+            // bloqueados quando a questão pertence também a outra prova.
+            if (!isShared && this.diffsStrict(curr.question, next.question, IGNORE)) {
+              const { images: _discardedImages, ...questionFieldsOnly } = next.question as any;
+
+              await CONN.save(Question, {
+                ...questionFieldsOnly,
+                createdAt: curr.question.createdAt,
+                createdByUser: curr.question.createdByUser,
+                updatedAt: new Date(),
+                updatedByUser: userId
+              })
+            }
+
+            // Skill é entidade global, compartilhada por várias questões.
+            if (!isShared && next.question.skill && this.diffsStrict(curr.question.skill, next.question.skill, IGNORE)) {
+              await CONN.save(Skill, {
+                ...next.question.skill,
+                createdAt: curr.question.skill.createdAt,
+                createdByUser: curr.question.skill.createdByUser,
+                updatedAt: new Date(),
+                updatedByUser: userId
+              })
+            }
+
+            // questionGroup pertence ao contexto da prova: segue editável sempre.
+            if (next.questionGroup && this.diffsStrict(curr.questionGroup, next.questionGroup, IGNORE)) {
+              await CONN.save(QuestionGroup, {
+                ...next.questionGroup,
+                createdAt: curr.questionGroup.createdAt,
+                createdByUser: curr.questionGroup.createdByUser,
+                updatedAt: new Date(),
+                updatedByUser: userId
+              })
+            }
+
+            // ----------------------------------------------------------------
+            // Diff de imagens — duas condições cumulativas:
+            //   !isShared      -> a questão não pertence também a outra prova
+            //   imagesModified -> o admin abriu o modal e mexeu nas imagens
+            // Sem o flag, um array vazio de questão apenas carregada seria lido
+            // como "remover todas" e apagaria arquivos reais do S3.
+            // ----------------------------------------------------------------
+            const imagesModified = (next.question as any).imagesModified === true;
+            const nextImages = (next.question as any).images;
+
+            if (!isShared && imagesModified && Array.isArray(nextImages)) {
+
+              const currImages = (curr.question as any).questionImages || [];
+              const currById = new Map(currImages.map((img: any) => [img.id, img]));
+              const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
+
+              // 1. removidas: existiam no banco e não vieram mais no array
+              for (const img of currImages as any[]) {
+                if (!nextIds.has(img.id)) {
+                  // só apaga fisicamente arquivos do fluxo novo (questions/ ou tmp/);
+                  // legados na raiz perdem o vínculo mas permanecem no bucket
+                  if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
+                  await CONN.delete(QuestionImage, { id: img.id });
+                }
               }
 
-              // Título, categoria, habilidade e disciplina vivem em Question: bloqueados quando compartilhada.
-              if (!isShared && this.diffs(curr.question, next.question)) {
-                const { images: _discardedImages, ...questionFieldsOnly } = next.question as any;
+              // 2. novas ou substituídas
+              for (const img of nextImages) {
 
-                await CONN.save(Question, {
-                  ...questionFieldsOnly,
-                  createdAt: curr.question.createdAt,
-                  createdByUser: curr.question.createdByUser,
-                  updatedAt: new Date(),
-                  updatedByUser: userId
-                })
-              }
-
-              // Skill é entidade global (compartilhada por várias questões), então também
-              // não é alterada a partir de uma questão compartilhada.
-              if (!isShared && next.question.skill && this.diffs(curr.question.skill, next.question.skill)) {
-                await CONN.save(Skill, {
-                  ...next.question.skill,
-                  createdAt: curr.question.skill.createdAt,
-                  createdByUser: curr.question.skill.createdByUser,
-                  updatedAt: new Date(),
-                  updatedByUser: userId
-                })
-              }
-
-              // questionGroup (bloco) pertence ao contexto da prova: segue editável sempre.
-              if (next.questionGroup && this.diffs(curr.questionGroup, next.questionGroup)) {
-                await CONN.save(QuestionGroup, {
-                  ...next.questionGroup,
-                  createdAt: curr.questionGroup.createdAt,
-                  createdByUser: curr.questionGroup.createdByUser,
-                  updatedAt: new Date(),
-                  updatedByUser: userId
-                })
-              }
-
-              // --- Diff de imagens ---
-              // Duas condições cumulativas:
-              //   isShared === false      -> a questão não pertence a outra prova
-              //   imagesModified === true -> o admin realmente abriu o modal e mexeu nas imagens
-              const imagesModified = (next.question as any).imagesModified === true;
-              const nextImages = (next.question as any).images;
-
-              if (!isShared && imagesModified && Array.isArray(nextImages)) {
-                const currImages = (curr.question as any).questionImages || [];
-                const currById = new Map(currImages.map((img: any) => [img.id, img]));
-                const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
-
-                // 1. Imagens removidas
-                for (const img of currImages as any[]) {
-                  if (!nextIds.has(img.id)) {
-                    if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
-                    await CONN.delete(QuestionImage, { id: img.id });
-                  }
+                if (!img.id) {
+                  const finalKey = await moverParaQuestions(img.s3Key);
+                  await CONN.save(QuestionImage, {
+                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                    order: img.order,
+                    s3Key: finalKey,
+                    question: { id: curr.question.id },
+                    createdAt: new Date(),
+                    createdByUser: userId
+                  });
+                  continue;
                 }
 
-                // 2. Imagens novas ou substituídas
-                for (const img of nextImages) {
+                const existing = currById.get(img.id) as any;
+                if (!existing) continue; // id enviado não bate com nenhum registro atual
 
-                  if (!img.id) {
-                    const finalKey = await moverParaQuestions(img.s3Key);
-                    await CONN.save(QuestionImage, {
-                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                      order: img.order,
-                      s3Key: finalKey,
-                      question: { id: curr.question.id },
-                      createdAt: new Date(),
-                      createdByUser: userId
-                    });
-                    continue;
-                  }
+                // s3Key nova apontando para tmp/ -> substituição de arquivo
+                if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
+                  const finalKey = await moverParaQuestions(img.s3Key);
+                  const oldKey = existing.s3Key;
 
-                  const existing = currById.get(img.id) as any;
-                  if (!existing) continue;
+                  await CONN.save(QuestionImage, {
+                    id: img.id,
+                    s3Key: finalKey,
+                    order: img.order,
+                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                    updatedAt: new Date(),
+                    updatedByUser: userId
+                  });
 
-                  if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
-                    const finalKey = await moverParaQuestions(img.s3Key);
-                    const oldKey = existing.s3Key;
+                  if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
+                  continue;
+                }
 
-                    await CONN.save(QuestionImage, {
-                      id: img.id,
-                      s3Key: finalKey,
-                      order: img.order,
-                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                      updatedAt: new Date(),
-                      updatedByUser: userId
-                    });
-
-                    if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
-                    continue;
-                  }
-
-                  if (img.order !== existing.order || img.type !== existing.type) {
-                    await CONN.save(QuestionImage, {
-                      id: img.id,
-                      order: img.order,
-                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                      updatedAt: new Date(),
-                      updatedByUser: userId
-                    });
-                  }
+                // só reordenação / troca de tipo, sem arquivo novo
+                if (img.order !== existing.order || img.type !== existing.type) {
+                  await CONN.save(QuestionImage, {
+                    id: img.id,
+                    order: img.order,
+                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                    updatedAt: new Date(),
+                    updatedByUser: userId
+                  });
                 }
               }
             }
@@ -1449,6 +1476,41 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const currentKeys = Object.keys(current);
     if (originalKeys.length !== currentKeys.length) return true;
     for (let key of originalKeys) { if (!currentKeys.includes(key)) return true; if (this.diffs(original[key], current[key])) { return true } }
+    return false;
+  }
+
+  diffsStrict = (stored: any, incoming: any, ignoreKeys: string[] = []): boolean => {
+
+    if (Object.is(stored, incoming)) return false;
+
+    // um dos lados é null/undefined e o outro não
+    if (stored == null || incoming == null) return true;
+
+    if (stored instanceof Date || incoming instanceof Date) {
+      const a = stored instanceof Date ? stored.getTime() : new Date(stored).getTime();
+      const b = incoming instanceof Date ? incoming.getTime() : new Date(incoming).getTime();
+      return a !== b;
+    }
+
+    // pelo menos um é primitivo e já sabemos que não são iguais
+    if (typeof stored !== 'object' || typeof incoming !== 'object') return true;
+
+    if (Array.isArray(stored) || Array.isArray(incoming)) {
+      if (!Array.isArray(stored) || !Array.isArray(incoming)) return true;
+      if (stored.length !== incoming.length) return true;
+      for (let i = 0; i < stored.length; i++) {
+        if (this.diffsStrict(stored[i], incoming[i], ignoreKeys)) return true;
+      }
+      return false;
+    }
+
+    // percorre apenas o que o cliente enviou
+    for (const key of Object.keys(incoming)) {
+      if (ignoreKeys.includes(key)) continue;
+      if (incoming[key] === undefined) continue;
+      if (this.diffsStrict(stored[key], incoming[key], ignoreKeys)) return true;
+    }
+
     return false;
   }
 }

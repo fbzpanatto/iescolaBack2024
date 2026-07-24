@@ -4,6 +4,7 @@ import { Test } from "./Test";
 import { Skill } from "./Skill";
 import { Training } from "./Training";
 import { Question } from "./Question";
+import { Lesson } from "./Lesson";
 
 @Entity()
 export class Discipline {
@@ -34,4 +35,7 @@ export class Discipline {
 
   @OneToMany(() => Skill, skill => skill.discipline)
   skills: Skill[]
+
+  @OneToMany(() => Lesson, lesson => lesson.discipline)
+  lessons: Lesson[]
 }

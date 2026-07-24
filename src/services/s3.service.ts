@@ -60,3 +60,22 @@ export async function moverParaQuestions(tmpKey: string): Promise<string> {
 
   return finalKey;
 }
+
+export async function moverParaLessons(tmpKey: string): Promise<string> {
+  const bucket = process.env.AWS_S3_BUCKET as string;
+  const fileName = tmpKey.split('/').pop();
+  const finalKey = `lessons/${fileName}`;
+
+  await s3Client.send(new CopyObjectCommand({
+    Bucket: bucket,
+    CopySource: `${bucket}/${tmpKey}`,
+    Key: finalKey,
+  }));
+
+  await s3Client.send(new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: tmpKey,
+  }));
+
+  return finalKey;
+}

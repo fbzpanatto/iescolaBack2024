@@ -8,6 +8,7 @@ import { AlphabeticFirst } from "./AlphabeticFirst";
 import { Alphabetic } from "./Alphabetic";
 import { StudentQuestion } from "./StudentQuestion";
 import { ReadingFluency } from "./ReadingFluency";
+import { StudentLesson } from "./StudentLesson";
 
 @Index(["ra", "dv"], { unique: true })
 @Entity()
@@ -31,6 +32,9 @@ export class Student {
 
   @OneToMany(() => StudentQuestion, studentQuestion => studentQuestion.student)
   studentQuestions: StudentQuestion[];
+
+  @OneToMany(() => StudentLesson, studentLesson => studentLesson.student)
+  studentLessons: StudentLesson[];
 
   @Column({ nullable: false })
   ra: string;

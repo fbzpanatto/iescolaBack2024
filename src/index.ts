@@ -23,6 +23,7 @@ import { ReportRouter } from "./routes/report";
 import { SchoolRouter } from "./routes/school";
 import { TrainingRouter } from "./routes/training";
 import { StateRouter } from "./routes/state";
+import { LessonRouter } from "./routes/lesson";
 import { SkillRouter } from "./routes/skill";
 import { StudentQuestionRouter } from "./routes/studentQuestion";
 import { StudentRouter } from "./routes/student";
@@ -73,6 +74,7 @@ route.use("/teacher-class-discipline", authorization, TeacherClassDisciplineRout
 route.use("/teacher-classroom", authorization, TeacherClassroomsRouter);
 route.use("/test", authorization, TestRouter);
 route.use("/token", authorization, TokenRouter);
+route.use("/lesson", authorization, LessonRouter);
 route.use("/upload", authorization, UploadRouter);
 route.use("/history", authorization, HistoryRouter);
 route.use("/test-category", authorization, TestCategoryRouter);

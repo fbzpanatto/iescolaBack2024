@@ -24,7 +24,9 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "personcategory", methods: allMethods },
       { entity: "studentquestion", methods: allMethods },
       { entity: "merge", methods: allMethods },
-      { entity: "history", methods: onlyGET }
+      { entity: "history", methods: onlyGET },
+      { entity: "lesson", methods: getPostPut },
+      { entity: "upload", methods: allMethods }
     ]
   },
   {
@@ -40,7 +42,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "history", methods: onlyGET }
+      { entity: "history", methods: onlyGET },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -55,7 +58,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "history", methods: onlyGET }
+      { entity: "history", methods: onlyGET },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -71,7 +75,8 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
-      { entity: "history", methods: onlyGET }
+      { entity: "history", methods: onlyGET },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -88,6 +93,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -104,6 +110,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -120,6 +127,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -136,6 +144,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -152,6 +161,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -168,6 +178,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: onlyGET },
       { entity: "history", methods: onlyGET },
       { entity: "token", methods: allMethods },
+      { entity: "lesson", methods: onlyGET },
     ]
   },
   {
@@ -177,6 +188,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "student", methods: onlyGET },
       { entity: "test", methods: onlyGET },
       { entity: "studenttest", methods: getPut },
+      { entity: "lesson", methods: getPut },
     ]
   },
 ]

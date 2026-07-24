@@ -44,6 +44,8 @@ import { TestToken } from "./Token";
 import { TokenReset } from "./TokenReset";
 import { ClassroomShift } from "./ClassroomShift";
 import { QuestionImage } from "./QuestionImage";
+import { Lesson } from "./Lesson";
+import { StudentLesson } from "./StudentLesson";
 
 export const entities = [
   AccessSecurityLog,
@@ -64,6 +66,8 @@ export const entities = [
   QuestionImage,
   QuestionGroup,
   TestClassroom,
+  Lesson,
+  StudentLesson,
   Training,
   TrainingTeacher,
   TrainingTeacherStatus,

@@ -17,9 +17,9 @@ YearRouter.get('/:id', ID_PARAM, havePermission, async (req: Request<{ id: numbe
 })
 
 YearRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.save(req.body); return res.status(response.status).json(response)
+  const response = await controller.saveWithAuth(req.body, (req as any).user); return res.status(response.status).json(response)
 })
 
 YearRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.updateId(req.params.id, req.body); return res.status(response.status).json(response)
+  const response = await controller.updateIdWithAuth(req.params.id, req.body, (req as any).user); return res.status(response.status).json(response)
 })

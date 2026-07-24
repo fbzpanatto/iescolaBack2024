@@ -22,7 +22,7 @@ ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermissi
 })
 
 ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) =>
-  { const data: Data = await controller.reportFindAll(req); return res.status(data.status).json(data) }
+  { const data: Data = await controller.reportFindAll(req, (req as any).user); return res.status(data.status).json(data) }
 )
 
 ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: any) =>

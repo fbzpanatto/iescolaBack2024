@@ -8,6 +8,7 @@ import { Request } from "express";
 import { Classroom } from "../model/Classroom";
 import { TransferStatus } from '../model/TransferStatus';
 import { Teacher } from "../model/Teacher";
+import { JwtPayload } from "../interfaces/interfaces";
 import { transferEmail } from "../services/email";
 import { Student } from "../model/Student";
 import { PER_CAT } from "../utils/enums";
@@ -167,11 +168,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     finally { if (conn) { conn.release() } }
   }
 
-  override async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
+  async saveWithAuth(body: DeepPartial<ObjectLiteral>, authUser: JwtPayload, options: SaveOptions | undefined) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const dbTransfer: Transfer | null = await CONN.findOne(Transfer, { where: { student: body.student, status: { id: TRANSFER_STATUS.PENDING }, endedAt: IsNull()}})
 
@@ -223,11 +224,11 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async updateId(transferId: number | string, body: ObjectLiteral) {
+  async updateIdWithAuth(transferId: number | string, body: ObjectLiteral, authUser: JwtPayload) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const currTransfer = await CONN.findOne(Transfer, {
           relations: ['status', 'requester.person', 'requestedClassroom'],

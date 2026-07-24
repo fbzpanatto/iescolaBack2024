@@ -3,20 +3,20 @@ import { EntityTarget } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Request } from "express";
 import { EXCLUDED_CATEGORIES_BY_ROLE, PER_CAT } from "../utils/enums";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
   constructor() { super(PersonCategory) }
 
-  async findAllPerCat(req?: Request) {
-    const userBody = req?.body.user;
+  async findAllPerCat(req: Request, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(userBody.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
       if (!qUserTeacher) { return { status: 404, message: "Usuário não encontrado" } }
 
       const userCategoryId = qUserTeacher.person.category.id;
-      if (userCategoryId != userBody.category) { return { status: 403, message: "Usuário não autorizado" } }
+      if (userCategoryId != authUser.category) { return { status: 403, message: "Usuário não autorizado" } }
 
       const excludeIds = EXCLUDED_CATEGORIES_BY_ROLE[userCategoryId] || [PER_CAT.ALUN];
 

@@ -4,7 +4,7 @@ import {ID_PARAM} from "../middleware/validators";
 
 export const DisciplineRouter = Router();
 
-DisciplineRouter.get('/', async (req: Request, res: any) => { const response = await controller.getAllDisciplines(req); return res.status(response.status).json(response)})
+DisciplineRouter.get('/', async (req: Request, res: any) => { const response = await controller.getAllDisciplines(req, (req as any).user); return res.status(response.status).json(response)})
 
 DisciplineRouter.get('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => { const response = await controller.findOneById(req.params?.id, req); return res.status(response.status).json(response)})
 

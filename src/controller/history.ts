@@ -3,11 +3,12 @@ import { EntityTarget } from "typeorm";
 import { Test } from "../model/Test";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
 
-  async getHistory(req: Request) {
+  async getHistory(req: Request, authUser: JwtPayload) {
 
     const { student, year } = req.query;
 
@@ -17,8 +18,8 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       const qYear = await this.qYearByName(year as string)
 
-      const el = await this.qTeacherByUser(req.body.user.user)
-      const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
+      const el = await this.qTeacherByUser(authUser.user)
+      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
       const masterTeacher = el.person.category.id === PER_CAT.ADMN || el.person.category.id === PER_CAT.SUPE || el.person.category.id === PER_CAT.FORM
 
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100

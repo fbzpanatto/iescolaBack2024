@@ -5,7 +5,7 @@ import havePerm from "../middleware/havePermission";
 
 export const PeCatRouter = Router();
 
-PeCatRouter.get('/', havePerm, async (req: Request, res: any) => { const response = await controller.findAllPerCat(req); return res.status(response.status as number).json(response)})
+PeCatRouter.get('/', havePerm, async (req: Request, res: any) => { const response = await controller.findAllPerCat(req, (req as any).user); return res.status(response.status as number).json(response)})
 
 PeCatRouter.get('/:id', ID_PARAM, havePerm, async (req: Request<{ id: number | string }>, res: any) => { const response = await controller.findOneById(req.params.id, req); return res.status(response.status as number).json(response) })
 

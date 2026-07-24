@@ -6,9 +6,9 @@ import { UserInterface } from "../interfaces/interfaces";
 class TeacherClassDisciplineController extends GenericController<EntityTarget<TeacherClassDiscipline>> {
   constructor() { super(TeacherClassDiscipline) }
 
-  async updateContract(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number, user: UserInterface }){
+  async updateContract(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number, user: UserInterface }, authUser: UserInterface){
     try {
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
       if(![1, 2, 10].includes(teacher.person.category.id)){ return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' } }
 

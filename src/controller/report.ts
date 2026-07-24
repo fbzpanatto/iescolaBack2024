@@ -7,6 +7,7 @@ import { Helper } from "../utils/helpers";
 import { testController } from "./test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PER_CAT } from "../utils/enums";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -24,10 +25,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
-  async reportFindAll(req: Request) {
+  async reportFindAll(req: Request, authUser: JwtPayload) {
     try {
-      const teacher = await this.qTeacherByUser(req.body.user.user);
-      const teacherClasses = await this.qTeacherClassrooms(req.body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
+      const teacherClasses = await this.qTeacherClassrooms(authUser.user);
 
       const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM, PER_CAT.SUPE_EI];
       const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);

@@ -4,7 +4,7 @@ import { teacherClassroomsController as controller } from "../controller/teacher
 export const TeacherClassroomsRouter = Router();
 
 TeacherClassroomsRouter.get('/', async (req: Request, res: any) => {
-  const response = await controller.getAllTClass(req); return res.status(response.status).json(response)
+  const response = await controller.getAllTClass(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TeacherClassroomsRouter.post('/', async (req: Request, res: any) => {

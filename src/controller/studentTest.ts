@@ -1,14 +1,14 @@
 import { connectionPool } from "../services/db";
 import { Student } from "../model/Student";
 import { GenericController } from "./genericController";
-import { TestByStudentId, TestQuestionWithImages, UpdateStudentAnswers } from "../interfaces/interfaces";
+import { TestByStudentId, TestQuestionWithImages, UpdateStudentAnswers, JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 
 class StudentTestController extends GenericController<any> {
 
   constructor() { super(Student) }
 
-  async getTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
+  async getTest(body: any, params: { [key: string]: any }, query: { [key: string]: any }, authUser: JwtPayload) {
 
     let conn;
 
@@ -22,7 +22,7 @@ class StudentTestController extends GenericController<any> {
       if (!scId) { return { status: 400, message: "Referência inválida." } }
 
       const testId = params.id;
-      const studentId = body.user.user;
+      const studentId = authUser.user;
 
       // Ano letivo resolvido antes do gate — necessário para a faxina de vínculo abaixo.
       const currYear = await this.qCurrentYear();
@@ -100,7 +100,7 @@ class StudentTestController extends GenericController<any> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async updateStudentAnswers(body: UpdateStudentAnswers) {
+  async updateStudentAnswers(body: UpdateStudentAnswers, authUser: JwtPayload) {
 
     let conn;
 
@@ -133,7 +133,7 @@ class StudentTestController extends GenericController<any> {
         SET active = 0, observation = '', updatedAt = ?, updatedByUser = ?
         WHERE id = ? AND active = 1
       `;
-      const [updateResult] = await conn.execute(updateStatusQuery, [ Helper.generateDateTime().createdAt, body.user.user, studentTest.studentTestStatusId]) as any[];
+      const [updateResult] = await conn.execute(updateStatusQuery, [ Helper.generateDateTime().createdAt, authUser.user, studentTest.studentTestStatusId]) as any[];
 
       message = "Esta prova já foi finalizada por outra sessão."
       if (updateResult.affectedRows === 0) { await conn.rollback(); return { status: 400, message } }
@@ -183,7 +183,7 @@ class StudentTestController extends GenericController<any> {
         questionIds.push(item.studentQuestionId);
       }
 
-      const finalParams = [...answerParams, ...classroomParams, body.user.user, ...questionIds];
+      const finalParams = [...answerParams, ...classroomParams, authUser.user, ...questionIds];
 
       const bulkUpdateQuery = `
         UPDATE student_question
@@ -204,7 +204,7 @@ class StudentTestController extends GenericController<any> {
     finally { if (conn) { conn.release() } }
   }
 
-  async allFilteredStudentTest(body: { user: { user: number, ra: string, category: number } }, params: { [key: string]: any }, query: { [key: string]: any }) {
+  async allFilteredStudentTest(body: any, params: { [key: string]: any }, query: { [key: string]: any }, authUser: JwtPayload) {
     try {
 
       const { search, limit: l, offset: o } = query;
@@ -213,7 +213,7 @@ class StudentTestController extends GenericController<any> {
       const offset =  !isNaN(parseInt(o as string)) ? parseInt(o as string) : 0
 
       const year = Number(params.year);
-      const studentId = body.user.user;
+      const studentId = authUser.user;
 
       // Migra vínculos órfãos (aluno transferido de sala) para a matrícula ativa,
       // desde que não haja respostas gravadas. Mesma regra do fluxo do professor.

@@ -9,7 +9,7 @@ import { OUT_CLASSROOMS, PER_CAT as pc, TRANSFER_STATUS } from "../utils/enums";
 import { StudentDisability } from "../model/StudentDisability";
 import { Disability } from "../model/Disability";
 import { State } from "../model/State";
-import { GraduateBody, InactiveNewClassroom, SaveStudent, UserInterface } from "../interfaces/interfaces";
+import { GraduateBody, InactiveNewClassroom, SaveStudent, UserInterface, JwtPayload } from "../interfaces/interfaces";
 import { Request } from "express";
 import { Classroom } from "../model/Classroom";
 import { Transfer } from "../model/Transfer";
@@ -23,13 +23,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   constructor() { super(Student) }
 
-  async studentForm(request: Request) {
-
-    const body = request?.body
+  async studentForm(request: Request, authUser: JwtPayload) {
 
     try {
-
-      const qUt = await this.qTeacherByUser(body.user.user)
+      const qUt = await this.qTeacherByUser(authUser.user)
       const masterUser = qUt.person.category.id === pc.ADMN || qUt.person.category.id === pc.SUPE || qUt.person.category.id === pc.FORM
 
       const states = await this.qStates()
@@ -73,7 +70,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[], user: UserInterface }) {
+  async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[] }, authUser: UserInterface) {
 
     try {
       const currentYear = await this.qCurrentYear();
@@ -84,7 +81,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       if (!lastYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo anterior.');
 
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
       const everyGraduate = body.list.every((item: any) =>
         item.newClassroom.name === 'FORMANDO' &&
@@ -212,11 +209,10 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     }
   }
 
-  async allStudents(req: Request<{ year: string }>) {
+  async allStudents(req: Request<{ year: string }>, authUser: JwtPayload) {
     try {
-
-      const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
-      const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
       const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.SUPE_EI || qUserTeacher.person.category.id === pc.FORM
       const isSuperEI = qUserTeacher.person.category.id === pc.SUPE_EI
 
@@ -232,19 +228,19 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneStudentById(req: Request) {
+  async findOneStudentById(req: Request, authUser: JwtPayload) {
 
-    const { params, body } = req
+    const { params } = req
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const options = { relations: ["person.category"], where: { person: { user: { id: body?.user.user } } } }
+        const options = { relations: ["person.category"], where: { person: { user: { id: authUser.user } } } }
         const uTeacher = await CONN.findOne(Teacher, {...options})
 
         const masterUser = uTeacher?.person.category.id === pc.ADMN || uTeacher?.person.category.id === pc.SUPE || uTeacher?.person.category.id === pc.FORM
 
-        const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
+        const teacherClasses = await this.qTeacherClassrooms(authUser.user)
 
         const preStudent = await this.student(Number(params.id), CONN)
 
@@ -259,7 +255,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async save(body: SaveStudent) {
+  async saveWithAuth(body: SaveStudent, authUser: UserInterface) {
 
     const rosterNumber = parseInt(body.rosterNumber, 10);
     let conn;
@@ -268,8 +264,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
-      const tClasses = await this.qTeacherClassrooms(body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      const tClasses = await this.qTeacherClassrooms(authUser.user);
       const qCurrentYear = await this.qCurrentYear();
       const state = await this.qState(body.state) as State;
       const classroom = await this.qClassroom(body.classroom);
@@ -452,7 +448,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       const message = "Você não tem permissão para criar um aluno nesta sala.";
-      if (body.user.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { await conn.rollback(); return { status: 403, message } } }
+      if (authUser.category === pc.PROF) { if (!tClasses.classrooms.includes(classroom.id)) { await conn.rollback(); return { status: 403, message } } }
 
       // FASE DE ESCRITA
 
@@ -507,25 +503,25 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     finally { if (conn) conn.release() }
   }
 
-  async setFirstLevel(body: any) {
+  async setFirstLevel(body: any, authUser: UserInterface) {
     try {
 
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
       if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para modificar este registro.' } }
 
-      await this.qSetFirstLevel(Number(body.student.id), Number(body.level.id), Number(body.user.user))
+      await this.qSetFirstLevel(Number(body.student.id), Number(body.level.id), authUser.user)
       return { status: 200, data: { message: 'done' } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async updateId(studentId: number | string, body: any) {
+  async updateIdWithAuth(studentId: number | string, body: any, authUser: UserInterface) {
     try {
       let result: any;
       return await AppDataSource.transaction(async (CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const dbStudentOptions: FindOneOptions<Student> = {
           relations: ["person", "studentDisabilities.disability", "state"], where: { id: Number(studentId) }
@@ -777,18 +773,18 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     return similarity >= threshold
   }
 
-  async graduate( studentId: number | string, body: GraduateBody ) {
+  async graduate( studentId: number | string, body: GraduateBody, authUser: UserInterface) {
     try {
 
       let student: Student | null = null
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        const qUt = await this.qTeacherByUser(body.user.user)
+        const qUt = await this.qTeacherByUser(authUser.user)
 
         const masterUser: boolean = qUt.person.category.id === pc.ADMN || qUt.person.category.id === pc.SUPE || qUt.person.category.id === pc.FORM;
 
-        const { classrooms } = await this.qTeacherClassrooms(body.user.user)
+        const { classrooms } = await this.qTeacherClassrooms(authUser.user)
 
         const message = "Você não tem permissão para realizar modificações nesta sala de aula."
         if (!classrooms.includes(Number(body.student.classroom.id)) && !masterUser) { return { status: 403, message } }

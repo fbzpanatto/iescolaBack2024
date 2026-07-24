@@ -2,7 +2,7 @@ import { Request } from "express";
 import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { GenericController } from "./genericController";
-import { TrainingAndSchedulesBody, UserInterface } from "../interfaces/interfaces";
+import { TrainingAndSchedulesBody, UserInterface, JwtPayload } from "../interfaces/interfaces";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
   constructor() { super(Training) }
@@ -31,12 +31,11 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async presenceTeachersByCategory(req: Request) {
+  async presenceTeachersByCategory(req: Request, authUser: JwtPayload) {
     const { reference } = req.query;
-    const body = req.body
 
     try {
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
       const cYear = await this.qCurrentYear()
 
       const refTraining = await this.qPresence(parseInt(reference as string));
@@ -69,14 +68,14 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async saveTraining(body: TrainingAndSchedulesBody) {
+  async saveTraining(body: TrainingAndSchedulesBody, authUser: JwtPayload) {
     try {
 
       const { classroom, discipline, category, observation, month, meeting } = body;
 
       const currentYear = await this.qCurrentYear();
 
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
       const training = await this.qNewTraining(currentYear.id, category, month, meeting, teacher.person.user.id, classroom, discipline, observation);
 
@@ -85,7 +84,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTraining(id: string, body: TrainingAndSchedulesBody) {
+  async updateTraining(id: string, body: TrainingAndSchedulesBody, authUser: JwtPayload) {
     try {
       const trainingId = parseInt(id);
       if (isNaN(trainingId)) { return { status: 400, message: 'ID inválido' } }
@@ -96,7 +95,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       if (!existingTraining) { return { status: 404, message: 'Formação não localizada.' } }
 
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
       if(body.discipline != existingTraining.discipline) { await this.qDeleteTrainingTeacher(existingTraining.id) }
 
@@ -107,13 +106,13 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTeacherTrainingStatus(body: { user: UserInterface, teacherId: number, statusId: number, trainingId: number }) {
+  async updateTeacherTrainingStatus(body: { user: UserInterface, teacherId: number, statusId: number, trainingId: number }, authUser: JwtPayload) {
     try {
 
       const existingTraining = await this.qOneTraining(body.trainingId);
       if (!existingTraining) { return { status: 404, message: 'Formação não encontrada' } }
 
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
       await this.qUpsertTrainingTeacher(body.teacherId, body.trainingId, body.statusId, teacher.person.user.id );
 
@@ -122,13 +121,13 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTeacherTrainingObservation(body: { user: UserInterface, teacherId: number, observation: string, trainingId: number }) {
+  async updateTeacherTrainingObservation(body: { user: UserInterface, teacherId: number, observation: string, trainingId: number }, authUser: JwtPayload) {
     try {
 
       const existingTraining = await this.qOneTraining(body.trainingId);
       if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
 
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
       await this.qUpsertTrainingTeacherObs(body.teacherId, body.trainingId, body.observation, teacher.person.user.id );
 

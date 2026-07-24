@@ -14,7 +14,7 @@ TrainingRouter.get('/form', havePermission, async (req: Request, res: any) => {
 })
 
 TrainingRouter.get('/presence', havePermission, async (req: Request, res: any) => {
-  const response = await trainingController.presenceTeachersByCategory(req)
+  const response = await trainingController.presenceTeachersByCategory(req, (req as any).user)
   return res.status(response.status as number).json(response)
 })
 
@@ -29,21 +29,21 @@ TrainingRouter.get('/:year', havePermission, async (req: Request<{ year: string 
 })
 
 TrainingRouter.post('/', ...CREATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
-  const response = await trainingController.saveTraining(req.body)
+  const response = await trainingController.saveTraining(req.body, (req as any).user)
   return res.status(response.status as number).json(response)
 })
 
 TrainingRouter.put('/teacher-presence/status/:id', havePermission, async (req: Request, res: any) => {
-  const response = await trainingController.updateTeacherTrainingStatus(req.body)
+  const response = await trainingController.updateTeacherTrainingStatus(req.body, (req as any).user)
   return res.status(response.status as number).json(response)
 })
 
 TrainingRouter.put('/teacher-presence/observation/:id', havePermission, async (req: Request, res: any) => {
-  const response = await trainingController.updateTeacherTrainingObservation(req.body)
+  const response = await trainingController.updateTeacherTrainingObservation(req.body, (req as any).user)
   return res.status(response.status as number).json(response)
 })
 
 TrainingRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: string }>, res: any) => {
-  const response = await trainingController.updateTraining(req.params.id, req.body)
+  const response = await trainingController.updateTraining(req.params.id, req.body, (req as any).user)
   return res.status(response.status as number).json(response)
 })

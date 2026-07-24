@@ -23,7 +23,7 @@ import { Discipline } from "../model/Discipline";
 import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
-import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals, JwtPayload } from "../interfaces/interfaces";
 import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { Helper } from "../utils/helpers";
@@ -36,7 +36,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   constructor() { super(Test) }
 
-  async getStudents(req?: Request) {
+  async getStudents(req: Request, authUser: JwtPayload) {
 
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom);
@@ -48,10 +48,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const testClassroom = await this.qTestClassroom(testId, classroomId)
       if(!testClassroom) { return { status: 404, message: 'Esse teste não existe para a sala em questão.' } }
 
-      const tUser = await this.qUser(req?.body.user.user)
+      const tUser = await this.qUser(authUser.user)
       const masterUser = tUser?.categoryId === PER_CAT.ADMN || tUser?.categoryId === PER_CAT.SUPE || tUser?.categoryId === PER_CAT.SUPE_EI || tUser?.categoryId === PER_CAT.FORM;
 
-      const { classrooms } = await this.qTeacherClassrooms(Number(req?.body.user.user))
+      const { classrooms } = await this.qTeacherClassrooms(Number(authUser.user))
       if(!classrooms?.includes(classroomId) && !masterUser && !isHistory) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       const qTest = await this.qTestByIdAndYear(testId, String(req?.params.year))
@@ -249,28 +249,28 @@ class TestController extends GenericController<EntityTarget<Test>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getFormDataByTestCategory(req: Request) {
+  async getFormDataByTestCategory(req: Request, authUser: JwtPayload) {
     try {
-      let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req)).data) as Array<{ id: number, name: string, school: string }>;
+      let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req, authUser)).data) as Array<{ id: number, name: string, school: string }>;
       classrooms = classrooms?.filter((el: any) => !OUT_CLASSROOMS.includes(el.id))
       return { status: 200, data: classrooms };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getGroupedFullParallel(req: Request) {
+  async getGroupedFullParallel(req: Request, authUser: JwtPayload) {
 
     const classroom = req.query.classroom ?? req.params.classroom
     const bimester = req.query.bimester ?? req.params.bimester
     const year = req.query.year ?? req.params.year
 
     try {
-      const qUt = await this.qTeacherByUser(req.body.user.user)
+      const qUt = await this.qTeacherByUser(authUser.user)
       const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.FORM
 
       const qClassroom = await this.qClassroom(Number(classroom))
       if (!qClassroom) return { status: 404, message: "Sala não encontrada" }
 
-      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
+      const { classrooms } = await this.qTeacherClassrooms(authUser.user)
       if(!classrooms.includes(qClassroom.id) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
       const qYear = await this.qYearByName(String(year))
@@ -376,7 +376,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return { status: 200, data: Helper.classroomDataStructure(pResult, test, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
   }
 
-  async getGraphic(req: Request<{ id: string, classroom: string }>) {
+  async getGraphic(req: Request<{ id: string, classroom: string }>, authUser: JwtPayload) {
 
     const { id: testId, classroom: classroomId } = req.params
 
@@ -385,13 +385,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const year = await this.qYearByName(String(req.query?.year))
       if(!year) return { status: 404, message: "Ano não encontrado." }
 
-      const qUt = await this.qTeacherByUser(req.body.user.user)
+      const qUt = await this.qTeacherByUser(authUser.user)
 
       const masterUser = qUt.person.category.id === PER_CAT.ADMN || qUt.person.category.id === PER_CAT.SUPE || qUt.person.category.id === PER_CAT.SUPE_EI || qUt.person.category.id === PER_CAT.FORM
 
       const baseTest = Helper.testFormater(await this.qTestByIdAndYear(Number(testId), year.name))
 
-      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user)
+      const { classrooms } = await this.qTeacherClassrooms(authUser.user)
 
       if(!classrooms.includes(Number(classroomId)) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
@@ -498,7 +498,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async deleteStudentFromTest(req: Request) {
+  async deleteStudentFromTest(req: Request, authUser: JwtPayload) {
     const studentClassroomId = !isNaN(parseInt(req.query.studentClassroomId as string)) ? parseInt(req.query.studentClassroomId as string) : null
     const testId = !isNaN(parseInt(req.query.testId as string)) ? parseInt(req.query.testId as string) : null
     const classroomId = !isNaN(parseInt(req.params.classroom as string)) ? parseInt(req.params.classroom as string) : null
@@ -509,7 +509,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 400, message: 'Parâmetros inválidos.' }
       }
 
-      const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
       if(![PER_CAT.ADMN, PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR].includes(qUserTeacher.person.category.id)) {
         return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
@@ -533,7 +533,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async findAllByYear(req: Request<{ year: string }>) {
+  async findAllByYear(req: Request<{ year: string }>, authUser: JwtPayload) {
     try {
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
       const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null;
@@ -545,7 +545,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if (yearName.length != 4) { const currentYear = await this.qCurrentYear(); yearName = currentYear.name }
 
-      const qUserTeacher = await this.qTeacherByUser(req.body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
       const masterTeacher =
         qUserTeacher.person.category.id === PER_CAT.ADMN ||
@@ -555,8 +555,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const isSuperEI = qUserTeacher.person.category.id === pc.SUPE_EI
 
-      const { classrooms } = await this.qTeacherClassrooms(req?.body.user.user);
-      const { disciplines } = await this.qTeacherDisciplines(req?.body.user.user);
+      const { classrooms } = await this.qTeacherClassrooms(authUser.user);
+      const { disciplines } = await this.qTeacherDisciplines(authUser.user);
 
       const testsMap = new Map<number, any>();
 
@@ -622,11 +622,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.error('Error in findAllByYear:', error); return { status: 500, message: error.message } }
   }
 
-  async getById(req: Request<{ id: string }>) {
+  async getById(req: Request<{ id: string }>, authUser: JwtPayload) {
     const { id } = req.params
     try {
       return await AppDataSource.transaction(async(CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
         const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
         const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
         const test = await CONN.findOne(Test, { ...op })
@@ -644,11 +644,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async saveTest(body: TestBodySave) {
+  async saveTest(body: TestBodySave, authUser: JwtPayload) {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id);
     try {
       return await AppDataSource.transaction(async (CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(body.user.user);
+        const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
         if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
           throw new HttpError(403, 'Você não tem permissão para criar uma avaliação.');
@@ -782,11 +782,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
   }
 
-  async updateTest(id: number | string, req: Request<{ id: number | string }>) {
+  async updateTest(id: number | string, req: Request<{ id: number | string }>, authUser: JwtPayload) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const uTeacher = await this.qTeacherByUser(req.body.user.user)
+        const uTeacher = await this.qTeacherByUser(authUser.user)
         const userId = uTeacher.person.user.id
         const masterUser = uTeacher.person.category.id === PER_CAT.ADMN ||
           uTeacher.person.category.id === PER_CAT.SUPE ||

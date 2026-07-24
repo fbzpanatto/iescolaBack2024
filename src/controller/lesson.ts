@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Request } from "express";
 import { Lesson } from "../model/Lesson";
-import { UserInterface } from "../interfaces/interfaces";
+import { JwtPayload } from "../interfaces/interfaces";
 import {PER_CAT} from "../utils/enums";
 
 class LessonController extends GenericController<EntityTarget<Lesson>> {
@@ -67,7 +67,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
     }
   }
 
-  async saveLesson(body: { user: UserInterface, name: string, disciplineId: number, classroomNumber: number, s3Key: string }) {
+  async saveLesson(body: { name: string, disciplineId: number, classroomNumber: number, s3Key: string }, authUser: JwtPayload) {
 
     // Série precisa ser um inteiro de 1 a 9. A coluna é TINYINT UNSIGNED e aceitaria
     // qualquer valor até 255, deixando a atividade invisível nos filtros do front.
@@ -77,7 +77,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      const tUser = await this.qUser(body.user.user)
+      const tUser = await this.qUser(authUser.user)
 
       // Nome sempre gravado em maiúsculas.
       let lesson = await this.createLesson(
@@ -93,10 +93,10 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async updateLesson(req: Request) {
+  async updateLesson(req: Request, authUser: JwtPayload) {
 
     const lessonId = Number(req.params.id);
-    const body = req.body as { user: UserInterface, name: string, s3Key?: string };
+    const body = req.body as { name: string, s3Key?: string };
 
     if (isNaN(lessonId)) { return { status: 400, message: 'Atividade inválida.' } }
 
@@ -104,7 +104,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      const tUser = await this.qUser(body.user.user)
+      const tUser = await this.qUser(authUser.user)
 
       // O aluno também tem PUT liberado na entidade "lesson" (usado no registro de
       // execução), então a edição da atividade precisa ser travada aqui pela categoria.
@@ -128,19 +128,19 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async saveLessonExecution(req: Request) {
+  async saveLessonExecution(req: Request, authUser: JwtPayload) {
 
     const lessonId = Number(req.params.id);
-    const body = req.body as { user: { user: number, ra: string, category: number }, grade?: number | null };
+    const body = req.body as { grade?: number | null };
 
     if (isNaN(lessonId)) { return { status: 400, message: 'Atividade inválida.' } }
 
     // Registrar execução é exclusivo do aluno: o id do aluno vem do próprio token.
-    if (body.user?.category !== PER_CAT.ALUN) {
+    if (authUser?.category !== PER_CAT.ALUN) {
       return { status: 403, message: 'Apenas alunos podem registrar a execução de uma atividade.' }
     }
 
-    const studentId = Number(body.user.user);
+    const studentId = Number(authUser.user);
 
     const grade = body.grade === undefined || body.grade === null ? null : Number(body.grade);
 

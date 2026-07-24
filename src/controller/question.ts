@@ -4,17 +4,18 @@ import { Question } from "../model/Question";
 import { Request } from "express";
 import { AppDataSource } from "../data-source";
 import { PER_CAT } from "../utils/enums";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
   constructor() { super(Question) }
 
-  async isOwner(req: Request) {
+  async isOwner(req: Request, authUser: JwtPayload) {
     const { id: questionId } = req.params
 
     try {
       return await AppDataSource.transaction(async(CONN)=> {
 
-        const qUserTeacher = await this.qTeacherByUser(req.body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
         const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })

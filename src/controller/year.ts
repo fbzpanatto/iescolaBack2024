@@ -6,6 +6,7 @@ import { Period } from "../model/Period";
 import { AppDataSource } from "../data-source";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
+import { JwtPayload } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TRANSFER_STATUS } from "../utils/enums";
 import { Transfer } from "../model/Transfer";
@@ -25,11 +26,11 @@ class YearController extends GenericController<EntityTarget<Year>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  override async save(body: any) {
+  async saveWithAuth(body: any, authUser: JwtPayload) {
     try {
       return await AppDataSource.transaction(async(CONN)=> {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
         const canCreate = [PER_CAT.ADMN]
         if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
         const yearExists = await this.checkIfExists(body, CONN)
@@ -50,7 +51,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateId(id: any, body: any) {
+  async updateIdWithAuth(id: any, body: any, authUser: JwtPayload) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
@@ -79,7 +80,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
           const qPendingTransferStatus = await this.qPendingTransferStatus(data.id, TRANSFER_STATUS.PENDING)
 
-          const qUserTeacher = await this.qTeacherByUser(body.user.user)
+          const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
           for(let item of qPendingTransferStatus) {
 

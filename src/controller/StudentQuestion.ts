@@ -10,7 +10,7 @@ import { Alphabetic } from "../model/Alphabetic";
 import { AlphabeticFirst } from "../model/AlphabeticFirst";
 import { Student} from "../model/Student";
 import { Classroom } from "../model/Classroom";
-import { UserInterface } from "../interfaces/interfaces";
+import { UserInterface, JwtPayload } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { connectionPool } from "../services/db";
 
@@ -18,7 +18,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   constructor() { super(StudentQuestion)}
 
-  async updateReadingFluency_backUp(req: Request){
+  async updateReadingFluency_backUp(req: Request, authUser: JwtPayload){
 
     const { body, query } = req
     const { year } = query
@@ -28,7 +28,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const cY = await this.qCurrentYear()
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
@@ -66,7 +66,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
-  async updateReadingFluency(req: Request) {
+  async updateReadingFluency(req: Request, authUser: JwtPayload) {
 
     const { body, query } = req;
     const { year } = query;
@@ -76,7 +76,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
       const userId = qUserTeacher.person.user.id;
 
       const cY = await this.qCurrentYear();
@@ -167,7 +167,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     finally { if (conn) { conn.release() } }
   }
 
-  async updateAlphabetic(req: Request){
+  async updateAlphabetic(req: Request, authUser: JwtPayload){
 
     const { body, query } = req
     const { year } = query
@@ -177,7 +177,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const cY = await this.qCurrentYear()
         if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
@@ -218,7 +218,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateAlphabeticFirstLevel(req: Request){
+  async updateAlphabeticFirstLevel(req: Request, authUser: JwtPayload){
 
     const { body } = req
 
@@ -227,7 +227,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
         let data;
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const student = body.student
         const alphabeticFirst = body.alphabeticFirst
@@ -249,7 +249,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateQuestion(req: Request, body: ObjectLiteral) {
+  async updateQuestion(req: Request, body: ObjectLiteral, authUser: JwtPayload) {
     const { year } = req.query;
 
     try {
@@ -257,7 +257,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       if (!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' } }
       if (parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-      const updatedQuestion = await this.qUpdateAndValidateAnswer(Number(body.id), body.answer, body.classroom.id, body.studentClassroom.id, body.user.user);
+      const updatedQuestion = await this.qUpdateAndValidateAnswer(Number(body.id), body.answer, body.classroom.id, body.studentClassroom.id, authUser.user);
       if (!updatedQuestion) { return { status: 403, message: 'A atualização não foi permitida devido a uma regra de negócio. (Ex: matrícula encerrada, teste inativo, etc)' } }
 
       const mappedRes = { ...updatedQuestion, score: updatedQuestion.correctAnswer.includes(updatedQuestion.answer.trim().toUpperCase()) ? 1 : 0 };
@@ -268,10 +268,10 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async updateTestStatus(id: number | string, body: ObjectLiteral) {
+  async updateTestStatus(id: number | string, body: ObjectLiteral, authUser: JwtPayload) {
     try {
 
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
       return await AppDataSource.transaction(async(CONN) => {
         const options = { relations: ['test', 'studentClassroom'], where: { id: Number(body.id), studentClassroom: { id: Number(id) }, test: { id: Number(body.test.id) }}}
@@ -287,16 +287,14 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }) {
+  async alphaStatus(id: number | string, body: { id?: number, observation: string, student: Student, test: Test, rClassroom?: Classroom, testClassroom: Classroom, user?: UserInterface }, authUser: JwtPayload) {
 
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
         if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
 
-        const qUserTeacher = await this.qTeacherByUser(body.user!.user)
-
-        delete body.user
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         let newBody;
 

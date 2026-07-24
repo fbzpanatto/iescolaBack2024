@@ -17,13 +17,13 @@ LessonRouter.get('/:id', havePermission, async (req: Request, res: any) => {
 });
 
 LessonRouter.post('/', havePermission, async (req: Request, res: any) => {
-  const response = await controller.saveLesson(req.body); return res.status(response.status).json(response)
+  const response = await controller.saveLesson(req.body, (req as any).user); return res.status(response.status).json(response)
 });
 
 LessonRouter.put('/:id', havePermission, async (req: Request, res: any) => {
-  const response = await controller.updateLesson(req); return res.status(response.status).json(response)
+  const response = await controller.updateLesson(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 LessonRouter.put('/:id/execution', havePermission, async (req: Request, res: any) => {
-  const response = await controller.saveLessonExecution(req); return res.status(response.status).json(response)
+  const response = await controller.saveLessonExecution(req, (req as any).user); return res.status(response.status).json(response)
 });

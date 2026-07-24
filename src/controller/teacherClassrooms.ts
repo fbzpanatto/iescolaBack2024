@@ -4,17 +4,16 @@ import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 import { connectionPool } from "../services/db";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
   constructor() { super(Classroom) }
 
-  async getAllTClass(request: Request) {
-
-    const body = request?.body
+  async getAllTClass(request: Request, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
       const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.SUPE_EI || qUserTeacher.person.category.id === PER_CAT.FORM
 

@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Classroom } from "../model/Classroom";
 import { Request } from "express";
-import { qUserTeacher, TeacherBody } from "../interfaces/interfaces";
+import { qUserTeacher, TeacherBody, JwtPayload } from "../interfaces/interfaces";
 import { OUT_CLASSROOMS, PER_CAT as pc } from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
@@ -28,17 +28,15 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async getAllClassrooms(req: Request) {
-    const { body } = req as { body: TeacherBody };
-
+  async getAllClassrooms(req: Request, authUser: JwtPayload) {
     const search = (req?.query.search as string) ?? "";
     const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
     const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
     try {
-      const teacher = await this.qTeacherByUser(body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
 
-      const tClasses = await this.qTeacherClassrooms(req?.body.user.user);
+      const tClasses = await this.qTeacherClassrooms(authUser.user);
 
       const active = req.query.active === 'true'
 
@@ -54,13 +52,11 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async getAllClassroomsByTestCategory(req: Request) {
-
-    const { body } = req as { body: TeacherBody };
+  async getAllClassroomsByTestCategory(req: Request, authUser: JwtPayload) {
     const { testCategory } = req.params;
     try {
-      const teacher = await this.qTeacherByUser(body.user.user);
-      const tClasses = await this.qTeacherClassrooms(req?.body.user.user);
+      const teacher = await this.qTeacherByUser(authUser.user);
+      const tClasses = await this.qTeacherClassrooms(authUser.user);
       const allClassrooms = [...tClasses.classrooms, ...OUT_CLASSROOMS];
       const { startClassroomNumber: start, endClassroomNumber: end } = await this.qTestCategory(Number(testCategory))
       const result = await this.getTeacherClassroomsByTestCategory(this.isMasterUser(teacher), allClassrooms, start, end)
@@ -69,13 +65,12 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  async putClassroomAndStudents(req: Request) {
-
+  async putClassroomAndStudents(req: Request, authUser: JwtPayload) {
     const { body } = req as { body: any }
 
     try {
       const classroomId = body.id;
-      const userId = body.user.user;
+      const userId = authUser.user;
 
       await this.qUpdateClassroom(classroomId, body.nickname, body.shift);
 

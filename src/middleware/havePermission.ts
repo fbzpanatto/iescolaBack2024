@@ -4,7 +4,7 @@ import permissions from '../utils/permissions'
 
 export default (req: Request, res: any, next: NextFunction) => {
   try {
-    const { user } = req.body
+    const user = (req as any).user
     const entity = req.baseUrl.split('/')[1].split('-').join('')
     const method = req.method
     const condition = permissions(user.category, entity, method)

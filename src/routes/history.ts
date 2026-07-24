@@ -5,6 +5,6 @@ import havePermission from "../middleware/havePermission";
 export const HistoryRouter = Router();
 
 HistoryRouter.get('/', havePermission, async (req: Request, res: any) => {
-  const response = await controller.getHistory(req);
+  const response = await controller.getHistory(req, (req as any).user);
   return res.status(response.status).json(response)
 })

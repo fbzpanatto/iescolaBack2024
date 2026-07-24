@@ -3,18 +3,18 @@ import { EntityTarget } from "typeorm";
 import { Request } from "express";
 import { Helper } from "../utils/helpers";
 import { PER_CAT } from "../utils/enums";
-import { UserInterface } from "../interfaces/interfaces";
+import { JwtPayload } from "../interfaces/interfaces";
 import { TestToken } from "../model/Token";
 
 class TokenController extends GenericController<EntityTarget<TestToken>> {
 
   constructor() { super(TestToken) }
 
-  async getFormData(request: Request) {
+  async getFormData(request: Request, authUser: JwtPayload) {
 
     try {
 
-      const tUser = await this.qUser(request?.body.user.user)
+      const tUser = await this.qUser(authUser.user)
 
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
                          tUser?.categoryId === PER_CAT.SUPE ||
@@ -33,7 +33,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async getAllTokens(req: Request) {
+  async getAllTokens(req: Request, authUser: JwtPayload) {
 
     const { search, limit, offset, bimester, discipline } = req.query;
 
@@ -45,7 +45,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
     try {
       // 1. Resgata os dados do usuário que está fazendo a requisição
-      const tUser = await this.qUser(req?.body?.user?.user);
+      const tUser = await this.qUser(authUser.user);
 
       // 2. Define se ele é um "super usuário" (Admin, Supervisor, etc)
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
@@ -71,11 +71,11 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
     }
   }
 
-  async saveToken(body: { user: UserInterface, leftUses: number, classroomId: number, testId: number }) {
+  async saveToken(body: { leftUses: number, classroomId: number, testId: number }, authUser: JwtPayload) {
 
     try {
 
-      const tUser = await this.qUser(body.user.user)
+      const tUser = await this.qUser(authUser.user)
 
       const sqlDateTime = Helper.generateDateTime()
 

@@ -4,7 +4,7 @@ import { EntityManager, EntityTarget } from "typeorm";
 import { PersonCategory } from "../model/PersonCategory";
 import { Teacher } from "../model/Teacher";
 import { Person } from "../model/Person";
-import { TeacherBody, UserInterface } from "../interfaces/interfaces";
+import { TeacherBody, UserInterface, JwtPayload } from "../interfaces/interfaces";
 import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
 import { User } from "../model/User";
@@ -25,15 +25,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   constructor() { super(Teacher) }
 
-  async teacherForm(req: Request) {
+  async teacherForm(req: Request, authUser: JwtPayload) {
 
     try {
 
       return await AppDataSource.transaction(async (CONN) => {
 
-        let disciplines = (await discController.getAllDisciplines(req)).data;
-        let classrooms = (await classroomController.getAllClassrooms(req)).data;
-        let personCategories = (await pCatCtrl.findAllPerCat(req)).data;
+        let disciplines = (await discController.getAllDisciplines(req, authUser)).data;
+        let classrooms = (await classroomController.getAllClassrooms(req, authUser)).data;
+        let personCategories = (await pCatCtrl.findAllPerCat(req, authUser)).data;
         let schools = await CONN.getRepository(School).find();
         let contracts = await CONN.getRepository(Contract).find();
 
@@ -44,15 +44,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findAllWhereTeacher(request: Request ) {
+  async findAllWhereTeacher(request: Request, authUser: JwtPayload) {
     const search = (request?.query.search as string) ?? "";
 
-    const body = request?.body as TeacherBody;
     const option = Number(request?.query.option);
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(body.user.user);
-      const qTeacherClasses = await this.qTeacherClassrooms(body.user.user);
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      const qTeacherClasses = await this.qTeacherClassrooms(authUser.user);
       let response: {}[] = [];
 
       if([pc.ADMN].includes(qUserTeacher.person.category.id)) {
@@ -76,13 +75,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch (error: any) { console.log(error); return { status: 500, message: error.message } }
   }
 
-  async findOneTeacher(id: string | number, request?: Request<{ id: string | number }>) {
-
-    const body = request?.body as TeacherBody;
+  async findOneTeacher(id: string | number, request: Request<{ id: string | number }>, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(body.user.user)
-      const qUserTeacherClasses = await this.qTeacherClassrooms(body.user.user)
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacherClasses = await this.qTeacherClassrooms(authUser.user)
 
       const cannotChange = [pc.MONI, pc.PROF];
 
@@ -102,11 +99,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getRequestedStudentTransfers(req?: Request) {
+  async getRequestedStudentTransfers(req: Request, authUser: JwtPayload) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const teacherClasses = await this.qTeacherClassrooms(req?.body.user.user)
+        const teacherClasses = await this.qTeacherClassrooms(authUser.user)
 
         const studentClassrooms = await CONN.getRepository(StudentClassroom)
           .createQueryBuilder("studentClassroom")
@@ -126,11 +123,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async updateTeacher(id: string, body: TeacherBody) {
+  async updateTeacher(id: string, body: TeacherBody, authUser: UserInterface) {
     try {
       return await AppDataSource.transaction(async(CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user", "school"], where: { id: Number(id) }})
 
@@ -179,10 +176,10 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch ( error: any ) { console.error( error ); return { status: 500, message: error.message } }
   }
 
-  async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}) {
+  async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}, authUser: UserInterface) {
     try {
       const [qUserTeacher, classroom, discipline, teacher] = await Promise.all([
-        this.qTeacherByUser(body.user.user),
+        this.qTeacherByUser(authUser.user),
         this.qClassroom(body.classroom.id),
         this.qDiscipline(body.discipline.id),
         this.qTeacher(body.teacher.id)
@@ -319,11 +316,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return { status: 200, data: teacher };
   }
 
-  async saveTeacher(body: TeacherBody) {
+  async saveTeacher(body: TeacherBody, authUser: UserInterface) {
     try {
       return await AppDataSource.transaction(async (CONN) => {
 
-        const qUserTeacher = await this.qTeacherByUser(body.user.user)
+        const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
         const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria."
         if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}

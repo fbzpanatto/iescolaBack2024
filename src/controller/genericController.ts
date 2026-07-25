@@ -3017,6 +3017,43 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async qAllQuestions(disciplineId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT
+          q.id AS q_id, q.title AS q_title, q.classroomNumber AS q_classroomNumber, q.active AS q_active,
+          q.createdAt AS q_createdAt, q.updatedAt AS q_updatedAt, q.createdByUser AS q_createdByUser, q.updatedByUser AS q_updatedByUser,
+          p.id AS person_id, p.name AS person_name, p.birth AS person_birth,
+          sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description,
+          sk.createdAt AS skill_createdAt, sk.updatedAt AS skill_updatedAt, sk.createdByUser AS skill_createdByUser, sk.updatedByUser AS skill_updatedByUser,
+          d.id AS discipline_id, d.name AS discipline_name,
+          cc.id AS cc_id, cc.name AS cc_name, cc.createdAt AS cc_createdAt, cc.updatedAt AS cc_updatedAt, cc.createdByUser AS cc_createdByUser, cc.updatedByUser AS cc_updatedByUser,
+          (SELECT COUNT(*) FROM test_question tq WHERE tq.questionId = q.id) AS inUse,
+          (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT(
+              'id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'active', qi.active,
+              'createdAt', qi.createdAt, 'updatedAt', qi.updatedAt, 'createdByUser', qi.createdByUser, 'updatedByUser', qi.updatedByUser
+            ))
+            FROM question_image qi WHERE qi.questionId = q.id AND qi.active = 1
+          ) AS questionImages
+        FROM question q
+          LEFT JOIN person p ON p.id = q.personId
+          LEFT JOIN skill sk ON sk.id = q.skillId
+          LEFT JOIN discipline d ON d.id = q.disciplineId
+          LEFT JOIN classroom_category cc ON cc.id = q.classroomCategoryId
+        WHERE q.disciplineId = ?
+        ORDER BY q.id ASC
+      `
+
+      const [ queryResult ] = await conn.query(query, [disciplineId])
+      return Helper.allQuestions(queryResult as any[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qStudentTestQuestions(testId: number, studentId: number) {
     let conn;
     try {

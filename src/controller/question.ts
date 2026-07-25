@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
 import { Request } from "express";
-import { AppDataSource } from "../data-source";
+import { connectionPool } from "../services/db";
 import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 
@@ -18,18 +18,20 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
   async isOwner(req: Request, authUser: JwtPayload) {
     const { id: questionId } = req.params
 
+    let conn;
     try {
-      return await AppDataSource.transaction(async(CONN)=> {
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
-        const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
 
-        const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
-        const question = await CONN.findOne(Question,{ relations: ["person"], where: { id: parseInt(questionId as string) } })
+      conn = await connectionPool.getConnection();
+      const [rows] = await conn.query(`SELECT personId FROM question WHERE id = ? LIMIT 1`, [parseInt(questionId as string)]);
+      const question = (rows as any[])[0];
 
-        return { status: 200, data: { isOwner: qUserTeacher.person.id === question?.person.id || masterUser } };
-      })
+      return { status: 200, data: { isOwner: qUserTeacher.person.id === question?.personId || masterUser } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
   async questionForm(_: Request) {
@@ -42,21 +44,8 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
   async allQuestions(req: Request) {
     try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const questions = await CONN.getRepository(Question)
-          .createQueryBuilder("question")
-          .leftJoinAndSelect("question.person", "person")
-          .leftJoinAndSelect("question.skill", "skill")
-          .leftJoinAndSelect("question.discipline", "discipline")
-          .leftJoinAndSelect("question.classroomCategory", "classroomCategory")
-          // imagens ativas: o modal precisa exibir o estado real ao reaproveitar a questão
-          .leftJoinAndSelect("question.questionImages", "questionImage", "questionImage.active = :active", { active: 1 })
-          // aqui não existe "prova corrente": qualquer uso já a torna compartilhada
-          .loadRelationCountAndMap("question.inUse", "question.testQuestions")
-          .where("discipline.id = :disciplineId", { disciplineId: req.query.discipline })
-          .getMany();
-        return { status: 200, data: questions };
-      })
+      const questions = await this.qAllQuestions(Number(req.query.discipline));
+      return { status: 200, data: questions };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 }

@@ -1,5 +1,4 @@
 import { Schema } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const TRAINING_SCHEMA: Schema = {
   id: {
@@ -53,6 +52,4 @@ export const TRAINING_SCHEMA: Schema = {
   trainingSchedules: {
     optional: true,
   },
-  user: { optional: true },
-  ...USER_SCHEMA,
 }

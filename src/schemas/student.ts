@@ -1,5 +1,4 @@
 import { Schema } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const STUDENT_SCHEMA: Schema = {
   name: {
@@ -77,6 +76,4 @@ export const STUDENT_SCHEMA: Schema = {
     escape: true,
   },
 
-  user: { exists: true },
-  ...USER_SCHEMA,
 };

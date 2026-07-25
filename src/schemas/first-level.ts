@@ -1,5 +1,4 @@
 import { Schema } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const STUDENT_FIRST_LEVEL_SCHEMA: Schema = {
 
@@ -17,6 +16,4 @@ export const STUDENT_FIRST_LEVEL_SCHEMA: Schema = {
     isInt: true,
     toInt: true
   },
-  user: { exists: true },
-  ...USER_SCHEMA,
 }

@@ -1,5 +1,4 @@
 import { Schema } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const CLASSROOM_QUERY: Schema = {
   others: {
@@ -33,6 +32,4 @@ export const CLASSROOM_QUERY: Schema = {
     isInt: { errorMessage: "O parâmetro 'offset' deve ser um número inteiro" },
     toInt: true
   },
-  user: { optional: true },
-  ...USER_SCHEMA,
 };

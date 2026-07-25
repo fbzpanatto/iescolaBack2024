@@ -1,5 +1,4 @@
 import { Schema, Meta } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const YEAR_SCHEMA: Schema = {
   active: {
@@ -34,6 +33,4 @@ export const YEAR_SCHEMA: Schema = {
       }
     }
   },
-  user: { exists: true },
-  ...USER_SCHEMA,
 }

@@ -1,5 +1,4 @@
 import { Schema } from "express-validator";
-import { USER_SCHEMA } from "./user";
 
 export const TEST_QUESTIONS_SCHEMA: Schema = {
   active: {
@@ -92,6 +91,4 @@ export const TEST_SCHEMA: Schema = {
   classroom: {
     optional: true
   },
-  user: { optional: true },
-  ...USER_SCHEMA,
 }

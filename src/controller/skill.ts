@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Skill } from "../model/Skill";
 import { Request } from "express";
-import { AppDataSource } from "../data-source";
+import { connectionPool } from "../services/db";
 
 class SkillController extends GenericController<EntityTarget<Skill>> {
 
@@ -14,17 +14,19 @@ class SkillController extends GenericController<EntityTarget<Skill>> {
     })
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
-    const classCategoryId = request?.query.category as string | undefined;
-    const disciplineId = request?.query.discipline as string | undefined;
+  override async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+    const classCategoryId = Number(request?.query.category);
+    const disciplineId = Number(request?.query.discipline);
+    let conn;
     try {
-      return await AppDataSource.transaction(async(CONN) => {
-        // Remove 'relations: ['classroomCategory']' já que não é necessário no frontend
-        const options = { where: { classroomCategory: { id: Number(classCategoryId) }, discipline: { id: Number(disciplineId)} } }
-        const result = await CONN.find(Skill, { ...options })
-        return { status: 200, data: result };
-      })
+      conn = await connectionPool.getConnection();
+      const [rows] = await conn.query(
+        `SELECT id, reference, description, createdAt, updatedAt, createdByUser, updatedByUser FROM skill WHERE classroomCategoryId = ? AND disciplineId = ?`,
+        [classCategoryId, disciplineId]
+      );
+      return { status: 200, data: rows };
     } catch (error: any) { return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 }
 

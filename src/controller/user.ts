@@ -1,18 +1,10 @@
 import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { User } from "../model/User";
-import { AppDataSource } from "../data-source";
 
 class UserController extends GenericController<EntityTarget<User>> {
-
-  constructor() { super(User) }
-
-  override async save(body: User) {
-    try {
-      return await AppDataSource.transaction(async(CONN)=>{
-        const user = await CONN.save(User, body); return { status: 201, data: user };
-      })
-    } catch (error: any) { return { status: 500, message: error.message } }
+  constructor() {
+    super(User, { table: 'user', selectColumns: ['id', 'username', 'email', 'password', 'personId'], relations: { person: 'personId' } })
   }
 }
 

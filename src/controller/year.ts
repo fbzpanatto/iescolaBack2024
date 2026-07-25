@@ -14,7 +14,9 @@ import { Teacher } from "../model/Teacher";
 import { TransferStatus } from "../model/TransferStatus";
 
 class YearController extends GenericController<EntityTarget<Year>> {
-  constructor() { super(Year) }
+  constructor() {
+    super(Year, { table: 'year', selectColumns: ['id', 'name', 'active', 'createdAt', 'endedAt'] })
+  }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const search = request?.query.search as string

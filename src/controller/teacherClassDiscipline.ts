@@ -4,7 +4,13 @@ import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { UserInterface } from "../interfaces/interfaces";
 
 class TeacherClassDisciplineController extends GenericController<EntityTarget<TeacherClassDiscipline>> {
-  constructor() { super(TeacherClassDiscipline) }
+  constructor() {
+    super(TeacherClassDiscipline, {
+      table: 'teacher_class_discipline',
+      selectColumns: ['id', 'startedAt', 'endedAt'],
+      relations: { discipline: 'disciplineId', teacher: 'teacherId', classroom: 'classroomId', contract: 'contractId' }
+    })
+  }
 
   async updateContract(body: { teacherId: number, schoolId: number, contractId: number, categoryId: number, yearId: number, yearName: string, classroom: number, user: UserInterface }, authUser: UserInterface){
     try {

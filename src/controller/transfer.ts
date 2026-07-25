@@ -18,7 +18,9 @@ import {format} from "mysql2";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
-  constructor() { super(Transfer) }
+  constructor() {
+    super(Transfer, { table: 'transfer', selectColumns: ['id', 'startedAt', 'endedAt'] })
+  }
 
   async findAllWhere(_: any, request?: Request) {
 

@@ -7,7 +7,13 @@ import { OUT_CLASSROOMS, PER_CAT as pc } from "../utils/enums";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
-  constructor() { super(Classroom) }
+  constructor() {
+    super(Classroom, {
+      table: 'classroom',
+      selectColumns: ['id', 'name', 'nickname', 'shortName'],
+      relations: { school: 'schoolId', category: 'categoryId', shift: 'shiftId' }
+    })
+  }
 
   async classroomForm(_: Request) {
     try {

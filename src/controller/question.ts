@@ -7,7 +7,13 @@ import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
-  constructor() { super(Question) }
+  constructor() {
+    super(Question, {
+      table: 'question',
+      selectColumns: ['id', 'title', 'classroomNumber', 'active', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'],
+      relations: { discipline: 'disciplineId', classroomCategory: 'classroomCategoryId', skill: 'skillId', person: 'personId' }
+    })
+  }
 
   async isOwner(req: Request, authUser: JwtPayload) {
     const { id: questionId } = req.params

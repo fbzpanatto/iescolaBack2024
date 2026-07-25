@@ -6,7 +6,13 @@ import { AppDataSource } from "../data-source";
 
 class SkillController extends GenericController<EntityTarget<Skill>> {
 
-  constructor() { super(Skill) }
+  constructor() {
+    super(Skill, {
+      table: 'skill',
+      selectColumns: ['id', 'reference', 'description', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'],
+      relations: { classroomCategory: 'classroomCategoryId', discipline: 'disciplineId' }
+    })
+  }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const classCategoryId = request?.query.category as string | undefined;

@@ -6,7 +6,9 @@ import { JwtPayload } from "../interfaces/interfaces";
 
 class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
-  constructor() { super(Discipline) }
+  constructor() {
+    super(Discipline, { table: 'discipline', selectColumns: ['id', 'name'] })
+  }
 
   async getAllDisciplines(req: Request, authUser: JwtPayload) {
 

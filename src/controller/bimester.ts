@@ -4,7 +4,7 @@ import { Bimester } from "../model/Bimester";
 
 class BimesterController extends GenericController<EntityTarget<Bimester>> {
   constructor() {
-    super(Bimester);
+    super(Bimester, { table: 'bimester', selectColumns: ['id', 'name', 'testName'] });
   }
 }
 

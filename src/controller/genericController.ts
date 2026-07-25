@@ -61,14 +61,51 @@ import {State} from "../model/State";
 import {Disability} from "../model/Disability";
 import {deletarDoS3, moverParaLessons} from "../services/s3.service";
 
+// Config usada pelo GenericController para atender findAllWhere/findOneByWhere/findOneById/save/updateId
+// via mysql2 puro (sem CONN de transação TypeORM). `selectColumns` replica exatamente a projeção
+// default do TypeORM (todas as @Column exceto as marcadas `select: false`). `relations` mapeia
+// nome da propriedade de relação (ex: "category") para a coluna de FK real (ex: "categoryId").
+export interface GenericTableConfig {
+  table: string
+  selectColumns: string[]
+  relations?: Record<string, string>
+}
+
 export class GenericController<T> {
-  constructor(private entity: EntityTarget<ObjectLiteral>) {}
+  constructor(private entity: EntityTarget<ObjectLiteral>, private tableConfig?: GenericTableConfig) {}
 
   get repository() { return AppDataSource.getRepository(this.entity) }
 
+  private requireTableConfig(): GenericTableConfig {
+    if (!this.tableConfig) { throw new Error(`GenericController: tableConfig não configurado para ${String(this.entity)}`) }
+    return this.tableConfig
+  }
+
+  // Converte um body/entidade em memória para pares coluna->valor prontos para INSERT/UPDATE,
+  // traduzindo relações (ex: { category: { id: 5 } }) para a coluna de FK (categoryId: 5).
+  private toColumnValues(body: ObjectLiteral): Record<string, any> {
+    const relations = this.tableConfig?.relations ?? {}
+    const out: Record<string, any> = {}
+    for (const key of Object.keys(body)) {
+      const value = (body as any)[key]
+      if (value === undefined) { continue }
+      if (key in relations) { out[relations[key]] = (value && typeof value === 'object') ? value.id : value; continue }
+      out[key] = value
+    }
+    return out
+  }
+
   async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager) {
     try {
-      if(!CONN){ const result = await this.repository.find(); return { status: 200, data: result } }
+      if(!CONN){
+        const { table, selectColumns } = this.requireTableConfig()
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table}`);
+          return { status: 200, data: rows }
+        } finally { if (conn) { conn.release() } }
+      }
       const result = await CONN.find(this.entity); return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -76,8 +113,19 @@ export class GenericController<T> {
   async findOneByWhere(options: FindOneOptions<ObjectLiteral>, CONN?: EntityManager) {
     try {
       if(!CONN) {
-        const result = await this.repository.findOne(options)
-        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+        const { table, selectColumns } = this.requireTableConfig()
+        const where = (options?.where ?? {}) as Record<string, any>
+        const keys = Object.keys(where)
+        const clause = keys.map(k => where[k] === null ? `${k} IS NULL` : `${k} = ?`).join(' AND ')
+        const params = keys.filter(k => where[k] !== null).map(k => where[k])
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          const sql = `SELECT ${selectColumns.join(', ')} FROM ${table}` + (clause ? ` WHERE ${clause}` : '') + ' LIMIT 1';
+          const [rows] = await conn.query(sql, params);
+          const result = (rows as any[])[0]
+          if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+        } finally { if (conn) { conn.release() } }
       }
       const result = await CONN.findOne(this.entity, options)
       if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
@@ -87,8 +135,14 @@ export class GenericController<T> {
   async findOneById(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
     try {
       if(!CONN) {
-        const result = await this.repository.findOneBy({ id: id });
-        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+        const { table, selectColumns } = this.requireTableConfig()
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+          const result = (rows as any[])[0]
+          if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+        } finally { if (conn) { conn.release() } }
       }
       const result = await CONN.findOneBy(this.entity, { id: id });
       if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
@@ -97,7 +151,25 @@ export class GenericController<T> {
 
   async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined, CONN?: EntityManager) {
     try {
-      if(!CONN) { const result = await this.repository.save(body, options); return { status: 201, data: result } }
+      if(!CONN) {
+        const { table } = this.requireTableConfig()
+        const columnValues = this.toColumnValues(body as ObjectLiteral)
+        const id = (body as any).id
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          if (id) {
+            const keys = Object.keys(columnValues).filter(k => k !== 'id')
+            const setClause = keys.map(k => `${k} = ?`).join(', ')
+            await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
+            return { status: 201, data: body }
+          }
+          const keys = Object.keys(columnValues)
+          const placeholders = keys.map(() => '?').join(', ')
+          const [result] = await conn.query(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`, keys.map(k => columnValues[k]));
+          return { status: 201, data: { ...body, id: (result as any).insertId } }
+        } finally { if (conn) { conn.release() } }
+      }
       const result = await CONN.save(this.entity, body, options); return { status: 201, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -105,10 +177,20 @@ export class GenericController<T> {
   async updateId(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
     try {
       if(!CONN){
-        const dataInDataBase = await this.repository.findOneBy({ id: id });
-        if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
-        for (const key in body) { dataInDataBase[key] = body[key] }
-        const result = await this.repository.save(dataInDataBase); return { status: 200, data: result }
+        const { table, selectColumns } = this.requireTableConfig()
+        let conn;
+        try {
+          conn = await connectionPool.getConnection();
+          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+          const dataInDataBase = (rows as any[])[0]
+          if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
+          for (const key in body) { dataInDataBase[key] = body[key] }
+          const columnValues = this.toColumnValues(dataInDataBase)
+          const keys = Object.keys(columnValues).filter(k => k !== 'id')
+          const setClause = keys.map(k => `${k} = ?`).join(', ')
+          await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
+          return { status: 200, data: dataInDataBase }
+        } finally { if (conn) { conn.release() } }
       }
 
       const dataInDataBase = await CONN.findOneBy(this.entity, { id: id });

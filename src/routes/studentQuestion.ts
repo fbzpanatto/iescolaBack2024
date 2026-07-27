@@ -19,10 +19,6 @@ StudentQuestionRouter.put('/:id/alphabetic', YEAR_NAME_PARAM, havePermission, as
   const response = await controller.updateAlphabetic(req, (req as any).user); return res.status(response.status).json(response)
 });
 
-StudentQuestionRouter.put('/:id/alphabetic-first-level', YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
-  const response = await controller.updateAlphabeticFirstLevel(req, (req as any).user); return res.status(response.status).json(response)
-});
-
 StudentQuestionRouter.put('/:id/test-status', ...UPDATE_VALIDATORS_STATUS, havePermission, async (req: Request<{ id: number | string }>, res: any) => {
   const response = await controller.updateTestStatus(req.params.id, req.body, (req as any).user); return res.status(response.status).json(response)
 });

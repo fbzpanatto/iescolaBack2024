@@ -2066,6 +2066,139 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  // Índices esperados: test(categoryId, periodId), period(yearId, bimesterId), alphabetic(testId, studentId) [unique]
+  async qUpsertAlphabetic(testCategoryId: number, yearName: string, examBimesterId: number, studentId: number, studentClassroomId: number, alphabeticLevelId: number | null, classroomId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const testQuery = `
+        SELECT t.id, t.active, b.name AS bimester_name
+        FROM test AS t
+        INNER JOIN period AS p ON t.periodId = p.id
+        INNER JOIN year AS y ON p.yearId = y.id
+        INNER JOIN bimester AS b ON p.bimesterId = b.id
+        WHERE t.categoryId = ? AND y.name = ? AND b.id = ?
+        LIMIT 1
+      `;
+      const [ testRows ] = await conn.query(testQuery, [testCategoryId, yearName, examBimesterId]);
+      const test = (testRows as any[])[0];
+
+      if (!test) { await conn.commit(); return { outcome: 'test_not_found' as const } }
+      if (!test.active) { await conn.commit(); return { outcome: 'test_inactive' as const, bimesterName: test.bimester_name } }
+
+      const [ alphaRows ] = await conn.query(
+        `SELECT id, alphabeticLevelId, rClassroomId, observation FROM alphabetic WHERE testId = ? AND studentId = ? LIMIT 1 FOR UPDATE`,
+        [test.id, studentId]
+      );
+      const alpha = (alphaRows as any[])[0];
+
+      if (!alpha) {
+        const [ result ]: any = await conn.query(
+          `INSERT INTO alphabetic (testId, studentId, rClassroomId, alphabeticLevelId, createdByUser, createdAt) VALUES (?, ?, ?, ?, ?, NOW())`,
+          [test.id, studentId, classroomId, alphabeticLevelId, userId]
+        );
+        await conn.commit();
+        return { outcome: 'created' as const, id: result.insertId, testId: test.id };
+      }
+
+      const scQuery = `
+        SELECT sc.endedAt, p.name AS studentName, c.shortName AS classroomName, s.shortName AS schoolName
+        FROM student_classroom AS sc
+        INNER JOIN student AS st ON sc.studentId = st.id
+        INNER JOIN person AS p ON st.personId = p.id
+        INNER JOIN classroom AS c ON sc.classroomId = c.id
+        INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE sc.id = ?
+      `;
+      const [ scRows ] = await conn.query(scQuery, [studentClassroomId]);
+      const sC = (scRows as any[])[0];
+
+      if (sC?.endedAt && !alpha.alphabeticLevelId) {
+        await conn.commit();
+        return { outcome: 'classroom_ended' as const, studentName: sC.studentName, classroomName: sC.classroomName, schoolName: sC.schoolName };
+      }
+
+      if (alpha.alphabeticLevelId && alpha.rClassroomId && alpha.rClassroomId !== classroomId) {
+        await conn.commit();
+        return { outcome: 'registered_elsewhere' as const };
+      }
+
+      await conn.query(
+        `UPDATE alphabetic SET alphabeticLevelId = ?, rClassroomId = ?, updatedByUser = ?, updatedAt = NOW() WHERE id = ?`,
+        [alphabeticLevelId, classroomId, userId, alpha.id]
+      );
+      await conn.commit();
+
+      return { outcome: 'updated' as const, id: alpha.id, observation: alpha.observation };
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: student_test_status(id, studentClassroomId, testId) [unique composto]
+  async qUpdateTestStatus(statusId: number, studentClassroomId: number, testId: number, observation: string | undefined, active: boolean | undefined, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const [ rows ] = await conn.query(
+        `SELECT id, observation, active FROM student_test_status WHERE id = ? AND studentClassroomId = ? AND testId = ? LIMIT 1 FOR UPDATE`,
+        [statusId, studentClassroomId, testId]
+      );
+      const register = (rows as any[])[0];
+
+      if (!register) { await conn.commit(); return null }
+
+      const newObservation = observation ?? register.observation;
+      const newActive = active ?? register.active;
+
+      await conn.query(
+        `UPDATE student_test_status SET observation = ?, active = ?, updatedByUser = ?, updatedAt = NOW() WHERE id = ?`,
+        [newObservation, newActive, userId, register.id]
+      );
+      await conn.commit();
+
+      return register;
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: alphabetic(testId, studentId) [unique]
+  async qUpdateAlphaStatus(id: number, observation: string, studentId: number, testId: number, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+      await conn.query(
+        `UPDATE alphabetic SET observation = ?, studentId = ?, testId = ?, updatedByUser = ?, updatedAt = NOW() WHERE id = ?`,
+        [observation, studentId, testId, userId, id]
+      );
+      await conn.commit();
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qInsertAlphaStatus(observation: string, studentId: number, testId: number, rClassroomId: number | null, userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+      const [ result ]: any = await conn.query(
+        `INSERT INTO alphabetic (observation, studentId, testId, rClassroomId, createdByUser, createdAt) VALUES (?, ?, ?, ?, ?, NOW())`,
+        [observation, studentId, testId, rClassroomId, userId]
+      );
+      await conn.commit();
+      return result.insertId as number;
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qUpsertTrainingTeacher(teacherId: number, trainingId: number, statusId: number, userId: number) {
     let conn;
     try {

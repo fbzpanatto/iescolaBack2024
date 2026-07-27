@@ -52,6 +52,7 @@ public/model
 ./public
 
 .idea/
+.claude/
 
 # Dependency directories
 node_modules/

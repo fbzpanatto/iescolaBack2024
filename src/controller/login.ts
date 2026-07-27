@@ -2,7 +2,6 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { User } from "../model/User";
 import { Request } from "express";
-import { AppDataSource } from "../data-source";
 import { sign, verify, JwtPayload, decode } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
 import { PER_CAT as pc } from "../utils/enums";
@@ -91,45 +90,42 @@ class LoginController extends GenericController<EntityTarget<User>> {
     const { token: frontToken, password: newPassword } = req.body
 
     try {
-      return await AppDataSource.transaction(async(CONN) => {
 
-        // 1. Validação Criptográfica (Tempo e Assinatura)
-        const frontDecoded = verify(frontToken, tokenSecret ?? '') as JwtPayload;
+      // 1. Validação Criptográfica (Tempo e Assinatura)
+      const frontDecoded = verify(frontToken, tokenSecret ?? '') as JwtPayload;
 
-        if(!frontDecoded) { return { status: 401, message: 'Link expirado. Acesse o login e solicite a redefinição de senha novamente.' } }
+      if(!frontDecoded) { return { status: 401, message: 'Link expirado. Acesse o login e solicite a redefinição de senha novamente.' } }
 
-        const user: User | null = await CONN.findOne(User,{ relations: ["person.category"], where: { email: frontDecoded.email } });
+      const hashedPassword = (await generatePassword(newPassword)).hashedPassword
 
-        if (!user) { return { status: 401, message: "Usuário não encontrado" } }
+      // 2, 3 e 4. Busca usuário, valida token de reset (INTEGRAÇÃO DE SEGURANÇA) e atualiza senha
+      // + invalida o token (uso único) — tudo em uma única transação
+      const result = await this.qResetPassword(frontDecoded.email, frontToken, hashedPassword);
 
-        // 2. INTEGRAÇÃO DE SEGURANÇA: Verifica se o token ainda existe no banco
-        const checkTokenQuery = `SELECT userId FROM token_reset WHERE userId = ? AND token = ?`;
-        const [tokenRows] = await CONN.query(checkTokenQuery, [user.id, frontToken]);
+      if (result.outcome === 'user_not_found') { return { status: 401, message: "Usuário não encontrado" } }
 
-        if (!tokenRows || (tokenRows as any[]).length === 0) {
-          return { status: 401, message: 'Este link de redefinição já foi utilizado ou revogado. Solicite um novo link.' };
-        }
+      if (result.outcome === 'token_invalid') {
+        return { status: 401, message: 'Este link de redefinição já foi utilizado ou revogado. Solicite um novo link.' };
+      }
 
-        // 3. Atualiza a senha no banco (usando nossa função assíncrona otimizada)
-        user.password = (await generatePassword(newPassword)).hashedPassword
-        await CONN.save(User, user)
+      // 5. Gera a nova sessão para logar o usuário automaticamente
+      const payload = { user: result.userId, email: result.email, category: result.categoryId };
+      const backendToken = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
 
-        // 4. INVALIDAÇÃO: Deleta o token da tabela para garantir que seja "Uso Único"
-        await CONN.query(`DELETE FROM token_reset WHERE userId = ?`, [user.id]);
+      // Otimização de performance: decode em vez de verify
+      const decoded = decode(backendToken) as JwtPayload;
+      const expiresIn = decoded.exp;
+      const role = decoded.category;
 
-        // 5. Gera a nova sessão para logar o usuário automaticamente
-        const payload = { user: user.id, email: user.email, category: user.person.category.id };
-        const backendToken = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
-
-        // Otimização de performance: decode em vez de verify
-        const decoded = decode(backendToken) as JwtPayload;
-        const expiresIn = decoded.exp;
-        const role = decoded.category;
-
-        return { status: 200, data: { token: backendToken, expiresIn, role, person: user.person.name } };
-      })
+      return { status: 200, data: { token: backendToken, expiresIn, role, person: result.personName } };
     }
-    catch (error: any) { return { status: 401, message: 'Token expirado ou inválido. Solicite a redefinição de senha novamente.' } }
+    catch (error: any) {
+      console.error(error);
+      if (error?.name === 'TokenExpiredError' || error?.name === 'JsonWebTokenError') {
+        return { status: 401, message: 'Token expirado ou inválido. Solicite a redefinição de senha novamente.' }
+      }
+      return { status: 500, message: error.message }
+    }
   }
 
   loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {

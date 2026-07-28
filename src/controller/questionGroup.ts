@@ -4,7 +4,7 @@ import { QuestionGroup } from "../model/QuestionGroup";
 
 class QuestionGroupController extends GenericController<EntityTarget<QuestionGroup>> {
   constructor() {
-    super(QuestionGroup, { table: 'question_group', selectColumns: ['id', 'name', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'] })
+    super(QuestionGroup, { table: 'question_group', selectColumns: ['id', 'name', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'], dateColumns: ['createdAt', 'updatedAt'] })
   }
 }
 

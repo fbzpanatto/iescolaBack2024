@@ -8,7 +8,8 @@ class TeacherClassDisciplineController extends GenericController<EntityTarget<Te
     super(TeacherClassDiscipline, {
       table: 'teacher_class_discipline',
       selectColumns: ['id', 'startedAt', 'endedAt'],
-      relations: { discipline: 'disciplineId', teacher: 'teacherId', classroom: 'classroomId', contract: 'contractId' }
+      relations: { discipline: 'disciplineId', teacher: 'teacherId', classroom: 'classroomId', contract: 'contractId' },
+      dateColumns: ['startedAt', 'endedAt']
     })
   }
 

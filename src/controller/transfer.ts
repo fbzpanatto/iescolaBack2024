@@ -19,7 +19,7 @@ import {format} from "mysql2";
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   constructor() {
-    super(Transfer, { table: 'transfer', selectColumns: ['id', 'startedAt', 'endedAt'] })
+    super(Transfer, { table: 'transfer', selectColumns: ['id', 'startedAt', 'endedAt'], dateColumns: ['startedAt', 'endedAt'] })
   }
 
   async findAllWhere(_: any, request?: Request) {
@@ -119,8 +119,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
       const result = rows.map((row: any) => ({
         id: row.transfer_id,
-        startedAt: row.transfer_startedAt,
-        endedAt: row.transfer_endedAt,
+        startedAt: new Date(row.transfer_startedAt.replace(' ', 'T') + 'Z'),
+        endedAt: row.transfer_endedAt ? new Date(row.transfer_endedAt.replace(' ', 'T') + 'Z') : null,
 
         status: row.status_id ? {
           id: row.status_id,

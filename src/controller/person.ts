@@ -4,7 +4,7 @@ import { Person } from "../model/Person";
 
 class PersonController extends GenericController<EntityTarget<Person>> {
   constructor() {
-    super(Person, { table: 'person', selectColumns: ['id', 'name', 'birth'], relations: { category: 'categoryId' } })
+    super(Person, { table: 'person', selectColumns: ['id', 'name', 'birth'], relations: { category: 'categoryId' }, dateColumns: ['birth'] })
   }
 }
 

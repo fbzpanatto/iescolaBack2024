@@ -11,7 +11,9 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
     super(Question, {
       table: 'question',
       selectColumns: ['id', 'title', 'classroomNumber', 'active', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'],
-      relations: { discipline: 'disciplineId', classroomCategory: 'classroomCategoryId', skill: 'skillId', person: 'personId' }
+      relations: { discipline: 'disciplineId', classroomCategory: 'classroomCategoryId', skill: 'skillId', person: 'personId' },
+      booleanColumns: ['active'],
+      dateColumns: ['createdAt', 'updatedAt']
     })
   }
 

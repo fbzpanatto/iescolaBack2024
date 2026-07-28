@@ -7,7 +7,7 @@ import { JwtPayload } from "../interfaces/interfaces";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
   constructor() {
-    super(PersonCategory, { table: 'person_category', selectColumns: ['id', 'name', 'active'] })
+    super(PersonCategory, { table: 'person_category', selectColumns: ['id', 'name', 'active'], booleanColumns: ['active'] })
   }
 
   async findAllPerCat(req: Request, authUser: JwtPayload) {

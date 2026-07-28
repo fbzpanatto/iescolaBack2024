@@ -4,7 +4,7 @@ import { Disability } from "../model/Disability";
 
 class DisabilityController extends GenericController<EntityTarget<Disability>> {
   constructor() {
-    super(Disability, { table: 'disability', selectColumns: ['id', 'name', 'official'] })
+    super(Disability, { table: 'disability', selectColumns: ['id', 'name', 'official'], booleanColumns: ['official'] })
   }
 }
 

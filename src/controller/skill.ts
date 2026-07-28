@@ -10,7 +10,8 @@ class SkillController extends GenericController<EntityTarget<Skill>> {
     super(Skill, {
       table: 'skill',
       selectColumns: ['id', 'reference', 'description', 'createdAt', 'updatedAt', 'createdByUser', 'updatedByUser'],
-      relations: { classroomCategory: 'classroomCategoryId', discipline: 'disciplineId' }
+      relations: { classroomCategory: 'classroomCategoryId', discipline: 'disciplineId' },
+      dateColumns: ['createdAt', 'updatedAt']
     })
   }
 
@@ -24,7 +25,7 @@ class SkillController extends GenericController<EntityTarget<Skill>> {
         `SELECT id, reference, description, createdAt, updatedAt, createdByUser, updatedByUser FROM skill WHERE classroomCategoryId = ? AND disciplineId = ?`,
         [classCategoryId, disciplineId]
       );
-      return { status: 200, data: rows };
+      return { status: 200, data: (rows as any[]).map(row => this.normalizeRow(row)) };
     } catch (error: any) { return { status: 500, message: error.message } }
     finally { if (conn) { conn.release() } }
   }

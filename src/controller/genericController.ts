@@ -69,6 +69,11 @@ export interface GenericTableConfig {
   table: string
   selectColumns: string[]
   relations?: Record<string, string>
+  // Colunas TINYINT que o TypeORM expunha como boolean e o mysql2 devolve cru como 0/1.
+  booleanColumns?: string[]
+  // Colunas DATETIME que o TypeORM expunha como Date e o mysql2 devolve cru como string
+  // "YYYY-MM-DD HH:MM:SS" (pool usa dateStrings: true). Necessário para o contrato com o frontend.
+  dateColumns?: string[]
 }
 
 export class GenericController<T> {
@@ -79,6 +84,24 @@ export class GenericController<T> {
   private requireTableConfig(): GenericTableConfig {
     if (!this.tableConfig) { throw new Error(`GenericController: tableConfig não configurado para ${String(this.entity)}`) }
     return this.tableConfig
+  }
+
+  // Corrige, apenas na forma devolvida ao cliente, os tipos que o SELECT cru do mysql2 não preserva:
+  // TINYINT -> boolean e DATETIME (string "YYYY-MM-DD HH:MM:SS") -> Date. Não afeta o que é gravado no banco.
+  protected normalizeRow<R extends Record<string, any>>(row: R): R {
+    if (!row) { return row }
+    const mutableRow = row as Record<string, any>
+    const { booleanColumns = [], dateColumns = [] } = this.tableConfig ?? {}
+    for (const col of booleanColumns) {
+      if (mutableRow[col] !== undefined && mutableRow[col] !== null) { mutableRow[col] = mutableRow[col] === 1 || mutableRow[col] === true }
+    }
+    for (const col of dateColumns) {
+      const value = mutableRow[col]
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(value)) {
+        mutableRow[col] = new Date(value.replace(' ', 'T') + 'Z')
+      }
+    }
+    return row
   }
 
   // Converte um body/entidade em memória para pares coluna->valor prontos para INSERT/UPDATE,
@@ -103,7 +126,7 @@ export class GenericController<T> {
         try {
           conn = await connectionPool.getConnection();
           const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table}`);
-          return { status: 200, data: rows }
+          return { status: 200, data: (rows as any[]).map(row => this.normalizeRow(row)) }
         } finally { if (conn) { conn.release() } }
       }
       const result = await CONN.find(this.entity); return { status: 200, data: result }
@@ -140,7 +163,7 @@ export class GenericController<T> {
         try {
           conn = await connectionPool.getConnection();
           const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
-          const result = (rows as any[])[0]
+          const result = this.normalizeRow((rows as any[])[0])
           if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
         } finally { if (conn) { conn.release() } }
       }
@@ -189,7 +212,7 @@ export class GenericController<T> {
           const keys = Object.keys(columnValues).filter(k => k !== 'id')
           const setClause = keys.map(k => `${k} = ?`).join(', ')
           await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
-          return { status: 200, data: dataInDataBase }
+          return { status: 200, data: this.normalizeRow(dataInDataBase) }
         } finally { if (conn) { conn.release() } }
       }
 

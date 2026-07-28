@@ -64,7 +64,7 @@ import {deletarDoS3, moverParaLessons} from "../services/s3.service";
 // Config usada pelo GenericController para atender findAllWhere/findOneByWhere/findOneById/save/updateId
 // via mysql2 puro (sem CONN de transação TypeORM). `selectColumns` replica exatamente a projeção
 // default do TypeORM (todas as @Column exceto as marcadas `select: false`). `relations` mapeia
-// nome da propriedade de relação (ex: "category") para a coluna de FK real (ex: "categoryId").
+// nome da propriedade de relação (ex: "category") para a coluna de FK real (ex: "categoryId")
 export interface GenericTableConfig {
   table: string
   selectColumns: string[]

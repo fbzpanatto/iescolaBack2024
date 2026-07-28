@@ -8,7 +8,6 @@ import {
   SaveOptions
 } from "typeorm";
 import {AppDataSource} from "../data-source";
-import {Person} from "../model/Person";
 import {
   InactiveNewClassroom,
   qAlphabeticLevels,
@@ -33,9 +32,9 @@ import {
   qUser,
   qUserTeacher,
   qYear,
-  SavePerson,
   StudentClassroomFnOptions,
   StudentClassroomReturn,
+  TeacherBody,
   TeacherParam,
   Training,
   TrainingResult
@@ -90,7 +89,7 @@ export class GenericController<T> {
   // Formata um Date/ISO-string como literal "YYYY-MM-DD HH:MM:SS" usando os componentes UTC,
   // ignorando o `timezone` do pool (que só se aplica a parâmetros Date passados ao mysql2 e
   // deslocaria a gravação, divergindo do valor cru que o TypeORM sempre gravou).
-  private toSqlUtcDateTime(value: Date | string | null | undefined): string | null {
+  protected toSqlUtcDateTime(value: Date | string | null | undefined): string | null {
     if (value === null || value === undefined || value === '') { return null }
     const date = value instanceof Date ? value : new Date(value)
     return date.toISOString().slice(0, 19).replace('T', ' ')
@@ -231,10 +230,6 @@ export class GenericController<T> {
       for (const key in body) { dataInDataBase[key] = body[key] }
       const result = await CONN.save(this.entity, dataInDataBase); return { status: 200, data: result }
     } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  createPerson(body: SavePerson) {
-    const el = new Person(); el.name = body.name; el.birth = body.birth; el.category = body.category; return el
   }
 
   // ------------------ PURE SQL QUERIES ------------------------------------------------------------------------------------
@@ -1944,6 +1939,112 @@ export class GenericController<T> {
       return { id: qTeacherClassrooms?.id, personCategoryId: qTeacherClassrooms?.categoryId, classrooms: qTeacherClassrooms?.classrooms?.split(',').map(el => Number(el)) ?? [] }
     }
     catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: student_classroom(classroomId) [existe], student_classroom(studentId) [existe], transfer(studentId) [existe]
+  async qPendingTransferCountByClassrooms(classroomIds: number[], statusId: number) {
+    if (classroomIds.length === 0) { return 0 }
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT COUNT(*) AS total
+        FROM student_classroom AS sc
+        INNER JOIN student AS stu ON stu.id = sc.studentId
+        INNER JOIN transfer AS t ON t.studentId = stu.id
+        WHERE sc.classroomId IN (?) AND sc.endedAt IS NULL AND t.endedAt IS NULL AND t.statusId = ?
+      `
+      const [ queryResult ] = await conn.query(query, [classroomIds, statusId])
+      return Number((queryResult as any[])[0].total)
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: teacher(register), teacher(email) [ambas sem índice dedicado hoje — full scan
+  // em tabela pequena], person_category(id) [PK], classroom(schoolId) [existe]
+  async qCreateTeacher(body: TeacherBody, createdByUserId: number, username: string, userEmail: string, hashedPassword: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const [ registerRows ] = await conn.query(`SELECT id FROM teacher WHERE register = ? LIMIT 1`, [body.register]);
+      if ((registerRows as any[])[0]) { await conn.commit(); return { outcome: 'register_exists' as const } }
+
+      const email = body.email.toLowerCase().trim();
+      const [ emailRows ] = await conn.query(`SELECT id FROM teacher WHERE email = ? LIMIT 1`, [email]);
+      if ((emailRows as any[])[0]) { await conn.commit(); return { outcome: 'email_exists' as const } }
+
+      const [ categoryRows ] = await conn.query(`SELECT id, name, active FROM person_category WHERE id = ? LIMIT 1`, [body.category.id]);
+      const category = (categoryRows as any[])[0];
+
+      const personName = body.name.toUpperCase().trim();
+      const [ personResult ]: any = await conn.query(
+        `INSERT INTO person (name, birth, categoryId) VALUES (?, ?, ?)`,
+        [personName, this.toSqlUtcDateTime(body.birth), category.id]
+      );
+      const personId = personResult.insertId;
+
+      const schoolId = Number(body.school) ? Number(body.school) : null;
+      const createdAt = new Date();
+
+      const [ teacherResult ]: any = await conn.query(
+        `INSERT INTO teacher (email, register, observation, schoolId, createdByUser, createdAt, personId) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [body.email, body.register, body.observation, schoolId, createdByUserId, this.toSqlUtcDateTime(createdAt), personId]
+      );
+      const teacherId = teacherResult.insertId;
+
+      await conn.query(
+        `INSERT INTO user (username, email, password, personId) VALUES (?, ?, ?, ?)`,
+        [username, userEmail, hashedPassword, personId]
+      );
+
+      const MASTER_FANOUT_ROLES = [PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR, PER_CAT.MONI];
+      const relationValues: any[] = [];
+
+      if (MASTER_FANOUT_ROLES.includes(body.category.id)) {
+        const [ disciplineRows ] = await conn.query(`SELECT id FROM discipline`);
+        const [ classroomRows ] = await conn.query(`SELECT id FROM classroom WHERE schoolId = ?`, [Number(body.school)]);
+
+        for (const discipline of disciplineRows as any[]) {
+          for (const classroom of classroomRows as any[]) {
+            relationValues.push([teacherId, classroom.id, discipline.id, this.toSqlUtcDateTime(new Date()), null]);
+          }
+        }
+      }
+      else if (body.category.id === PER_CAT.PROF) {
+        for (const rel of body.teacherClassesDisciplines) {
+          const contractId = (rel.contract === 1 || rel.contract === 2) ? rel.contract : null;
+          relationValues.push([teacherId, rel.classroomId, rel.disciplineId, this.toSqlUtcDateTime(new Date()), contractId]);
+        }
+      }
+
+      if (relationValues.length > 0) {
+        await conn.query(
+          `INSERT INTO teacher_class_discipline (teacherId, classroomId, disciplineId, startedAt, contractId) VALUES ?`,
+          [relationValues]
+        );
+      }
+
+      await conn.commit();
+
+      return {
+        outcome: 'created' as const,
+        data: {
+          id: teacherId,
+          createdByUser: createdByUserId,
+          createdAt,
+          person: { id: personId, name: personName, birth: body.birth, category },
+          email: body.email,
+          register: body.register,
+          observation: body.observation,
+          ...(schoolId ? { school: { id: schoolId } } : {})
+        }
+      };
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 
@@ -4428,6 +4529,21 @@ INNER JOIN year AS y ON tr.yearId = y.id
       const query = `SELECT id, name FROM contract ORDER BY id DESC`
       const [ queryResult ] = await conn.query(query)
       return  queryResult as Array<Contract>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Usado no form de professor (dropdown de escola). Só as colunas que o frontend
+  // realmente lê (id, name, shortName) — o TypeORM devolvia inep/active também, mas
+  // nenhuma tela consome esses dois campos aqui.
+  async qAllSchools() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `SELECT id, name, shortName FROM school`
+      const [ queryResult ] = await conn.query(query)
+      return queryResult as Array<{ id: number, name: string, shortName: string }>
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

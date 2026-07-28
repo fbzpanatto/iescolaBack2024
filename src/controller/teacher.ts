@@ -1,14 +1,8 @@
-import { AppDataSource } from "../data-source";
 import { GenericController } from "./genericController";
-import { EntityManager, EntityTarget } from "typeorm";
-import { PersonCategory } from "../model/PersonCategory";
+import { EntityTarget } from "typeorm";
 import { Teacher } from "../model/Teacher";
-import { Person } from "../model/Person";
 import { TeacherBody, UserInterface, JwtPayload } from "../interfaces/interfaces";
-import { TeacherClassDiscipline} from "../model/TeacherClassDiscipline";
 import { Request } from "express";
-import { User } from "../model/User";
-import { StudentClassroom } from "../model/StudentClassroom";
 import {OUT_CLASSROOMS, ROLE_PERMISSIONS, TRANSFER_STATUS} from "../utils/enums";
 import { discController } from "./discipline";
 import { classroomController } from "./classroom";
@@ -16,10 +10,7 @@ import { PER_CAT as pc } from "../utils/enums";
 import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../services/email";
 import { generatePassword } from "../utils/generatePassword";
-import { School} from "../model/School";
-import { Discipline } from "../model/Discipline";
-import { Classroom } from "../model/Classroom";
-import { Contract } from "../model/Contract";
+import { connectionPool } from "../services/db";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -29,18 +20,15 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     try {
 
-      return await AppDataSource.transaction(async (CONN) => {
+      let disciplines = (await discController.getAllDisciplines(req, authUser)).data;
+      let classrooms = (await classroomController.getAllClassrooms(req, authUser)).data;
+      let personCategories = (await pCatCtrl.findAllPerCat(req, authUser)).data;
+      let schools = await this.qAllSchools();
+      let contracts = await this.qContracts();
 
-        let disciplines = (await discController.getAllDisciplines(req, authUser)).data;
-        let classrooms = (await classroomController.getAllClassrooms(req, authUser)).data;
-        let personCategories = (await pCatCtrl.findAllPerCat(req, authUser)).data;
-        let schools = await CONN.getRepository(School).find();
-        let contracts = await CONN.getRepository(Contract).find();
+      classrooms = classrooms?.filter(classroom => !OUT_CLASSROOMS.includes(classroom.id))
 
-        classrooms = classrooms?.filter(classroom => !OUT_CLASSROOMS.includes(classroom.id))
-
-        return { status: 200, data: { disciplines, classrooms, personCategories, schools, contracts } }
-      })
+      return { status: 200, data: { disciplines, classrooms, personCategories, schools, contracts } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
@@ -101,79 +89,114 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async getRequestedStudentTransfers(req: Request, authUser: JwtPayload) {
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
+      const count = await this.qPendingTransferCountByClassrooms(teacherClasses.classrooms, TRANSFER_STATUS.PENDING)
 
-        const teacherClasses = await this.qTeacherClassrooms(authUser.user)
-
-        const studentClassrooms = await CONN.getRepository(StudentClassroom)
-          .createQueryBuilder("studentClassroom")
-          .leftJoin("studentClassroom.classroom", "classroom")
-          .leftJoin("studentClassroom.student", "student")
-          .leftJoin("student.person", "person")
-          .leftJoin("student.transfers", "transfers")
-          .where("classroom.id IN (:...ids)", { ids: teacherClasses.classrooms })
-          .andWhere("studentClassroom.endedAt IS NULL")
-          .andWhere("transfers.endedAt IS NULL")
-          .andWhere("transfers.status = :status", { status: TRANSFER_STATUS.PENDING })
-          .getCount()
-
-        return { status: 200, data: studentClassrooms }
-      })
+      return { status: 200, data: count }
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateTeacher(id: string, body: TeacherBody, authUser: UserInterface) {
+    let conn;
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
-        const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
 
-        const teacher = await CONN.findOne(Teacher,{ relations: ["person.category", "person.user", "school"], where: { id: Number(id) }})
+      const [ rows ] = await conn.query(
+        `
+        SELECT
+          t.id, t.email, t.register, t.observation, t.schoolId,
+          s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep, s.active AS school_active,
+          p.id AS person_id, p.name AS person_name, p.birth AS person_birth,
+          pc.id AS category_id, pc.name AS category_name, pc.active AS category_active,
+          u.id AS user_id, u.username AS user_username, u.email AS user_email
+        FROM teacher AS t
+          INNER JOIN person AS p ON p.id = t.personId
+          INNER JOIN person_category AS pc ON pc.id = p.categoryId
+          INNER JOIN user AS u ON u.personId = p.id
+          LEFT JOIN school AS s ON s.id = t.schoolId
+        WHERE t.id = ?
+        LIMIT 1
+        `,
+        [Number(id)]
+      );
+      const row = (rows as any[])[0];
 
-        if (!teacher) { return { status: 404, message: "Data not found" } }
+      if (!row) { await conn.commit(); return { status: 404, message: "Data not found" } }
 
-        const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
-        if (!this.canChange(qUserTeacher.person.category.id, teacher.person.category.id)) { return { status: 403, message }}
+      const message = "Você não tem permissão para editar as informações selecionadas. Solicite a alguém com cargo superior ao seu."
+      if (!this.canChange(qUserTeacher.person.category.id, row.category_id)) { await conn.commit(); return { status: 403, message } }
 
-        if (qUserTeacher.person.category.id === pc.PROF || (qUserTeacher.person.category.id === pc.MONI && qUserTeacher.id !== teacher.id)) {
-          return { status: 403, message: "Você não tem permissão para editar este registro." };
+      if (qUserTeacher.person.category.id === pc.PROF || (qUserTeacher.person.category.id === pc.MONI && qUserTeacher.id !== row.id)) {
+        await conn.commit();
+        return { status: 403, message: "Você não tem permissão para editar este registro." };
+      }
+
+      const teacher: any = {
+        id: row.id,
+        email: row.email,
+        register: body.register,
+        observation: body.observation,
+        schoolId: row.schoolId,
+        school: row.schoolId !== null ? {
+          id: row.schoolId, name: row.school_name, shortName: row.school_shortName,
+          inep: row.school_inep, active: row.school_active === 1
+        } : null,
+        person: {
+          id: row.person_id,
+          name: body.name,
+          birth: body.birth,
+          category: { id: row.category_id, name: row.category_name, active: row.category_active === 1 },
+          user: { id: row.user_id, username: row.user_username, email: row.user_email }
         }
+      };
 
-        teacher.person.name = body.name;
-        teacher.person.birth = body.birth;
-        teacher.register = body.register;
-        teacher.updatedAt = new Date();
-        teacher.updatedByUser = qUserTeacher.person.user.id;
-        teacher.observation = body.observation;
+      await conn.query(
+        `UPDATE person SET name = ?, birth = ? WHERE id = ?`,
+        [body.name, this.toSqlUtcDateTime(body.birth), teacher.person.id]
+      );
 
-        if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.SUPE_EI && teacher.person.category.id != pc.FORM && teacher.school === null) {
+      teacher.updatedAt = new Date();
+      teacher.updatedByUser = qUserTeacher.person.user.id;
 
-          teacher.school = { id: Number(body.school) } as School
-        }
+      await conn.query(
+        `UPDATE teacher SET register = ?, observation = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+        [body.register, body.observation, this.toSqlUtcDateTime(teacher.updatedAt), teacher.updatedByUser, teacher.id]
+      );
 
-        if(teacher.email != body.email) {
+      if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.SUPE_EI && teacher.person.category.id != pc.FORM && row.schoolId === null) {
 
-          const emailExists = await CONN.findOne(Teacher, {where: { email: body.email }});
-          if (emailExists) { return { status: 409,message: "Já existe um registro com este email." } }
+        teacher.school = { id: Number(body.school) }
+        await conn.query(`UPDATE teacher SET schoolId = ? WHERE id = ?`, [Number(body.school), teacher.id]);
+      }
 
-          teacher.email = body.email
+      if (teacher.email != body.email) {
 
-          const { password, hashedPassword } = await generatePassword()
+        const [ emailRows ] = await conn.query(`SELECT id FROM teacher WHERE email = ? LIMIT 1`, [body.email]);
+        if ((emailRows as any[])[0]) { await conn.commit(); return { status: 409, message: "Já existe um registro com este email." } }
 
-          const user = { id: teacher.person.user.id, username: body.email, email: body.email, password: hashedPassword }
+        teacher.email = body.email
 
-          await CONN.save(User, user)
+        const { password, hashedPassword } = await generatePassword()
 
-          await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
-        }
+        await conn.query(`UPDATE teacher SET email = ? WHERE id = ?`, [body.email, teacher.id]);
+        await conn.query(`UPDATE user SET username = ?, email = ?, password = ? WHERE id = ?`, [body.email, body.email, hashedPassword, teacher.person.user.id]);
 
-        const methods = this.methods(teacher, CONN, body)
+        await credentialsEmail(body.email, password, true).catch((e) => console.log(e) );
+      }
 
-        return await methods[teacher.person.category.id]()
-      })
+      const methods = this.methods(teacher, conn, body)
+
+      const result = await methods[row.category_id]()
+
+      await conn.commit();
+      return result;
     }
-    catch ( error: any ) { console.error( error ); return { status: 500, message: error.message } }
+    catch ( error: any ) { if (conn) await conn.rollback(); console.error( error ); return { status: 500, message: error.message } }
+    finally { if (conn) { conn.release() } }
   }
 
   async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}, authUser: UserInterface) {
@@ -192,11 +215,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     catch ( error: any ) { console.error( error ); return { status: 500, message: error.message } }
   }
 
-  async adminSupeFormUpdateMethod(teacher: Teacher, CONN: EntityManager) {
-    await CONN.save(Teacher, teacher); return { status: 200, data: teacher }
+  async adminSupeFormUpdateMethod(teacher: any, conn: any) {
+    return { status: 200, data: this.buildTeacherResponse(teacher) }
   }
 
-  async changeTeacherMasterSchool(body: TeacherBody, teacher: Teacher, CONN: EntityManager) {
+  async changeTeacherMasterSchool(body: TeacherBody, teacher: any, conn: any) {
 
     const targetCategory = Number(body.category);
 
@@ -211,45 +234,47 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     if (isTargetMaster) {
 
-      teacher.person.category = { id: targetCategory } as PersonCategory;
-      teacher.school = { id: Number(body.school) } as School;
+      teacher.person.category = { id: targetCategory };
+      teacher.school = { id: Number(body.school) };
+
+      await conn.query(`UPDATE person SET categoryId = ? WHERE id = ?`, [targetCategory, teacher.person.id]);
+      await conn.query(`UPDATE teacher SET schoolId = ? WHERE id = ?`, [Number(body.school), teacher.id]);
 
       await this.qEndAllTeacherRelations(teacher.id);
 
-      const disciplines = await CONN.find(Discipline);
-      const classrooms = await CONN.find(Classroom, { where: { school: { id: Number(body.school) } } });
+      const [ disciplineRows ] = await conn.query(`SELECT id FROM discipline`);
+      const [ classroomRows ] = await conn.query(`SELECT id FROM classroom WHERE schoolId = ?`, [Number(body.school)]);
 
-      const masterRelations = [];
-      const repository = CONN.getRepository(TeacherClassDiscipline);
+      const startedAt = this.toSqlUtcDateTime(new Date());
+      const masterRelations: any[] = [];
 
-      for (const discipline of disciplines) {
-        for (const classroom of classrooms) {
-          const relation = repository.create({
-            teacher: { id: teacher.id },
-            discipline: { id: discipline.id },
-            classroom: { id: classroom.id },
-            startedAt: new Date(),
-          });
-          masterRelations.push(relation);
+      for (const discipline of disciplineRows as any[]) {
+        for (const classroom of classroomRows as any[]) {
+          masterRelations.push([teacher.id, classroom.id, discipline.id, startedAt, null]);
         }
       }
-      if (masterRelations.length > 0) { await repository.save(masterRelations) }
+
+      if (masterRelations.length > 0) {
+        await conn.query(
+          `INSERT INTO teacher_class_discipline (teacherId, classroomId, disciplineId, startedAt, contractId) VALUES ?`,
+          [masterRelations]
+        );
+      }
     }
     else if (isTargetProfessor) {
 
-      teacher.person.category = { id: targetCategory } as PersonCategory;
+      teacher.person.category = { id: targetCategory };
+      await conn.query(`UPDATE person SET categoryId = ? WHERE id = ?`, [targetCategory, teacher.person.id]);
 
       await this.qEndAllTeacherRelations(teacher.id);
 
-      await this.updateTeacherClassesAndDisciplines(teacher, CONN, body);
+      await this.updateTeacherClassesAndDisciplines(teacher, conn, body);
     }
 
-    await CONN.save(Teacher, teacher);
-
-    return { status: 200, data: teacher };
+    return { status: 200, data: this.buildTeacherResponse(teacher) };
   }
 
-  async updateTeacherClassesAndDisciplines(teacher: Teacher, CONN: EntityManager, body: TeacherBody) {
+  async updateTeacherClassesAndDisciplines(teacher: any, conn: any, body: TeacherBody) {
 
     const targetCategory = Number(body.category);
     const currentCategory = Number(teacher.person.category.id);
@@ -263,11 +288,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const isBecomingMaster = MASTER_ROLES.includes(targetCategory) && targetCategory !== currentCategory;
     const isDemotingToTeacher = targetCategory === Number(pc.PROF) && MASTER_ROLES.includes(currentCategory);
 
-    if (isBecomingMaster || isDemotingToTeacher) { return await this.changeTeacherMasterSchool(body, teacher, CONN) }
+    if (isBecomingMaster || isDemotingToTeacher) { return await this.changeTeacherMasterSchool(body, teacher, conn) }
 
     const qDbRelationShip = (await this.qTeacherRelationship(teacher.id)).teacherClassesDisciplines;
-    const repository = CONN.getRepository(TeacherClassDiscipline);
-    const toSave: TeacherClassDiscipline[] = [];
+
+    const toEnd: number[] = [];
+    const toReactivate: { id: number, contractId: number | null }[] = [];
+    const toCreate: { teacherId: number, classroomId: number, disciplineId: number, contractId: number | null }[] = [];
 
     for (const bodyElement of body.teacherClassesDisciplines) {
 
@@ -282,113 +309,90 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const hasValidContract = bodyElement.contract && (bodyElement.contract === 1 || bodyElement.contract === 2);
 
       if (dataBaseRow && !bodyElement.active) {
-        const toSavePush = repository.create({ ...dataBaseRow, endedAt: new Date() } as unknown as TeacherClassDiscipline)
-        toSave.push(toSavePush);
+        toEnd.push(dataBaseRow.id);
         continue;
       }
 
       if (bodyElement.id && bodyElement.active && hasValidData && dataBaseRow) {
-        const updateData: any = { ...dataBaseRow, endedAt: null };
-        if (hasValidContract) updateData.contract = { id: bodyElement.contract };
-        const toSavePush = repository.create(updateData) as unknown as TeacherClassDiscipline;
-        toSave.push(toSavePush);
+        toReactivate.push({ id: dataBaseRow.id, contractId: hasValidContract ? (bodyElement.contract as number) : null });
         continue;
       }
 
       if (bodyElement.id === null && !dataBaseRow && bodyElement.active && hasValidData) {
-        const newRelationship: any = {
-          teacher: { id: bodyElement.teacherId },
-          discipline: { id: bodyElement.disciplineId },
-          classroom: { id: bodyElement.classroomId },
-          startedAt: new Date()
-        };
-        if (hasValidContract) newRelationship.contract = { id: bodyElement.contract };
-        const toSavePush = repository.create(newRelationship) as unknown as TeacherClassDiscipline;
-        toSave.push(toSavePush);
+        toCreate.push({
+          teacherId: bodyElement.teacherId,
+          classroomId: bodyElement.classroomId,
+          disciplineId: bodyElement.disciplineId,
+          contractId: hasValidContract ? (bodyElement.contract as number) : null
+        });
       }
     }
 
-    if (toSave.length > 0) { await repository.save(toSave) }
+    const now = this.toSqlUtcDateTime(new Date());
 
-    if (Number(body.school) !== Number(teacher.school.id)) { teacher.school = { id: Number(body.school) } as School }
+    if (toEnd.length > 0) {
+      await conn.query(`UPDATE teacher_class_discipline SET endedAt = ? WHERE id IN (?)`, [now, toEnd]);
+    }
 
-    await CONN.save(Teacher, teacher);
-    return { status: 200, data: teacher };
+    for (const item of toReactivate) {
+      if (item.contractId !== null) {
+        await conn.query(`UPDATE teacher_class_discipline SET endedAt = NULL, contractId = ? WHERE id = ?`, [item.contractId, item.id]);
+      } else {
+        await conn.query(`UPDATE teacher_class_discipline SET endedAt = NULL WHERE id = ?`, [item.id]);
+      }
+    }
+
+    if (toCreate.length > 0) {
+      const values = toCreate.map(item => [item.teacherId, item.classroomId, item.disciplineId, now, item.contractId]);
+      await conn.query(`INSERT INTO teacher_class_discipline (teacherId, classroomId, disciplineId, startedAt, contractId) VALUES ?`, [values]);
+    }
+
+    if (Number(body.school) !== Number(teacher.school.id)) {
+      teacher.school = { id: Number(body.school) };
+      await conn.query(`UPDATE teacher SET schoolId = ? WHERE id = ?`, [Number(body.school), teacher.id]);
+    }
+
+    return { status: 200, data: this.buildTeacherResponse(teacher) };
+  }
+
+  private buildTeacherResponse(teacher: any) {
+    return {
+      id: teacher.id,
+      email: teacher.email,
+      register: teacher.register,
+      observation: teacher.observation,
+      updatedAt: teacher.updatedAt,
+      updatedByUser: teacher.updatedByUser,
+      school: teacher.school,
+      person: {
+        id: teacher.person.id,
+        name: teacher.person.name,
+        birth: teacher.person.birth,
+        category: teacher.person.category,
+        user: { id: teacher.person.user.id, username: teacher.person.user.username, email: teacher.person.user.email }
+      }
+    };
   }
 
   async saveTeacher(body: TeacherBody, authUser: UserInterface) {
     try {
-      return await AppDataSource.transaction(async (CONN) => {
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
-        const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria."
+      if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
 
-        const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria."
-        if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
+      const { username, passwordObject, email } = await this.generateUser(body);
 
-        const registerExists = await CONN.findOne(Teacher, { where: { register: body.register } });
-        if (registerExists) { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
+      const result = await this.qCreateTeacher(body, qUserTeacher.person.user.id, username, email, passwordObject.hashedPassword);
 
-        const emailExists = await CONN.findOne(Teacher, { where: { email: body.email.toLowerCase().trim() }});
-        if (emailExists) { return { status: 409, message: "Já existe um registro com este email." } }
+      if (result.outcome === 'register_exists') { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
+      if (result.outcome === 'email_exists') { return { status: 409, message: "Já existe um registro com este email." } }
 
-        const category = (await CONN.findOne(PersonCategory, {where: { id: body.category.id }})) as PersonCategory;
+      await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e));
 
-        const person = this.createPerson({ name: body.name.toUpperCase().trim(), birth: body.birth, category });
-        const teacher = await CONN.save(Teacher, this.createTeacher(qUserTeacher.person.user.id, person, body));
-
-        const { username, passwordObject, email } = await this.generateUser(body);
-        await CONN.save(User, { person, username, email, password: passwordObject.hashedPassword });
-
-        if (
-          body.category.id === pc.DIRE || body.category.id === pc.VICE ||
-          body.category.id === pc.COOR || body.category.id === pc.SECR ||
-          body.category.id === pc.MONI
-        ) {
-          const disciplines = await CONN.getRepository(Discipline).find();
-          const classrooms = await CONN.getRepository(Classroom).find({ where: { school: { id: body.school } } });
-
-          const relationsToSave = [];
-
-          for(let discipline of disciplines) {
-            for(let classroom of classrooms) {
-              relationsToSave.push({ teacher: teacher, classroom: { id: classroom.id }, discipline: { id: discipline.id }, startedAt: new Date() });
-            }
-          }
-
-          if (relationsToSave.length > 0) await CONN.save(TeacherClassDiscipline, relationsToSave);
-        }
-
-        if (body.category.id === pc.PROF) {
-          const relationsToSave = body.teacherClassesDisciplines.map(rel => {
-            const saveData = { teacher: teacher, classroom: { id: rel.classroomId }, discipline: { id: rel.disciplineId }, startedAt: new Date() };
-            if(rel.contract && (rel.contract === 1 || rel.contract === 2)) { Object.assign(saveData, { contract: { id: rel.contract } as Contract }) }
-            return saveData;
-          });
-
-          if (relationsToSave.length > 0) await CONN.save(TeacherClassDiscipline, relationsToSave);
-        }
-
-        await credentialsEmail(body.email, passwordObject.password, true).catch((e) => console.log(e));
-
-        return { status: 201, data: teacher };
-      });
+      return { status: 201, data: result.data };
     }
     catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  createTeacher(userId: number, person: Person, body: TeacherBody) {
-    const teacher = new Teacher();
-
-    teacher.createdByUser = userId;
-    teacher.createdAt = new Date();
-    teacher.person = person;
-    teacher.email = body.email;
-    teacher.register = body.register;
-    teacher.observation = body.observation;
-
-    if(Number(body.school)) { teacher.school = { id: Number(body.school) } as School }
-
-    return teacher;
   }
 
   async generateUser(body: TeacherBody) {
@@ -399,18 +403,18 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     return { username, passwordObject, email };
   }
 
-  methods(teacher: Teacher, CONN: EntityManager, body: TeacherBody) {
+  methods(teacher: any, conn: any, body: TeacherBody) {
     return {
-      [pc.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [pc.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [pc.SUPE_EI]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [pc.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, CONN),
-      [pc.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [pc.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [pc.COOR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [pc.SECR]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [pc.MONI]: async () => await this.changeTeacherMasterSchool(body, teacher, CONN),
-      [pc.PROF]: async () => await this.updateTeacherClassesAndDisciplines(teacher, CONN, body)
+      [pc.ADMN]: async () => await this.adminSupeFormUpdateMethod(teacher, conn),
+      [pc.SUPE]: async () => await this.adminSupeFormUpdateMethod(teacher, conn),
+      [pc.SUPE_EI]: async () => await this.adminSupeFormUpdateMethod(teacher, conn),
+      [pc.FORM]: async () => await this.adminSupeFormUpdateMethod(teacher, conn),
+      [pc.DIRE]: async () => await this.changeTeacherMasterSchool(body, teacher, conn),
+      [pc.VICE]: async () => await this.changeTeacherMasterSchool(body, teacher, conn),
+      [pc.COOR]: async () => await this.changeTeacherMasterSchool(body, teacher, conn),
+      [pc.SECR]: async () => await this.changeTeacherMasterSchool(body, teacher, conn),
+      [pc.MONI]: async () => await this.changeTeacherMasterSchool(body, teacher, conn),
+      [pc.PROF]: async () => await this.updateTeacherClassesAndDisciplines(teacher, conn, body)
     }
   }
 

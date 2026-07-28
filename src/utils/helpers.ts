@@ -891,23 +891,30 @@ export class Helper {
     return value as QuestionImageJson[];
   }
 
+  // Converte string SQL crua ("YYYY-MM-DD HH:MM:SS") em Date, assumindo UTC —
+  // mesma convenção usada no resto do projeto (o pool grava sem deslocamento).
+  private static toUtcDate(value: string | null | undefined): Date | null {
+    if (!value) { return null }
+    return new Date(value.replace(' ', 'T') + 'Z')
+  }
+
   static allQuestions(rows: any[]) {
     return rows.map(row => ({
       id: row.q_id,
       title: row.q_title,
       classroomNumber: row.q_classroomNumber,
       active: row.q_active === 1 || row.q_active === true,
-      createdAt: row.q_createdAt,
-      updatedAt: row.q_updatedAt,
+      createdAt: this.toUtcDate(row.q_createdAt),
+      updatedAt: this.toUtcDate(row.q_updatedAt),
       createdByUser: row.q_createdByUser,
       updatedByUser: row.q_updatedByUser,
-      person: row.person_id ? { id: row.person_id, name: row.person_name, birth: row.person_birth } : null,
+      person: row.person_id ? { id: row.person_id, name: row.person_name, birth: this.toUtcDate(row.person_birth) } : null,
       skill: row.skill_id ? {
         id: row.skill_id,
         reference: row.skill_reference,
         description: row.skill_description,
-        createdAt: row.skill_createdAt,
-        updatedAt: row.skill_updatedAt,
+        createdAt: this.toUtcDate(row.skill_createdAt),
+        updatedAt: this.toUtcDate(row.skill_updatedAt),
         createdByUser: row.skill_createdByUser,
         updatedByUser: row.skill_updatedByUser
       } : null,
@@ -915,8 +922,8 @@ export class Helper {
       classroomCategory: row.cc_id ? {
         id: row.cc_id,
         name: row.cc_name,
-        createdAt: row.cc_createdAt,
-        updatedAt: row.cc_updatedAt,
+        createdAt: this.toUtcDate(row.cc_createdAt),
+        updatedAt: this.toUtcDate(row.cc_updatedAt),
         createdByUser: row.cc_createdByUser,
         updatedByUser: row.cc_updatedByUser
       } : null,

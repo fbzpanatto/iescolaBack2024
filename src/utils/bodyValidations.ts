@@ -18,3 +18,9 @@ export const unexpectedFn = (req: Request, res: any, next: NextFunction, schema:
   const msg = 'Campo(s) inesperado(s) no corpo da requisição: ' + unexpectedFields.join(', ')
   return unexpectedFields.length ? res.status(400).json(ojbRes(400, msg)) : next()
 }
+
+export const unexpectedQueryFn = (req: Request, res: any, next: NextFunction, schema: Object) => {
+  const unexpectedFields = Object.keys(req.query ?? {}).filter(key => !schema.hasOwnProperty(key));
+  const msg = 'Campo(s) inesperado(s) na query da requisição: ' + unexpectedFields.join(', ')
+  return unexpectedFields.length ? res.status(400).json(ojbRes(400, msg)) : next()
+}

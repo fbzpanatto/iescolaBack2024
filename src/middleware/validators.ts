@@ -3,7 +3,7 @@ import { check, checkSchema, Schema, validationResult } from 'express-validator'
 import { YEAR_SCHEMA } from "../schemas/year";
 import { STUDENT_SCHEMA } from "../schemas/student";
 import { TEACHER_SCHEMA } from "../schemas/teacher";
-import { invalidValues, unexpectedFn } from "../utils/bodyValidations";
+import { invalidValues, unexpectedFn, unexpectedQueryFn } from "../utils/bodyValidations";
 import { TEST_SCHEMA } from '../schemas/test';
 import { STUDENT_QUESTIONSANSWER_SCHEMA, STUDENT_QUESTIONSTATUS_SCHEMA } from '../schemas/studentQuestion';
 import { STUDENT_FIRST_LEVEL_SCHEMA } from "../schemas/first-level";
@@ -20,7 +20,7 @@ export const TEST_TOKEN = check('token').not().isEmpty().isLength({ min: 9, max:
 
 // CLASSROOM_QUERY
 export const REQUEST_CLASSROOM_QUERY = (req: Request, res: Response, next: NextFunction) => {
-  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedFn(req, res, next, CLASSROOM_QUERY)
+  return !validationResult(req).isEmpty() ? invalidValues(res, req) : unexpectedQueryFn(req, res, next, CLASSROOM_QUERY)
 }
 
 //STUDENT_QUESTIONANSWER

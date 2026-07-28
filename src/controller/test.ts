@@ -13,7 +13,7 @@ import {
   PER_CAT,
   TEST_CATEGORIES_IDS as tcids
 } from "../utils/enums";
-import { EntityManager, EntityTarget } from "typeorm";
+import { EntityTarget } from "typeorm";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, TestQuestionFull, Totals, JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
@@ -1010,20 +1010,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return { status: 500, message: error.message };
     }
     finally { if (conn) { conn.release() } }
-  }
-
-  async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
-    return CONN.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.person", "person")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "bimester")
-      .leftJoinAndSelect("period.year", "year")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .where("test.id = :testId", { testId })
-      .andWhere("year.name = :yearName", { yearName })
-      .getOne()
   }
 
   async getTestQuestions(testId: number) {

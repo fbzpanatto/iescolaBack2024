@@ -2330,6 +2330,45 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  // Índices esperados: student_classroom(studentId) [existe], classroom(schoolId) [existe],
+  // student_disability(studentId) [existe]. Assume no máximo 1 student_classroom ativo por
+  // aluno (regra de negócio já garantida em outro lugar) — se houver mais de um, LIMIT 1
+  // pega um arbitrário, igual o groupBy+getRawOne do TypeORM original fazia.
+  async qStudentFullDetail(studentId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT
+          s.id AS student_id, s.ra AS student_ra, s.dv AS student_dv,
+          s.observationOne AS student_observationOne, s.observationTwo AS student_observationTwo,
+          st.id AS state_id, st.acronym AS state_acronym,
+          p.id AS person_id, p.name AS person_name, p.birth AS person_birth,
+          sc.id AS studentClassroom_id, sc.rosterNumber AS studentClassroom_rosterNumber,
+          sc.startedAt AS studentClassroom_startedAt, sc.endedAt AS studentClassroom_endedAt,
+          c.id AS classroom_id, c.shortName AS classroom_shortName,
+          sch.id AS school_id, sch.shortName AS school_shortName,
+          (
+            SELECT GROUP_CONCAT(DISTINCT sd.disabilityId ORDER BY sd.disabilityId ASC)
+            FROM student_disability AS sd
+            WHERE sd.studentId = s.id AND sd.endedAt IS NULL
+          ) AS disabilities
+        FROM student AS s
+          LEFT JOIN person AS p ON p.id = s.personId
+          LEFT JOIN state AS st ON st.id = s.stateId
+          LEFT JOIN student_classroom AS sc ON sc.studentId = s.id AND sc.endedAt IS NULL
+          LEFT JOIN classroom AS c ON c.id = sc.classroomId
+          LEFT JOIN school AS sch ON sch.id = c.schoolId
+        WHERE s.id = ?
+        LIMIT 1
+      `
+      const [ queryResult ] = await conn.query(query, [studentId])
+      return (queryResult as any[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qTestById(testId: number) {
     let conn;
     try {

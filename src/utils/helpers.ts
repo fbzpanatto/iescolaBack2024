@@ -797,6 +797,47 @@ export class Helper {
     }, []);
   }
 
+  // Usado por student.ts (findOneStudentById, updateIdWithAuth) pra formatar o resultado
+  // "achatado" de qStudentFullDetail(). startedAt/endedAt/birth precisam da conversão UTC
+  // porque a query roda no pool mysql2 (dateStrings: true) — o TypeORM original devolvia
+  // Date nesses três campos (driver dele não usa dateStrings).
+  static studentDetail(student: any) {
+    return {
+      id: student.studentClassroom_id,
+      rosterNumber: student.studentClassroom_rosterNumber,
+      startedAt: this.toUtcDate(student.studentClassroom_startedAt),
+      endedAt: this.toUtcDate(student.studentClassroom_endedAt),
+      student: {
+        id: student.student_id,
+        ra: student.student_ra,
+        dv: student.student_dv,
+        observationOne: student.student_observationOne,
+        observationTwo: student.student_observationTwo,
+        state: {
+          id: student.state_id,
+          acronym: student.state_acronym,
+        },
+        person: {
+          id: student.person_id,
+          name: student.person_name,
+          birth: this.toUtcDate(student.person_birth),
+        },
+        disabilities:
+          student.disabilities
+            ?.split(",")
+            .map((disabilityId: string) => Number(disabilityId)) ?? [],
+      },
+      classroom: {
+        id: student.classroom_id,
+        shortName: student.classroom_shortName,
+        school: {
+          id: student.school_id,
+          shortName: student.school_shortName,
+        },
+      },
+    };
+  }
+
   static studentClassroom(arr: any[]) {
     return arr.map(el => {
       return {

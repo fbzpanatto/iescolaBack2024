@@ -26,7 +26,7 @@ import {
   qTeacherRelationShip,
   qTest,
   qTestClassroom,
-  qTestQuestions, qTestQuestionsWithImages,
+  qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages,
   qTestToken,
   qTransferStatus,
   qUser,
@@ -3660,6 +3660,58 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(query, [testId])
       return Helper.testQuestionsWithTitle(queryResult as qTestQuestionsWithImages[])
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Equivalente ao antigo TestController#getTestQuestions (TypeORM), usado só no fluxo de
+  // edição de prova (getById/updateTest) — não confundir com qTestQuestionsWithTitle acima,
+  // que serve o fluxo do aluno e propositalmente esconde `answer`.
+  // Índices esperados: test_question(testId) [existe], test_question(questionId) [existe],
+  // question(disciplineId/classroomCategoryId/skillId) [existem], question_image(questionId) [existe]
+  async qTestQuestionsFull(testId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+        SELECT
+            tq.id AS test_question_id,
+            tq.order AS test_question_order,
+            tq.answer AS test_question_answer,
+            tq.active AS test_question_active,
+            qt.id AS question_id,
+            qt.title AS question_title,
+            qt.personId AS question_person_id,
+            qt.disciplineId AS question_discipline_id,
+            d.name AS question_discipline_name,
+            qt.classroomCategoryId AS question_classroom_category_id,
+            cc.name AS question_classroom_category_name,
+            sk.id AS skill_id,
+            sk.reference AS skill_reference,
+            sk.description AS skill_description,
+            (
+                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
+                FROM question_image AS qi
+                WHERE qi.questionId = qt.id AND qi.active = 1
+            ) AS question_images,
+            (
+                SELECT COUNT(*) FROM test_question AS tq2 WHERE tq2.questionId = qt.id AND tq2.testId != ?
+            ) AS question_in_use,
+            qg.id AS question_group_id,
+            qg.name AS question_group_name
+        FROM test_question AS tq
+            INNER JOIN question AS qt ON tq.questionId = qt.id
+            LEFT JOIN discipline AS d ON qt.disciplineId = d.id
+            LEFT JOIN classroom_category AS cc ON qt.classroomCategoryId = cc.id
+            LEFT JOIN skill AS sk ON qt.skillId = sk.id
+            INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
+        WHERE tq.testId = ?
+        ORDER BY qg.id, tq.order
+      `
+      const [ queryResult ] = await conn.query(query, [testId, testId])
+      return Helper.testQuestionsFull(queryResult as qTestQuestionsFull[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

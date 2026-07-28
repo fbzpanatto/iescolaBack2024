@@ -96,3 +96,45 @@ export interface TestQuestionWithImages {
   }
   questionGroup: { id: number, name: string }
 }
+
+export interface qTestQuestionsFull {
+  test_question_id: number
+  test_question_order: number
+  test_question_answer: string
+  test_question_active: boolean
+  question_id: number
+  question_title: string
+  question_person_id: number | null
+  question_discipline_id: number | null
+  question_discipline_name: string | null
+  question_classroom_category_id: number | null
+  question_classroom_category_name: string | null
+  question_images: string | null // JSON string agregado pelo MySQL (JSON_ARRAYAGG), ainda não parseado
+  question_in_use: number
+  question_group_id: number
+  question_group_name: string
+  skill_id: number | null
+  skill_reference: string | null
+  skill_description: string | null
+}
+
+// Forma equivalente ao antigo TestController#getTestQuestions (TypeORM) — usado só no
+// fluxo de edição (getById/updateTest). Diferente de TestQuestionWithImages, que serve
+// o fluxo do aluno (studentTestController) e nunca expõe `answer`.
+export interface TestQuestionFull {
+  id: number
+  order: number
+  answer: string
+  active: boolean
+  question: {
+    id: number
+    title: string
+    person: { id: number } | null
+    discipline: { id: number, name: string } | null
+    classroomCategory: { id: number, name: string } | null
+    skill: { id: number, reference: string, description: string } | null
+    questionImages: QuestionImageJson[]
+    inUse: number
+  }
+  questionGroup: { id: number, name: string }
+}

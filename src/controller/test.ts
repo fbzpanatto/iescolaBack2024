@@ -812,7 +812,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified'];
 
           const bodyTq = req.body.testQuestions as TestQuestion[]
-          const dataTq = await this.getTestQuestions(test.id, CONN)
+          const dataTq: any[] = await this.getTestQuestions(test.id, CONN)
 
           for (let next of bodyTq) {
             const curr = dataTq.find(el => el.id === next.id);
@@ -1050,39 +1050,15 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  async getTestQuestions(testId: number, CONN: EntityManager, selectFields?: string[]) {
-    const fields = [
-      "testQuestion.id", "testQuestion.order", "testQuestion.answer", "testQuestion.active",
-      "question.id", "question.title",
-      "person.id", "question.person",
-      "skill.id", "skill.reference", "skill.description",
-      "discipline.id", "discipline.name",
-      "classroomCategory.id", "classroomCategory.name",
-      "questionGroup.id", "questionGroup.name",
-      "questionImage.id", "questionImage.type", "questionImage.order", "questionImage.s3Key"
-    ]
-    return await CONN.getRepository(TestQuestion)
-      .createQueryBuilder("testQuestion")
-      .select(selectFields ?? fields)
-      .leftJoin("testQuestion.question", "question")
-      .leftJoin("question.person", "person")
-      .leftJoin("question.discipline", "discipline")
-      .leftJoin("question.classroomCategory", "classroomCategory")
-      .leftJoin("question.skill", "skill")
-      .leftJoin("question.questionImages", "questionImage", "questionImage.active = 1")
-      .leftJoin("testQuestion.questionGroup", "questionGroup")
-      // conta usos EXCLUINDO a prova corrente: corrigir imagem da própria prova
-      // continua liberado, que é o fluxo normal de correção pedido pela secretaria
-      .loadRelationCountAndMap(
-        "question.inUse",
-        "question.testQuestions",
-        "tqCount",
-        qb => qb.andWhere("tqCount.testId != :currentTestId", { currentTestId: testId })
-      )
-      .where("testQuestion.test = :testId", { testId })
-      .orderBy("questionGroup.id", "ASC")
-      .addOrderBy("testQuestion.order", "ASC")
-      .getMany()
+  // CONN mantido como parâmetro opcional só até getById/updateTest (chamadores) serem
+  // migrados — não é mais usado aqui. Remover junto com a migração desses dois métodos.
+  // Retorno tipado como `any`: updateTest ainda lê curr.createdAt/createdByUser (e o
+  // equivalente em question/skill/questionGroup) mesmo esses campos nunca tendo sido
+  // selecionados pela query TypeORM original — eram sempre `undefined`, e CONN.save()
+  // trata undefined como "não alterar a coluna". Mantenho esse comportamento tal como
+  // estava; ao migrar updateTest isso será revisitado e sinalizado à parte.
+  async getTestQuestions(testId: number, _CONN?: EntityManager): Promise<any> {
+    return this.qTestQuestionsFull(testId)
   }
 
   async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {

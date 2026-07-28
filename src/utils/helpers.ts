@@ -2,8 +2,8 @@ import { Test} from "../model/Test";
 import { Classroom } from "../model/Classroom";
 import {
   qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions,
-  qTestQuestionsWithImages,
-  QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TrainingResult, TrainingWithSchedulesResult
+  qTestQuestionsFull, qTestQuestionsWithImages,
+  QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import {User} from "../model/User";
 
@@ -921,6 +921,29 @@ export class Helper {
         title: el.question_title,
         images: this.parseQuestionImages(el.question_images),
         skill: { reference: el.skill_reference, description: el.skill_description }
+      },
+      questionGroup: { id: el.question_group_id, name: el.question_group_name }
+    }))
+  }
+
+  // Equivalente ao antigo TestController#getTestQuestions (TypeORM), usado só no fluxo de
+  // edição (getById/updateTest). Nulo em vez de objeto com campos undefined quando a FK é
+  // nula — replica o comportamento real do TypeORM (LEFT JOIN sem match => relation null).
+  static testQuestionsFull(arr: qTestQuestionsFull[]): TestQuestionFull[] {
+    return arr.map(el => ({
+      id: el.test_question_id,
+      order: el.test_question_order,
+      answer: el.test_question_answer,
+      active: el.test_question_active,
+      question: {
+        id: el.question_id,
+        title: el.question_title,
+        person: el.question_person_id != null ? { id: el.question_person_id } : null,
+        discipline: el.question_discipline_id != null ? { id: el.question_discipline_id, name: el.question_discipline_name as string } : null,
+        classroomCategory: el.question_classroom_category_id != null ? { id: el.question_classroom_category_id, name: el.question_classroom_category_name as string } : null,
+        skill: el.skill_id != null ? { id: el.skill_id, reference: el.skill_reference as string, description: el.skill_description as string } : null,
+        questionImages: this.parseQuestionImages(el.question_images),
+        inUse: el.question_in_use
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))

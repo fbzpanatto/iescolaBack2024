@@ -6,7 +6,6 @@ import { Classroom } from "../model/Classroom";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
-import { QuestionGroup } from "../model/QuestionGroup";
 import {
   EXAMS_IDS_PRODUCTION,
   EXAMS_IDS_READING,
@@ -16,14 +15,12 @@ import {
   TEST_CATEGORIES_IDS as tcids
 } from "../utils/enums";
 import { EntityManager, EntityTarget } from "typeorm";
-import { Question } from "../model/Question";
 import { ReadingFluency } from "../model/ReadingFluency";
-import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals, JwtPayload } from "../interfaces/interfaces";
-import { Skill } from "../model/Skill";
+import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, TestQuestionFull, Totals, JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { reportController } from "./report";
 import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
-import {QuestionImage, QuestionImageType} from "../model/QuestionImage";
+import {QuestionImageType} from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
 import { connectionPool } from "../services/db";
 
@@ -792,263 +789,231 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async updateTest(id: number | string, req: Request<{ id: number | string }>, authUser: JwtPayload) {
+    let conn;
     try {
-      return await AppDataSource.transaction(async (CONN) => {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
 
-        const uTeacher = await this.qTeacherByUser(authUser.user)
-        const userId = uTeacher.person.user.id
-        const masterUser = uTeacher.person.category.id === PER_CAT.ADMN ||
-          uTeacher.person.category.id === PER_CAT.SUPE ||
-          uTeacher.person.category.id === PER_CAT.FORM;
+      const uTeacher = await this.qTeacherByUser(authUser.user)
+      const userId = uTeacher.person.user.id
+      const masterUser = uTeacher.person.category.id === PER_CAT.ADMN ||
+        uTeacher.person.category.id === PER_CAT.SUPE ||
+        uTeacher.person.category.id === PER_CAT.FORM;
 
-        const test = await CONN.findOne(Test, { relations: ["person", "discipline"], where: { id: Number(id) } })
-        if (!test) throw new HttpError(404, "Teste não encontrado")
-        if (uTeacher.person.id !== test.person.id && !masterUser) {
-          throw new HttpError(403, "Você não tem permissão para editar esse teste.")
-        }
+      // Só id/personId/disciplineId: são os únicos campos de test.person/test.discipline
+      // realmente usados abaixo (permissão e disciplina de questão nova) — dispensa JOIN.
+      const [ testRows ] = await conn.query(`SELECT id, personId, disciplineId FROM test WHERE id = ? LIMIT 1`, [Number(id)]);
+      const test = (testRows as any[])[0];
+      if (!test) throw new HttpError(404, "Teste não encontrado")
+      if (uTeacher.person.id !== test.personId && !masterUser) {
+        throw new HttpError(403, "Você não tem permissão para editar esse teste.")
+      }
 
-        if (req.body.endedAt && req.body.endedAt.length === 10) {
-          test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt)
-        }
+      let endedAt: Date | undefined;
+      if (req.body.endedAt && req.body.endedAt.length === 10) {
+        endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(req.body.endedAt)
+      }
 
-        test.name = req.body.name
-        test.active = req.body.active
-        test.hideAnswers = req.body.hideAnswers
-        test.updatedAt = new Date()
-        test.updatedByUser = userId
-        await CONN.save(Test, test)
+      const updatedAt = new Date();
 
-        if (req.body.testQuestions?.length) {
+      const testSetClauses = ['name = ?', 'active = ?', 'hideAnswers = ?', 'updatedAt = ?', 'updatedByUser = ?'];
+      const testSetParams: any[] = [req.body.name, req.body.active, req.body.hideAnswers, updatedAt, userId];
+      if (endedAt !== undefined) { testSetClauses.push('endedAt = ?'); testSetParams.push(endedAt); }
+      testSetParams.push(test.id);
+      await conn.query(`UPDATE test SET ${testSetClauses.join(', ')} WHERE id = ?`, testSetParams);
 
-          // Campos que existem só de um lado ou só servem de transporte.
-          // Sem isso a comparação acusaria diferença em todo save.
-          //   questionImages / inUse  -> só existem no objeto vindo do banco
-          //   images / imagesModified -> só existem no payload do front
-          const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified'];
+      if (req.body.testQuestions?.length) {
 
-          const bodyTq = req.body.testQuestions as TestQuestion[]
-          const dataTq: any[] = await this.getTestQuestions(test.id, CONN)
+        // Campos que existem só de um lado ou só servem de transporte.
+        // Sem isso a comparação acusaria diferença em todo save.
+        //   questionImages / inUse  -> só existem no objeto vindo do banco
+        //   images / imagesModified -> só existem no payload do front
+        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified'];
 
-          for (let next of bodyTq) {
-            const curr = dataTq.find(el => el.id === next.id);
+        const bodyTq = req.body.testQuestions as any[]
+        const dataTq: TestQuestionFull[] = await this.getTestQuestions(test.id)
 
-            // ------------------------------------------------------------------
-            // NOVA testQuestion (questão nova OU questão existente sendo vinculada)
-            // ------------------------------------------------------------------
-            if (!curr) {
+        for (let next of bodyTq) {
+          const curr = dataTq.find(el => el.id === next.id);
 
-              let questionToSave = next.question;
+          // ------------------------------------------------------------------
+          // NOVA testQuestion (questão nova OU questão existente sendo vinculada)
+          // ------------------------------------------------------------------
+          if (!curr) {
 
-              if (!questionToSave.id) {
-                // questão realmente nova: cria a Question e promove as imagens
-                if (!questionToSave.classroomCategory?.id) {
-                  throw new HttpError(400, "Questão nova deve ter categoria definida")
-                }
+            let questionToSave: any = next.question;
 
-                const questionData: any = {
-                  title: questionToSave.title,
-                  person: { id: questionToSave.person?.id || uTeacher.person.id },
-                  discipline: { id: test.discipline.id },
-                  classroomCategory: { id: questionToSave.classroomCategory.id },
-                  createdAt: new Date(),
-                  createdByUser: userId
-                };
-
-                if (questionToSave.skill?.id) { questionData.skill = { id: questionToSave.skill.id } }
-
-                // captura antes de sobrescrever questionToSave com o retorno do save
-                const incomingImages = (questionToSave as any).images;
-
-                const newQuestion = await CONN.save(Question, questionData);
-
-                if (Array.isArray(incomingImages) && incomingImages.length > 0) {
-                  const questionImages = [];
-
-                  for (const img of incomingImages) {
-                    const finalKey = await moverParaQuestions(img.s3Key);
-                    questionImages.push({
-                      type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                      order: img.order,
-                      s3Key: finalKey,
-                      question: newQuestion,
-                      createdAt: new Date(),
-                      createdByUser: userId
-                    });
-                  }
-
-                  await CONN.save(QuestionImage, questionImages);
-                }
-
-                questionToSave = newQuestion;
+            if (!questionToSave.id) {
+              // questão realmente nova: cria a Question e promove as imagens
+              if (!questionToSave.classroomCategory?.id) {
+                throw new HttpError(400, "Questão nova deve ter categoria definida")
               }
 
-              // A relação Question tem cascade:true. Ao vincular uma questão que JÁ
-              // existe, passamos apenas a referência por id — assim o TypeORM não
-              // reescreve a Question original com o que o front enviou.
-              const questionRef: any = questionToSave.id
-                ? { id: questionToSave.id }
-                : questionToSave;
+              const [ insertQuestionResult ]: any = await conn.query(
+                `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, questionToSave.skill?.id ?? null, new Date(), userId]
+              );
+              const newQuestionId = insertQuestionResult.insertId;
 
-              await CONN.save(TestQuestion, {
-                order: next.order,
-                answer: next.answer,
-                questionGroup: next.questionGroup,
-                active: next.active,
-                question: questionRef,
-                test: test,
-                createdAt: new Date(),
-                createdByUser: userId
-              });
+              // captura antes de sobrescrever questionToSave com o id novo
+              const incomingImages = questionToSave.images;
 
-              continue;
-            }
+              if (Array.isArray(incomingImages) && incomingImages.length > 0) {
+                const questionImageValues = [];
 
-            // ------------------------------------------------------------------
-            // testQuestion EXISTENTE
-            // ------------------------------------------------------------------
-
-            // inUse vem do getTestQuestions, já descontando a prova corrente.
-            // É calculado no servidor — não confiamos em nada vindo do front.
-            const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
-
-            if (this.diffsStrict(curr, next, IGNORE)) {
-              const { images: _tqImages, ...questionWithoutImages } = (next.question as any) || {};
-              // questão compartilhada: só a referência, para não disparar cascade-save
-              const questionRef = isShared ? { id: curr.question.id } : questionWithoutImages;
-
-              await CONN.save(TestQuestion, {
-                ...next,
-                question: questionRef,
-                createdAt: curr.createdAt,
-                createdByUser: curr.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId
-              })
-            }
-
-            // Título, categoria, habilidade e disciplina vivem em Question:
-            // bloqueados quando a questão pertence também a outra prova.
-            if (!isShared && this.diffsStrict(curr.question, next.question, IGNORE)) {
-              const { images: _discardedImages, ...questionFieldsOnly } = next.question as any;
-
-              await CONN.save(Question, {
-                ...questionFieldsOnly,
-                createdAt: curr.question.createdAt,
-                createdByUser: curr.question.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId
-              })
-            }
-
-            // Skill é entidade global, compartilhada por várias questões.
-            if (!isShared && next.question.skill && this.diffsStrict(curr.question.skill, next.question.skill, IGNORE)) {
-              await CONN.save(Skill, {
-                ...next.question.skill,
-                createdAt: curr.question.skill.createdAt,
-                createdByUser: curr.question.skill.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId
-              })
-            }
-
-            // questionGroup pertence ao contexto da prova: segue editável sempre.
-            if (next.questionGroup && this.diffsStrict(curr.questionGroup, next.questionGroup, IGNORE)) {
-              await CONN.save(QuestionGroup, {
-                ...next.questionGroup,
-                createdAt: curr.questionGroup.createdAt,
-                createdByUser: curr.questionGroup.createdByUser,
-                updatedAt: new Date(),
-                updatedByUser: userId
-              })
-            }
-
-            // ----------------------------------------------------------------
-            // Diff de imagens — duas condições cumulativas:
-            //   !isShared      -> a questão não pertence também a outra prova
-            //   imagesModified -> o admin abriu o modal e mexeu nas imagens
-            // Sem o flag, um array vazio de questão apenas carregada seria lido
-            // como "remover todas" e apagaria arquivos reais do S3.
-            // ----------------------------------------------------------------
-            const imagesModified = (next.question as any).imagesModified === true;
-            const nextImages = (next.question as any).images;
-
-            if (!isShared && imagesModified && Array.isArray(nextImages)) {
-
-              const currImages = (curr.question as any).questionImages || [];
-              const currById = new Map(currImages.map((img: any) => [img.id, img]));
-              const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
-
-              // 1. removidas: existiam no banco e não vieram mais no array
-              for (const img of currImages as any[]) {
-                if (!nextIds.has(img.id)) {
-                  // só apaga fisicamente arquivos do fluxo novo (questions/ ou tmp/);
-                  // legados na raiz perdem o vínculo mas permanecem no bucket
-                  if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
-                  await CONN.delete(QuestionImage, { id: img.id });
+                for (const img of incomingImages) {
+                  const finalKey = await moverParaQuestions(img.s3Key);
+                  questionImageValues.push([
+                    img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                    img.order,
+                    finalKey,
+                    newQuestionId,
+                    new Date(),
+                    userId
+                  ]);
                 }
+
+                await conn.query(`INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
               }
 
-              // 2. novas ou substituídas
-              for (const img of nextImages) {
+              questionToSave = { id: newQuestionId };
+            }
 
-                if (!img.id) {
-                  const finalKey = await moverParaQuestions(img.s3Key);
-                  await CONN.save(QuestionImage, {
-                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                    order: img.order,
-                    s3Key: finalKey,
-                    question: { id: curr.question.id },
-                    createdAt: new Date(),
-                    createdByUser: userId
-                  });
-                  continue;
-                }
+            await conn.query(
+              `INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [next.order, next.answer, next.questionGroup.id, next.active, questionToSave.id, test.id, new Date(), userId]
+            );
 
-                const existing = currById.get(img.id) as any;
-                if (!existing) continue; // id enviado não bate com nenhum registro atual
+            continue;
+          }
 
-                // s3Key nova apontando para tmp/ -> substituição de arquivo
-                if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
-                  const finalKey = await moverParaQuestions(img.s3Key);
-                  const oldKey = existing.s3Key;
+          // ------------------------------------------------------------------
+          // testQuestion EXISTENTE
+          // ------------------------------------------------------------------
 
-                  await CONN.save(QuestionImage, {
-                    id: img.id,
-                    s3Key: finalKey,
-                    order: img.order,
-                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                    updatedAt: new Date(),
-                    updatedByUser: userId
-                  });
+          // inUse vem do getTestQuestions, já descontando a prova corrente.
+          // É calculado no servidor — não confiamos em nada vindo do front.
+          const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
 
-                  if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
-                  continue;
-                }
+          if (this.diffsStrict(curr, next, IGNORE)) {
+            // questão compartilhada: só a referência, para não sobrescrever a Question original
+            const questionIdForUpdate = isShared ? curr.question.id : next.question.id;
 
-                // só reordenação / troca de tipo, sem arquivo novo
-                if (img.order !== existing.order || img.type !== existing.type) {
-                  await CONN.save(QuestionImage, {
-                    id: img.id,
-                    order: img.order,
-                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                    updatedAt: new Date(),
-                    updatedByUser: userId
-                  });
-                }
+            await conn.query(
+              `UPDATE test_question SET \`order\` = ?, answer = ?, questionGroupId = ?, active = ?, questionId = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+              [next.order, next.answer, next.questionGroup.id, next.active, questionIdForUpdate, updatedAt, userId, next.id]
+            );
+          }
+
+          // Título, categoria, pessoa e disciplina vivem em Question:
+          // bloqueados quando a questão pertence também a outra prova.
+          if (!isShared && this.diffsStrict(curr.question, next.question, IGNORE)) {
+            const questionSetClauses = ['title = ?', 'personId = ?', 'disciplineId = ?', 'classroomCategoryId = ?', 'updatedAt = ?', 'updatedByUser = ?'];
+            const questionSetParams: any[] = [next.question.title, next.question.person.id, next.question.discipline.id, next.question.classroomCategory.id, updatedAt, userId];
+
+            // skill ausente no payload (nenhuma habilidade selecionada) não mexe na coluna —
+            // mesmo comportamento do CONN.save original, que ignora chaves undefined.
+            if (next.question.skill) { questionSetClauses.push('skillId = ?'); questionSetParams.push(next.question.skill.id); }
+
+            questionSetParams.push(curr.question.id);
+            await conn.query(`UPDATE question SET ${questionSetClauses.join(', ')} WHERE id = ?`, questionSetParams);
+          }
+
+          // Skill é entidade global, compartilhada por várias questões.
+          if (!isShared && next.question.skill && this.diffsStrict(curr.question.skill, next.question.skill, IGNORE)) {
+            await conn.query(
+              `UPDATE skill SET reference = ?, description = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+              [next.question.skill.reference, next.question.skill.description, updatedAt, userId, next.question.skill.id]
+            );
+          }
+
+          // questionGroup pertence ao contexto da prova: segue editável sempre.
+          if (next.questionGroup && this.diffsStrict(curr.questionGroup, next.questionGroup, IGNORE)) {
+            await conn.query(
+              `UPDATE question_group SET name = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+              [next.questionGroup.name, updatedAt, userId, next.questionGroup.id]
+            );
+          }
+
+          // ----------------------------------------------------------------
+          // Diff de imagens — duas condições cumulativas:
+          //   !isShared      -> a questão não pertence também a outra prova
+          //   imagesModified -> o admin abriu o modal e mexeu nas imagens
+          // Sem o flag, um array vazio de questão apenas carregada seria lido
+          // como "remover todas" e apagaria arquivos reais do S3.
+          // ----------------------------------------------------------------
+          const imagesModified = (next.question as any).imagesModified === true;
+          const nextImages = (next.question as any).images;
+
+          if (!isShared && imagesModified && Array.isArray(nextImages)) {
+
+            const currImages = (curr.question as any).questionImages || [];
+            const currById = new Map(currImages.map((img: any) => [img.id, img]));
+            const nextIds = new Set(nextImages.filter((img: any) => img.id).map((img: any) => img.id));
+
+            // 1. removidas: existiam no banco e não vieram mais no array
+            for (const img of currImages as any[]) {
+              if (!nextIds.has(img.id)) {
+                // só apaga fisicamente arquivos do fluxo novo (questions/ ou tmp/);
+                // legados na raiz perdem o vínculo mas permanecem no bucket
+                if (this.podeApagarDoS3(img.s3Key)) { await deletarDoS3(img.s3Key); }
+                await conn.query(`DELETE FROM question_image WHERE id = ?`, [img.id]);
+              }
+            }
+
+            // 2. novas ou substituídas
+            for (const img of nextImages) {
+
+              if (!img.id) {
+                const finalKey = await moverParaQuestions(img.s3Key);
+                await conn.query(
+                  `INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`,
+                  [img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, img.order, finalKey, curr.question.id, new Date(), userId]
+                );
+                continue;
+              }
+
+              const existing = currById.get(img.id) as any;
+              if (!existing) continue; // id enviado não bate com nenhum registro atual
+
+              // s3Key nova apontando para tmp/ -> substituição de arquivo
+              if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
+                const finalKey = await moverParaQuestions(img.s3Key);
+                const oldKey = existing.s3Key;
+
+                await conn.query(
+                  `UPDATE question_image SET s3Key = ?, \`order\` = ?, type = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+                  [finalKey, img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, updatedAt, userId, img.id]
+                );
+
+                if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
+                continue;
+              }
+
+              // só reordenação / troca de tipo, sem arquivo novo
+              if (img.order !== existing.order || img.type !== existing.type) {
+                await conn.query(
+                  `UPDATE question_image SET \`order\` = ?, type = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+                  [img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, updatedAt, userId, img.id]
+                );
               }
             }
           }
         }
+      }
 
-        const result = (await this.findOneById(id, req, CONN)).data
-        return { status: 200, data: result };
-      })
+      await conn.commit();
+
+      const result = await this.qTestById(test.id);
+      return { status: 200, data: result };
     }
     catch (error: any) {
+      if (conn) await conn.rollback();
       if (error instanceof HttpError) { return { status: error.status, message: error.message } }
       console.error(error);
       return { status: 500, message: error.message };
     }
+    finally { if (conn) { conn.release() } }
   }
 
   async getTest(testId: number | string , yearName: number | string, CONN: EntityManager) {
@@ -1065,14 +1030,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       .getOne()
   }
 
-  // CONN mantido como parâmetro opcional só até getById/updateTest (chamadores) serem
-  // migrados — não é mais usado aqui. Remover junto com a migração desses dois métodos.
-  // Retorno tipado como `any`: updateTest ainda lê curr.createdAt/createdByUser (e o
-  // equivalente em question/skill/questionGroup) mesmo esses campos nunca tendo sido
-  // selecionados pela query TypeORM original — eram sempre `undefined`, e CONN.save()
-  // trata undefined como "não alterar a coluna". Mantenho esse comportamento tal como
-  // estava; ao migrar updateTest isso será revisitado e sinalizado à parte.
-  async getTestQuestions(testId: number, _CONN?: EntityManager): Promise<any> {
+  async getTestQuestions(testId: number) {
     return this.qTestQuestionsFull(testId)
   }
 

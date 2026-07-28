@@ -957,7 +957,7 @@ export class Helper {
 
   // Converte string SQL crua ("YYYY-MM-DD HH:MM:SS") em Date, assumindo UTC —
   // mesma convenção usada no resto do projeto (o pool grava sem deslocamento).
-  private static toUtcDate(value: string | null | undefined): Date | null {
+  static toUtcDate(value: string | null | undefined): Date | null {
     if (!value) { return null }
     return new Date(value.replace(' ', 'T') + 'Z')
   }

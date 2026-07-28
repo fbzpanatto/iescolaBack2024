@@ -2,7 +2,6 @@ import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
 import { AppDataSource } from "../data-source";
-import { Period } from "../model/Period";
 import { Classroom } from "../model/Classroom";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
@@ -16,20 +15,17 @@ import {
   PER_CAT,
   TEST_CATEGORIES_IDS as tcids
 } from "../utils/enums";
-import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
-import { Discipline } from "../model/Discipline";
-import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals, JwtPayload } from "../interfaces/interfaces";
-import { Person } from "../model/Person";
 import { Skill } from "../model/Skill";
 import { Helper } from "../utils/helpers";
 import { reportController } from "./report";
 import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
 import {QuestionImage, QuestionImageType} from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
+import { connectionPool } from "../services/db";
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -638,140 +634,161 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async saveTest(body: TestBodySave, authUser: JwtPayload) {
     const classesIds = body.classroom.map((classroom: { id: number }) => classroom.id);
+    let conn;
     try {
-      return await AppDataSource.transaction(async (CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
 
-        if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
-          throw new HttpError(403, 'Você não tem permissão para criar uma avaliação.');
-        }
+      const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
-        if(!qUserTeacher) throw new HttpError(404, "Usuário inexistente");
+      if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
+        throw new HttpError(403, 'Você não tem permissão para criar uma avaliação.');
+      }
 
-        const checkYear = await CONN.findOne(Year, { where: { id: body.year.id } });
-        if(!checkYear) throw new HttpError(404, "Ano não encontrado");
-        if(!checkYear.active) throw new HttpError(400, "Não é possível criar um teste para um ano letivo inativo.");
+      if(!qUserTeacher) throw new HttpError(404, "Usuário inexistente");
 
-        const period = await CONN.findOne(Period, { relations: ["year", "bimester"], where: { year: body.year, bimester: body.bimester } });
-        if(!period) throw new HttpError(404, "Período não encontrado");
+      const [ checkYearRows ] = await conn.query(`SELECT id, active FROM year WHERE id = ? LIMIT 1`, [body.year.id]);
+      const checkYear = (checkYearRows as any[])[0];
+      if(!checkYear) throw new HttpError(404, "Ano não encontrado");
+      if(!checkYear.active) throw new HttpError(400, "Não é possível criar um teste para um ano letivo inativo.");
 
-        const checkCategories = [
-          tcids.LITE_1,
-          tcids.LITE_2,
-          tcids.LITE_3,
-          tcids.EDU_INF,
-          tcids.EDU_INF_PART,
-        ]
+      const [ periodRows ] = await conn.query(
+        `
+        SELECT p.id AS period_id,
+               y.id AS year_id, y.name AS year_name, y.active AS year_active, y.createdAt AS year_createdAt, y.endedAt AS year_endedAt,
+               bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName
+        FROM period AS p
+          INNER JOIN year AS y ON p.yearId = y.id
+          INNER JOIN bimester AS bm ON p.bimesterId = bm.id
+        WHERE p.yearId = ? AND p.bimesterId = ?
+        LIMIT 1
+      `,
+        [body.year.id, body.bimester.id]
+      );
+      const periodRow = (periodRows as any[])[0];
+      if(!periodRow) throw new HttpError(404, "Período não encontrado");
 
-        if(checkCategories.includes(body.category.id)) {
-          const test = await CONN.findOne(Test, { where: { category: body.category, discipline: body.discipline, period: period } });
-          if(test) { throw new HttpError(409, `Já existe uma avaliação criada com a categoria, disciplina e período informados.`) }
-        }
+      const period = {
+        id: periodRow.period_id,
+        year: { id: periodRow.year_id, name: periodRow.year_name, active: Boolean(periodRow.year_active), createdAt: Helper.toUtcDate(periodRow.year_createdAt), endedAt: Helper.toUtcDate(periodRow.year_endedAt) },
+        bimester: { id: periodRow.bimester_id, name: periodRow.bimester_name, testName: periodRow.bimester_testName }
+      };
 
-        const classes = await CONN.getRepository(Classroom)
-          .createQueryBuilder("classroom")
-          .select(["classroom.id", "classroom.name", "classroom.shortName"])
-          .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-          .leftJoinAndSelect("studentClassroom.student", "student")
-          .leftJoinAndSelect("student.person", "person")
-          .leftJoinAndSelect("classroom.school", "school")
-          .leftJoin('studentClassroom.year', 'year')
-          .where("classroom.id IN (:...classesIds)", { classesIds })
-          .andWhere('year.id = :yearId', { yearId: period.year.id })
-          .andWhere("studentClassroom.startedAt < :testCreatedAt", { testCreatedAt: new Date() })
-          .andWhere('studentClassroom.endedAt IS NULL')
-          .groupBy("classroom.id, studentClassroom.id")
-          .having("COUNT(studentClassroom.id) > 0")
-          .getMany();
+      const checkCategories = [
+        tcids.LITE_1,
+        tcids.LITE_2,
+        tcids.LITE_3,
+        tcids.EDU_INF,
+        tcids.EDU_INF_PART,
+      ]
 
-        if(!classes || classes.length < 1) { throw new HttpError(400, "Não existem alunos matriculados em uma ou mais salas informadas.") }
+      if(checkCategories.includes(body.category.id)) {
+        const [ dupRows ] = await conn.query(`SELECT id FROM test WHERE categoryId = ? AND disciplineId = ? AND periodId = ? LIMIT 1`, [body.category.id, body.discipline.id, period.id]);
+        if((dupRows as any[])[0]) { throw new HttpError(409, `Já existe uma avaliação criada com a categoria, disciplina e período informados.`) }
+      }
 
-        const test = new Test();
+      // Índices esperados: classroom(id) [PK], student_classroom(classroomId) [existe]
+      const [ classroomRows ] = await conn.query(
+        `
+        SELECT c.id, c.shortName
+        FROM classroom AS c
+        WHERE c.id IN (?)
+          AND EXISTS (
+            SELECT 1 FROM student_classroom AS sc
+            WHERE sc.classroomId = c.id AND sc.yearId = ? AND sc.startedAt < ? AND sc.endedAt IS NULL
+          )
+        ORDER BY c.id ASC
+      `,
+        [classesIds, body.year.id, new Date()]
+      );
+      const classes = classroomRows as { id: number, shortName: string }[];
 
-        if (body.endedAt && body.endedAt.length === 10) { test.endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(body.endedAt) }
+      if(!classes || classes.length < 1) { throw new HttpError(400, "Não existem alunos matriculados em uma ou mais salas informadas.") }
 
-        test.name = body.name;
-        test.category = body.category as TestCategory;
-        test.discipline = body.discipline as Discipline;
-        test.person = qUserTeacher.person as Person;
-        test.period = period;
-        test.classrooms = classes.map(el => ({ id: el.id })) as Classroom[];
-        test.createdAt = new Date();
-        test.createdByUser = qUserTeacher.person.user.id;
+      let endedAt: Date | undefined;
+      if (body.endedAt && body.endedAt.length === 10) { endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(body.endedAt) }
 
-        await CONN.save(Test, test);
+      const createdAt = new Date();
 
-        const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
+      const [ insertTestResult ]: any = await conn.query(
+        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, createdAt, qUserTeacher.person.user.id]
+      );
+      const testId = insertTestResult.insertId;
 
-        if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
-          const testQuestions = [];
-          const classroomNumber = parseInt(classes[0].shortName.charAt(0))
+      const testClassroomValues = classes.map(el => [testId, el.id]);
+      await conn.query(`INSERT INTO test_classroom (testId, classroomId) VALUES ?`, [testClassroomValues]);
 
-          for (const tq of body.testQuestions) {
-            let question = tq.question;
+      const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
 
-            if (!question.id) {
-              if (!question.classroomCategory?.id) { throw new HttpError(400, "Todas as questões devem ter categoria definida") }
+      if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
+        const testQuestionValues: any[] = [];
+        const classroomNumber = parseInt(classes[0].shortName.charAt(0))
 
-              const questionData: any = {
-                title: question.title,
-                person: { id: question.person?.id || qUserTeacher.person.id },
-                discipline: body.discipline,
-                classroomNumber: classroomNumber,
-                classroomCategory: { id: question.classroomCategory.id },
-                createdAt: new Date(),
-                createdByUser: qUserTeacher.person.user.id
-              };
+        for (const tq of body.testQuestions) {
+          let question: any = tq.question;
 
-              if (question.skill?.id) { questionData.skill = { id: question.skill.id } }
+          if (!question.id) {
+            if (!question.classroomCategory?.id) { throw new HttpError(400, "Todas as questões devem ter categoria definida") }
 
-              const incomingImages = question.images; // captura antes de sobrescrever "question" com o retorno do save
+            const [ insertQuestionResult ]: any = await conn.query(
+              `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, question.skill?.id ?? null, createdAt, qUserTeacher.person.user.id]
+            );
+            const newQuestionId = insertQuestionResult.insertId;
 
-              const newQuestion = await CONN.save(Question, questionData);
-              question = newQuestion;
+            const incomingImages = question.images; // captura antes de sobrescrever "question" com o id novo
+            question = { id: newQuestionId };
 
-              if (Array.isArray(incomingImages) && incomingImages.length > 0) {
-                const questionImages = [];
+            if (Array.isArray(incomingImages) && incomingImages.length > 0) {
+              const questionImageValues = [];
 
-                for (const img of incomingImages) {
-                  const finalKey = await moverParaQuestions(img.s3Key);
-                  questionImages.push({
-                    type: img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
-                    order: img.order,
-                    s3Key: finalKey,
-                    question: newQuestion,
-                    createdAt: new Date(),
-                    createdByUser: qUserTeacher.person.user.id
-                  });
-                }
-
-                await CONN.save(QuestionImage, questionImages);
+              for (const img of incomingImages) {
+                const finalKey = await moverParaQuestions(img.s3Key);
+                questionImageValues.push([
+                  img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
+                  img.order,
+                  finalKey,
+                  newQuestionId,
+                  createdAt,
+                  qUserTeacher.person.user.id
+                ]);
               }
-            }
 
-            testQuestions.push({
-              order: tq.order,
-              answer: tq.answer,
-              questionGroup: { id: tq.questionGroup.id },
-              active: tq.active,
-              question: question,
-              test: test,
-              createdAt: new Date(),
-              createdByUser: qUserTeacher.person.user.id
-            });
+              await conn.query(`INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
+            }
           }
 
-          await CONN.save(TestQuestion, testQuestions);
+          testQuestionValues.push([tq.order, tq.answer, tq.questionGroup.id, tq.active, question.id, testId, createdAt, qUserTeacher.person.user.id]);
         }
 
-        return { status: 201, data: test };
-      });
+        await conn.query(`INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, createdAt, createdByUser) VALUES ?`, [testQuestionValues]);
+      }
+
+      await conn.commit();
+
+      const test = {
+        id: testId,
+        name: body.name,
+        category: body.category,
+        discipline: body.discipline,
+        person: qUserTeacher.person,
+        period,
+        classrooms: classes.map(el => ({ id: el.id })),
+        createdAt,
+        createdByUser: qUserTeacher.person.user.id,
+        endedAt
+      };
+
+      return { status: 201, data: test };
     }
     catch (error: any) {
+      if (conn) await conn.rollback();
       if (error instanceof HttpError) { return { status: error.status, message: error.message } }
       console.error(error);
       return { status: 500, message: error.message };
     }
+    finally { if (conn) { conn.release() } }
   }
 
   async updateTest(id: number | string, req: Request<{ id: number | string }>, authUser: JwtPayload) {

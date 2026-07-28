@@ -1715,13 +1715,15 @@ export class GenericController<T> {
       }
 
       if (!merged.active && merged.endedAt) {
-        await conn.query(`UPDATE student_classroom SET endedAt = NOW() WHERE yearId = ? AND endedAt IS NULL`, [id]);
+        const cascadeNow = this.toSqlUtcDateTime(new Date());
+
+        await conn.query(`UPDATE student_classroom SET endedAt = ? WHERE yearId = ? AND endedAt IS NULL`, [cascadeNow, id]);
 
         const [ pendingTransfers ] = await conn.query(`SELECT id FROM transfer WHERE yearId = ? AND statusId = ?`, [id, pendingStatusId]);
         for (const t of (pendingTransfers as any[])) {
           await conn.query(
-            `UPDATE transfer SET statusId = ?, endedAt = NOW(), receiverId = ? WHERE id = ?`,
-            [acceptedStatusId, receiverTeacherId, t.id]
+            `UPDATE transfer SET statusId = ?, endedAt = ?, receiverId = ? WHERE id = ?`,
+            [acceptedStatusId, cascadeNow, receiverTeacherId, t.id]
           );
         }
       }

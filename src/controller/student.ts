@@ -85,9 +85,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       // ==========================================
       if (everyGraduate && body.list.length > 0) { await this.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB }); return { status: 200, data: {} } }
 
-      // ==========================================
+      // =========================================
       // FLUXO REGULAR EM LOTE (Transação Única)
-      // ==========================================
+      // =========================================
       if (body.list.length > 0) {
         let conn;
         try {

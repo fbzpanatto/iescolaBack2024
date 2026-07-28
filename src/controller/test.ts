@@ -20,7 +20,6 @@ import { Year } from "../model/Year";
 import { EntityManager, EntityTarget } from "typeorm";
 import { Question } from "../model/Question";
 import { Discipline } from "../model/Discipline";
-import { Bimester } from "../model/Bimester";
 import { TestCategory } from "../model/TestCategory";
 import { ReadingFluency } from "../model/ReadingFluency";
 import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, Totals, JwtPayload } from "../interfaces/interfaces";
@@ -239,13 +238,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
   async getFormData(_: Request) {
     try {
-      return await AppDataSource.transaction(async (CONN) => {
-        const disciplines = await CONN.find(Discipline)
-        const bimesters = await CONN.find(Bimester)
-        const testCategories = await CONN.find(TestCategory)
-        const questionGroup = await CONN.findOneBy(QuestionGroup, { id: 1 });
-        return { status: 200, data: { disciplines, bimesters, testCategories, questionGroup } };
-      })
+      const { disciplines, bimesters, testCategories, questionGroup } = await this.qTestFormData()
+      return { status: 200, data: { disciplines, bimesters, testCategories, questionGroup } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

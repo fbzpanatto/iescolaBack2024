@@ -2380,6 +2380,32 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  async qTestFormData() {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const [
+        [ disciplines ],
+        [ bimesters ],
+        [ testCategories ],
+        [ questionGroup ]
+      ] = await Promise.all([
+        conn.query(`SELECT id, name FROM discipline`),
+        conn.query(`SELECT id, name, testName FROM bimester`),
+        conn.query(`SELECT id, name, startClassroomNumber, endClassroomNumber FROM test_category`),
+        conn.query(`SELECT id, name, createdAt, updatedAt, createdByUser, updatedByUser FROM question_group WHERE id = ?`, [1])
+      ])
+      return {
+        disciplines: disciplines as { id: number, name: string }[],
+        bimesters: bimesters as { id: number, name: string, testName: string }[],
+        testCategories: testCategories as { id: number, name: string, startClassroomNumber: number | null, endClassroomNumber: number | null }[],
+        questionGroup: (questionGroup as any[])[0] ?? null
+      }
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async listTestsSql(req: Request, isSupeEI: boolean, masterUser: boolean, teacherClasses: { classrooms: number[] }) {
 
     let conn;

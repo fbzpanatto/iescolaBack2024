@@ -8,9 +8,8 @@ import authorization from "./middleware/authorization";
 
 import { Schedulers } from "./utils/schedulers";
 
-import { AppDataSource } from "./data-source";
 import { BimesterRouter } from "./routes/bimester";
-import { CassroomCategoryRouter } from "./routes/classroomCategory";
+import { ClassroomCategoryRouter } from "./routes/classroomCategory";
 import { ClassroomRouter } from "./routes/classroom";
 import { DisabilityRouter } from "./routes/disability";
 import { DisciplineRouter } from "./routes/discipline";
@@ -54,7 +53,7 @@ app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 route.use("/bimester", authorization, BimesterRouter);
 route.use("/classroom", authorization, ClassroomRouter);
-route.use("/classroom-category", authorization, CassroomCategoryRouter);
+route.use("/classroom-category", authorization, ClassroomCategoryRouter);
 route.use("/disability", authorization, DisabilityRouter);
 route.use("/discipline", authorization, DisciplineRouter);
 route.use("/person", authorization, PersonRouter);
@@ -86,18 +85,17 @@ route.use("/year", authorization, YearRouter);
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);
 
-route.use("/", (_, res: any) => { return res.json({ message: "OK" }) });
+route.get("/", (_, res: any) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 
-AppDataSource.initialize()
-  .then(() => {
-    app.listen(PORT, async () => {
-      console.log("Running at PORT:", PORT);
-      await Schedulers.initialize();
-    })
-  })
-  .catch((err) => { console.log('err', err) });
+app.listen(PORT, async () => {
+  console.log("Running at PORT:", PORT);
+  await Schedulers.initialize();
+}).on('error', (err) => {
+  console.error('Falha ao iniciar o servidor:', err);
+  process.exit(1);
+});
 
 process.on('SIGTERM', () => Schedulers.shutdown());
 process.on('SIGINT', () => Schedulers.shutdown());

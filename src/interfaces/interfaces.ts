@@ -118,6 +118,45 @@ export interface qTestQuestionsFull {
   skill_description: string | null
 }
 
+export interface qTestByIdRow {
+  id: number
+  name: string
+  active: number
+  hideAnswers: number
+  createdAt: string | null
+  updatedAt: string | null
+  createdByUser: number | null
+  updatedByUser: number | null
+  endedAt: string | null
+  period_id: number | null
+  year_id: number | null
+  year_name: string | null
+  year_active: number | null
+  year_createdAt: string | null
+  year_endedAt: string | null
+  bimester_id: number | null
+  bimester_name: string | null
+  bimester_testName: string | null
+  discipline_id: number | null
+  discipline_name: string | null
+  category_id: number | null
+  category_name: string | null
+  category_startClassroomNumber: number | null
+  category_endClassroomNumber: number | null
+  person_id: number | null
+  person_name: string | null
+  person_birth: string | null
+  classroom_id: number | null
+  classroom_name: string | null
+  classroom_nickname: string | null
+  classroom_shortName: string | null
+  school_id: number | null
+  school_name: string | null
+  school_shortName: string | null
+  school_inep: string | null
+  school_active: number | null
+}
+
 // Forma equivalente ao antigo TestController#getTestQuestions (TypeORM) — usado só no
 // fluxo de edição (getById/updateTest). Diferente de TestQuestionWithImages, que serve
 // o fluxo do aluno (studentTestController) e nunca expõe `answer`.

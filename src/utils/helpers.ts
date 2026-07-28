@@ -1,7 +1,7 @@
 import { Test} from "../model/Test";
 import { Classroom } from "../model/Classroom";
 import {
-  qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestQuestions,
+  qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestByIdRow, qTestQuestions,
   qTestQuestionsFull, qTestQuestionsWithImages,
   QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
@@ -1051,6 +1051,67 @@ export class Helper {
       },
       discipline: { id: qTest.discipline_id, name: qTest.discipline_name },
     } as unknown as Test
+  }
+
+  // Equivalente ao antigo TestController#getById (TypeORM, CONN.findOne com relations
+  // period/period.year/period.bimester/discipline/category/person/classrooms.school).
+  // Nulo em vez de objeto vazio quando a FK é nula, replicando o comportamento real do
+  // TypeORM (LEFT JOIN sem match => relation null). Datas convertidas via toUtcDate: as
+  // colunas foram escritas pelo TypeORM como texto UTC sem offset (ver memória
+  // aws-server-timezone), mesmo padrão já usado no restante desta migração.
+  static testByIdFull(rows: qTestByIdRow[]) {
+    if (!rows.length) { return null }
+    const first = rows[0]
+
+    const classroomsById = new Map<number, any>()
+    for (const row of rows) {
+      if (row.classroom_id == null || classroomsById.has(row.classroom_id)) { continue }
+      classroomsById.set(row.classroom_id, {
+        id: row.classroom_id,
+        name: row.classroom_name,
+        nickname: row.classroom_nickname,
+        shortName: row.classroom_shortName,
+        school: row.school_id != null ? {
+          id: row.school_id,
+          name: row.school_name,
+          shortName: row.school_shortName,
+          inep: row.school_inep,
+          active: Boolean(row.school_active)
+        } : null
+      })
+    }
+
+    return {
+      id: first.id,
+      name: first.name,
+      active: Boolean(first.active),
+      hideAnswers: Boolean(first.hideAnswers),
+      createdAt: this.toUtcDate(first.createdAt),
+      updatedAt: this.toUtcDate(first.updatedAt),
+      createdByUser: first.createdByUser,
+      updatedByUser: first.updatedByUser,
+      endedAt: this.toUtcDate(first.endedAt),
+      discipline: first.discipline_id != null ? { id: first.discipline_id, name: first.discipline_name } : null,
+      period: first.period_id != null ? {
+        id: first.period_id,
+        year: first.year_id != null ? {
+          id: first.year_id,
+          name: first.year_name,
+          active: Boolean(first.year_active),
+          createdAt: this.toUtcDate(first.year_createdAt),
+          endedAt: this.toUtcDate(first.year_endedAt)
+        } : null,
+        bimester: first.bimester_id != null ? { id: first.bimester_id, name: first.bimester_name, testName: first.bimester_testName } : null
+      } : null,
+      category: first.category_id != null ? {
+        id: first.category_id,
+        name: first.category_name,
+        startClassroomNumber: first.category_startClassroomNumber,
+        endClassroomNumber: first.category_endClassroomNumber
+      } : null,
+      person: first.person_id != null ? { id: first.person_id, name: first.person_name, birth: this.toUtcDate(first.person_birth) } : null,
+      classrooms: Array.from(classroomsById.values())
+    }
   }
 
   static studentsClassrooms(arr: { id: number, name: string, shortName: string, nickname: string, shiftId: number, categoryId: number, school: string, rosterNumber: number, student: string, birth: string, studentId: number, ra: string, studentClassroomId: number }[]) {

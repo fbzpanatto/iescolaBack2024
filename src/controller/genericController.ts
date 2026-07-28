@@ -26,7 +26,7 @@ import {
   qTeacherRelationShip,
   qTest,
   qTestClassroom,
-  qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages,
+  qTestByIdRow, qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages,
   qTestToken,
   qTransferStatus,
   qUser,
@@ -2375,6 +2375,48 @@ export class GenericController<T> {
       conn = await connectionPool.getConnection();
       const [ queryResult ] = await conn.query(`SELECT * FROM test WHERE id = ?`, [testId])
       return (queryResult as Test[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Equivalente ao antigo TestController#getById (TypeORM). LEFT JOIN em tudo (inclusive
+  // period/discipline/category/person) para não sumir com a linha do teste caso alguma FK
+  // esteja nula — mesmo comportamento do findOne com relations do TypeORM.
+  // Índices esperados: test(id) [PK], period(id)/(yearId)/(bimesterId) [existem],
+  // year(id) [PK], bimester(id) [PK], discipline(id) [PK], test_category(id) [PK],
+  // person(id) [PK], test_classroom(testId) [existe], classroom(id) [PK], school(id) [PK]
+  async qTestByIdWithClassrooms(testId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+        SELECT
+            t.id, t.name, t.active, t.hideAnswers, t.createdAt, t.updatedAt, t.createdByUser, t.updatedByUser, t.endedAt,
+            p.id AS period_id,
+            y.id AS year_id, y.name AS year_name, y.active AS year_active, y.createdAt AS year_createdAt, y.endedAt AS year_endedAt,
+            bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName,
+            d.id AS discipline_id, d.name AS discipline_name,
+            tcat.id AS category_id, tcat.name AS category_name, tcat.startClassroomNumber AS category_startClassroomNumber, tcat.endClassroomNumber AS category_endClassroomNumber,
+            pe.id AS person_id, pe.name AS person_name, pe.birth AS person_birth,
+            c.id AS classroom_id, c.name AS classroom_name, c.nickname AS classroom_nickname, c.shortName AS classroom_shortName,
+            s.id AS school_id, s.name AS school_name, s.shortName AS school_shortName, s.inep AS school_inep, s.active AS school_active
+        FROM test AS t
+            LEFT JOIN period AS p ON t.periodId = p.id
+            LEFT JOIN year AS y ON p.yearId = y.id
+            LEFT JOIN bimester AS bm ON p.bimesterId = bm.id
+            LEFT JOIN discipline AS d ON t.disciplineId = d.id
+            LEFT JOIN test_category AS tcat ON t.categoryId = tcat.id
+            LEFT JOIN person AS pe ON t.personId = pe.id
+            LEFT JOIN test_classroom AS tct ON tct.testId = t.id
+            LEFT JOIN classroom AS c ON tct.classroomId = c.id
+            LEFT JOIN school AS s ON c.schoolId = s.id
+        WHERE t.id = ?
+        ORDER BY c.id ASC
+      `
+      const [ queryResult ] = await conn.query(query, [testId])
+      return Helper.testByIdFull(queryResult as qTestByIdRow[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

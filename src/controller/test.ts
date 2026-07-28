@@ -619,21 +619,19 @@ class TestController extends GenericController<EntityTarget<Test>> {
   async getById(req: Request<{ id: string }>, authUser: JwtPayload) {
     const { id } = req.params
     try {
-      return await AppDataSource.transaction(async(CONN) => {
-        const qUserTeacher = await this.qTeacherByUser(authUser.user)
-        const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
-        const op = { relations: ["period", "period.year", "period.bimester", "discipline", "category", "person", "classrooms.school"], where: { id: parseInt(id) } }
-        const test = await CONN.findOne(Test, { ...op })
-        if(qUserTeacher.person.id !== test?.person.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
-        if (!test) { return { status: 404, message: 'Data not found' } }
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
 
-        let formatedEndedAt;
+      const test = await this.qTestByIdWithClassrooms(parseInt(id))
+      if(qUserTeacher.person.id !== test?.person!.id && !masterUser) return { status: 403, message: "Você não tem permissão para editar esse teste." }
+      if (!test) { return { status: 404, message: 'Data not found' } }
 
-        if(test.endedAt) { formatedEndedAt = Helper.formatDateToDDMMYYYY(test.endedAt) }
+      let formatedEndedAt;
 
-        const testQuestions = await this.getTestQuestions(test.id, CONN)
-        return { status: 200, data: { ...test, endedAt: test.endedAt ? formatedEndedAt: test.endedAt , testQuestions } };
-      })
+      if(test.endedAt) { formatedEndedAt = Helper.formatDateToDDMMYYYY(test.endedAt) }
+
+      const testQuestions = await this.getTestQuestions(test.id)
+      return { status: 200, data: { ...test, endedAt: test.endedAt ? formatedEndedAt: test.endedAt , testQuestions } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }

@@ -39,7 +39,6 @@ import { TrainingSchedulesMeeting } from "./TrainingSchedulesMeeting";
 import { Contract } from "./Contract";
 import { TrainingTeacher } from "./TrainingTeacher";
 import { TrainingTeacherStatus } from "./TrainingTeacherStatus";
-import { AccessSecurityLog } from "./MobileSecurityLog";
 import { TestToken } from "./Token";
 import { TokenReset } from "./TokenReset";
 import { ClassroomShift } from "./ClassroomShift";
@@ -48,7 +47,6 @@ import { Lesson } from "./Lesson";
 import { StudentLesson } from "./StudentLesson";
 
 export const entities = [
-  AccessSecurityLog,
   Alphabetic,
   AlphabeticLevel,
   AlphabeticFirst,

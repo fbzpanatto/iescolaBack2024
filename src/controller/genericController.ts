@@ -1,13 +1,11 @@
 import {
   DeepPartial,
-  EntityManager,
   EntityTarget,
   FindManyOptions,
   FindOneOptions,
   ObjectLiteral,
   SaveOptions
 } from "typeorm";
-import {AppDataSource} from "../data-source";
 import {
   InactiveNewClassroom,
   qAlphabeticLevels,
@@ -79,8 +77,6 @@ export interface GenericTableConfig {
 export class GenericController<T> {
   constructor(private entity: EntityTarget<ObjectLiteral>, private tableConfig?: GenericTableConfig) {}
 
-  get repository() { return AppDataSource.getRepository(this.entity) }
-
   private requireTableConfig(): GenericTableConfig {
     if (!this.tableConfig) { throw new Error(`GenericController: tableConfig não configurado para ${String(this.entity)}`) }
     return this.tableConfig
@@ -127,108 +123,87 @@ export class GenericController<T> {
     return out
   }
 
-  async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request, CONN?: EntityManager) {
+  async findAllWhere(_: FindManyOptions<ObjectLiteral> | undefined = {}, request?: Request) {
     try {
-      if(!CONN){
-        const { table, selectColumns } = this.requireTableConfig()
-        let conn;
-        try {
-          conn = await connectionPool.getConnection();
-          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table}`);
-          return { status: 200, data: (rows as any[]).map(row => this.normalizeRow(row)) }
-        } finally { if (conn) { conn.release() } }
-      }
-      const result = await CONN.find(this.entity); return { status: 200, data: result }
+      const { table, selectColumns } = this.requireTableConfig()
+      let conn;
+      try {
+        conn = await connectionPool.getConnection();
+        const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table}`);
+        return { status: 200, data: (rows as any[]).map(row => this.normalizeRow(row)) }
+      } finally { if (conn) { conn.release() } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneByWhere(options: FindOneOptions<ObjectLiteral>, CONN?: EntityManager) {
+  async findOneByWhere(options: FindOneOptions<ObjectLiteral>) {
     try {
-      if(!CONN) {
-        const { table, selectColumns } = this.requireTableConfig()
-        const where = (options?.where ?? {}) as Record<string, any>
-        const keys = Object.keys(where)
-        const clause = keys.map(k => where[k] === null ? `${k} IS NULL` : `${k} = ?`).join(' AND ')
-        const params = keys.filter(k => where[k] !== null).map(k => where[k])
-        let conn;
-        try {
-          conn = await connectionPool.getConnection();
-          const sql = `SELECT ${selectColumns.join(', ')} FROM ${table}` + (clause ? ` WHERE ${clause}` : '') + ' LIMIT 1';
-          const [rows] = await conn.query(sql, params);
-          const result = (rows as any[])[0]
-          if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
-        } finally { if (conn) { conn.release() } }
-      }
-      const result = await CONN.findOne(this.entity, options)
-      if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+      const { table, selectColumns } = this.requireTableConfig()
+      const where = (options?.where ?? {}) as Record<string, any>
+      const keys = Object.keys(where)
+      const clause = keys.map(k => where[k] === null ? `${k} IS NULL` : `${k} = ?`).join(' AND ')
+      const params = keys.filter(k => where[k] !== null).map(k => where[k])
+      let conn;
+      try {
+        conn = await connectionPool.getConnection();
+        const sql = `SELECT ${selectColumns.join(', ')} FROM ${table}` + (clause ? ` WHERE ${clause}` : '') + ' LIMIT 1';
+        const [rows] = await conn.query(sql, params);
+        const result = (rows as any[])[0]
+        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+      } finally { if (conn) { conn.release() } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async findOneById(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
+  async findOneById(id: number | string, body: ObjectLiteral) {
     try {
-      if(!CONN) {
-        const { table, selectColumns } = this.requireTableConfig()
-        let conn;
-        try {
-          conn = await connectionPool.getConnection();
-          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
-          const result = this.normalizeRow((rows as any[])[0])
-          if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
-        } finally { if (conn) { conn.release() } }
-      }
-      const result = await CONN.findOneBy(this.entity, { id: id });
-      if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+      const { table, selectColumns } = this.requireTableConfig()
+      let conn;
+      try {
+        conn = await connectionPool.getConnection();
+        const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+        const result = this.normalizeRow((rows as any[])[0])
+        if (!result) { return { status: 404, message: "Data not found" } } return { status: 200, data: result }
+      } finally { if (conn) { conn.release() } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined, CONN?: EntityManager) {
+  async save(body: DeepPartial<ObjectLiteral>, options: SaveOptions | undefined) {
     try {
-      if(!CONN) {
-        const { table } = this.requireTableConfig()
-        const columnValues = this.toColumnValues(body as ObjectLiteral)
-        const id = (body as any).id
-        let conn;
-        try {
-          conn = await connectionPool.getConnection();
-          if (id) {
-            const keys = Object.keys(columnValues).filter(k => k !== 'id')
-            const setClause = keys.map(k => `${k} = ?`).join(', ')
-            await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
-            return { status: 201, data: body }
-          }
-          const keys = Object.keys(columnValues)
-          const placeholders = keys.map(() => '?').join(', ')
-          const [result] = await conn.query(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`, keys.map(k => columnValues[k]));
-          return { status: 201, data: { ...body, id: (result as any).insertId } }
-        } finally { if (conn) { conn.release() } }
-      }
-      const result = await CONN.save(this.entity, body, options); return { status: 201, data: result }
-    } catch (error: any) { return { status: 500, message: error.message } }
-  }
-
-  async updateId(id: number | string, body: ObjectLiteral, CONN?: EntityManager) {
-    try {
-      if(!CONN){
-        const { table, selectColumns } = this.requireTableConfig()
-        let conn;
-        try {
-          conn = await connectionPool.getConnection();
-          const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
-          const dataInDataBase = (rows as any[])[0]
-          if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
-          for (const key in body) { dataInDataBase[key] = body[key] }
-          const columnValues = this.toColumnValues(dataInDataBase)
+      const { table } = this.requireTableConfig()
+      const columnValues = this.toColumnValues(body as ObjectLiteral)
+      const id = (body as any).id
+      let conn;
+      try {
+        conn = await connectionPool.getConnection();
+        if (id) {
           const keys = Object.keys(columnValues).filter(k => k !== 'id')
           const setClause = keys.map(k => `${k} = ?`).join(', ')
           await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
-          return { status: 200, data: this.normalizeRow(dataInDataBase) }
-        } finally { if (conn) { conn.release() } }
-      }
+          return { status: 201, data: body }
+        }
+        const keys = Object.keys(columnValues)
+        const placeholders = keys.map(() => '?').join(', ')
+        const [result] = await conn.query(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`, keys.map(k => columnValues[k]));
+        return { status: 201, data: { ...body, id: (result as any).insertId } }
+      } finally { if (conn) { conn.release() } }
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 
-      const dataInDataBase = await CONN.findOneBy(this.entity, { id: id });
-      if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
-      for (const key in body) { dataInDataBase[key] = body[key] }
-      const result = await CONN.save(this.entity, dataInDataBase); return { status: 200, data: result }
+  async updateId(id: number | string, body: ObjectLiteral) {
+    try {
+      const { table, selectColumns } = this.requireTableConfig()
+      let conn;
+      try {
+        conn = await connectionPool.getConnection();
+        const [rows] = await conn.query(`SELECT ${selectColumns.join(', ')} FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+        const dataInDataBase = (rows as any[])[0]
+        if (!dataInDataBase) { return { status: 404, message: "Data not found" } }
+        for (const key in body) { dataInDataBase[key] = body[key] }
+        const columnValues = this.toColumnValues(dataInDataBase)
+        const keys = Object.keys(columnValues).filter(k => k !== 'id')
+        const setClause = keys.map(k => `${k} = ?`).join(', ')
+        await conn.query(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...keys.map(k => columnValues[k]), id]);
+        return { status: 200, data: this.normalizeRow(dataInDataBase) }
+      } finally { if (conn) { conn.release() } }
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

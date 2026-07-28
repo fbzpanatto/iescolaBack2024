@@ -45,14 +45,19 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
         const currentYear = await this.qCurrentYear();
 
-        if(user.person.category.id === pc.ADMN) {
-          const allPendingTransfers = await this.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
-          return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
-        }
+        // Sem ano letivo ativo (ex: ano acabou de ser encerrado e nenhum outro
+        // criado ainda) não há em que ano buscar transferências pendentes -
+        // login segue normalmente, só sem essa informação extra.
+        if (currentYear) {
+          if(user.person.category.id === pc.ADMN) {
+            const allPendingTransfers = await this.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
+            return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
+          }
 
-        if(user.person.teacher?.school?.id) {
-          const pendingTransfers = await this.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
-          return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
+          if(user.person.teacher?.school?.id) {
+            const pendingTransfers = await this.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
+            return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
+          }
         }
       }
       return this.loginResponse(token, expiresIn, role, user);

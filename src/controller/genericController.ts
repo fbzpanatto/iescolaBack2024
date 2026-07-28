@@ -2422,6 +2422,41 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
+  // Equivalente à parte de student_classroom/reading_fluency do antigo
+  // TestController#getReadingFluencyForGraphic (TypeORM, 13 joins). Traz só o que os
+  // consumidores finais (Helper.duplicatedStudents, TestController#cityHallResponse e
+  // #readingFluencyTotalizator) realmente leem — studentStatus e student.person eram
+  // carregados pelo TypeORM mas nunca chegavam a ser usados; student_test_status vira
+  // EXISTS (era um LEFT JOIN + WHERE que na prática funcionava como INNER, exigindo que
+  // o aluno tenha status de prova registrado) e reading_fluency vira INNER JOIN (mesma
+  // razão: o WHERE original excluía linhas sem fluência para esta prova).
+  // Índices esperados: student_classroom(classroomId)/(yearId) [existem],
+  // reading_fluency(testId, studentId, readingFluencyExamId) [existe],
+  // student_test_status(studentClassroomId, testId) [existe]
+  async qReadingFluencyStudentClassrooms(testId: number, classroomIds: number[], yearId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+        SELECT
+            sc.id AS sc_id, sc.endedAt AS sc_endedAt, sc.classroomId AS sc_classroom_id, sc.studentId AS student_id,
+            rf.rClassroomId AS rf_r_classroom_id, rf.readingFluencyExamId AS rf_exam_id, rf.readingFluencyLevelId AS rf_level_id
+        FROM student_classroom AS sc
+            INNER JOIN reading_fluency AS rf ON rf.studentId = sc.studentId AND rf.testId = ?
+        WHERE sc.classroomId IN (?)
+          AND sc.yearId = ?
+          AND EXISTS (
+              SELECT 1 FROM student_test_status AS sts WHERE sts.studentClassroomId = sc.id AND sts.testId = ?
+          )
+      `
+      const [ queryResult ] = await conn.query(query, [testId, classroomIds, yearId, testId])
+      return queryResult as any[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qTestFormData() {
     let conn;
     try {

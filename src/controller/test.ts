@@ -1,7 +1,6 @@
 import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
 import { classroomController } from "./classroom";
-import { AppDataSource } from "../data-source";
 import { Classroom } from "../model/Classroom";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
@@ -441,46 +440,43 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: Helper.classroomDataStructure(pResult, baseTest, questionGroups, qTestQuestions, baseSchoolId, classroomNumber) };
       }
 
-      return await AppDataSource.transaction(async(typeOrmConnection) => {
+      let data;
 
-        let data;
+      switch (baseTest.category?.id) {
+        case tcids.PRO_TXT:
+        case tcids.READ_2:
+        case tcids.READ_3: {
 
-        switch (baseTest.category?.id) {
-          case tcids.PRO_TXT:
-          case tcids.READ_2:
-          case tcids.READ_3: {
+          const examIds = tcids.PRO_TXT === baseTest.category?.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
 
-            const examIds = tcids.PRO_TXT === baseTest.category?.id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
+          const [headers, test] = await Promise.all([
+            this.qReadingFluencyHeaders(examIds),
+            this.getReadingFluencyForGraphic(testId, String(year.id)) as Promise<Test>
+          ])
 
-            const [headers, test] = await Promise.all([
-              this.qReadingFluencyHeaders(examIds),
-              this.getReadingFluencyForGraphic(testId, String(year.id), typeOrmConnection) as Promise<Test>
-            ])
+          const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
-            const fluencyHeaders = Helper.readingFluencyHeaders(headers)
+          let response = { ...test, fluencyHeaders }
 
-            let response = { ...test, fluencyHeaders }
+          response.classrooms = this.cityHallResponse(qClassroom, response.classrooms)
 
-            response.classrooms = this.cityHallResponse(qClassroom, response.classrooms)
-
-            data = {
-              ...response,
-              classrooms: response.classrooms.map((classroom: Classroom) => {
-                return {
-                  id: classroom.id,
-                  name: classroom.name,
-                  shortName: classroom.shortName,
-                  school: classroom.school,
-                  percent: this.readingFluencyTotalizator(headers, classroom)
-                }
-              })
-            }
-
-            break;
+          data = {
+            ...response,
+            classrooms: response.classrooms.map((classroom: Classroom) => {
+              return {
+                id: classroom.id,
+                name: classroom.name,
+                shortName: classroom.shortName,
+                school: classroom.school,
+                percent: this.readingFluencyTotalizator(headers, classroom)
+              }
+            })
           }
+
+          break;
         }
-        return { status: 200, data };
-      })
+      }
+      return { status: 200, data };
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -1034,48 +1030,56 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return this.qTestQuestionsFull(testId)
   }
 
-  async getReadingFluencyForGraphic(testId: string, yearId: string, CONN: EntityManager) {
-    let data = await CONN.getRepository(Test)
-      .createQueryBuilder("test")
-      .leftJoinAndSelect("test.period", "period")
-      .leftJoinAndSelect("period.bimester", "periodBimester")
-      .leftJoinAndSelect("period.year", "periodYear")
-      .leftJoinAndSelect("test.discipline", "discipline")
-      .leftJoinAndSelect("test.category", "category")
-      .leftJoinAndSelect("test.person", "testPerson")
-      .leftJoinAndSelect("test.classrooms", "classroom")
-      .leftJoinAndSelect("classroom.school", "school")
-      .leftJoinAndSelect("classroom.studentClassrooms", "studentClassroom")
-      .leftJoinAndSelect("studentClassroom.classroom", "currentClassroom")
-      .leftJoinAndSelect("studentClassroom.studentStatus", "studentStatus")
-      .leftJoinAndSelect("studentStatus.test", "studentStatusTest")
-      .leftJoinAndSelect("studentClassroom.student", "student")
-      .leftJoinAndSelect("student.readingFluency", "readingFluency")
-      .leftJoinAndSelect("readingFluency.rClassroom", "rClassroom")
-      .leftJoinAndSelect("readingFluency.readingFluencyExam", "readingFluencyExam")
-      .leftJoinAndSelect("readingFluency.readingFluencyLevel", "readingFluencyLevel")
-      .leftJoinAndSelect("student.person", "studentPerson")
-      .leftJoin("studentClassroom.year", "studentClassroomYear")
-      .where("test.id = :testId", { testId })
-      .andWhere("classroom.id NOT IN (:...classroomsIds)", { classroomsIds: OUT_CLASSROOMS })
-      .andWhere("periodYear.id = :yearId", { yearId })
-      .andWhere("studentClassroomYear.id = :yearId", { yearId })
-      .andWhere("readingFluency.test = :testId", { testId })
-      .andWhere("studentStatusTest.id = :testId", { testId })
-      .addOrderBy("classroom.shortName", "ASC")
-      .getOne()
+  // Nota de forma: o retorno desta função NUNCA é serializado inteiro pro frontend — o
+  // chamador (getGraphic) só usa test.id/name/period/discipline/category/person (spread
+  // solto na resposta) e, de test.classrooms[].studentClassrooms[], só o que
+  // cityHallResponse/readingFluencyTotalizator leem (student.readingFluency,
+  // classroom.id). studentStatus/student.person, que o TypeORM carregava, nunca eram
+  // usados — por isso não têm mais query própria aqui.
+  async getReadingFluencyForGraphic(testId: string, yearId: string) {
+    const test: any = await this.qTestByIdWithClassrooms(Number(testId))
+    if (!test || String(test.period?.year?.id) !== String(yearId)) { return null }
 
-    if(data) {
-      data = {
-        ...data,
-        classrooms: data.classrooms.map(classroom => {
-          const studentClassrooms = Helper.duplicatedStudents(classroom.studentClassrooms).filter((el: any) => !el.ignore) as StudentClassroom[]
-          return { ...classroom, studentClassrooms }
-        })
+    test.classrooms = test.classrooms
+      .filter((c: any) => !OUT_CLASSROOMS.includes(c.id))
+      .sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
+
+    const classroomIds = test.classrooms.map((c: any) => c.id)
+
+    const rows = classroomIds.length > 0
+      ? await this.qReadingFluencyStudentClassrooms(Number(testId), classroomIds, Number(yearId))
+      : []
+
+    const studentClassroomsByClassroom = new Map<number, any[]>()
+    const studentClassroomsById = new Map<number, any>()
+
+    for (const row of rows) {
+      let sc = studentClassroomsById.get(row.sc_id)
+      if (!sc) {
+        sc = {
+          id: row.sc_id,
+          endedAt: row.sc_endedAt,
+          classroom: { id: row.sc_classroom_id },
+          student: { id: row.student_id, readingFluency: [] as any[] }
+        }
+        studentClassroomsById.set(row.sc_id, sc)
+        if (!studentClassroomsByClassroom.has(row.sc_classroom_id)) { studentClassroomsByClassroom.set(row.sc_classroom_id, []) }
+        studentClassroomsByClassroom.get(row.sc_classroom_id)!.push(sc)
       }
+      sc.student.readingFluency.push({
+        rClassroom: row.rf_r_classroom_id != null ? { id: row.rf_r_classroom_id } : null,
+        readingFluencyExam: { id: row.rf_exam_id },
+        readingFluencyLevel: row.rf_level_id != null ? { id: row.rf_level_id } : null
+      })
     }
 
-    return data
+    test.classrooms = test.classrooms.map((classroom: any) => {
+      const raw = studentClassroomsByClassroom.get(classroom.id) || []
+      const studentClassrooms = Helper.duplicatedStudents(raw).filter((el: any) => !el.ignore) as StudentClassroom[]
+      return { ...classroom, studentClassrooms }
+    })
+
+    return test
   }
 
   async alphabeticTest(aHeaders: AlphaHeaders[], test: Test, room: Classroom, classId: number, userId: number, studentClassroomId: number | null) {

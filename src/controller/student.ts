@@ -112,7 +112,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           const [yearRows] = await conn.query(`SELECT id, name FROM year WHERE id IN (?)`, [oldYearIds]) as any;
           const yearsMap = new Map(yearRows.map((y: any) => [y.id, y]));
 
-          // 3. Verifica Matrículas Ativas em Lote
+          // 3. Trava os alunos da lista — impede que duas escolas matriculem o mesmo aluno
+          // ao mesmo tempo. Trava a linha de `student` (sempre existe) em vez de `student_classroom`
+          // (que pode não ter nenhuma linha ativa pra travar, já que esta lista é de alunos disponíveis).
+          await conn.query(`SELECT id FROM student WHERE id IN (?) FOR UPDATE`, [studentIds]);
+
+          // 4. Verifica Matrículas Ativas em Lote
           const [activeRows] = await conn.query(`
           SELECT stu.id AS studentId, p.name AS personName, c.shortName AS classroomName, s.shortName AS schoolName, y.name AS yearName
           FROM student_classroom sc
@@ -129,7 +134,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
             throw new HttpError(400, `O aluno ${el.personName} está matriculado na sala ${el.classroomName} ${el.schoolName} em ${el.yearName}. Solicite sua transferência através do menu Matrículas Ativas`);
           }
 
-          // 4. Verifica Último Registro (Gap de Anos) em Lote
+          // 5. Verifica Último Registro (Gap de Anos) em Lote
           const [lastRegisterRows] = await conn.query(`
           SELECT sc.studentId, p.name AS personName
           FROM student_classroom sc
@@ -147,11 +152,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
           const lastRegisterMap = new Map(lastRegisterRows.map((r: any) => [r.studentId, r]));
 
-          // 5. Busca Salas em Lote (para validação de regressão)
+          // 6. Busca Salas em Lote (para validação de regressão)
           const [classroomRows] = await conn.query(`SELECT id, name FROM classroom WHERE id IN (?)`, [classroomIds]) as any;
           const classMap = new Map(classroomRows.map((c: any) => [c.id, c]));
 
-          // 6. Loop de Validação (Ocorre 100% em memória, instantâneo)
+          // 7. Loop de Validação (Ocorre 100% em memória, instantâneo)
           for (const item of body.list) {
             const oldYearDB = yearsMap.get(item.oldYear) as any;
             if (!oldYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo informado.');
@@ -174,7 +179,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           }
 
           // ==========================================
-          // 7. INSERÇÕES EM MASSA (Batch Inserts)
+          // 8. INSERÇÕES EM MASSA (Batch Inserts)
           // ==========================================
           const now = new Date();
           const createdBy = qUserTeacher.person.user.id;

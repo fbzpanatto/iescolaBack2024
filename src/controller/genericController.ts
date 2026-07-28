@@ -2090,7 +2090,7 @@ export class GenericController<T> {
       await conn.beginTransaction();
 
       const [ transferRows ] = await conn.query(
-        `SELECT id, requesterId, requestedClassroomId FROM transfer WHERE id = ? AND statusId = ? AND endedAt IS NULL LIMIT 1`,
+        `SELECT id, requesterId, requestedClassroomId FROM transfer WHERE id = ? AND statusId = ? AND endedAt IS NULL LIMIT 1 FOR UPDATE`,
         [transferId, TRANSFER_STATUS.PENDING]
       );
       const currTransfer = (transferRows as any[])[0];
@@ -2144,7 +2144,7 @@ export class GenericController<T> {
         const currentYear = await this.qCurrentYear();
 
         const [ lastRosterRows ] = await conn.query(
-          `SELECT rosterNumber FROM student_classroom WHERE yearId = ? AND classroomId = ? ORDER BY rosterNumber DESC LIMIT 1`,
+          `SELECT rosterNumber FROM student_classroom WHERE yearId = ? AND classroomId = ? ORDER BY rosterNumber DESC LIMIT 1 FOR UPDATE`,
           [currentYear.id, currTransfer.requestedClassroomId]
         );
         const last = ((lastRosterRows as any[])[0]?.rosterNumber ?? 0) + 1;

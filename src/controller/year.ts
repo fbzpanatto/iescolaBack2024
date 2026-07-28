@@ -11,7 +11,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     super(Year, { table: 'year', selectColumns: ['id', 'name', 'active', 'createdAt', 'endedAt'], booleanColumns: ['active'], dateColumns: ['createdAt', 'endedAt'] })
   }
 
-  override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
+  override async findAllWhere(op: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const search = request?.query.search as string
     try {
       const rows = await this.qYearsWithPeriods(search)

@@ -86,6 +86,15 @@ export class GenericController<T> {
     return this.tableConfig
   }
 
+  // Formata um Date/ISO-string como literal "YYYY-MM-DD HH:MM:SS" usando os componentes UTC,
+  // ignorando o `timezone` do pool (que só se aplica a parâmetros Date passados ao mysql2 e
+  // deslocaria a gravação, divergindo do valor cru que o TypeORM sempre gravou).
+  private toSqlUtcDateTime(value: Date | string | null | undefined): string | null {
+    if (value === null || value === undefined || value === '') { return null }
+    const date = value instanceof Date ? value : new Date(value)
+    return date.toISOString().slice(0, 19).replace('T', ' ')
+  }
+
   // Corrige, apenas na forma devolvida ao cliente, os tipos que o SELECT cru do mysql2 não preserva:
   // TINYINT -> boolean e DATETIME (string "YYYY-MM-DD HH:MM:SS") -> Date. Não afeta o que é gravado no banco.
   protected normalizeRow<R extends Record<string, any>>(row: R): R {
@@ -1623,6 +1632,116 @@ export class GenericController<T> {
       return (queryResult as qYear[])[0]
     }
     catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: year(name)
+  async qYearsWithPeriods(search: string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT
+            y.id AS year_id, y.name AS year_name, y.active AS year_active, y.createdAt AS year_createdAt, y.endedAt AS year_endedAt,
+            p.id AS period_id,
+            b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName
+        FROM year AS y
+        LEFT JOIN period AS p ON p.yearId = y.id
+        LEFT JOIN bimester AS b ON p.bimesterId = b.id
+        WHERE y.name LIKE ?
+        ORDER BY y.name DESC, b.id ASC
+      `
+      const [ queryResult ] = await conn.query(query, [`%${search}%`])
+      return queryResult as any[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: year(name) [unique], bimester(id), period(yearId, bimesterId)
+  async qCreateYear(name: string, createdAt: Date, endedAt: Date | null, active: boolean) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const [ dupRows ] = await conn.query(`SELECT id, name FROM year WHERE name = ? LIMIT 1`, [name]);
+      if ((dupRows as any[])[0]) { await conn.commit(); return { outcome: 'duplicate' as const } }
+
+      const [ activeRows ] = await conn.query(`SELECT id, name FROM year WHERE active = 1 AND endedAt IS NULL LIMIT 1 FOR UPDATE`);
+      const currentYear = (activeRows as any[])[0];
+      if (currentYear && active) { await conn.commit(); return { outcome: 'active_year_exists' as const, name: currentYear.name } }
+
+      const [ maxRows ] = await conn.query(`SELECT MAX(CAST(name AS UNSIGNED)) AS maxYearName FROM year`);
+      const newName = (Number((maxRows as any[])[0].maxYearName) + 1).toString();
+
+      const [ yearResult ]: any = await conn.query(
+        `INSERT INTO year (name, active, createdAt, endedAt) VALUES (?, ?, ?, ?)`,
+        [newName, true, this.toSqlUtcDateTime(createdAt), this.toSqlUtcDateTime(endedAt)]
+      );
+      const yearId = yearResult.insertId;
+
+      const [ bimesters ] = await conn.query(`SELECT id FROM bimester`);
+      for (const b of (bimesters as any[])) {
+        await conn.query(`INSERT INTO period (yearId, bimesterId) VALUES (?, ?)`, [yearId, b.id]);
+      }
+
+      await conn.commit();
+      return { outcome: 'created' as const, id: yearId, name: newName };
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  // Índices esperados: year(name) [unique], student_classroom(yearId, endedAt), transfer(yearId, statusId)
+  async qUpdateYear(id: number, body: { name: string, active: boolean, createdAt: Date | string, endedAt: Date | string | null }, receiverTeacherId: number, pendingStatusId: number, acceptedStatusId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      await conn.beginTransaction();
+
+      const [ yearRows ] = await conn.query(`SELECT id, name, active, createdAt, endedAt FROM year WHERE id = ? LIMIT 1 FOR UPDATE`, [id]);
+      const yearToUpdate = (yearRows as any[])[0];
+      if (!yearToUpdate) { await conn.commit(); return { outcome: 'not_found' as const } }
+
+      const [ dupRows ] = await conn.query(`SELECT id, name FROM year WHERE name = ? AND id != ? LIMIT 1`, [body.name, id]);
+      if ((dupRows as any[])[0]) { await conn.commit(); return { outcome: 'duplicate' as const } }
+
+      const [ activeRows ] = await conn.query(`SELECT id, name FROM year WHERE active = 1 AND endedAt IS NULL LIMIT 1 FOR UPDATE`);
+      const currentYear = (activeRows as any[])[0];
+      if (currentYear && body.active) { await conn.commit(); return { outcome: 'active_conflict' as const, name: currentYear.name } }
+
+      const merged = { ...yearToUpdate, ...body };
+
+      if (!merged.active && (merged.endedAt === '' || merged.endedAt === null)) {
+        await conn.commit();
+        return { outcome: 'ended_at_required' as const };
+      }
+
+      if (!merged.active && merged.endedAt) {
+        await conn.query(`UPDATE student_classroom SET endedAt = NOW() WHERE yearId = ? AND endedAt IS NULL`, [id]);
+
+        const [ pendingTransfers ] = await conn.query(`SELECT id FROM transfer WHERE yearId = ? AND statusId = ?`, [id, pendingStatusId]);
+        for (const t of (pendingTransfers as any[])) {
+          await conn.query(
+            `UPDATE transfer SET statusId = ?, endedAt = NOW(), receiverId = ? WHERE id = ?`,
+            [acceptedStatusId, receiverTeacherId, t.id]
+          );
+        }
+      }
+
+      await conn.query(
+        `UPDATE year SET name = ?, active = ?, createdAt = ?, endedAt = ? WHERE id = ?`,
+        [merged.name, merged.active, this.toSqlUtcDateTime(merged.createdAt), this.toSqlUtcDateTime(merged.endedAt), id]
+      );
+      await conn.commit();
+
+      if (typeof merged.createdAt === 'string') { merged.createdAt = new Date(merged.createdAt) }
+      if (typeof merged.endedAt === 'string' && merged.endedAt !== '') { merged.endedAt = new Date(merged.endedAt) }
+
+      return { outcome: 'updated' as const, data: merged };
+    }
+    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
 

@@ -770,6 +770,33 @@ export class Helper {
     }, []);
   }
 
+  static years(rows: any[]) {
+    return rows.reduce((acc: any[], row) => {
+      let year = acc.find(y => y.id === row.year_id);
+
+      if (!year) {
+        year = {
+          id: row.year_id,
+          name: row.year_name,
+          active: row.year_active === 1,
+          createdAt: new Date(row.year_createdAt.replace(' ', 'T') + 'Z'),
+          endedAt: row.year_endedAt ? new Date(row.year_endedAt.replace(' ', 'T') + 'Z') : null,
+          periods: []
+        };
+        acc.push(year);
+      }
+
+      if (row.period_id) {
+        year.periods.push({
+          id: row.period_id,
+          bimester: { id: row.bimester_id, name: row.bimester_name, testName: row.bimester_testName }
+        });
+      }
+
+      return acc;
+    }, []);
+  }
+
   static studentClassroom(arr: any[]) {
     return arr.map(el => {
       return {

@@ -1,106 +1,58 @@
 import { GenericController } from "./genericController";
-import { EntityManager, EntityTarget, FindManyOptions, ILike, IsNull, ObjectLiteral } from "typeorm";
+import { EntityTarget, FindManyOptions, ObjectLiteral } from "typeorm";
 import { Year } from "../model/Year";
-import { Bimester } from "../model/Bimester";
-import { Period } from "../model/Period";
-import { AppDataSource } from "../data-source";
 import { Request } from "express";
-import { PER_CAT } from "../utils/enums";
+import { PER_CAT, TRANSFER_STATUS } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
-import { StudentClassroom } from "../model/StudentClassroom";
-import { TRANSFER_STATUS } from "../utils/enums";
-import { Transfer } from "../model/Transfer";
-import { Teacher } from "../model/Teacher";
-import { TransferStatus } from "../model/TransferStatus";
+import { Helper } from "../utils/helpers";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() {
-    super(Year, { table: 'year', selectColumns: ['id', 'name', 'active', 'createdAt', 'endedAt'] })
+    super(Year, { table: 'year', selectColumns: ['id', 'name', 'active', 'createdAt', 'endedAt'], booleanColumns: ['active'], dateColumns: ['createdAt', 'endedAt'] })
   }
 
   override async findAllWhere(options: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const search = request?.query.search as string
     try {
-      return await AppDataSource.transaction(async(CONN)=>{
-        const data = await CONN.find(Year,{ relations: ['periods.bimester'], order: { name: 'DESC', periods: { bimester: { id: 'ASC' } } }, where: { name: ILike(`%${ search }%`) }})
-        return { status: 200, data };
-      })
+      const rows = await this.qYearsWithPeriods(search)
+      return { status: 200, data: Helper.years(rows) };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async saveWithAuth(body: any, authUser: JwtPayload) {
     try {
-      return await AppDataSource.transaction(async(CONN)=> {
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const canCreate = [PER_CAT.ADMN]
+      if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
 
-        const qUserTeacher = await this.qTeacherByUser(authUser.user)
-        const canCreate = [PER_CAT.ADMN]
-        if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
-        const yearExists = await this.checkIfExists(body, CONN)
-        if (yearExists && yearExists.name === body.name) { return { status: 404, message: `O ano ${body.name} já existe.` } }
-        const currentYear = await this.currentYear(CONN) as Year
-        if (currentYear && currentYear.active && body.active) { return { status: 404, message: `O ano ${currentYear.name} está ativo. Encerre-o antes de criar um novo.` } }
-        const baseYear = await CONN.getRepository(Year)
-          .createQueryBuilder('year')
-          .select('MAX(CAST(year.name AS UNSIGNED))', 'maxValue')
-          .getRawOne();
-        const toNewYear = Number(baseYear.maxValue) + 1
-        const newYear = new Year(); newYear.name = toNewYear.toString(); newYear.active = true; newYear.createdAt = body.createdAt ?? new Date(); newYear.endedAt = body.endedAt ?? null
-        const registers = await CONN.find(Bimester)
-        for (let el of registers) { await CONN.save(Period, { year: newYear, bimester: el } as Period) }
-        return { status: 201, data: newYear };
-      })
+      const createdAt = body.createdAt ?? new Date()
+      const endedAt = body.endedAt ?? null
+
+      const result = await this.qCreateYear(body.name, createdAt, endedAt, body.active)
+
+      if (result.outcome === 'duplicate') { return { status: 404, message: `O ano ${body.name} já existe.` } }
+      if (result.outcome === 'active_year_exists') { return { status: 404, message: `O ano ${result.name} está ativo. Encerre-o antes de criar um novo.` } }
+
+      const data = { id: result.id, name: result.name, active: true, createdAt, endedAt }
+      return { status: 201, data };
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async updateIdWithAuth(id: any, body: any, authUser: JwtPayload) {
     try {
-      return await AppDataSource.transaction(async(CONN) => {
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
-        const { data } = await this.findOneById(id, {}, CONN);
+      const result = await this.qUpdateYear(Number(id), body, qUserTeacher.id, TRANSFER_STATUS.PENDING, TRANSFER_STATUS.ACCEPTED)
 
-        const yearToUpdate = data
-        if (!yearToUpdate) { return { status: 404, message: 'Data not found' } }
+      if (result.outcome === 'not_found') { return { status: 404, message: 'Data not found' } }
+      if (result.outcome === 'duplicate') { return { status: 400, message: `O ano ${body.name} já existe.` } }
+      if (result.outcome === 'active_conflict') { return { status: 400, message: `O ano ${result.name} está ativo.` } }
+      if (result.outcome === 'ended_at_required') { return { status: 400, message: 'Data de encerramento não pode ser vazia.' } }
 
-        const yearExists = await this.checkIfExists(body, CONN)
-        if (yearExists && yearExists.name === body.name && yearExists.id !== yearToUpdate.id) { return { status: 400, message: `O ano ${body.name} já existe.` } }
-
-        const currentYear = await this.currentYear(CONN)
-        if (currentYear && currentYear.active && body.active) { return { status: 400, message: `O ano ${currentYear.name} está ativo.` } }
-
-        for (const prop in body) { yearToUpdate[prop] = body[prop as keyof Year] }
-
-        if (!body.active && body.endedAt === '' || body.endedAt === null) { return { status: 400, message: 'Data de encerramento não pode ser vazia.' } }
-        if (!body.active && body.endedAt) {
-          const allStudentsClassroomsYear = await CONN.getRepository(StudentClassroom)
-            .createQueryBuilder('studentClassroom')
-            .leftJoin('studentClassroom.year', 'year')
-            .where('year.id = :yearId', { yearId: data.id })
-            .andWhere('studentClassroom.endedAt IS NULL')
-            .getMany()
-          for (let register of allStudentsClassroomsYear) { await CONN.getRepository(StudentClassroom).save({ ...register, endedAt: new Date() }) }
-
-          const qPendingTransferStatus = await this.qPendingTransferStatus(data.id, TRANSFER_STATUS.PENDING)
-
-          const qUserTeacher = await this.qTeacherByUser(authUser.user)
-
-          for(let item of qPendingTransferStatus) {
-
-            item.status = { id: TRANSFER_STATUS.ACCEPTED } as TransferStatus
-            item.endedAt = new Date()
-            item.receiver = qUserTeacher as Teacher
-
-            await CONN.save(Transfer, item)
-          }
-        }
-
-        const result = await CONN.save(Year, yearToUpdate); return { status: 200, data: result };
-      })
+      return { status: 200, data: result.data };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
-
-  async currentYear(CONN: EntityManager) { return (await this.findOneByWhere({ where: { active: true, endedAt: IsNull() } }, CONN)).data as Year }
-  async checkIfExists(body: Year, CONN: EntityManager) { return (await this.findOneByWhere({ where: { name: body.name } }, CONN)).data as Year }
 }
 
 export const yearController = new YearController();

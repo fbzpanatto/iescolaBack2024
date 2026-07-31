@@ -61,6 +61,33 @@ export async function moverParaQuestions(tmpKey: string): Promise<string> {
   return finalKey;
 }
 
+/**
+ * Migra uma imagem legada da raiz do bucket (ex: "1590.png") para questions/.
+ * Key legada não tem barra, então não dá pra derivar o destino com .split('/')
+ * como moverParaQuestions faz — o destino é a própria key, só prefixada.
+ * Idempotente: se a key já tiver "/", já foi migrada, retorna intacta sem
+ * tocar no S3.
+ */
+export async function moverLegadoParaQuestions(legacyKey: string): Promise<string> {
+  if (legacyKey.includes('/')) { return legacyKey }
+
+  const bucket = process.env.AWS_S3_BUCKET as string;
+  const finalKey = `questions/${legacyKey}`;
+
+  await s3Client.send(new CopyObjectCommand({
+    Bucket: bucket,
+    CopySource: `${bucket}/${legacyKey}`,
+    Key: finalKey,
+  }));
+
+  await s3Client.send(new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: legacyKey,
+  }));
+
+  return finalKey;
+}
+
 export async function moverParaLessons(tmpKey: string): Promise<string> {
   const bucket = process.env.AWS_S3_BUCKET as string;
   const fileName = tmpKey.split('/').pop();

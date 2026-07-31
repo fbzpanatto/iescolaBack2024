@@ -37,9 +37,9 @@ import { TransferRouter } from "./routes/transfer";
 import { UserRouter } from "./routes/user";
 import { YearRouter } from "./routes/year";
 import { PasswordRouter } from "./routes/password";
+import { UploadRouter } from "./routes/upload";
 import { StudentTestRouter } from "./routes/studentTest";
 import { StudentMergeRouter } from "./routes/studentMerge";
-import { UploadRouter } from "./routes/upload";
 
 const app: Application = express();
 const route = Router();

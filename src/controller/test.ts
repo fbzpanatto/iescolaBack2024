@@ -724,11 +724,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
           if (!question.id) {
             if (!question.classroomCategory?.id) { throw new HttpError(400, "Todas as questões devem ter categoria definida") }
 
+            // skills: number[] (Fase 3) coexiste com o formato antigo question.skill: {id}
+            // enquanto o frontend não migra (Fase 4). Ver skill question-skill-nn.
+            const incomingSkillIds = Array.isArray(question.skills) ? question.skills : null;
+            const validatedSkills = incomingSkillIds !== null ? await this.validateSkillIds(conn, incomingSkillIds) : null;
+            const firstSkillId = validatedSkills !== null
+              ? (this.firstAlphabeticalSkillId(validatedSkills))
+              : (question.skill?.id ?? null);
+
             const [ insertQuestionResult ]: any = await conn.query(
               `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, question.skill?.id ?? null, createdAt, qUserTeacher.person.user.id]
+              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, firstSkillId, createdAt, qUserTeacher.person.user.id]
             );
             const newQuestionId = insertQuestionResult.insertId;
+
+            if (validatedSkills !== null && validatedSkills.length > 0) {
+              const questionSkillValues = validatedSkills.map(s => [newQuestionId, s.id, createdAt, qUserTeacher.person.user.id]);
+              await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
+            }
 
             const incomingImages = question.images; // captura antes de sobrescrever "question" com o id novo
             question = { id: newQuestionId };
@@ -818,13 +831,23 @@ class TestController extends GenericController<EntityTarget<Test>> {
       testSetParams.push(test.id);
       await conn.query(`UPDATE test SET ${testSetClauses.join(', ')} WHERE id = ?`, testSetParams);
 
+      // Sinaliza (sem virar erro) quando o front tentou alterar skills de uma
+      // questão compartilhada e a trava isShared descartou a tentativa. Declarado
+      // fora do "if" abaixo porque o bloco de retorno final também precisa dele.
+      // Só entra no corpo da resposta quando não está vazio — ver retorno no final.
+      const warnings: { questionId: number; message: string }[] = [];
+
       if (req.body.testQuestions?.length) {
 
         // Campos que existem só de um lado ou só servem de transporte.
         // Sem isso a comparação acusaria diferença em todo save.
         //   questionImages / inUse  -> só existem no objeto vindo do banco
         //   images / imagesModified -> só existem no payload do front
-        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified'];
+        //   skills                  -> vive em question_skill, não em question; sincronizada
+        //                              à parte por comparação de conjuntos (ver abaixo). O
+        //                              array do diffsStrict é posicional, então nem serviria
+        //                              pra detectar mudança de skills corretamente.
+        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills'];
 
         const bodyTq = req.body.testQuestions as any[]
         const dataTq: TestQuestionFull[] = await this.getTestQuestions(test.id)
@@ -845,11 +868,24 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 throw new HttpError(400, "Questão nova deve ter categoria definida")
               }
 
+              // skills: number[] (Fase 3) coexiste com o formato antigo question.skill: {id}
+              // enquanto o frontend não migra (Fase 4). Ver skill question-skill-nn.
+              const incomingSkillIds = Array.isArray(questionToSave.skills) ? questionToSave.skills : null;
+              const validatedSkills = incomingSkillIds !== null ? await this.validateSkillIds(conn, incomingSkillIds) : null;
+              const newQuestionFirstSkillId = validatedSkills !== null
+                ? (this.firstAlphabeticalSkillId(validatedSkills))
+                : (questionToSave.skill?.id ?? null);
+
               const [ insertQuestionResult ]: any = await conn.query(
                 `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, questionToSave.skill?.id ?? null, new Date(), userId]
+                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, newQuestionFirstSkillId, new Date(), userId]
               );
               const newQuestionId = insertQuestionResult.insertId;
+
+              if (validatedSkills !== null && validatedSkills.length > 0) {
+                const questionSkillValues = validatedSkills.map(s => [newQuestionId, s.id, new Date(), userId]);
+                await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
+              }
 
               // captura antes de sobrescrever questionToSave com o id novo
               const incomingImages = questionToSave.images;
@@ -901,26 +937,76 @@ class TestController extends GenericController<EntityTarget<Test>> {
             );
           }
 
+          // skills: number[] (Fase 3) — presente e é a fonte de verdade quando o front já
+          // migrou (Fase 4). Ausente/undefined -> nenhuma operação em question_skill.
+          const nextSkills = (next.question as any).skills;
+          const hasNewSkillsFormat = Array.isArray(nextSkills);
+
           // Título, categoria, pessoa e disciplina vivem em Question:
           // bloqueados quando a questão pertence também a outra prova.
           if (!isShared && this.diffsStrict(curr.question, next.question, IGNORE)) {
             const questionSetClauses = ['title = ?', 'personId = ?', 'disciplineId = ?', 'classroomCategoryId = ?', 'updatedAt = ?', 'updatedByUser = ?'];
             const questionSetParams: any[] = [next.question.title, next.question.person.id, next.question.discipline.id, next.question.classroomCategory.id, updatedAt, userId];
 
-            // skill ausente no payload (nenhuma habilidade selecionada) não mexe na coluna —
-            // mesmo comportamento do CONN.save original, que ignora chaves undefined.
-            if (next.question.skill) { questionSetClauses.push('skillId = ?'); questionSetParams.push(next.question.skill.id); }
+            // Formato antigo (question.skill: {id}) só governa a coluna skillId enquanto o
+            // front não manda skills: number[] — quando manda, quem decide skillId é a
+            // sincronização de question_skill logo abaixo (1ª habilidade em ordem alfabética).
+            if (!hasNewSkillsFormat && next.question.skill) { questionSetClauses.push('skillId = ?'); questionSetParams.push(next.question.skill.id); }
 
             questionSetParams.push(curr.question.id);
             await conn.query(`UPDATE question SET ${questionSetClauses.join(', ')} WHERE id = ?`, questionSetParams);
           }
 
-          // Skill é entidade global, compartilhada por várias questões.
-          if (!isShared && next.question.skill && this.diffsStrict(curr.question.skill, next.question.skill, IGNORE)) {
-            await conn.query(
-              `UPDATE skill SET reference = ?, description = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
-              [next.question.skill.reference, next.question.skill.description, updatedAt, userId, next.question.skill.id]
-            );
+          // ------------------------------------------------------------------
+          // Sincronização de question_skill (Fase 3) — comparação de conjuntos de
+          // id, independente do diffsStrict (que é posicional e não serviria aqui).
+          // skills: [] é estado legítimo (questão sem habilidade) e sincroniza
+          // normalmente. Bloqueada por completo quando a questão é compartilhada —
+          // mesma trava que já protegia título/categoria/skill único.
+          // ------------------------------------------------------------------
+          if (!isShared && hasNewSkillsFormat) {
+            const validatedSkills = await this.validateSkillIds(conn, nextSkills);
+
+            const [ currSkillRows ] = await conn.query(`SELECT skillId FROM question_skill WHERE questionId = ?`, [curr.question.id]);
+            const currIds = new Set((currSkillRows as any[]).map(r => r.skillId as number));
+            const nextIds = new Set(validatedSkills.map(s => s.id));
+
+            const toInsert = [...nextIds].filter(skillId => !currIds.has(skillId));
+            const toDelete = [...currIds].filter(skillId => !nextIds.has(skillId));
+
+            if (toInsert.length > 0) {
+              const values = toInsert.map(skillId => [curr.question.id, skillId, updatedAt, userId]);
+              await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [values]);
+            }
+
+            if (toDelete.length > 0) {
+              await conn.query(`DELETE FROM question_skill WHERE questionId = ? AND skillId IN (?)`, [curr.question.id, toDelete]);
+            }
+
+            // Caminho de volta: question.skillId continua espelhando a 1ª habilidade em
+            // ordem alfabética por reference, pro dia de reverter pra 1:N.
+            const firstAlphabetical = this.firstAlphabeticalSkillId(validatedSkills);
+            if (firstAlphabetical !== (curr.question.skill?.id ?? null)) {
+              await conn.query(
+                `UPDATE question SET skillId = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+                [firstAlphabetical, updatedAt, userId, curr.question.id]
+              );
+            }
+          } else if (isShared && hasNewSkillsFormat) {
+            // Mesma trava, só que aqui é pra AVISAR em vez de sincronizar. Não chama
+            // validateSkillIds de propósito — hoje nenhuma validação de skills roda pra
+            // questão compartilhada (o bloco de sincronização inteiro vive dentro de
+            // !isShared), e não é este ajuste que deve começar a rejeitar com 400 um
+            // payload malformado que de qualquer forma não seria escrito. Só compara
+            // valores brutos pra decidir se havia uma tentativa real de mudança.
+            const [ currSkillRows ] = await conn.query(`SELECT skillId FROM question_skill WHERE questionId = ?`, [curr.question.id]);
+            const currIds = new Set((currSkillRows as any[]).map((r: any) => r.skillId as number));
+            const nextIds = new Set((nextSkills as any[]).filter((v: any) => Number.isInteger(v)));
+
+            const changed = currIds.size !== nextIds.size || [...nextIds].some(id => !currIds.has(id));
+            if (changed) {
+              warnings.push({ questionId: curr.question.id, message: 'Habilidades não alteradas: questão em uso em outra prova.' });
+            }
           }
 
           // questionGroup pertence ao contexto da prova: segue editável sempre.
@@ -1001,7 +1087,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       await conn.commit();
 
       const result = await this.qTestById(test.id);
-      return { status: 200, data: result };
+      return warnings.length > 0
+        ? { status: 200, data: result, warnings }
+        : { status: 200, data: result };
     }
     catch (error: any) {
       if (conn) await conn.rollback();
@@ -1399,6 +1487,35 @@ class TestController extends GenericController<EntityTarget<Test>> {
     }
 
     return totalNuColumn.map((el: any) => Math.floor((el.total / percentColumn[el.divideByExamId]) * 10000) / 100)
+  }
+
+  // Validação defensiva mínima de skills (Fase 3, question-skill-nn): ids inteiros
+  // e existentes na tabela skill. Não substitui validação de schema — só evita
+  // sincronizar question_skill com lixo. Lança HttpError(400) se algo não bater.
+  private async validateSkillIds(conn: any, skillIds: number[]): Promise<{ id: number, reference: string, description: string }[]> {
+    if (!Array.isArray(skillIds)) { throw new HttpError(400, "skills deve ser um array de ids.") }
+    if (skillIds.length === 0) { return [] }
+
+    const uniqueIds = [...new Set(skillIds)];
+    if (!uniqueIds.every(id => Number.isInteger(id))) {
+      throw new HttpError(400, "skills deve conter apenas ids inteiros.");
+    }
+
+    const [ rows ] = await conn.query(`SELECT id, reference, description FROM skill WHERE id IN (?)`, [uniqueIds]);
+    const found = rows as { id: number, reference: string, description: string }[];
+
+    if (found.length !== uniqueIds.length) {
+      throw new HttpError(400, "uma ou mais habilidades informadas não existem.");
+    }
+
+    return found;
+  }
+
+  // Ordem alfabética por reference (ver skill question-skill-nn) — a mesma regra usada
+  // pra decidir qual habilidade aparece nos pontos de exibição e qual vira question.skillId.
+  private firstAlphabeticalSkillId(skills: { id: number, reference: string }[]): number | null {
+    if (skills.length === 0) { return null }
+    return [...skills].sort((a, b) => a.reference.localeCompare(b.reference))[0].id;
   }
 
   diffs = (original: any, current: any): boolean => {

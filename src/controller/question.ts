@@ -1,5 +1,5 @@
 import { GenericController } from "./genericController";
-import { EntityTarget } from "typeorm";
+import { DeepPartial, EntityTarget, ObjectLiteral, SaveOptions } from "typeorm";
 import { Question } from "../model/Question";
 import { Request } from "express";
 import { connectionPool } from "../services/db";
@@ -15,6 +15,18 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
       booleanColumns: ['active'],
       dateColumns: ['createdAt', 'updatedAt']
     })
+  }
+
+  // Bloqueado (Fase 3, skill question-skill-nn): esta rota gravava question.skillId sem
+  // diffsStrict, sem trava isShared e sem sincronizar question_skill — caminho pra
+  // dessincronizar do modelo N:N e pra contornar a trava de questão compartilhada.
+  // Questões só devem ser criadas/editadas via POST/PUT /test (saveTest/updateTest).
+  async save(_body: DeepPartial<ObjectLiteral>, _options: SaveOptions | undefined) {
+    return { status: 405, message: "Rota bloqueada: questões são criadas/editadas através de POST/PUT /test." };
+  }
+
+  async updateId(_id: number | string, _body: ObjectLiteral) {
+    return { status: 405, message: "Rota bloqueada: questões são criadas/editadas através de POST/PUT /test." };
   }
 
   async isOwner(req: Request, authUser: JwtPayload) {

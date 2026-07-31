@@ -1,55 +1,6 @@
 import { Schema } from "express-validator";
 
 export const SUBMIT_TEST_SCHEMA: Schema = {
-  user: {
-    optional: false
-  },
-  'user.user': {
-    exists: {
-      errorMessage: 'User ID is required',
-    },
-    isInt: {
-      errorMessage: 'User ID must be an integer',
-    },
-    toInt: true,
-  },
-  'user.ra': {
-    exists: {
-      errorMessage: 'RA is required',
-    },
-    isString: {
-      errorMessage: 'RA must be a string',
-    },
-    escape: true,
-    trim: true,
-  },
-  'user.category': {
-    exists: {
-      errorMessage: 'Category is required',
-    },
-    isInt: {
-      errorMessage: 'Category must be an integer',
-    },
-    toInt: true,
-  },
-  'user.iat': {
-    exists: {
-      errorMessage: 'IAT is required',
-    },
-    isInt: {
-      errorMessage: 'IAT must be an integer',
-    },
-    toInt: true,
-  },
-  'user.exp': {
-    exists: {
-      errorMessage: 'EXP is required',
-    },
-    isInt: {
-      errorMessage: 'EXP must be an integer',
-    },
-    toInt: true,
-  },
   testId: {
     exists: {
       errorMessage: 'Test ID is required',

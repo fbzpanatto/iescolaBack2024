@@ -4,7 +4,7 @@ import { Student } from "../model/Student";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 
-import { UserInterface } from "../interfaces/interfaces";
+import { JwtPayload } from "../interfaces/interfaces";
 
 class StudentMergeController extends GenericController<EntityTarget<Student>> {
 
@@ -13,6 +13,7 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
   async getAllStudentsToMerge(request: Request) {
 
     const { search, limit, offset } = request.query;
+    const authUser = (request as any).user as JwtPayload;
 
     try {
 
@@ -20,7 +21,7 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
       const pLimit = !isNaN(parseInt(limit as string)) ? parseInt(limit as string) : 100;
       const pOffset = !isNaN(parseInt(offset as string)) ? parseInt(offset as string) : 0;
 
-      const tUser = await this.qUser(request?.body?.user?.user);
+      const tUser = await this.qUser(authUser?.user);
 
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
         tUser?.categoryId === PER_CAT.SUPE ||
@@ -33,7 +34,7 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async mergeStudents(body: { user: UserInterface, wrongId: number, rightId: number, ra: string, dv: string, birth: string }) {
+  async mergeStudents(body: { wrongId: number, rightId: number, ra: string, dv: string, birth: string }) {
     try {
 
       const { wrongId, rightId, ra, dv, birth } = body;

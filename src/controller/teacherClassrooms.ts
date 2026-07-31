@@ -24,7 +24,7 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }
 
-  override async save(body: { id: number, classrooms: number[], user?: any }) {
+  override async save(body: { id: number, classrooms: number[] }) {
 
     if (!body.classrooms || body.classrooms.length === 0) { return { status: 403, message: "Somente pessoal autorizado da escola pode executar a transferencia"} }
 

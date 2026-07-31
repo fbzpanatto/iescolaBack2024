@@ -199,7 +199,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     finally { if (conn) { conn.release() } }
   }
 
-  async updateTeacherSingleRel(id: string, body: { user: UserInterface, teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}, authUser: UserInterface) {
+  async updateTeacherSingleRel(id: string, body: { teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}, authUser: UserInterface) {
     try {
       const [qUserTeacher, classroom, discipline, teacher] = await Promise.all([
         this.qTeacherByUser(authUser.user),

@@ -29,7 +29,7 @@ export interface AlphaHeaders { id: number, name: string, periods: Period[], lev
 
 export interface qStudentClassroomFormated { id: number, rosterNumber: number, classroomId: number, startedAt: string, endedAt: string | null, student: { id: number, person: { id: number, name: string }, readingFluency?: qReadingFluency[] }}
 export interface qReadingFluenciesHeaders { id: number, readingFluencyLevelId: number, readingFluencyLevelName: string, readingFluencyExamDescription: string, readingFluencyLevelColor: string, readingFluencyExamId: number, readingFluencyExamName: string, readingFluencyExamColor: string, readingFluencyLevelDescription: string  }
-export interface qTestQuestions { test_question_id: number, test_question_order: number, test_question_answer: string, test_question_active: boolean, question_id: number, question_images: number, question_title?: string, question_group_id: number, question_group_name: string, skill_id?: number, skill_reference?: string, skill_description?: string }
+export interface qTestQuestions { test_question_id: number, test_question_order: number, test_question_answer: string, test_question_active: boolean, question_id: number, question_images: number, question_title?: string, question_group_id: number, question_group_name: string, skill_id?: number, skill_reference?: string, skill_description?: string, question_skills?: string | null }
 export interface qAlphaTests { test_id: number, test_active: number, discipline_id: number, discipline_name: string, test_category_id: number, period_id: number, bimester_id: number, bimester_name: string, bimester_testName: string, year_id: number, year_name: string }
 export interface qAlphabeticLevels { id: number, shortName: string, color: string }
 export interface qFormatedYear { id: number, name: string, periods: { id: number, bimester: { id: number, name: string, testName: string } }[] }
@@ -80,6 +80,7 @@ export interface qTestQuestionsWithImages {
   skill_id?: number
   skill_reference?: string
   skill_description?: string
+  question_skills?: string | null
 }
 
 export interface TestQuestionWithImages {
@@ -92,6 +93,7 @@ export interface TestQuestionWithImages {
     title?: string
     images: QuestionImageJson[]
     skill: { reference?: string, description?: string }
+    skills: Array<{ id: number, reference: string, description: string }>
   }
   questionGroup: { id: number, name: string }
 }
@@ -115,6 +117,7 @@ export interface qTestQuestionsFull {
   skill_id: number | null
   skill_reference: string | null
   skill_description: string | null
+  question_skills: string | null
 }
 
 export interface qTestByIdRow {
@@ -171,6 +174,7 @@ export interface TestQuestionFull {
     discipline: { id: number, name: string } | null
     classroomCategory: { id: number, name: string } | null
     skill: { id: number, reference: string, description: string } | null
+    skills: Array<{ id: number, reference: string, description: string }>
     questionImages: QuestionImageJson[]
     inUse: number
   }

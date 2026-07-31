@@ -3634,7 +3634,17 @@ export class GenericController<T> {
                 qg.name AS question_group_name,
                 sk.id AS skill_id,
                 sk.reference AS skill_reference,
-                sk.description AS skill_description
+                sk.description AS skill_description,
+                (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
+                    FROM (
+                        SELECT sk2.id, sk2.reference, sk2.description
+                        FROM question_skill AS qs
+                        INNER JOIN skill AS sk2 ON qs.skillId = sk2.id
+                        WHERE qs.questionId = qt.id
+                        ORDER BY sk2.reference
+                    ) AS qsk
+                ) AS question_skills
             FROM test_question AS tq
                      INNER JOIN question AS qt ON tq.questionId = qt.id
                      LEFT JOIN skill AS sk ON qt.skillId = sk.id
@@ -3667,7 +3677,17 @@ export class GenericController<T> {
             qg.name AS question_group_name,
             sk.id AS skill_id,
             sk.reference AS skill_reference,
-            sk.description AS skill_description
+            sk.description AS skill_description,
+            (
+                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
+                FROM (
+                    SELECT sk2.id, sk2.reference, sk2.description
+                    FROM question_skill AS qs
+                    INNER JOIN skill AS sk2 ON qs.skillId = sk2.id
+                    WHERE qs.questionId = qt.id
+                    ORDER BY sk2.reference
+                ) AS qsk
+            ) AS question_skills
         FROM test_question AS tq
         INNER JOIN question AS qt ON tq.questionId = qt.id
             LEFT JOIN skill AS sk ON qt.skillId = sk.id
@@ -3700,7 +3720,17 @@ export class GenericController<T> {
                     SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
                     FROM question_image AS qi
                     WHERE qi.questionId = qt.id AND qi.active = 1
-                ) AS question_images
+                ) AS question_images,
+                (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
+                    FROM (
+                        SELECT sk2.id, sk2.reference, sk2.description
+                        FROM question_skill AS qs
+                        INNER JOIN skill AS sk2 ON qs.skillId = sk2.id
+                        WHERE qs.questionId = qt.id
+                        ORDER BY sk2.reference
+                    ) AS qsk
+                ) AS question_skills
             FROM test_question AS tq
                      INNER JOIN question AS qt ON tq.questionId = qt.id
                      LEFT JOIN skill AS sk ON qt.skillId = sk.id
@@ -3751,6 +3781,16 @@ export class GenericController<T> {
             (
                 SELECT COUNT(*) FROM test_question AS tq2 WHERE tq2.questionId = qt.id AND tq2.testId != ?
             ) AS question_in_use,
+            (
+                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
+                FROM (
+                    SELECT sk2.id, sk2.reference, sk2.description
+                    FROM question_skill AS qs
+                    INNER JOIN skill AS sk2 ON qs.skillId = sk2.id
+                    WHERE qs.questionId = qt.id
+                    ORDER BY sk2.reference
+                ) AS qsk
+            ) AS question_skills,
             qg.id AS question_group_id,
             qg.name AS question_group_name
         FROM test_question AS tq
@@ -3789,7 +3829,17 @@ export class GenericController<T> {
               'createdAt', qi.createdAt, 'updatedAt', qi.updatedAt, 'createdByUser', qi.createdByUser, 'updatedByUser', qi.updatedByUser
             ))
             FROM question_image qi WHERE qi.questionId = q.id AND qi.active = 1
-          ) AS questionImages
+          ) AS questionImages,
+          (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
+            FROM (
+              SELECT sk2.id, sk2.reference, sk2.description
+              FROM question_skill AS qs
+              INNER JOIN skill AS sk2 ON qs.skillId = sk2.id
+              WHERE qs.questionId = q.id
+              ORDER BY sk2.reference
+            ) AS qsk
+          ) AS question_skills
         FROM question q
           LEFT JOIN person p ON p.id = q.personId
           LEFT JOIN skill sk ON sk.id = q.skillId

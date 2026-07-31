@@ -905,7 +905,7 @@ export class Helper {
       order: el.test_question_order,
       answer: el.test_question_answer ?? 'hidden',
       active: el.test_question_active,
-      question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description } },
+      question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description }, skills: this.parseSkills(el.question_skills) },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
   }
@@ -920,7 +920,8 @@ export class Helper {
         id: el.question_id,
         title: el.question_title,
         images: this.parseQuestionImages(el.question_images),
-        skill: { reference: el.skill_reference, description: el.skill_description }
+        skill: { reference: el.skill_reference, description: el.skill_description },
+        skills: this.parseSkills(el.question_skills)
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
@@ -942,6 +943,7 @@ export class Helper {
         discipline: el.question_discipline_id != null ? { id: el.question_discipline_id, name: el.question_discipline_name as string } : null,
         classroomCategory: el.question_classroom_category_id != null ? { id: el.question_classroom_category_id, name: el.question_classroom_category_name as string } : null,
         skill: el.skill_id != null ? { id: el.skill_id, reference: el.skill_reference as string, description: el.skill_description as string } : null,
+        skills: this.parseSkills(el.question_skills),
         questionImages: this.parseQuestionImages(el.question_images),
         inUse: el.question_in_use
       },
@@ -953,6 +955,14 @@ export class Helper {
     if (!value) return [];
     if (typeof value === 'string') { return JSON.parse(value) as QuestionImageJson[] }
     return value as QuestionImageJson[];
+  }
+
+  // question_skills vem de JSON_ARRAYAGG sobre question_skill, já ordenado por sk.reference
+  // na própria query. Sem vínculos -> null (JSON_ARRAYAGG de zero linhas), vira [].
+  private static parseSkills(value: unknown): Array<{ id: number, reference: string, description: string }> {
+    if (!value) return [];
+    if (typeof value === 'string') { return JSON.parse(value) as Array<{ id: number, reference: string, description: string }> }
+    return value as Array<{ id: number, reference: string, description: string }>;
   }
 
   // Converte string SQL crua ("YYYY-MM-DD HH:MM:SS") em Date, assumindo UTC —
@@ -982,6 +992,7 @@ export class Helper {
         createdByUser: row.skill_createdByUser,
         updatedByUser: row.skill_updatedByUser
       } : null,
+      skills: this.parseSkills(row.question_skills),
       discipline: row.discipline_id ? { id: row.discipline_id, name: row.discipline_name } : null,
       classroomCategory: row.cc_id ? {
         id: row.cc_id,

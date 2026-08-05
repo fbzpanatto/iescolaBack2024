@@ -481,41 +481,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async deleteStudentFromTest(req: Request, authUser: JwtPayload) {
-    const studentClassroomId = !isNaN(parseInt(req.query.studentClassroomId as string)) ? parseInt(req.query.studentClassroomId as string) : null
-    const testId = !isNaN(parseInt(req.query.testId as string)) ? parseInt(req.query.testId as string) : null
-    const classroomId = !isNaN(parseInt(req.params.classroom as string)) ? parseInt(req.params.classroom as string) : null
-
-    try {
-
-      if(studentClassroomId === null || testId === null || classroomId === null) {
-        return { status: 400, message: 'Parâmetros inválidos.' }
-      }
-
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
-
-      if(![PER_CAT.ADMN, PER_CAT.DIRE, PER_CAT.VICE, PER_CAT.COOR, PER_CAT.SECR].includes(qUserTeacher.person.category.id)) {
-        return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' }
-      }
-
-      const qTest = await this.qTestById(testId)
-
-      if(!qTest.active) {
-        return { status: 403, message: 'Não é permitido realizar modificações em avaliações encerradas.' }
-      }
-
-      if(studentClassroomId && testId && classroomId) {
-        await this.qSetInactiveStudentTest(studentClassroomId, testId, classroomId, qUserTeacher.person.user.id)
-      }
-
-      return { status: 200, data: {} };
-    }
-    catch (error: any) {
-      console.log('deleteStudent', error)
-      return { status: 500, message: error.message }
-    }
-  }
-
   async findAllByYear(req: Request<{ year: string }>, authUser: JwtPayload) {
     try {
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;

@@ -2992,30 +2992,6 @@ export class GenericController<T> {
     finally { if (conn) conn.release() }
   }
 
-  async qSetInactiveStudentTest(studentClassroomId: number, testId: number, classroomId: number, userId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection()
-      await conn.beginTransaction();
-      const updateQuery = `
-        UPDATE student_test_status sts
-            INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
-            SET sts.active = 0,
-                sts.updatedByUser = ?,
-                sts.updatedAt = NOW()
-        WHERE sts.studentClassroomId = ?
-          AND sts.testId = ?
-          AND sc.classroomId = ?
-    `;
-
-      const [queryResult] = await conn.query(updateQuery, [userId, studentClassroomId, testId, classroomId]);
-      await conn.commit();
-      return queryResult;
-    }
-    catch (error) { if(conn) await conn.rollback(); console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
   async qAllTeachersForSuperUser(search: string, adminSearch: boolean = false) {
     let conn;
     try {

@@ -1186,7 +1186,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       testQuestionsIds = [ ...testQuestionsIds, ...testQuestions.map(testQuestion => testQuestion.id) ];
     }
 
-    const result = await Promise.all(qTests.map(test => this.qLinkAlphabetic(preResultSc, test, test.testQuestions, userId)));
+    // Uma chamada com todas as AVLs, não uma por AVL em paralelo: as N transações
+    // concorrentes gravavam nas mesmas linhas de aluno e deadlockavam (ver qLinkAlphabetic).
+    await this.qLinkAlphabetic(preResultSc, qTests.map(test => ({ test, testQuestions: test.testQuestions })), userId);
 
     testsMap = new Map(qTests.map(t => [t.period.bimester.id, t]));
 

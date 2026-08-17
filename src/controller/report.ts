@@ -300,7 +300,10 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
         const pResult = Helper.testGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
-        data = Helper.schoolDataStructure(pResult, Helper.testFormater(qTest), questionGroups, qTestQuestions)
+        // NOVO: escolas/turmas vinculadas à prova que nunca tiveram acesso
+        const notAccessed = await this.qTestSchools(testId)
+
+        data = Helper.schoolDataStructure(pResult, Helper.testFormater(qTest), questionGroups, qTestQuestions, notAccessed)
 
         break
       }

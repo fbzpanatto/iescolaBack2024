@@ -5689,6 +5689,37 @@ INNER JOIN year AS y ON tr.yearId = y.id
     }
   }
 
+  async qTestSchools(testId: number | string) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+      SELECT 
+        c.id AS classroom_id,
+        c.name AS classroom_name,
+        c.shortName AS classroom_shortName,
+        s.id AS school_id,
+        s.name AS school_name,
+        s.shortName AS school_shortName
+      FROM test_classroom tc
+      INNER JOIN classroom c ON c.id = tc.classroomId
+      INNER JOIN school s ON s.id = c.schoolId
+      WHERE tc.testId = ?
+        AND s.id NOT IN (28, 29)
+        AND c.id NOT IN (1216, 1217, 1218, 1509)
+        AND NOT EXISTS (
+          SELECT 1 FROM student_test_status sts
+          INNER JOIN student_classroom sc ON sc.id = sts.studentClassroomId
+          WHERE sc.classroomId = c.id AND sts.testId = tc.testId
+        )
+    `
+      const [rows] = await conn.query(query, [testId])
+      return rows as { classroom_id: number, classroom_name: string, classroom_shortName: string, school_id: number, school_name: string, school_shortName: string }[]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qGraphTest(testId: number | string, testQuestionsIds: number[], year: any) {
 
     if (!testQuestionsIds || testQuestionsIds.length === 0) { return [] }

@@ -193,7 +193,7 @@ export class Helper {
     return isNaN(parsed) ? value : parsed;
   };
 
-  static schoolDataStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any) {
+  static schoolDataStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any, testSchools: any[] = []) {
 
     const answersLettersMap = new Map<string, Map<string, any>>()
 
@@ -265,6 +265,10 @@ export class Helper {
 
     const allResultsMap = new Map<number, any>()
 
+    for (const tQ of qTestQuestions) {
+      allResultsMap.set(tQ.id, { id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 })
+    }
+
     for (const school of schools) {
       for (const item of school.totals) {
         const existing = allResultsMap.get(item.id)
@@ -279,7 +283,7 @@ export class Helper {
 
     const allResults = Array.from(allResultsMap.values())
 
-    const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults, schoolAvg: 0 }
+    const cityHall = { id: 999, name: 'PREFEITURA DO MUNICÍPIO DE ITATIBA', shortName: 'ITATIBA', totals: allResults, schoolAvg: 0, accessed: schools.length > 0 }
 
     const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
@@ -288,13 +292,36 @@ export class Helper {
       questions: Array.from(questions.values()).map(q => ({ ...q, percentage: firstElement > 0 ? Math.floor((q.occurrences / firstElement) * 10000) / 100 : 0 }))
     }))
 
-    const mappedSchools = [...schools, cityHall].map(school => {
+    const mappedSchools = [...schools, cityHall].map((school: any) => {
       const tNumberTotal = school.totals.reduce((acc: any, item: any) => acc + item.tNumber, 0)
       const tPercentTotal = school.totals.reduce((acc: any, item: any) => acc + item.tPercent, 0)
-      return {...school, tNumberTotal, tPercentTotal, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0 }
+      return { ...school, tNumberTotal, tPercentTotal, schoolAvg: tPercentTotal > 0 ? Math.floor((tNumberTotal / tPercentTotal) * 10000) / 100 : 0, accessed: school.accessed ?? true }
     })
 
-    return { ...formatedTest, totalOfStudents: firstElement, schools: mappedSchools, testQuestions: qTestQuestions, questionGroups, answersLetters }
+    // Escolas da prova SEM nenhum lançamento — aparecem zeradas e brancas.
+    // "Sem lançamento" = não está em mappedSchools (que só contém quem passou
+    // no filtro de answer?.length > 0). Acesso é irrelevante aqui.
+    const launchedSchoolIds = new Set(mappedSchools.map((s: any) => s.id))
+    const emptySchoolsMap = new Map<number, { id: number, name: string, shortName: string }>()
+
+    for (const row of testSchools) {
+      if (!launchedSchoolIds.has(row.school_id) && !emptySchoolsMap.has(row.school_id)) {
+        emptySchoolsMap.set(row.school_id, { id: row.school_id, name: row.school_name, shortName: row.school_shortName })
+      }
+    }
+
+    const emptyTotals = qTestQuestions.map((tQ: any) => ({ id: tQ.id, order: tQ.order, tNumber: 0, tPercent: 0, tRate: 0 }))
+
+    const emptySchools = Array.from(emptySchoolsMap.values())
+      .map(s => ({ id: s.id, name: s.name, shortName: s.shortName, schoolId: s.id, schoolAvg: 0, tNumberTotal: 0, tPercentTotal: 0, accessed: false, totals: emptyTotals }))
+
+    const allSchools = [...mappedSchools, ...emptySchools].sort((a: any, b: any) => {
+      if (a.id === 999) return 1
+      if (b.id === 999) return -1
+      return a.shortName.localeCompare(b.shortName)
+    })
+
+    return { ...formatedTest, totalOfStudents: firstElement, schools: allSchools, testQuestions: qTestQuestions, questionGroups, answersLetters }
   }
 
   static classroomDataStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any, schoolId: number, classroomNumber: string) {

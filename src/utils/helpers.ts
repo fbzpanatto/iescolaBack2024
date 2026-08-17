@@ -5,7 +5,7 @@ import {
   qTestQuestionsFull, qTestQuestionsWithImages,
   QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
-import {User} from "../model/User";
+import { User } from "../model/User";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {

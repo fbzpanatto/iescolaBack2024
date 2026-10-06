@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 
 export function checkDatetime (req: Request, res: Response, next: NextFunction) {
-  const OPENING_TIME = 7;
-  const CLOSING_TIME = 18;
+  const OPENING_TIME = 6;
+  const CLOSING_TIME = 19;
   const TIME_ZONE = 'America/Sao_Paulo';
 
   const now = new Date();
@@ -47,4 +47,4 @@ export function checkDatetime (req: Request, res: Response, next: NextFunction) 
   }
 
   next();
-};
+}

@@ -3665,9 +3665,6 @@ export class GenericController<T> {
                 qt.id AS question_id,
                 qg.id AS question_group_id,
                 qg.name AS question_group_name,
-                sk.id AS skill_id,
-                sk.reference AS skill_reference,
-                sk.description AS skill_description,
                 (
                     SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
                     FROM (
@@ -3680,7 +3677,6 @@ export class GenericController<T> {
                 ) AS question_skills
             FROM test_question AS tq
                      INNER JOIN question AS qt ON tq.questionId = qt.id
-                     LEFT JOIN skill AS sk ON qt.skillId = sk.id
                      INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
             WHERE tq.testId IN (?)
             ORDER BY tq.testId, qg.id, tq.order
@@ -3708,9 +3704,6 @@ export class GenericController<T> {
             qt.id AS question_id,
             qg.id AS question_group_id,
             qg.name AS question_group_name,
-            sk.id AS skill_id,
-            sk.reference AS skill_reference,
-            sk.description AS skill_description,
             (
                 SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qsk.id, 'reference', qsk.reference, 'description', qsk.description))
                 FROM (
@@ -3723,7 +3716,6 @@ export class GenericController<T> {
             ) AS question_skills
         FROM test_question AS tq
         INNER JOIN question AS qt ON tq.questionId = qt.id
-            LEFT JOIN skill AS sk ON qt.skillId = sk.id
         INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
         INNER JOIN test AS tt ON tq.testId = tt.id
         WHERE tt.id = ?
@@ -3748,7 +3740,6 @@ export class GenericController<T> {
                 qt.id AS question_id,
                 qt.title AS question_title,
                 qg.id AS question_group_id, qg.name AS question_group_name,
-                sk.id AS skill_id, sk.reference AS skill_reference, sk.description AS skill_description,
                 (
                     SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
                     FROM question_image AS qi
@@ -3766,7 +3757,6 @@ export class GenericController<T> {
                 ) AS question_skills
             FROM test_question AS tq
                      INNER JOIN question AS qt ON tq.questionId = qt.id
-                     LEFT JOIN skill AS sk ON qt.skillId = sk.id
                      INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
                      INNER JOIN test AS tt ON tq.testId = tt.id
             WHERE tt.id = ?
@@ -3803,9 +3793,6 @@ export class GenericController<T> {
             d.name AS question_discipline_name,
             qt.classroomCategoryId AS question_classroom_category_id,
             cc.name AS question_classroom_category_name,
-            sk.id AS skill_id,
-            sk.reference AS skill_reference,
-            sk.description AS skill_description,
             (
                 SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
                 FROM question_image AS qi
@@ -3830,7 +3817,6 @@ export class GenericController<T> {
             INNER JOIN question AS qt ON tq.questionId = qt.id
             LEFT JOIN discipline AS d ON qt.disciplineId = d.id
             LEFT JOIN classroom_category AS cc ON qt.classroomCategoryId = cc.id
-            LEFT JOIN skill AS sk ON qt.skillId = sk.id
             INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
         WHERE tq.testId = ?
         ORDER BY qg.id, tq.order
@@ -3875,7 +3861,13 @@ export class GenericController<T> {
           ) AS question_skills
         FROM question q
           LEFT JOIN person p ON p.id = q.personId
-          LEFT JOIN skill sk ON sk.id = q.skillId
+          LEFT JOIN skill sk ON sk.id = (
+            SELECT qs1.skillId FROM question_skill qs1
+            INNER JOIN skill sk1 ON sk1.id = qs1.skillId
+            WHERE qs1.questionId = q.id
+            ORDER BY sk1.reference, sk1.id
+            LIMIT 1
+          )
           LEFT JOIN discipline d ON d.id = q.disciplineId
           LEFT JOIN classroom_category cc ON cc.id = q.classroomCategoryId
         WHERE q.disciplineId = ?
@@ -5199,13 +5191,9 @@ INNER JOIN year AS y ON tr.yearId = y.id
           tq.testId AS test_id,
           qt.id AS question_id,
           qg.id AS question_group_id, 
-          qg.name AS question_group_name,
-          sk.id AS skill_id, 
-          sk.reference AS skill_reference, 
-          sk.description AS skill_description
+          qg.name AS question_group_name
         FROM test_question AS tq
         INNER JOIN question AS qt ON tq.questionId = qt.id
-        LEFT JOIN skill AS sk ON qt.skillId = sk.id
         INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
         INNER JOIN test AS tt ON tq.testId = tt.id
         WHERE tt.id IN (${testIds.map(() => '?').join(',')})

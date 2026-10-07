@@ -33,8 +33,9 @@ não deixa lixo entre execuções.
 Cobre:
 1. Retrocompatibilidade — payload sem `skills` não mexe em `question_skill`
    nem em `question.updatedAt`.
-2. Adicionar habilidades a questão não compartilhada — sincronização +
-   recálculo de `question.skillId` (1ª em ordem alfabética) + irmãs intocadas.
+2. Adicionar habilidades a questão não compartilhada — sincronização de
+   `question_skill`; `question.skillId` e `question.updatedAt` NÃO mudam
+   (Deploy 1 da Fase 5: o backend não escreve mais a coluna) + irmãs intocadas.
 3. Trava de questão compartilhada — tentativa de alterar `skills` é ignorada
    silenciosamente (200, mas nada muda no banco).
 4. Payload malformado — id não-inteiro e id inexistente, ambos 400, rollback
@@ -44,6 +45,8 @@ Cobre:
    `updatedAt` de nenhuma questão nem `test_question`.
 7. Regressão de imagens — salvar sem `imagesModified` não mexe em
    `question_image`.
+8. Formato antigo (`question.skill.id`, sem `skills`) — questão existente: nada
+   muda; questão nova: exatamente 1 vínculo em `question_skill`, `skillId` NULL.
 
 ```bash
 npx ts-node scripts/regression/print-admin-token.ts

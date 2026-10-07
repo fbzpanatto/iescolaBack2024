@@ -929,7 +929,7 @@ export class Helper {
       order: el.test_question_order,
       answer: el.test_question_answer ?? 'hidden',
       active: el.test_question_active,
-      question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: { reference: el.skill_reference, description: el.skill_description }, skills: this.parseSkills(el.question_skills) },
+      question: { id: el.question_id, images: el.question_images, title: el.question_title, skill: this.firstSkillRefDesc(this.parseSkills(el.question_skills)), skills: this.parseSkills(el.question_skills) },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
   }
@@ -944,7 +944,7 @@ export class Helper {
         id: el.question_id,
         title: el.question_title,
         images: this.parseQuestionImages(el.question_images),
-        skill: { reference: el.skill_reference, description: el.skill_description },
+        skill: this.firstSkillRefDesc(this.parseSkills(el.question_skills)),
         skills: this.parseSkills(el.question_skills)
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
@@ -966,7 +966,7 @@ export class Helper {
         person: el.question_person_id != null ? { id: el.question_person_id } : null,
         discipline: el.question_discipline_id != null ? { id: el.question_discipline_id, name: el.question_discipline_name as string } : null,
         classroomCategory: el.question_classroom_category_id != null ? { id: el.question_classroom_category_id, name: el.question_classroom_category_name as string } : null,
-        skill: el.skill_id != null ? { id: el.skill_id, reference: el.skill_reference as string, description: el.skill_description as string } : null,
+        skill: this.firstAlphabeticalSkill(this.parseSkills(el.question_skills)),
         skills: this.parseSkills(el.question_skills),
         questionImages: this.parseQuestionImages(el.question_images),
         inUse: el.question_in_use
@@ -981,12 +981,30 @@ export class Helper {
     return value as QuestionImageJson[];
   }
 
-  // question_skills vem de JSON_ARRAYAGG sobre question_skill, já ordenado por sk.reference
-  // na própria query. Sem vínculos -> null (JSON_ARRAYAGG de zero linhas), vira [].
+  // question_skills vem de JSON_ARRAYAGG sobre question_skill. O ORDER BY da subquery não é
+  // respeitado pelo MySQL 8 dentro do JSON_ARRAYAGG, então a ordem alfabética por reference
+  // (comparação simples < e >, sem localeCompare) é aplicada aqui. Sem vínculos -> null, vira [].
   private static parseSkills(value: unknown): Array<{ id: number, reference: string, description: string }> {
     if (!value) return [];
-    if (typeof value === 'string') { return JSON.parse(value) as Array<{ id: number, reference: string, description: string }> }
-    return value as Array<{ id: number, reference: string, description: string }>;
+    const skills = typeof value === 'string'
+      ? JSON.parse(value) as Array<{ id: number, reference: string, description: string }>
+      : value as Array<{ id: number, reference: string, description: string }>;
+    return [...skills].sort((a, b) => a.reference < b.reference ? -1 : a.reference > b.reference ? 1 : 0);
+  }
+
+  // Habilidade que alimenta o campo singular legado `skill`: a 1ª em ordem alfabética por reference,
+  // com a mesma comparação (< e >) do parseSkills — logo, sempre igual a skills[0]. É a mesma que
+  // question.skillId espelhava.
+  private static firstAlphabeticalSkill(skills: Array<{ id: number, reference: string, description: string }>) {
+    if (skills.length === 0) { return null }
+    return skills.reduce((min, s) => s.reference < min.reference ? s : min);
+  }
+
+  // Campo singular legado `skill` dos relatórios/fluxo do aluno ({reference, description}, sem id).
+  // Sem habilidade, devolve o mesmo objeto de campos nulos que o LEFT JOIN em question.skillId produzia.
+  private static firstSkillRefDesc(skills: Array<{ id: number, reference: string, description: string }>) {
+    const first = this.firstAlphabeticalSkill(skills);
+    return first ? { reference: first.reference, description: first.description } : { reference: null, description: null };
   }
 
   // Converte string SQL crua ("YYYY-MM-DD HH:MM:SS") em Date, assumindo UTC —

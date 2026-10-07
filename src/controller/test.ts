@@ -689,21 +689,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
           if (!question.id) {
             if (!question.classroomCategory?.id) { throw new HttpError(400, "Todas as questões devem ter categoria definida") }
 
-            // skills: number[] (Fase 3) coexiste com o formato antigo question.skill: {id}
-            // enquanto o frontend não migra (Fase 4). Ver skill question-skill-nn.
-            const incomingSkillIds = Array.isArray(question.skills) ? question.skills : null;
-            const validatedSkills = incomingSkillIds !== null ? await this.validateSkillIds(conn, incomingSkillIds) : null;
-            const firstSkillId = validatedSkills !== null
-              ? (this.firstAlphabeticalSkillId(validatedSkills))
-              : (question.skill?.id ?? null);
+            // skills: number[] é a fonte de verdade. Formato antigo (question.skill: {id}, sem
+            // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
+            // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
+            const validatedSkills = await this.resolveNewQuestionSkills(conn, question);
 
             const [ insertQuestionResult ]: any = await conn.query(
-              `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, firstSkillId, createdAt, qUserTeacher.person.user.id]
+              `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, createdAt, qUserTeacher.person.user.id]
             );
             const newQuestionId = insertQuestionResult.insertId;
 
-            if (validatedSkills !== null && validatedSkills.length > 0) {
+            if (validatedSkills.length > 0) {
               const questionSkillValues = validatedSkills.map(s => [newQuestionId, s.id, createdAt, qUserTeacher.person.user.id]);
               await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
             }
@@ -833,21 +830,18 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 throw new HttpError(400, "Questão nova deve ter categoria definida")
               }
 
-              // skills: number[] (Fase 3) coexiste com o formato antigo question.skill: {id}
-              // enquanto o frontend não migra (Fase 4). Ver skill question-skill-nn.
-              const incomingSkillIds = Array.isArray(questionToSave.skills) ? questionToSave.skills : null;
-              const validatedSkills = incomingSkillIds !== null ? await this.validateSkillIds(conn, incomingSkillIds) : null;
-              const newQuestionFirstSkillId = validatedSkills !== null
-                ? (this.firstAlphabeticalSkillId(validatedSkills))
-                : (questionToSave.skill?.id ?? null);
+              // skills: number[] é a fonte de verdade. Formato antigo (question.skill: {id}, sem
+              // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
+              // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
+              const validatedSkills = await this.resolveNewQuestionSkills(conn, questionToSave);
 
               const [ insertQuestionResult ]: any = await conn.query(
-                `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, skillId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, newQuestionFirstSkillId, new Date(), userId]
+                `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`,
+                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, new Date(), userId]
               );
               const newQuestionId = insertQuestionResult.insertId;
 
-              if (validatedSkills !== null && validatedSkills.length > 0) {
+              if (validatedSkills.length > 0) {
                 const questionSkillValues = validatedSkills.map(s => [newQuestionId, s.id, new Date(), userId]);
                 await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
               }
@@ -913,11 +907,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
             const questionSetClauses = ['title = ?', 'personId = ?', 'disciplineId = ?', 'classroomCategoryId = ?', 'updatedAt = ?', 'updatedByUser = ?'];
             const questionSetParams: any[] = [next.question.title, next.question.person.id, next.question.discipline.id, next.question.classroomCategory.id, updatedAt, userId];
 
-            // Formato antigo (question.skill: {id}) só governa a coluna skillId enquanto o
-            // front não manda skills: number[] — quando manda, quem decide skillId é a
-            // sincronização de question_skill logo abaixo (1ª habilidade em ordem alfabética).
-            if (!hasNewSkillsFormat && next.question.skill) { questionSetClauses.push('skillId = ?'); questionSetParams.push(next.question.skill.id); }
-
             questionSetParams.push(curr.question.id);
             await conn.query(`UPDATE question SET ${questionSetClauses.join(', ')} WHERE id = ?`, questionSetParams);
           }
@@ -946,16 +935,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             if (toDelete.length > 0) {
               await conn.query(`DELETE FROM question_skill WHERE questionId = ? AND skillId IN (?)`, [curr.question.id, toDelete]);
-            }
-
-            // Caminho de volta: question.skillId continua espelhando a 1ª habilidade em
-            // ordem alfabética por reference, pro dia de reverter pra 1:N.
-            const firstAlphabetical = this.firstAlphabeticalSkillId(validatedSkills);
-            if (firstAlphabetical !== (curr.question.skill?.id ?? null)) {
-              await conn.query(
-                `UPDATE question SET skillId = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
-                [firstAlphabetical, updatedAt, userId, curr.question.id]
-              );
             }
           } else if (isShared && hasNewSkillsFormat) {
             // Mesma trava, só que aqui é pra AVISAR em vez de sincronizar. Não chama
@@ -1478,11 +1457,13 @@ class TestController extends GenericController<EntityTarget<Test>> {
     return found;
   }
 
-  // Ordem alfabética por reference (ver skill question-skill-nn) — a mesma regra usada
-  // pra decidir qual habilidade aparece nos pontos de exibição e qual vira question.skillId.
-  private firstAlphabeticalSkillId(skills: { id: number, reference: string }[]): number | null {
-    if (skills.length === 0) { return null }
-    return [...skills].sort((a, b) => a.reference.localeCompare(b.reference))[0].id;
+  // Habilidades de uma questão NOVA. skills (number[]) tem precedência, inclusive []. Sem skills,
+  // o formato antigo question.skill.id (aba antiga do navegador) cria um único vínculo; sem
+  // nenhum dos dois, a questão nasce sem habilidade (estado legítimo).
+  private async resolveNewQuestionSkills(conn: any, question: any): Promise<{ id: number, reference: string, description: string }[]> {
+    if (Array.isArray(question.skills)) { return this.validateSkillIds(conn, question.skills) }
+    if (question.skill?.id != null) { return this.validateSkillIds(conn, [question.skill.id]) }
+    return [];
   }
 
   diffs = (original: any, current: any): boolean => {

@@ -7,8 +7,6 @@ import { QuestionGroup } from "../model/QuestionGroup";
 import { Period } from "../model/Period";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 
-export interface DeviceCheckResult { isMobile: boolean; confidence: 'high' | 'medium' | 'low'; reasons: string[]; userAgent: string; timestamp: Date }
-
 export interface Data { status: number; data?: any; message?: any }
 export interface JwtPayload { user: number; category: number; email?: string; ra?: string }
 export type UserInterface = JwtPayload

@@ -62,7 +62,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: data };
       }
 
-      if([tcids.AVL_ITA, tcids.SIM_ITA].includes(test.category.id)) {
+      if(Helper.isScoredTestCategory(test.category.id)) {
 
         await this.findAndDeleteStatusAndQuestions(testId, classroomId)
 
@@ -75,6 +75,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         let classroomPoints = 0
         let classroomPercent = 0
         let validStudentsTotalizator = 0
+        // Denominador legado por questão (só células com sala vinculada): base do % por letra, que não muda.
+        const lettersTotals = new Map<number, number>()
         let totals: Totals[] = qTestQuestions.map(el => ({ id: el.id, tNumber: 0, tTotal: 0, tRate: 0 }))
         let answersLetters: { letter: string, questions: {  id: number, order: number, occurrences: number, percentage: number }[] }[] = []
 
@@ -120,9 +122,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             const studentQuestion = sc.student.studentQuestions.find((sq: any) => sq.testQuestion.id === testQuestion.id)
 
-            if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
-
             let element = totals.find(el => el.id === testQuestion.id)
+
+            // Célula vazia (sem sala vinculada) de aluno elegível conta como erro: fica no denominador.
+            if(Helper.isUnassignedEmptyCell(studentQuestion)) {
+              element!.tTotal += 1
+              classroomPercent += 1
+              element!.tRate = Helper.scoreRate(element!.tNumber, element!.tTotal)
+              return acc
+            }
+
+            if((studentQuestion?.rClassroom?.id != classroom.id )){ return acc }
 
             if ((studentQuestion?.rClassroom?.id === classroom.id ) && studentQuestion?.answer != '' && studentQuestion?.answer != ' ' && testQuestion.answer?.trim().includes(studentQuestion?.answer.toUpperCase().trim())) {
               element!.tNumber += 1
@@ -132,7 +142,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             element!.tTotal += 1
             classroomPercent += 1
-            element!.tRate = Math.floor((element!.tNumber / element!.tTotal) * 10000) / 100;
+            lettersTotals.set(testQuestion.id, (lettersTotals.get(testQuestion.id) ?? 0) + 1)
+            element!.tRate = Helper.scoreRate(element!.tNumber, element!.tTotal)
 
             const letter = studentQuestion?.answer && studentQuestion.answer.trim().length ? studentQuestion.answer.toUpperCase().trim() : 'VAZIO';
 
@@ -144,7 +155,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             ltQ.occurrences += 1
 
-            answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Math.floor((it.occurrences / element!.tTotal) * 10000) / 100}))})).sort((a, b) => a.letter.localeCompare(b.letter))
+            answersLetters = answersLetters.map(el => ({...el, questions: el.questions.map(it => ({...it, percentage: Helper.scoreRate(it.occurrences, lettersTotals.get(testQuestion.id)!)}))})).sort((a, b) => a.letter.localeCompare(b.letter))
 
             return acc
           }, 0)
@@ -166,7 +177,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
           questionGroups,
           classroomPoints,
           studentClassrooms: mappedResult,
-          classroomPercent: Math.floor((classroomPoints / classroomPercent) * 10000) / 100
+          classroomPercent: Helper.scoreRate(classroomPoints, classroomPercent)
         }
 
         return { status: 200, data: data };
@@ -425,7 +436,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
         return { status: 200, data: { alphabeticHeaders: headers, ...test, classrooms: resClassrooms } };
       }
 
-      if([tcids.AVL_ITA, tcids.SIM_ITA].includes(baseTest.category.id)) {
+      if(Helper.isScoredTestCategory(baseTest.category.id)) {
         const qTestQuestions = await this.qTestQuestions(testId) as unknown as TestQuestion[];
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" };
 

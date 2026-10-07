@@ -7,7 +7,8 @@
     "dev": "NODE_ENV=development npx nodemon src/index.ts --watch 'src/' -e ts",
     "build": "rimraf ./public && tsc",
     "start": "NODE_ENV=production node ./public/index.js",
-    "pm2": "npm run build && NODE_ENV=production pm2 start ./public/index.js -f"
+    "pm2": "npm run build && NODE_ENV=production pm2 start ./public/index.js -f",
+    "test": "node -r ts-node/register/transpile-only --test tests/"
   },
   "keywords": [],
   "author": "",

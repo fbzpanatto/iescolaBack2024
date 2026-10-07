@@ -6,6 +6,7 @@ import {
   QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import { User } from "../model/User";
+import { SCORED_TEST_CATEGORIES_IDS } from "./enums";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); this.name = 'HttpError'; }
@@ -321,6 +322,19 @@ export class Helper {
     return { ...formatedTest, totalOfStudents: firstElement, schools: allSchools, testQuestions: qTestQuestions, questionGroups, answersLetters }
   }
 
+  static isScoredTestCategory(categoryId: number): boolean { return SCORED_TEST_CATEGORIES_IDS.includes(categoryId) }
+
+  // Percentual com 2 casas (floor). Fórmula única das telas de gabarito e comparativo de AVL/SIM.
+  // Sem guarda de denominador de propósito: cada chamador mantém o seu tratamento de total = 0.
+  static scoreRate(hits: number, total: number): number { return Math.floor((hits / total) * 10000) / 100 }
+
+  // Célula sem resposta e ainda sem sala vinculada (linha criada pelo vínculo prova-aluno).
+  // Para o aluno elegível ela conta como erro, ou seja, fica no denominador.
+  static isUnassignedEmptyCell(cell: { answer?: string | null, rClassroom?: { id?: number | null } | null } | undefined): boolean {
+    if (!cell) { return true }
+    return !cell.rClassroom?.id && !(cell.answer ?? '').trim().length
+  }
+
   static classroomDataStructure(pResult: any[], formatedTest: any, questionGroups: any, qTestQuestions: any, schoolId: number, classroomNumber: string) {
 
     const targetSchool = pResult.find(s => s.id === schoolId);
@@ -339,7 +353,7 @@ export class Helper {
           const studentsQuestions = questionMap.get(tQ.id) || [];
           const matchedQuestions = studentsQuestions.filter((sq: any) => tQ.answer?.includes(sq.answer.toUpperCase())).length;
           const total = filtered.length;
-          const tRate = matchedQuestions > 0 && total > 0 ? Math.floor((matchedQuestions / total) * 10000) / 100 : 0;
+          const tRate = matchedQuestions > 0 && total > 0 ? Helper.scoreRate(matchedQuestions, total) : 0;
           return { id: tQ.id, order: tQ.order, tNumber: matchedQuestions, tPercent: total, tRate };
         });
 
@@ -365,7 +379,7 @@ export class Helper {
       }
     }
 
-    const schoolTotals = Array.from(schoolTotalsMap.values()).map(item => ({ ...item, tRate: item.tPercent > 0 ? Math.floor((item.tNumber / item.tPercent) * 10000) / 100 : 0 }));
+    const schoolTotals = Array.from(schoolTotalsMap.values()).map(item => ({ ...item, tRate: item.tPercent > 0 ? Helper.scoreRate(item.tNumber, item.tPercent) : 0 }));
 
     const schoolAggregate = {
       id: targetSchool.id,
@@ -411,7 +425,7 @@ export class Helper {
     // Mapeia os totais finais calculando a taxa (tRate) e garante a ordenação original das questões
     const allResults = Array.from(allResultsMap.values())
       .sort((a: any, b: any) => a.order - b.order)
-      .map(item => ({ ...item, tRate: item.tPercent > 0 ? Math.floor((item.tNumber / item.tPercent) * 10000) / 100 : 0 }));
+      .map(item => ({ ...item, tRate: item.tPercent > 0 ? Helper.scoreRate(item.tNumber, item.tPercent) : 0 }));
 
     const cityHall = { id: 999, name: 'ITATIBA', shortName: 'ITA', school: 'ITATIBA', totals: allResults };
 
@@ -427,7 +441,7 @@ export class Helper {
           acc.tPercent += Number(item.tPercent);
           return acc;
         }, { tNumber: 0, tPercent: 0 });
-        const tRateAvg = tPercent > 0 ? Math.floor((tNumber / tPercent) * 10000) / 100 : 0;
+        const tRateAvg = tPercent > 0 ? Helper.scoreRate(tNumber, tPercent) : 0;
 
         return { ...c, tRateAvg };
       });

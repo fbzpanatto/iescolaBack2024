@@ -1,5 +1,5 @@
 // controller/upload.ts
-import { gerarPresignedUrl, moverLegadoParaQuestions } from '../services/s3.service';
+import { aplicarNoCache, gerarPresignedUrl, moverLegadoParaQuestions } from '../services/s3.service';
 import { connectionPool } from '../services/db';
 
 const ALLOWED_CONTENT_TYPES: Record<string, string[]> = {
@@ -22,6 +22,60 @@ class UploadController {
       return { status: 200, data: resultado };
     } catch (err) {
       return { status: 500, error: 'Erro ao gerar URL de upload' };
+    }
+  }
+
+  // Temporário: backfill de CacheControl 'no-cache' nas imagens de questão
+  // (uploads novos já saem com o header via moverParaQuestions). Roda uma única vez;
+  // é idempotente — objetos que já têm o header são pulados. Falha em um objeto
+  // não interrompe os demais. Remover rota e método depois de executado.
+  //
+  // As keys vêm do banco, não de um ListObjectsV2 no bucket, por dois motivos:
+  // o usuário IAM do backend não tem s3:ListBucket, e listar por prefixo deixaria
+  // de fora as keys legadas da raiz (a maioria, enquanto migrar-legadas não rodar).
+  async aplicarNoCacheQuestions(dryRun: boolean) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const [rows] = await conn.query(
+        `SELECT DISTINCT s3Key FROM question_image WHERE active = 1 ORDER BY s3Key`
+      ) as any[];
+
+      const keys: string[] = rows.map((row: any) => row.s3Key as string);
+      const totalAlvo = keys.length;
+
+      if (dryRun) {
+        const legadas = keys.filter(key => !key.includes('/')).length;
+        return {
+          status: 200,
+          data: { totalAlvo, emQuestions: totalAlvo - legadas, legadasNaRaiz: legadas, amostra: keys.slice(0, 10) },
+        };
+      }
+
+      const BATCH_SIZE = 10;
+      let atualizados = 0;
+      let jaOk = 0;
+      const falhas: { key: string, erro: string }[] = [];
+
+      for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+        const batch = keys.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(batch.map(async (key) => {
+          try {
+            const alterado = await aplicarNoCache(key);
+            if (alterado) { atualizados++ } else { jaOk++ }
+          } catch (err) {
+            falhas.push({ key, erro: err instanceof Error ? err.message : String(err) });
+          }
+        }));
+      }
+
+      return { status: 200, data: { totalAlvo, atualizados, jaOk, falhas } };
+    } catch (error) {
+      return { status: 500, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      if (conn) conn.release();
     }
   }
 

@@ -69,7 +69,7 @@ export interface qTestQuestionsWithImages {
   test_question_answer: string
   test_question_active: boolean
   question_id: number
-  question_images: string | null // JSON string agregado pelo MySQL (JSON_ARRAYAGG), ainda não parseado
+  question_images: string | null
   question_title?: string
   question_group_id: number
   question_group_name: string

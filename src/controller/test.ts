@@ -124,7 +124,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
             let element = totals.find(el => el.id === testQuestion.id)
 
-            // Célula vazia (sem sala vinculada) de aluno elegível conta como erro: fica no denominador.
+            // Célula vazia (sem sala vinculada) de aluno elegível conta como erro: fica no denominador
             if(Helper.isUnassignedEmptyCell(studentQuestion)) {
               element!.tTotal += 1
               classroomPercent += 1

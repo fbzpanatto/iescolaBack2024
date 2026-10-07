@@ -1,5 +1,4 @@
 import { PersonCategory } from "../model/PersonCategory";
-import { Classroom } from "../model/Classroom";
 import { Student } from "../model/Student";
 import { Test } from "../model/Test";
 import { School } from "../model/School";
@@ -159,9 +158,6 @@ export interface qTestByIdRow {
   school_active: number | null
 }
 
-// Forma equivalente ao antigo TestController#getTestQuestions (TypeORM) — usado só no
-// fluxo de edição (getById/updateTest). Diferente de TestQuestionWithImages, que serve
-// o fluxo do aluno (studentTestController) e nunca expõe `answer`.
 export interface TestQuestionFull {
   id: number
   order: number

@@ -6548,7 +6548,23 @@ INNER JOIN year AS y ON tr.yearId = y.id
       await conn.query(`UPDATE alphabetic_first SET studentId = ? WHERE studentId = ?`, [rightId, wrongId]);
 
       // ============================================================================
-      // STEP 6: ATUALIZAÇÃO DOS DADOS CADASTRAIS DO ALUNO MANTIDO
+      // STEP 6: LIMPEZA DAS TABELAS DE CADASTRO
+      // ============================================================================
+      await conn.query(`UPDATE transfer SET studentId = ? WHERE studentId = ?`, [rightId, wrongId]);
+
+      // 6.1. Resgata o personId antigo antes de deletar o student
+      const [personRows] = await conn.query(`SELECT personId FROM student WHERE id = ?`, [wrongId]);
+      const personIdToDelete = (personRows as Array<any>).length > 0 ? (personRows as Array<any>)[0].personId : null;
+
+      // Elimina a raiz do problema
+      await conn.query(`DELETE FROM student WHERE id = ?`, [wrongId]);
+
+      if (personIdToDelete) { await conn.query(`DELETE FROM person WHERE id = ?`, [personIdToDelete]) }
+
+      // ============================================================================
+      // STEP 7: ATUALIZAÇÃO DOS DADOS CADASTRAIS DO ALUNO MANTIDO
+      // Precisa vir DEPOIS de deletar o duplicado: o índice único (ra, dv) rejeitaria
+      // o UPDATE enquanto o registro errado ainda detivesse o mesmo RA/DV.
       // ============================================================================
       await conn.query(`UPDATE student SET ra = ?, dv = ? WHERE id = ?`, [ra, dv, rightId]);
 
@@ -6558,20 +6574,6 @@ INNER JOIN year AS y ON tr.yearId = y.id
       SET p.birth = ?
       WHERE s.id = ?
     `, [birth, rightId]);
-
-      // ============================================================================
-      // STEP 7: LIMPEZA DAS TABELAS DE CADASTRO
-      // ============================================================================
-      await conn.query(`UPDATE transfer SET studentId = ? WHERE studentId = ?`, [rightId, wrongId]);
-
-      // 7.2. Resgata o personId antigo antes de deletar o student
-      const [personRows] = await conn.query(`SELECT personId FROM student WHERE id = ?`, [wrongId]);
-      const personIdToDelete = (personRows as Array<any>).length > 0 ? (personRows as Array<any>)[0].personId : null;
-
-      // Elimina a raiz do problema
-      await conn.query(`DELETE FROM student WHERE id = ?`, [wrongId]);
-
-      if (personIdToDelete) { await conn.query(`DELETE FROM person WHERE id = ?`, [personIdToDelete]) }
 
       // ============================================================================
       // STEP 8: EXECUÇÃO FINAL

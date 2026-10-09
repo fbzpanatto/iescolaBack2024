@@ -8,6 +8,7 @@ import { PER_CAT as pc } from "../utils/enums";
 import { TRANSFER_STATUS as ts } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
+import { sanitizeBirthDate, sanitizeStudentRa } from "../utils/studentLoginSanitizer";
 import bcrypt from 'bcrypt';
 
 const tokenSecret = process.env.SECRET;
@@ -66,9 +67,17 @@ class LoginController extends GenericController<EntityTarget<User>> {
   }
 
   async studentLogin(req: Request) {
-    const { ra: fullRa, birthDate } = req.body;
+    const { ra: rawRa, birthDate: rawBirthDate } = req.body;
 
     try {
+
+      if (typeof rawRa !== 'string' || typeof rawBirthDate !== 'string') { return { status: 404, message: "Credenciais Inválidas" } }
+
+      // Aceita RA com pontos/traço/espaços e datas fora do padrão: normaliza antes de comparar.
+      const fullRa = sanitizeStudentRa(rawRa);
+      const birthDate = sanitizeBirthDate(rawBirthDate);
+
+      if (fullRa.length < 2) { return { status: 404, message: "Credenciais Inválidas" } }
 
       const ra = fullRa.slice(0, -1);
       const dv = fullRa.slice(-1);

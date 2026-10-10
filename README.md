@@ -1,10 +1,29 @@
 # iescolaBack2024
  
 
-## Percentual da sala em Avaliações e Simulados
+## Classroom percentage in Assessments and Simulados
 
-Regra: em `AVL_ITA` (7) e `SIM_ITA` (6; `SIM_4_9` no front), célula sem resposta de aluno elegível conta como erro, ou seja, permanece no denominador. Vale para a tela de gabarito (`GET students`, `TestController.getStudents`) e para o comparativo (`classroom/:id/graphic`, `Helper.classroomDataStructure`), que devem sempre coincidir. Diagnóstica, alfabetização, leitura e fluência não seguem essa regra e não foram alteradas.
+Rule: in `AVL_ITA` (7) and `SIM_ITA` (6; `SIM_4_9` in the front end), a cell with no answer from an eligible student counts as an error, i.e. it stays in the denominator. This applies to the answer-sheet screen (`GET students`, `TestController.getStudents`) and to the comparison (`classroom/:id/graphic`, `Helper.classroomDataStructure`), which must always match. Diagnostic, literacy, reading and fluency tests do not follow this rule and were not changed.
 
-- Lista de categorias: `SCORED_TEST_CATEGORIES_IDS` (`src/utils/enums.ts`); fórmula: `Helper.scoreRate`; célula vazia: `Helper.isUnassignedEmptyCell`.
-- Elegibilidade (inalterada): ficam fora alunos sem nenhuma resposta, OE/TR e respostas de outra sala.
-- Testes: `npm test` (golden master em `tests/__snapshots__/baseline.json`, capturado antes da alteração, mais paridade entre as telas).
+- Category list: `SCORED_TEST_CATEGORIES_IDS` (`src/utils/enums.ts`); formula: `Helper.scoreRate`; empty cell: `Helper.isUnassignedEmptyCell`.
+- Eligibility (unchanged): students with no answers at all, OE/TR and answers from another classroom are left out.
+- Tests: `npm test` (golden master in `tests/__snapshots__/baseline.json`, captured before the change, plus parity between the screens).
+
+## GET /test/:id/preview
+
+Read-only preview of a test, for staff.
+
+- Access: staff only. Users in the `ALUN` (student) category are rejected with 403.
+- Scope: `SIM_ITA` tests only (category 6).
+- Read-only: it does not issue a token, does not apply any time window and does not record any answers.
+- Visibility: mirrors the test list (the same tests the user sees there) plus tests owned by the requesting user.
+- Payload: the questions payload without the `answer` field. The student payload (`GET /test/:id`) returns `answer: "hidden"` instead, so the two payloads differ by that key.
+
+Status codes:
+
+| Code | When |
+| --- | --- |
+| 200 | Preview returned. |
+| 400 | Invalid (non-numeric) id, test is not `SIM_ITA`, or the test has no questions. |
+| 403 | Requesting user is `ALUN`, or the test is not visible to the user. |
+| 404 | Test not found. |

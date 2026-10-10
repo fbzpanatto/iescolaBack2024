@@ -24,7 +24,7 @@ import {
   qTeacherRelationShip,
   qTest,
   qTestClassroom,
-  qTestByIdRow, qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages,
+  qTestByIdRow, qTestPreviewScope, qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages,
   qTestToken,
   qTransferStatus,
   qUser,
@@ -3182,6 +3182,35 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(query, [testId, yearName])
       return (queryResult as qTest[])[0]
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qTestPreviewScope(testId: number): Promise<qTestPreviewScope | null> {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query =
+        `
+        SELECT yr.name AS year_name, c.id AS classroom_id, c.categoryId AS classroom_category_id
+        FROM test AS t
+          INNER JOIN period AS pr ON t.periodId = pr.id
+          INNER JOIN year AS yr ON pr.yearId = yr.id
+          LEFT JOIN test_classroom AS tct ON tct.testId = t.id
+          LEFT JOIN classroom AS c ON tct.classroomId = c.id
+        WHERE t.id = ?
+      `
+
+      const [ queryResult ] = await conn.query(query, [testId])
+      const rows = queryResult as { year_name: string, classroom_id: number | null, classroom_category_id: number | null }[]
+      if (!rows.length) { return null }
+
+      const classrooms = rows
+        .filter(row => row.classroom_id !== null)
+        .map(row => ({ id: Number(row.classroom_id), categoryId: Number(row.classroom_category_id) }))
+
+      return { yearName: String(rows[0].year_name), classrooms }
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

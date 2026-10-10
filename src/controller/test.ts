@@ -6,6 +6,7 @@ import { StudentClassroom } from "../model/StudentClassroom";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
 import {
+  CLASSROOM_CATEGORIES,
   EXAMS_IDS_PRODUCTION,
   EXAMS_IDS_READING,
   OUT_CLASSROOMS,
@@ -15,7 +16,7 @@ import {
 } from "../utils/enums";
 import { EntityTarget } from "typeorm";
 import { ReadingFluency } from "../model/ReadingFluency";
-import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, TestQuestionFull, Totals, JwtPayload } from "../interfaces/interfaces";
+import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear, TestBodySave, TestQuestionFull, Totals, JwtPayload, TestPreviewGroup, TestPreviewResponse, TestQuestionWithImages } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { reportController } from "./report";
 import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
@@ -599,6 +600,61 @@ class TestController extends GenericController<EntityTarget<Test>> {
       return { status: 200, data: { ...test, endedAt: test.endedAt ? formatedEndedAt: test.endedAt , testQuestions } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  async getPreview(req: Request<{ id: string }>, authUser: JwtPayload): Promise<TestPreviewResponse> {
+    try {
+      const forbidden = { status: 403, message: "Você não tem permissão para visualizar esta prova." }
+
+      if (authUser.category === PER_CAT.ALUN) { return forbidden }
+
+      const testId = Number(req.params.id)
+      if (!Number.isInteger(testId) || testId <= 0) { return { status: 400, message: "Identificador de prova inválido." } }
+
+      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const categoryId = qUserTeacher.person.category.id
+      if (categoryId === PER_CAT.ALUN) { return forbidden }
+
+      const scope = await this.qTestPreviewScope(testId)
+      if (!scope) { return { status: 404, message: "Prova não encontrada." } }
+
+      const qTest = await this.qTestByIdAndYear(testId, scope.yearName)
+      if (!qTest) { return { status: 404, message: "Prova não encontrada." } }
+
+      if (qTest.test_category_id !== tcids.SIM_ITA) { return { status: 400, message: "A pré-visualização está disponível apenas para simulados." } }
+
+      const canView = await this.canPreviewTest(authUser.user, categoryId, qUserTeacher.person.id === qTest.person_id, qTest.discipline_id, scope.classrooms)
+      if (!canView) { return forbidden }
+
+      const qTqs = await this.qTestQuestionsWithTitle(testId) as TestQuestionWithImages[]
+      if (!qTqs || qTqs.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões." } }
+
+      const groupMap = new Map<number, TestPreviewGroup>()
+
+      qTqs.forEach(({ answer: _answer, ...tQ }) => {
+        const grpId = tQ.questionGroup.id
+        const group = groupMap.get(grpId) ?? { id: grpId, name: tQ.questionGroup.name, questions: [] }
+        group.questions.push(tQ)
+        groupMap.set(grpId, group)
+      })
+
+      const testQuestions = Array.from(groupMap.values())
+
+      return { status: 200, data: { test: { ...qTest, testQuestions } } }
+    }
+    catch (error: unknown) { console.error(error); return { status: 500, message: error instanceof Error ? error.message : String(error) } }
+  }
+
+  private async canPreviewTest(userId: number, categoryId: number, isOwner: boolean, disciplineId: number, testClassrooms: { id: number, categoryId: number }[]): Promise<boolean> {
+    if (categoryId === PER_CAT.ADMN || categoryId === PER_CAT.SUPE || categoryId === PER_CAT.FORM) { return true }
+    if (isOwner) { return true }
+    if (categoryId === PER_CAT.SUPE_EI) { return testClassrooms.some(c => c.categoryId === CLASSROOM_CATEGORIES.EI) }
+
+    const { classrooms } = await this.qTeacherClassrooms(userId)
+    const { disciplines } = await this.qTeacherDisciplines(userId)
+
+    if (!disciplines.includes(Number(disciplineId))) { return false }
+    return testClassrooms.some(c => classrooms.includes(c.id))
   }
 
   async saveTest(body: TestBodySave, authUser: JwtPayload) {

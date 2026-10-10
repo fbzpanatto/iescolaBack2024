@@ -94,6 +94,13 @@ export interface TestQuestionWithImages {
   questionGroup: { id: number, name: string }
 }
 
+export interface qTestPreviewScope { yearName: string, classrooms: { id: number, categoryId: number }[] }
+export type TestPreviewQuestion = Omit<TestQuestionWithImages, 'answer'>
+export interface TestPreviewGroup { id: number, name: string, questions: TestPreviewQuestion[] }
+export type TestPreviewResponse =
+  | { status: number, message: string }
+  | { status: 200, data: { test: Omit<qTest, 'testQuestions'> & { testQuestions: TestPreviewGroup[] } } }
+
 export interface qTestQuestionsFull {
   test_question_id: number
   test_question_order: number

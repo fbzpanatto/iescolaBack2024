@@ -1,7 +1,8 @@
-import { Router, Request } from "express"
+import { Router, Request, Response } from "express"
 import { testController as controller } from "../controller/test"
 import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
+import { JwtPayload } from "../interfaces/interfaces";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]
 const CHECK_PARAMS = [ID_PARAM, YEAR_NAME_PARAM, CLASSROOM_ID_PARAM]
@@ -19,6 +20,10 @@ TestRouter.get('/form/test-category/:testCategory', havePermission, async (req: 
 
 TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req: Request<{ year: string }>, res: any) => {
   const response = await controller.findAllByYear(req, (req as any).user); return res.status(response.status).json(response)
+});
+
+TestRouter.get('/:id/preview', ID_PARAM, havePermission, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  const response = await controller.getPreview(req, (req as Request<{ id: string }> & { user: JwtPayload }).user); res.status(response.status).json(response)
 });
 
 TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (req: Request, res: any) => {

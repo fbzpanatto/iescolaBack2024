@@ -1,0 +1,65 @@
+DEPLOY 2 CLEANUP - removal of temporary image-migration code (2026-10-10)
+
+REQUEST
+Remove the temporary image-migration code from the backend, without committing:
+- routes POST /aplicar-no-cache and POST /migrar-legadas (src/routes/upload.ts)
+- aplicarNoCacheQuestions and migrarImagensLegadas (src/controller/upload.ts)
+- aplicarNoCache and moverLegadoParaQuestions (src/services/s3.service.ts)
+- plus imports/helpers/constants that became unused (only those).
+Keep: POST /presigned-url, criarPresignedUrl, gerarPresignedUrl, moverParaQuestions, moverParaLessons,
+deletarDoS3. No database change. Front end untouched.
+
+PLAN / EXECUTION
+Done inline in the main session (the architect/coder/reviewer subagents are not available as agent types
+in this environment). Single step, risk assessed LOW: pure deletion of unreferenced temporary code, no
+schema, auth, money or data-contract change.
+
+FILES CHANGED (git diff --stat)
+- src/routes/upload.ts          15 deletions  (both temporary routes and their comments)
+- src/controller/upload.ts      1 insertion, 103 deletions
+    removed both methods; import line reduced to { gerarPresignedUrl };
+    removed unused import { connectionPool } from '../services/db' (only used by the removed methods)
+- src/services/s3.service.ts    64 deletions (moverLegadoParaQuestions, aplicarNoCache and their doc comments)
+    S3 client imports (Put/Copy/Delete/Head) are all still used by the kept functions: unchanged.
+- .claude/lastPoint/lastPoint.md  top "Final state 2026-10-10" block only: "Remaining work" list replaced.
+  (this file is not shown in git diff --stat; see "anything odd")
+
+VERIFICATION
+1) grep of the whole repo (src, scripts, tests, docs, .claude, CLAUDE.md; excluding node_modules, .git and
+   .phase-notes) for: aplicar-no-cache, migrar-legadas, aplicarNoCache, migrarImagensLegadas,
+   moverLegadoParaQuestions.
+   Code references (src, scripts, tests): NONE remaining.
+   Documentation references remaining (not edited, listed only):
+   - .claude/lastPoint/lastPoint.md: historical mentions (lines ~12, 15, 25, 28, 29, 110, 144, 444-446) and
+     the new Remaining work block, which names the removed items on purpose.
+   - .claude/lastPoint/relatorio-conferencia.md: lines 4, 19, 27, 29, 45 (code excerpt of the removed function).
+   - .claude/refactor/refactor.md: lines 137-139.
+   - .phase-notes/2026-10-10-migrar-legadas-preflight.txt: audit of the production run (historical).
+   None of these needs a change; they describe the run that already happened.
+2) npx tsc --noEmit -> exit 0, no output.
+3) npm test (node --test tests/) -> tests 83, pass 83, fail 0, cancelled 0, skipped 0.
+4) Regression suite as documented in lastPoint.md / scripts/regression/README.md:
+   npx ts-node scripts/regression/question-skill.regression.ts
+   -> "Resultado: 57 passaram, 0 falharam." (exit 0), 7/7 parts, fixtures cleaned up by the script.
+
+CORRECTION ROUNDS
+0.
+
+PENDING DOCUMENTATION UPDATES
+None required. Optional: the stale historical references listed above can stay as history.
+
+ANYTHING ODD
+- Port 5000 (the default SERVER_PORT) is occupied by another project's dev server (felony-backend, via
+  tsx/nodemon). The regression script targets http://localhost:$SERVER_PORT, so running it as-is would have
+  hit the wrong application. To avoid that, I started this repo's server on port 5099 (SERVER_PORT=5099 via
+  environment, .env untouched), ran the regression with SERVER_PORT=5099, then killed that server. Nothing
+  of the other project was touched. It needed kill -9 because the server ignored SIGTERM; port 5099 is free.
+- The regression and its fixtures ran against the local database configured in .env (the documented local
+  test MySQL); the script deleted everything it created.
+- .claude/lastPoint/lastPoint.md does not appear in `git diff --stat`: the .claude directory is not tracked
+  by git (.gitignore line 55 ignores .claude/),
+  so the doc edit exists on disk only and is not part of the commit below.
+- The production DB tables question_image_backup_s3key and question_backup_pre_migration were not touched.
+
+READY COMMIT LINE
+git add src/routes/upload.ts src/controller/upload.ts src/services/s3.service.ts && git commit -m "chore(upload): remove temporary image migration routes and helpers"

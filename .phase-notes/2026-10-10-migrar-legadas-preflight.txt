@@ -1,0 +1,129 @@
+PREFLIGHT AUDIT - POST /upload/migrar-legadas (production run)
+Date: 2026-10-10   Mode: read-only (SELECT on local DB only; no S3, no prod API, no source edits, no commits)
+
+1. REQUEST
+Audit the production run of migrarImagensLegadas before it starts: confirm code, run data checks,
+analyze failure modes, provide recovery SQL, recommend pre-run changes.
+
+2. CODE CONFIRMATION
+- git status -sb: "## main...origin/main", only untracked CLAUDE.md. No git fetch was run (no credentials
+  needed for the local comparison; remote state not re-checked).
+- git log -5: 941fa92 login standardize ra (2026-10-09), f9eb659, eaa98e2, 1ba8e1d, 120f4cc.
+- Last commits touching the three files: 7e625fe (aplicar-no-cache), 5921347 (migrar-legadas route).
+  Nothing touched them after 5921347/7e625fe, so main matches the code Deploy 1 shipped for this route.
+  The deployed commit hash itself could not be verified from here (only the manager knows it).
+- Route: POST /upload/migrar-legadas, mounted under /upload with `authorization` + `havePermission`.
+  dryRun = req.body?.dryRun !== false -> only an explicit JSON {"dryRun": false} executes
+  (missing body / wrong Content-Type -> dry run, safe).
+- Controller: SELECT id, s3Key WHERE active = 1 AND s3Key NOT LIKE '%/%'; then a SEQUENTIAL for-loop:
+  moverLegadoParaQuestions(key) (Head -> Copy -> Delete) then UPDATE question_image SET s3Key = ? WHERE id = ?.
+  Per-row try/catch, failures collected in `falhas`, no transaction, no limit parameter.
+
+3. DATA CHECKS (local DB iescoladb2024, MySQL 8.0.46 on host "ideapad", restored production dump)
+a. Active legacy rows: 553 (matches the expected target).
+   Table totals: active=0/no slash 1210; active=1/no slash 553; active=1/with slash 92.
+b. Legacy s3Key shared by more than one row (active or not): 0 rows. Among active legacy only: 0.
+c. Inactive rows whose s3Key equals an active legacy key: 0.
+d. Destination collisions (an existing s3Key = 'questions/' || legacy key): 0.
+e. Backup table question_image_backup_s3key EXISTS locally: 1765 rows, columns (id, s3Key, active).
+   It covers all 553 legacy ids and the stored s3Key equals the current one for 553/553.
+   Rows whose current s3Key differs from the backup: 0. (question_image has 1855 rows locally = 1765 + 90
+   rows created after the backup; none of those are legacy targets.)
+   question_backup_pre_migration also exists (1655 rows).
+   CREATE statement already in production per lastPoint; for reference, the schema is:
+     CREATE TABLE question_image_backup_s3key AS SELECT id, s3Key, active FROM question_image;
+   (If it must be recreated in production BEFORE the run and does not exist there, run exactly that
+   statement once; verify with SELECT COUNT(*) FROM question_image_backup_s3key;)
+Extra checks:
+- All 553 keys match ^[A-Za-z0-9._-]+$ and have max length 10, so the un-encoded CopySource
+  (`${bucket}/${legacyKey}`) is safe for this set. No NULL/empty keys. No triggers on question_image.
+- CAVEAT: this is a dump, not production. Production may have gained rows since the dump; the production
+  dry-run is the authoritative number (expect totalAlvo 553 and a sample of plain keys like "1590.png").
+
+4. FAILURE-MODE ANALYSIS
+(i) S3 move succeeds, UPDATE fails (DB blip, connection drop, process killed between Delete and UPDATE):
+    - The original object is already deleted, DB still holds the legacy key -> 404 for students on that image.
+    - Re-running the route does NOT heal it: HeadObject on the legacy key throws NotFound and the row lands
+      in `falhas` again. Healing is a DB-only repoint (section 5), valid because questions/<key> exists.
+    - The same happens if the Node process is restarted mid-run (deploy, pm2 restart, OOM).
+(ii) Two rows sharing one key: currently 0 locally, so not expected. If production had one, the second row
+    would fail with NotFound after the first row's Delete (first row ends correct, second keeps the legacy key
+    and 404s) -> same section 5 repoint fixes it.
+(iii) Duration / timeouts: strictly sequential, 3 S3 calls + 1 UPDATE per row, 553 rows -> ~2,212 round
+    trips. At ~50-150 ms per S3 call from the AWS host, estimate ~1.5-4.5 minutes total (worse if the
+    bucket region differs from the server). That exceeds the default nginx proxy_read_timeout (60 s) and the
+    default ALB idle timeout (60 s). Likely outcome: the client gets 504/connection closed while the Node
+    loop KEEPS RUNNING to completion (Express does not abort on client disconnect). The migration still
+    finishes but the JSON with movidos/falhas is lost, so failures can only be inferred from the DB
+    (rows still without '/') and from S3 HEAD checks.
+    Do not retry the POST while the first run may still be executing (concurrent runs race on Delete and
+    produce spurious NotFound entries; harmless to data but confusing).
+Other observations:
+- CopyObject uses MetadataDirective REPLACE without ServerSideEncryption/Metadata (aplicarNoCache passes
+  them explicitly). Bucket default encryption (SSE-S3) should apply; not verifiable here (no S3 access).
+  Public read comes from the bucket policy (canary-verified on 2026-10-07), so no ACL is lost.
+- Idempotency: after a partial run, re-running only selects rows still without '/', so already-moved rows
+  are skipped. Copy overwrites a pre-existing destination, so re-running is safe for rows whose original
+  object still exists.
+
+5. RECOVERY SQL (ready to run; replace the id list with the ids from `falhas` in the response)
+-- 5.1 Inspect first (read-only):
+SELECT qi.id, qi.s3Key, qi.active, b.s3Key AS backupKey
+FROM question_image qi
+LEFT JOIN question_image_backup_s3key b ON b.id = qi.id
+WHERE qi.id IN (/* ids from falhas */) AND qi.s3Key NOT LIKE '%/%';
+
+-- 5.2 Repoint rows whose original object was already moved/deleted:
+UPDATE question_image
+SET s3Key = CONCAT('questions/', s3Key)
+WHERE id IN (/* ids from falhas */)
+  AND active = 1
+  AND s3Key NOT LIKE '%/%';
+
+-- 5.3 Verify:
+SELECT id, s3Key FROM question_image WHERE id IN (/* ids from falhas */);
+SELECT COUNT(*) FROM question_image WHERE active = 1 AND s3Key NOT LIKE '%/%';   -- expect 0
+IMPORTANT: apply 5.2 only to ids whose failure is NOT "the object never existed". For each id, confirm
+questions/<key> exists in S3 (HEAD) before repointing; a row whose object is missing in both places
+would just move the 404 from one key to another (it was already broken). If the response was lost
+(504), the candidate set is every row returned by the final COUNT query in 5.3; HEAD-check them first.
+Rollback of the whole run (DB side only, together with moving files back in S3):
+UPDATE question_image qi JOIN question_image_backup_s3key b ON b.id = qi.id SET qi.s3Key = b.s3Key;
+
+6. RISKS FOUND
+- MEDIUM: request outlives proxy timeouts -> lost response (see 4.iii). Data effect is none; operational
+  effect is blind failures.
+- LOW: non-atomic Delete-then-UPDATE; any crash mid-run orphans at most the single in-flight row.
+- LOW: un-encoded CopySource (safe for this key set; keys are [A-Za-z0-9._-], max 10 chars).
+- INFO: local dump != production; trust the production dry-run.
+
+7. IS THE RUN SAFE TO START AS IS?
+Yes, as to data: 553 targets, no shared keys, no destination collisions, backup table complete, per-row
+failures are contained and recoverable with section 5. The only real exposure is the lost response caused
+by the likely 60 s proxy timeout. It is acceptable to run as is IF you accept verifying afterwards through
+SQL (COUNT must be 0) and HEAD checks on leftovers; otherwise apply the change below first.
+
+8. RECOMMENDED CHANGES BEFORE THE RUN (described, NOT implemented)
+1) Add an optional `limite` (e.g. 50) to migrar-legadas so the run can be repeated in short batches that
+   each finish under 60 s and each return a complete movidos/falhas. The route is already idempotent, so
+   repeated calls simply continue. Requires a new deploy of a temporary route, so weigh against (2).
+2) Cheaper alternative with no code change: run the POST from the server itself (curl against
+   localhost:<port> with a long --max-time and a valid admin token) so nginx/ALB are bypassed and the
+   response is received in full; or raise proxy_read_timeout / ALB idle timeout temporarily.
+3) Optional: pass ServerSideEncryption/Metadata from the HeadObject in the CopyObject (same as
+   aplicarNoCache) to avoid depending on bucket default encryption.
+Pre-run checklist: production dry-run -> totalAlvo 553; confirm question_image_backup_s3key exists in
+production with 553 matching legacy ids; run once, wait for completion, do not retry; then
+SELECT COUNT(*) ... = 0 and the student-screen smoke test.
+
+9. COMMANDS RUN (all SELECT / SHOW; script lived in the session scratchpad, loads the project's own
+   connectionPool; DB_HOST=localhost, DB_NAME=iescoladb2024)
+- git status -sb; git log -5; git log -4 -- upload.ts s3.service.ts routes/upload.ts
+- Section 3 queries a-e plus charset/length/trigger/column/backup-coverage checks (outputs above).
+
+10. PENDING DOCUMENTATION UPDATES
+- lastPoint.md: add the production-timeout caveat and recovery SQL pointer to the migrar-legadas steps.
+11. ANYTHING ODD
+- "injected env" banner shows the project's dotenv tooling loads .env/.env.local; the .env file itself
+  was not opened or modified.
+- No .phase-notes directory existed before; it was created for this report.

@@ -33,7 +33,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.SUPE,
     permissions: [
       { entity: "classroom", methods: onlyGET },
-      { entity: "teacher", methods: onlyGET },
+      { entity: "teacher", methods: getPostPut },
       { entity: "student", methods: onlyGET },
       { entity: "transfer", methods: onlyGET },
       { entity: "training", methods: allMethods },

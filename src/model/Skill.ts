@@ -1,6 +1,5 @@
-import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Discipline } from "./Discipline";
-import { Question } from "./Question";
 import { ClassroomCategory } from "./ClassroomCategory";
 
 @Entity()
@@ -20,9 +19,6 @@ export class Skill {
 
   @ManyToOne(() => Discipline, discipline => discipline.skills, { nullable: true })
   discipline: Discipline
-
-  @OneToMany(() => Question, question => question.skill, { cascade: true })
-  questions: Question[]
 
   @Column({ nullable: true })
   createdAt: Date

@@ -1,7 +1,6 @@
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { TestQuestion } from "./TestQuestion";
 import { Person } from "./Person";
-import { Skill } from "./Skill";
 import { Discipline } from "./Discipline";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { QuestionImage } from "./QuestionImage";
@@ -23,9 +22,6 @@ export class Question {
 
   @ManyToOne(() => ClassroomCategory, c => c.questions, { nullable: true })
   classroomCategory: ClassroomCategory
-
-  @ManyToOne(() => Skill, skill => skill.questions, { nullable: true })
-  skill: Skill
 
   @OneToMany(() => TestQuestion, testQuestion => testQuestion.question)
   testQuestions: TestQuestion[]

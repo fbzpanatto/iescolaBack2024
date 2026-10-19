@@ -143,11 +143,11 @@ async function setupFixtures(ctx: Awaited<ReturnType<typeof loadContext>>): Prom
   const testAId = testA.insertId;
   const testBId = testB.insertId;
 
-  async function insertQuestion(title: string, skillId: number | null) {
+  async function insertQuestion(title: string) {
     const [res]: any = await connectionPool.query(
-      `INSERT INTO question (title, active, personId, disciplineId, classroomCategoryId, skillId, createdAt)
-       VALUES (?, 1, ?, ?, ?, ?, NOW())`,
-      [title, ctx.personId, ctx.disciplineId, ctx.classroomCategoryId, skillId]
+      `INSERT INTO question (title, active, personId, disciplineId, classroomCategoryId, createdAt)
+       VALUES (?, 1, ?, ?, ?, NOW())`,
+      [title, ctx.personId, ctx.disciplineId, ctx.classroomCategoryId]
     );
     return res.insertId as number;
   }
@@ -163,11 +163,11 @@ async function setupFixtures(ctx: Awaited<ReturnType<typeof loadContext>>): Prom
 
   const sharedInitialSkillId = ctx.skills[0].id;
 
-  const legacyQId = await insertQuestion(`${RUN_TAG}_LEGACY`, null);
-  const addSkillQId = await insertQuestion(`${RUN_TAG}_ADD_SKILL`, null);
-  const sharedQId = await insertQuestion(`${RUN_TAG}_SHARED`, sharedInitialSkillId);
-  const malformedQId = await insertQuestion(`${RUN_TAG}_MALFORMED`, null);
-  const imagesQId = await insertQuestion(`${RUN_TAG}_IMAGES`, null);
+  const legacyQId = await insertQuestion(`${RUN_TAG}_LEGACY`);
+  const addSkillQId = await insertQuestion(`${RUN_TAG}_ADD_SKILL`);
+  const sharedQId = await insertQuestion(`${RUN_TAG}_SHARED`);
+  const malformedQId = await insertQuestion(`${RUN_TAG}_MALFORMED`);
+  const imagesQId = await insertQuestion(`${RUN_TAG}_IMAGES`);
 
   await connectionPool.query(
     `INSERT INTO question_skill (questionId, skillId, createdAt) VALUES (?, ?, NOW())`,
@@ -213,9 +213,9 @@ async function teardown(fx: Fixture) {
 // ---------------------------------------------------------------------------
 
 async function snapshotQuestion(id: number) {
-  const [q] = await db(`SELECT id, skillId, updatedAt FROM question WHERE id = ?`, [id]);
+  const [q] = await db(`SELECT id, updatedAt FROM question WHERE id = ?`, [id]);
   const skills = await db(`SELECT skillId FROM question_skill WHERE questionId = ? ORDER BY skillId`, [id]);
-  return { updatedAt: q?.updatedAt ?? null, skillId: q?.skillId ?? null, skillIds: skills.map(s => s.skillId) };
+  return { updatedAt: q?.updatedAt ?? null, skillIds: skills.map(s => s.skillId) };
 }
 
 async function snapshotTestQuestion(id: number) {
@@ -294,7 +294,6 @@ async function run() {
         const after = await snapshotQuestion(fx.questionIds[key]);
         const b = (before as any)[key];
         check(`[${key}] question.updatedAt não avançou`, after.updatedAt === b.updatedAt, `antes=${b.updatedAt} depois=${after.updatedAt}`);
-        check(`[${key}] question.skillId inalterado`, after.skillId === b.skillId, `antes=${b.skillId} depois=${after.skillId}`);
         check(`[${key}] question_skill inalterada`, sameSkillSet(after.skillIds, b.skillIds), `antes=${b.skillIds} depois=${after.skillIds}`);
       }
 
@@ -322,7 +321,6 @@ async function run() {
       const after = await snapshotQuestion(fx.questionIds.addSkill);
       check('question_skill ganhou as 2 linhas esperadas', sameSkillSet(after.skillIds, [skillA.id, skillB.id]), `skills=${after.skillIds}`);
       // Deploy 1 da Fase 5: o backend não escreve mais question.skillId (nem o espelho da 1ª alfabética)
-      check('question.skillId NÃO foi alterado (continua o valor original)', after.skillId === before.addSkill.skillId, `antes=${before.addSkill.skillId} depois=${after.skillId}`);
       check('question.updatedAt NÃO avançou (mexer só em skills não toca a linha de question)', after.updatedAt === before.addSkill.updatedAt, `antes=${before.addSkill.updatedAt} depois=${after.updatedAt}`);
 
       for (const key of ['legacy', 'shared', 'malformed', 'images'] as const) {
@@ -355,7 +353,6 @@ async function run() {
 
       const after = await snapshotQuestion(fx.questionIds.shared);
       check('question_skill NÃO mudou (continua só a habilidade original)', sameSkillSet(after.skillIds, [fx.sharedInitialSkillId]), `skills=${after.skillIds}`);
-      check('question.skillId NÃO mudou', after.skillId === fx.sharedInitialSkillId, `skillId=${after.skillId}`);
       check('question.updatedAt NÃO avançou', after.updatedAt === before.shared.updatedAt);
 
       const warnings = putRes.body?.warnings ?? [];
@@ -400,7 +397,6 @@ async function run() {
 
       const after = await snapshotQuestion(fx.questionIds.malformed);
       check('question_skill continua vazia (nada foi gravado)', after.skillIds.length === 0, `skills=${after.skillIds}`);
-      check('question.skillId continua NULL', after.skillId === null, `skillId=${after.skillId}`);
 
       const testAfterRes = await api('GET', `/test/${fx.testAId}`, token);
       check('test.updatedAt não avançou (rollback da transação inteira, não só da questão)', testAfterRes.body.data.updatedAt === testUpdatedAtBefore);
@@ -471,7 +467,6 @@ async function run() {
       check('(a) PUT formato antigo em questão existente retorna 200', putA.status === 200, JSON.stringify(putA.body));
       const existingAfter = await snapshotQuestion(fx.questionIds.addSkill);
       check('(a) question_skill da questão existente NÃO mudou', sameSkillSet(existingAfter.skillIds, existingBefore.skillIds), `antes=${existingBefore.skillIds} depois=${existingAfter.skillIds}`);
-      check('(a) question.skillId da questão existente NÃO mudou', existingAfter.skillId === existingBefore.skillId, `antes=${existingBefore.skillId} depois=${existingAfter.skillId}`);
 
       // (b) questão NOVA — exatamente 1 vínculo, question.skillId continua NULL
       const newTitle = `${RUN_TAG}_LEGACY_FMT_NEW`;
@@ -488,12 +483,11 @@ async function run() {
         });
         check('(b) PUT formato antigo com questão nova retorna 200', putB.status === 200, JSON.stringify(putB.body));
 
-        const created = await db(`SELECT id, skillId FROM question WHERE title = ?`, [newTitle]);
+        const created = await db(`SELECT id FROM question WHERE title = ?`, [newTitle]);
         check('(b) a questão nova foi criada (uma só)', created.length === 1, `linhas=${created.length}`);
         if (created.length === 1) {
           const links = await db(`SELECT skillId FROM question_skill WHERE questionId = ?`, [created[0].id]);
           check('(b) questão nova tem exatamente 1 vínculo, com o id do formato antigo', links.length === 1 && links[0].skillId === otherSkill.id, `vinculos=${JSON.stringify(links)}`);
-          check('(b) question.skillId da questão nova é NULL (não é mais gravada)', created[0].skillId === null, `skillId=${created[0].skillId}`);
         }
       } finally {
         // a questão nova foi criada pela API (não está em fx.questionIds): limpa aqui

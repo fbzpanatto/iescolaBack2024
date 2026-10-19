@@ -178,9 +178,9 @@ async function findOrCreateMultiSkillQuestion(): Promise<MultiSkillFixture> {
 
   const title = `ZQA_E2E_MULTISKILL_${Date.now()}`;
   const [qRes]: any = await connectionPool.query(
-    `INSERT INTO question (title, active, personId, disciplineId, classroomCategoryId, skillId, createdAt)
-     VALUES (?, 1, ?, ?, ?, ?, NOW())`,
-    [title, anyTq.personId, anyTq.disciplineId, anyTq.classroomCategoryId, a.id]
+    `INSERT INTO question (title, active, personId, disciplineId, classroomCategoryId, createdAt)
+     VALUES (?, 1, ?, ?, ?, NOW())`,
+    [title, anyTq.personId, anyTq.disciplineId, anyTq.classroomCategoryId]
   );
   const questionId = qRes.insertId;
 

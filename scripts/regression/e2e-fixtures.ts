@@ -9,7 +9,7 @@
  *   - testClassroom:  uma prova ATIVA de categoria SIM_ITA/AVL_ITA com uma sala
  *                     sem nenhum aluno de matrícula encerrada (pra escrever numa
  *                     célula da grade sem esbarrar em regra de negócio).
- *   - readingFluency: idem, categoria READ_2/READ_3.
+ *   - readingFluency: idem, categoria READ_2/READ_3
  *
  * Primeiro procura algo assim já existente no banco (não força nada à toa). Só cria
  * estado novo se genuinamente não achar nenhum caso real. Nada aqui é apagado no

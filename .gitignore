@@ -144,3 +144,4 @@ dist
 .pnp.*
 
 .phase-notes
+.phase-notes/

@@ -672,6 +672,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       if(!qUserTeacher) throw new HttpError(404, "Usuário inexistente");
 
+      const isSimulado = Number(body.category.id) === tcids.SIM_ITA;
+      if (isSimulado && typeof body.has_token !== 'boolean') { throw new HttpError(400, "Valor inválido para o campo has_token.") }
+      const isTokenRequired = isSimulado ? Boolean(body.has_token) : null;
+
       const [ checkYearRows ] = await conn.query(`SELECT id, active FROM year WHERE id = ? LIMIT 1`, [body.year.id]);
       const checkYear = (checkYearRows as any[])[0];
       if(!checkYear) throw new HttpError(404, "Ano não encontrado");
@@ -736,8 +740,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const createdAt = new Date();
 
       const [ insertTestResult ]: any = await conn.query(
-        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, createdAt, qUserTeacher.person.user.id]
+        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, createdAt, qUserTeacher.person.user.id]
       );
       const testId = insertTestResult.insertId;
 
@@ -840,7 +844,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       // Só id/personId/disciplineId: são os únicos campos de test.person/test.discipline
       // realmente usados abaixo (permissão e disciplina de questão nova) — dispensa JOIN.
-      const [ testRows ] = await conn.query(`SELECT id, personId, disciplineId FROM test WHERE id = ? LIMIT 1`, [Number(id)]);
+      const [ testRows ] = await conn.query(`SELECT id, personId, disciplineId, categoryId FROM test WHERE id = ? LIMIT 1`, [Number(id)]);
       const test = (testRows as any[])[0];
       if (!test) throw new HttpError(404, "Teste não encontrado")
       if (uTeacher.person.id !== test.personId && !masterUser) {
@@ -857,6 +861,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const testSetClauses = ['name = ?', 'active = ?', 'hideAnswers = ?', 'updatedAt = ?', 'updatedByUser = ?'];
       const testSetParams: any[] = [req.body.name, req.body.active, req.body.hideAnswers, updatedAt, userId];
       if (endedAt !== undefined) { testSetClauses.push('endedAt = ?'); testSetParams.push(endedAt); }
+      if (Number(test.categoryId) === tcids.SIM_ITA) {
+        if (typeof req.body.has_token !== 'boolean') { throw new HttpError(400, "Valor inválido para o campo has_token.") }
+        testSetClauses.push('is_token_required = ?'); testSetParams.push(Boolean(req.body.has_token));
+      }
       testSetParams.push(test.id);
       await conn.query(`UPDATE test SET ${testSetClauses.join(', ')} WHERE id = ?`, testSetParams);
 

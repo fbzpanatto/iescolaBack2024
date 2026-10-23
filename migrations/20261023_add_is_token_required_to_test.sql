@@ -1,0 +1,1 @@
+ALTER TABLE test ADD COLUMN is_token_required BOOLEAN NULL DEFAULT NULL;

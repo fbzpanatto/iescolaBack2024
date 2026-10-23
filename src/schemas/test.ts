@@ -85,6 +85,7 @@ export const TEST_SCHEMA: Schema = {
     escape: true,
     toBoolean: true,
   },
+  has_token: { optional: true },
   testQuestions: {
     optional: true
   },

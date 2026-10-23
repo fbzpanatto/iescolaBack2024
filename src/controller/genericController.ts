@@ -1793,7 +1793,8 @@ export class GenericController<T> {
               c.id AS classroomId,
               c.shortName AS classroomName,
               s.shortName AS schoolName,
-              UPPER(d.name) AS discipline
+              UPPER(d.name) AS discipline,
+              t.is_token_required
           FROM test_classroom tc
                    INNER JOIN student_classroom sc ON tc.classroomId = sc.classroomId
                    INNER JOIN test t ON tc.testId = t.id
@@ -1838,7 +1839,7 @@ export class GenericController<T> {
 
       const [ queryResult ] = await conn.query(query, [studentId, testId, studentId])
 
-      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number }[])[0]
+      return (queryResult as { studentTestStatusId: number, active: boolean, studentClassroomId: number, classroomId: number, classroomName: string, schoolName: string, testId: number, is_token_required: number | boolean | null }[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -2425,7 +2426,7 @@ export class GenericController<T> {
       const query =
         `
         SELECT
-            t.id, t.name, t.active, t.hideAnswers, t.createdAt, t.updatedAt, t.createdByUser, t.updatedByUser, t.endedAt,
+            t.id, t.name, t.active, t.hideAnswers, t.is_token_required, t.createdAt, t.updatedAt, t.createdByUser, t.updatedByUser, t.endedAt,
             p.id AS period_id,
             y.id AS year_id, y.name AS year_name, y.active AS year_active, y.createdAt AS year_createdAt, y.endedAt AS year_endedAt,
             bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName,

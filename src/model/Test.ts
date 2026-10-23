@@ -25,6 +25,16 @@ export class Test {
   @Column({ default: false })
   hideAnswers: boolean
 
+  /**
+   * Define se a prova exige token de acesso.
+   * true = exige token
+   * false = não exige token
+   * null = legado (tratado como true na regra de negócio)
+   * Mapeamento de payload: has_token = (is_token_required !== false)
+   */
+  @Column({ type: 'boolean', nullable: true, name: 'is_token_required', default: null })
+  is_token_required: boolean | null
+
   @ManyToOne(() => Discipline, discipline => discipline.tests)
   discipline: Discipline
 

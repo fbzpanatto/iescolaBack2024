@@ -1126,6 +1126,11 @@ export class Helper {
   // TypeORM (LEFT JOIN sem match => relation null). Datas convertidas via toUtcDate: as
   // colunas foram escritas pelo TypeORM como texto UTC sem offset (ver memória
   // aws-server-timezone), mesmo padrão já usado no restante desta migração.
+  static hasToken(isTokenRequired: number | boolean | null | undefined): boolean {
+    if (isTokenRequired === null || isTokenRequired === undefined) { return true }
+    return Number(isTokenRequired) !== 0
+  }
+
   static testByIdFull(rows: qTestByIdRow[]) {
     if (!rows.length) { return null }
     const first = rows[0]
@@ -1153,6 +1158,7 @@ export class Helper {
       name: first.name,
       active: Boolean(first.active),
       hideAnswers: Boolean(first.hideAnswers),
+      has_token: this.hasToken(first.is_token_required),
       createdAt: this.toUtcDate(first.createdAt),
       updatedAt: this.toUtcDate(first.updatedAt),
       createdByUser: first.createdByUser,

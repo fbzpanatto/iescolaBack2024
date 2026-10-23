@@ -15,7 +15,7 @@ export interface SaveStudent { name: string, birth: Date, disabilities: number[]
 export interface StudentClassroomReturn {id: number,rosterNumber: number | string,startedAt: Date,endedAt: Date,student: { id: number, ra: string, dv: string, state: { id: number, acronym: string, }, person: { id: number, name: string, birth: Date, }, transfer?: { id: number, startedAt: Date, status: { name: string}, requester: {  name: string }, requestedClassroom: { classroom: string, school: string } }, disabilities: number[] }, classroom: { id: number, shortName: string, teacher: { id: number, classrooms: number[] } | undefined, school: { id: number, shortName: string }}}
 export interface InactiveNewClassroom { student: Student; oldYear: number; newClassroom: { id: number; name: string; school: string }; oldClassroom: { id: number; name: string; school: string }; rosterNumber: number }
 export interface StudentClassroomFnOptions { search?: string; year?: string; teacherClasses?: { id: number; classrooms: number[] }; owner?: string }
-export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, endedAt: string, testQuestions?: { id: number, order: number, answer: string, questionGroup: { id: number, name: string }, active: boolean, question: { id: number, title: string, images: number, person: { id: number }, discipline: { id: number, name: string }, classroomCategory: { id: number, name: string }, skill: { id: number, reference: string, description: string }, skills?: number[] } }[], year: { id: number } }
+export interface TestBodySave { bimester: { id: number }, category: { id: number }, classroom: { id: number }[], discipline: { id: number }, name: string, endedAt: string, has_token?: boolean | null, testQuestions?: { id: number, order: number, answer: string, questionGroup: { id: number, name: string }, active: boolean, question: { id: number, title: string, images: number, person: { id: number }, discipline: { id: number, name: string }, classroomCategory: { id: number, name: string }, skill: { id: number, reference: string, description: string }, skills?: number[] } }[], year: { id: number } }
 
 export interface Totals { id: number, tNumber: number, tTotal: number, tRate: number }
 export interface ReadingHeaders { exam_id: number, exam_name: string, exam_description: string, exam_color: string, exam_levels: { level_id: number, level_name: string, level_color: string, level_description: string }[] }
@@ -50,10 +50,10 @@ export interface TrainingAndSchedulesBody { id?: number, name: string, category:
 export interface TrainingScheduleResult { id: number | null, trainingId: number | null, dateTime: string, active: boolean }
 export interface TrainingResult { id: number, classroom: number,  observation: string | null,  discipline: number | null, disciplineName?: string | null, category: number, month: number, meeting: number, trainingSchedules: TrainingScheduleResult[] }
 export interface Training { id: number, classroom: number, observation: string | null, createdByUser: number, updatedByUser: number, categoryId: number, monthReferenceId: number, meetingId: number, yearId: number, disciplineId: number | null }
-export interface TestByStudentId { studentTestStatusId: number, active: boolean, studentClassroomId: number, studentId: number, testId: number, testName: string, bimesterName: string, yearName: string, classroomId?: number, classroomName: string, schoolName: string, discipline: string }
+export interface TestByStudentId { studentTestStatusId: number, active: boolean, studentClassroomId: number, studentId: number, testId: number, testName: string, bimesterName: string, yearName: string, classroomId?: number, classroomName: string, schoolName: string, discipline: string, is_token_required?: number | boolean | null }
 export interface TrainingWithSchedulesResult { id: number, classroom: number, category: { id: number, name: string }, year: { id: number, name: string }, meeting: { id: number, name: string }, month: { id: number, name: string }, discipline: { id: number, name: string } | null, trainingSchedules: Array<{ id: number, dateTime: string, active: boolean }> }
 export interface TeacherParam { id: number; name: string; disciplineId?: number | null; discipline: string; contract?: number | null; classroom?: number | string; schoolId: number; shortName: string; isHeadquarterSchool?: number;trainingTeachers?: { id: number; teacherId: number; trainingId: number; statusId: number | string; observation?: string | null }[] }
-export interface UpdateStudentAnswers { testId: number, studentId: number | string, questions: { studentQuestionId: number, answer: string, testQuestionId: number, studentId: number, rClassroomId: number | null }[], token: { id: number, code: string } }
+export interface UpdateStudentAnswers { testId: number, studentId: number | string, questions: { studentQuestionId: number, answer: string, testQuestionId: number, studentId: number, rClassroomId: number | null }[], token: { id: number, code: string } | null }
 export interface qTestToken { id: number, code: string, leftUses: number, createdAt: string, expiresAt: string, test: string, bimester: string, discipline: string, teacher: string, classroom: string, school: string }
 
 export interface QuestionImageJson {
@@ -128,6 +128,7 @@ export interface qTestByIdRow {
   name: string
   active: number
   hideAnswers: number
+  is_token_required: number | null
   createdAt: string | null
   updatedAt: string | null
   createdByUser: number | null

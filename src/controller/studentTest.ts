@@ -14,9 +14,7 @@ class StudentTestController extends GenericController<any> {
 
     try {
 
-      const token = query.token as string;
-
-      if(!token || token.length != 9) { return { status: 403, message: "Token não enviado." } }
+      const token = query.token as string | undefined;
 
       const scId = !isNaN(parseInt(query.ref)) ? parseInt(query.ref as string) : null;
       if (!scId) { return { status: 400, message: "Referência inválida." } }
@@ -35,8 +33,17 @@ class StudentTestController extends GenericController<any> {
       const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      const qToken = await this.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
-      if(!qToken) { return { status: 403, message: 'Token inválido, expirado ou pertencente a uma sala diferente da sua matrícula atual.' } }
+      const hasToken = Helper.hasToken(stuTestInfo.is_token_required);
+      let qToken: { id: number, code: string } | null = null;
+
+      if (hasToken) {
+        if (!token || token.length !== 9) { return { status: 200, data: { requires_token: true } } }
+
+        const validToken = await this.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
+        if (!validToken) { return { status: 403, message: 'Token inválido, expirado ou pertencente a uma sala diferente da sua matrícula atual.' } }
+
+        qToken = { id: validToken.id, code: validToken.code }
+      }
 
       const qTest = await this.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
@@ -95,7 +102,7 @@ class StudentTestController extends GenericController<any> {
 
       const testQuestions = Array.from(groupMap.values());
 
-      return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions, token: { id: qToken.id, code: qToken.code } } };
+      return { status: 200, data: { test: { ...qTest, testQuestions }, studentQuestions, token: qToken, has_token: hasToken } };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
   }

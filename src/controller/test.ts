@@ -524,6 +524,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async findAllByYear(req: Request<{ year: string }>, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
+
     try {
       const bimesterId = !isNaN(parseInt(req.query.bimester as string)) ? parseInt(req.query.bimester as string) : null;
       const disciplineId = !isNaN(parseInt(req.query.discipline as string)) ? parseInt(req.query.discipline as string) : null;

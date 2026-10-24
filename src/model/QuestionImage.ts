@@ -6,6 +6,11 @@ export enum QuestionImageType {
   SUPPORT = "support"
 }
 
+export enum QuestionImagePosition {
+  BEFORE = "before",
+  AFTER = "after"
+}
+
 @Entity()
 export class QuestionImage {
 
@@ -17,6 +22,9 @@ export class QuestionImage {
 
   @Column()
   order: number
+
+  @Column({ type: "varchar", length: 10, default: QuestionImagePosition.BEFORE })
+  position: QuestionImagePosition
 
   @Column()
   s3Key: string

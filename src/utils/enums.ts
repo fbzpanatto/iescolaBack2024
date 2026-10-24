@@ -18,6 +18,12 @@ export const TEST_CATEGORIES_IDS = {
   EDU_INF_PART: 10,
 }
 
+export const QUESTION_OPTIONS_COUNT = 4
+
+export const QUESTION_OPTION_LABELS = ['A', 'B', 'C', 'D'] as const
+
+export type QuestionOptionLabel = typeof QUESTION_OPTION_LABELS[number]
+
 // Categorias de prova com percentual por acerto (Avaliação e Simulado). Nelas, célula vazia de
 // aluno elegível conta como erro (permanece no denominador). Demais categorias seguem o legado.
 export const SCORED_TEST_CATEGORIES_IDS: readonly number[] = [TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA]

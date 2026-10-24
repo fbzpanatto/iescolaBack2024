@@ -4,6 +4,7 @@ import { Person } from "./Person";
 import { Discipline } from "./Discipline";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { QuestionImage } from "./QuestionImage";
+import { QuestionOption } from "./QuestionOption";
 
 @Entity()
 export class Question {
@@ -28,6 +29,9 @@ export class Question {
 
   @OneToMany(() => QuestionImage, questionImage => questionImage.question, { cascade: true })
   questionImages: QuestionImage[]
+
+  @OneToMany(() => QuestionOption, option => option.question, { cascade: true })
+  options: QuestionOption[]
 
   @ManyToOne(() => Person, person => person.tests, { nullable: true })
   person: Person

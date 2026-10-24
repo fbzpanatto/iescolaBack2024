@@ -3771,7 +3771,7 @@ export class GenericController<T> {
                 qt.title AS question_title,
                 qg.id AS question_group_id, qg.name AS question_group_name,
                 (
-                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'position', qi.position))
                     FROM question_image AS qi
                     WHERE qi.questionId = qt.id AND qi.active = 1
                 ) AS question_images,
@@ -3784,7 +3784,16 @@ export class GenericController<T> {
                         WHERE qs.questionId = qt.id
                         ORDER BY sk2.reference
                     ) AS qsk
-                ) AS question_skills
+                ) AS question_skills,
+                (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qop.id, 'label', qop.label, 'text', qop.text, 'order', qop.order))
+                    FROM (
+                        SELECT qo.id, qo.label, qo.text, qo.order
+                        FROM question_option AS qo
+                        WHERE qo.questionId = qt.id AND qo.active = 1
+                        ORDER BY qo.order
+                    ) AS qop
+                ) AS question_options
             FROM test_question AS tq
                      INNER JOIN question AS qt ON tq.questionId = qt.id
                      INNER JOIN question_group AS qg ON tq.questionGroupId = qg.id
@@ -3824,7 +3833,7 @@ export class GenericController<T> {
             qt.classroomCategoryId AS question_classroom_category_id,
             cc.name AS question_classroom_category_name,
             (
-                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key))
+                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'position', qi.position))
                 FROM question_image AS qi
                 WHERE qi.questionId = qt.id AND qi.active = 1
             ) AS question_images,
@@ -3841,6 +3850,15 @@ export class GenericController<T> {
                     ORDER BY sk2.reference
                 ) AS qsk
             ) AS question_skills,
+            (
+                SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qop.id, 'label', qop.label, 'text', qop.text, 'order', qop.order))
+                FROM (
+                    SELECT qo.id, qo.label, qo.text, qo.order
+                    FROM question_option AS qo
+                    WHERE qo.questionId = qt.id AND qo.active = 1
+                    ORDER BY qo.order
+                ) AS qop
+            ) AS question_options,
             qg.id AS question_group_id,
             qg.name AS question_group_name
         FROM test_question AS tq

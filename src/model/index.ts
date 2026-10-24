@@ -43,6 +43,7 @@ import { TestToken } from "./Token";
 import { TokenReset } from "./TokenReset";
 import { ClassroomShift } from "./ClassroomShift";
 import { QuestionImage } from "./QuestionImage";
+import { QuestionOption } from "./QuestionOption";
 import { Lesson } from "./Lesson";
 import { StudentLesson } from "./StudentLesson";
 
@@ -62,6 +63,7 @@ export const entities = [
   Period,
   Question,
   QuestionImage,
+  QuestionOption,
   QuestionGroup,
   TestClassroom,
   Lesson,

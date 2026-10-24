@@ -3,7 +3,7 @@ import { Classroom } from "../model/Classroom";
 import {
   qAlphaTests, qFormatedYear, qReadingFluenciesHeaders, qTest, qTestByIdRow, qTestQuestions,
   qTestQuestionsFull, qTestQuestionsWithImages,
-  QuestionImageJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
+  QuestionImageJson, QuestionOptionJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import { User } from "../model/User";
 import { SCORED_TEST_CATEGORIES_IDS } from "./enums";
@@ -959,7 +959,8 @@ export class Helper {
         title: el.question_title,
         images: this.parseQuestionImages(el.question_images),
         skill: this.firstSkillRefDesc(this.parseSkills(el.question_skills)),
-        skills: this.parseSkills(el.question_skills)
+        skills: this.parseSkills(el.question_skills),
+        options: this.parseQuestionOptions(el.question_options)
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
@@ -983,6 +984,7 @@ export class Helper {
         skill: this.firstAlphabeticalSkill(this.parseSkills(el.question_skills)),
         skills: this.parseSkills(el.question_skills),
         questionImages: this.parseQuestionImages(el.question_images),
+        options: this.parseQuestionOptions(el.question_options),
         inUse: el.question_in_use
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
@@ -993,6 +995,14 @@ export class Helper {
     if (!value) return [];
     if (typeof value === 'string') { return JSON.parse(value) as QuestionImageJson[] }
     return value as QuestionImageJson[];
+  }
+
+  // JSON_ARRAYAGG ignora o ORDER BY da subquery no MySQL 8; a ordenação por order é feita aqui.
+  private static parseQuestionOptions(value: unknown): QuestionOptionJson[] {
+    if (!value) return [];
+    const options = typeof value === 'string' ? JSON.parse(value) as unknown : value;
+    if (!Array.isArray(options)) return [];
+    return [...(options as QuestionOptionJson[])].sort((a, b) => a.order - b.order);
   }
 
   // question_skills vem de JSON_ARRAYAGG sobre question_skill. O ORDER BY da subquery não é

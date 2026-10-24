@@ -61,6 +61,14 @@ export interface QuestionImageJson {
   type: 'main' | 'support'
   order: number
   s3Key: string
+  position: 'before' | 'after'
+}
+
+export interface QuestionOptionJson {
+  id: number
+  label: string
+  text: string
+  order: number
 }
 
 export interface qTestQuestionsWithImages {
@@ -77,6 +85,7 @@ export interface qTestQuestionsWithImages {
   skill_reference?: string
   skill_description?: string
   question_skills?: string | null
+  question_options: string | null
 }
 
 export interface TestQuestionWithImages {
@@ -90,6 +99,7 @@ export interface TestQuestionWithImages {
     images: QuestionImageJson[]
     skill: { reference?: string, description?: string }
     skills: Array<{ id: number, reference: string, description: string }>
+    options: QuestionOptionJson[]
   }
   questionGroup: { id: number, name: string }
 }
@@ -121,6 +131,7 @@ export interface qTestQuestionsFull {
   skill_reference: string | null
   skill_description: string | null
   question_skills: string | null
+  question_options: string | null
 }
 
 export interface qTestByIdRow {
@@ -177,6 +188,7 @@ export interface TestQuestionFull {
     skill: { id: number, reference: string, description: string } | null
     skills: Array<{ id: number, reference: string, description: string }>
     questionImages: QuestionImageJson[]
+    options: QuestionOptionJson[]
     inUse: number
   }
   questionGroup: { id: number, name: string }

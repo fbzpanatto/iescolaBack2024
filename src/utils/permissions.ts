@@ -89,7 +89,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.DIRE,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: allMethods },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
@@ -107,7 +107,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.VICE,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: allMethods },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
@@ -125,7 +125,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.COOR,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: allMethods },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
@@ -143,7 +143,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.SECR,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: allMethods },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
@@ -161,7 +161,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.PROF,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPostPut },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
@@ -179,7 +179,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     category: PER_CAT.MONI,
     permissions: [
       { entity: "year", methods: onlyGET },
-      { entity: "test", methods: getPost },
+      { entity: "test", methods: onlyGET },
       { entity: "question", methods: onlyGET },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },

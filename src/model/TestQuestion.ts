@@ -16,6 +16,9 @@ export class TestQuestion {
   @Column({ nullable: false })
   answer: string
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  optionsOrder: string | null
+
   @ManyToOne(() => Test, test => test.testQuestions)
   test: Test
 

@@ -76,6 +76,7 @@ export interface qTestQuestionsWithImages {
   test_question_order: number
   test_question_answer: string
   test_question_active: boolean
+  test_question_options_order: string | null
   question_id: number
   question_images: string | null
   question_title?: string
@@ -116,8 +117,10 @@ export interface qTestQuestionsFull {
   test_question_order: number
   test_question_answer: string
   test_question_active: boolean
+  test_question_options_order: string | null
   question_id: number
   question_title: string
+  question_correct_label: string | null
   question_person_id: number | null
   question_discipline_id: number | null
   question_discipline_name: string | null
@@ -179,9 +182,11 @@ export interface TestQuestionFull {
   order: number
   answer: string
   active: boolean
+  optionsOrder: string | null
   question: {
     id: number
     title: string
+    correctLabel: string | null
     person: { id: number } | null
     discipline: { id: number, name: string } | null
     classroomCategory: { id: number, name: string } | null

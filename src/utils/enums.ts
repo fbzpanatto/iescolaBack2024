@@ -24,6 +24,12 @@ export const QUESTION_OPTION_LABELS = ['A', 'B', 'C', 'D'] as const
 
 export type QuestionOptionLabel = typeof QUESTION_OPTION_LABELS[number]
 
+export function isOptionsOrder(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length !== QUESTION_OPTIONS_COUNT) return false
+  const labels: readonly string[] = QUESTION_OPTION_LABELS
+  return new Set(value).size === value.length && [...value].every(char => labels.includes(char))
+}
+
 // Categorias de prova com percentual por acerto (Avaliação e Simulado). Nelas, célula vazia de
 // aluno elegível conta como erro (permanece no denominador). Demais categorias seguem o legado.
 export const SCORED_TEST_CATEGORIES_IDS: readonly number[] = [TEST_CATEGORIES_IDS.AVL_ITA, TEST_CATEGORIES_IDS.SIM_ITA]

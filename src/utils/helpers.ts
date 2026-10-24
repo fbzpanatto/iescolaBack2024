@@ -6,7 +6,7 @@ import {
   QuestionImageJson, QuestionOptionJson, qUserTeacher, qYear, ReadingHeaders, TestQuestionFull, TrainingResult, TrainingWithSchedulesResult
 } from "../interfaces/interfaces";
 import { User } from "../model/User";
-import { SCORED_TEST_CATEGORIES_IDS } from "./enums";
+import { isOptionsOrder, QUESTION_OPTIONS_COUNT, QUESTION_OPTION_LABELS, SCORED_TEST_CATEGORIES_IDS } from "./enums";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); this.name = 'HttpError'; }
@@ -960,7 +960,7 @@ export class Helper {
         images: this.parseQuestionImages(el.question_images),
         skill: this.firstSkillRefDesc(this.parseSkills(el.question_skills)),
         skills: this.parseSkills(el.question_skills),
-        options: this.parseQuestionOptions(el.question_options)
+        options: this.applyOptionsOrder(this.parseQuestionOptions(el.question_options), el.test_question_options_order)
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
@@ -975,9 +975,11 @@ export class Helper {
       order: el.test_question_order,
       answer: el.test_question_answer,
       active: el.test_question_active,
+      optionsOrder: isOptionsOrder(el.test_question_options_order) ? el.test_question_options_order : null,
       question: {
         id: el.question_id,
         title: el.question_title,
+        correctLabel: el.question_correct_label ?? null,
         person: el.question_person_id != null ? { id: el.question_person_id } : null,
         discipline: el.question_discipline_id != null ? { id: el.question_discipline_id, name: el.question_discipline_name as string } : null,
         classroomCategory: el.question_classroom_category_id != null ? { id: el.question_classroom_category_id, name: el.question_classroom_category_name as string } : null,
@@ -995,6 +997,18 @@ export class Helper {
     if (!value) return [];
     if (typeof value === 'string') { return JSON.parse(value) as QuestionImageJson[] }
     return value as QuestionImageJson[];
+  }
+
+  private static applyOptionsOrder(options: QuestionOptionJson[], order: string | null): QuestionOptionJson[] {
+    if (!isOptionsOrder(order) || options.length !== QUESTION_OPTIONS_COUNT) return options;
+    const byLabel = new Map(options.map(option => [option.label, option]));
+    if (!QUESTION_OPTION_LABELS.every(label => byLabel.has(label))) return options;
+    return [...order].map((originalLabel, i) => ({
+      ...(byLabel.get(originalLabel) as QuestionOptionJson),
+      id: i + 1,
+      label: QUESTION_OPTION_LABELS[i],
+      order: i + 1
+    }));
   }
 
   // JSON_ARRAYAGG ignora o ORDER BY da subquery no MySQL 8; a ordenação por order é feita aqui.
@@ -1038,7 +1052,7 @@ export class Helper {
     return new Date(value.replace(' ', 'T') + 'Z')
   }
 
-  static allQuestions(rows: any[]) {
+  static allQuestions(rows: any[], withOptions = false) {
     return rows.map(row => ({
       id: row.q_id,
       title: row.q_title,
@@ -1069,7 +1083,8 @@ export class Helper {
         updatedByUser: row.cc_updatedByUser
       } : null,
       questionImages: this.parseAllQuestionsImages(row.questionImages),
-      inUse: Number(row.inUse)
+      inUse: Number(row.inUse),
+      ...(withOptions ? { options: this.parseQuestionOptions(row.question_options), correctLabel: row.question_correct_label ?? null } : {})
     }))
   }
 

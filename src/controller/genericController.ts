@@ -3767,6 +3767,7 @@ export class GenericController<T> {
         `
             SELECT
                 tq.id AS test_question_id, tq.order AS test_question_order, tq.active AS test_question_active,
+                tq.optionsOrder AS test_question_options_order,
                 qt.id AS question_id,
                 qt.title AS question_title,
                 qg.id AS question_group_id, qg.name AS question_group_name,
@@ -3825,8 +3826,10 @@ export class GenericController<T> {
             tq.order AS test_question_order,
             tq.answer AS test_question_answer,
             tq.active AS test_question_active,
+            tq.optionsOrder AS test_question_options_order,
             qt.id AS question_id,
             qt.title AS question_title,
+            qt.correctLabel AS question_correct_label,
             qt.personId AS question_person_id,
             qt.disciplineId AS question_discipline_id,
             d.name AS question_discipline_name,
@@ -3876,10 +3879,23 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qAllQuestions(disciplineId: number) {
+  async qAllQuestions(disciplineId: number, withOptions = false) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
+      const optionsSelect = `,
+          q.correctLabel AS question_correct_label,
+          (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qop.id, 'label', qop.label, 'text', qop.text, 'order', qop.order))
+            FROM (
+              SELECT qo.id, qo.label, qo.text, qo.order
+              FROM question_option AS qo
+              WHERE qo.questionId = q.id AND qo.active = 1
+              ORDER BY qo.order
+            ) AS qop
+          ) AS question_options`
+      const optionsWhere = `
+          AND EXISTS (SELECT 1 FROM question_option qo WHERE qo.questionId = q.id AND qo.active = 1)`
       const query = `
         SELECT
           q.id AS q_id, q.title AS q_title, q.classroomNumber AS q_classroomNumber, q.active AS q_active,
@@ -3906,7 +3922,7 @@ export class GenericController<T> {
               WHERE qs.questionId = q.id
               ORDER BY sk2.reference
             ) AS qsk
-          ) AS question_skills
+          ) AS question_skills${withOptions ? optionsSelect : ''}
         FROM question q
           LEFT JOIN person p ON p.id = q.personId
           LEFT JOIN skill sk ON sk.id = (
@@ -3918,12 +3934,12 @@ export class GenericController<T> {
           )
           LEFT JOIN discipline d ON d.id = q.disciplineId
           LEFT JOIN classroom_category cc ON cc.id = q.classroomCategoryId
-        WHERE q.disciplineId = ?
+        WHERE q.disciplineId = ?${withOptions ? optionsWhere : ''}
         ORDER BY q.id ASC
       `
 
       const [ queryResult ] = await conn.query(query, [disciplineId])
-      return Helper.allQuestions(queryResult as any[])
+      return Helper.allQuestions(queryResult as any[], withOptions)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -58,7 +58,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
   async allQuestions(req: Request) {
     try {
-      const questions = await this.qAllQuestions(Number(req.query.discipline));
+      const questions = await this.qAllQuestions(Number(req.query.discipline), req.query.withOptions === '1');
       return { status: 200, data: questions };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

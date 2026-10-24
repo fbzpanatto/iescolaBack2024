@@ -12,6 +12,7 @@ import {
   OUT_CLASSROOMS,
   PER_CAT as pc,
   PER_CAT,
+  isOptionsOrder,
   QUESTION_OPTION_LABELS,
   QUESTION_OPTIONS_COUNT,
   QuestionOptionLabel,
@@ -32,8 +33,11 @@ const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
 
 type ValidatedQuestionOption = { label: QuestionOptionLabel, text: string, order: number }
 type QuestionOptionRow = { id: number, label: string, text: string, order: number }
-type NewQuestionInput = { answer?: unknown, question: { id?: unknown, title?: unknown, options?: unknown, images?: unknown } }
-type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[] }
+type NewQuestionInput = { answer?: unknown, optionsOrder?: unknown, question: { id?: unknown, title?: unknown, options?: unknown, images?: unknown } }
+type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[], correctLabel: QuestionOptionLabel | null }
+type ReusedResolution = { answer: unknown, optionsOrder: string | null }
+type CurrOptionsView = { options?: unknown[], correctLabel?: string | null }
+type OrderingPlan = { optionsOrder: string | null, previousOrder: string | null, answer: unknown, correctLabel: QuestionOptionLabel | null }
 type ExistingOptionsPlan = { rows: QuestionOptionRow[], validated: ValidatedQuestionOption[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
@@ -772,10 +776,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
 
       const preparedQuestions = new Map<object, PreparedNewQuestion>();
+      const reusedQuestions = new Map<object, ReusedResolution>();
       if (haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
         for (const tq of body.testQuestions) {
           const prepared = this.prepareNewQuestion(tq);
-          if (prepared) { preparedQuestions.set(tq, prepared) }
+          if (prepared) { preparedQuestions.set(tq, prepared); continue }
+          if (tq.question?.id) { reusedQuestions.set(tq, await this.resolveReusedQuestion(conn, Number(tq.question.id), tq)) }
         }
       }
 
@@ -804,10 +810,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
             // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
             // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
             const validatedSkills = await this.resolveNewQuestionSkills(conn, question);
+            const prepared = preparedQuestions.get(tq);
 
             const [ insertQuestionResult ]: any = await conn.query(
-              `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, createdAt, qUserTeacher.person.user.id]
+              `INSERT INTO question (title, personId, disciplineId, classroomNumber, classroomCategoryId, correctLabel, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [question.title, question.person?.id || qUserTeacher.person.id, body.discipline.id, classroomNumber, question.classroomCategory.id, prepared?.correctLabel ?? null, createdAt, qUserTeacher.person.user.id]
             );
             const newQuestionId = insertQuestionResult.insertId;
 
@@ -816,7 +823,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
               await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
             }
 
-            const prepared = preparedQuestions.get(tq);
             await this.insertQuestionOptions(conn, newQuestionId, prepared?.options ?? [], createdAt, qUserTeacher.person.user.id);
 
             const incomingImages = question.images; // captura antes de sobrescrever "question" com o id novo
@@ -842,10 +848,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
           }
 
-          testQuestionValues.push([tq.order, tq.answer, tq.questionGroup.id, tq.active, question.id, testId, createdAt, qUserTeacher.person.user.id]);
+          const reused = reusedQuestions.get(tq);
+          const answerToSave = reused ? reused.answer : (preparedQuestions.get(tq)?.correctLabel ?? tq.answer);
+          testQuestionValues.push([tq.order, answerToSave, tq.questionGroup.id, tq.active, question.id, testId, reused?.optionsOrder ?? null, createdAt, qUserTeacher.person.user.id]);
         }
 
-        await conn.query(`INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, createdAt, createdByUser) VALUES ?`, [testQuestionValues]);
+        await conn.query(`INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, optionsOrder, createdAt, createdByUser) VALUES ?`, [testQuestionValues]);
       }
 
       await conn.commit();
@@ -932,7 +940,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
         //                              array do diffsStrict é posicional, então nem serviria
         //                              pra detectar mudança de skills corretamente.
         //   options                 -> vive em question_option, sincronizada à parte por label
-        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills', 'options'];
+        //   optionsOrder / correctLabel -> derivados e gravados explicitamente (nunca pelo diff):
+        //                              o servidor calcula a resposta a partir do gabarito canônico
+        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills', 'options', 'optionsOrder', 'correctLabel'];
 
         const bodyTq = req.body.testQuestions as any[]
         const dataTq: TestQuestionFull[] = await this.getTestQuestions(test.id)
@@ -940,6 +950,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
         // Pré-passada: toda validação de alternativas/posição roda antes de qualquer efeito no S3.
         const preparedNew = new Map<object, PreparedNewQuestion>();
         const optionPlans = new Map<object, ExistingOptionsPlan>();
+        const reusedNew = new Map<object, ReusedResolution>();
+        const orderingPlans = new Map<object, OrderingPlan>();
 
         for (const next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
@@ -947,8 +959,12 @@ class TestController extends GenericController<EntityTarget<Test>> {
           if (!curr) {
             const prepared = this.prepareNewQuestion(next);
             if (prepared) { preparedNew.set(next, prepared) }
+            else if (next.question?.id) { reusedNew.set(next, await this.resolveReusedQuestion(conn, Number(next.question.id), next)) }
             continue;
           }
+
+          const ordering = this.resolveExistingOrdering(curr, next);
+          if (ordering) { orderingPlans.set(next, ordering) }
 
           const plan = await this.prepareExistingQuestionOptions(conn, curr, next);
           if (plan) { optionPlans.set(next, plan) }
@@ -979,9 +995,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
               // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
               const validatedSkills = await this.resolveNewQuestionSkills(conn, questionToSave);
 
+              const preparedForInsert = preparedNew.get(next);
               const [ insertQuestionResult ]: any = await conn.query(
-                `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`,
-                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, new Date(), userId]
+                `INSERT INTO question (title, personId, disciplineId, classroomCategoryId, correctLabel, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [questionToSave.title, questionToSave.person?.id || uTeacher.person.id, test.disciplineId, questionToSave.classroomCategory.id, preparedForInsert?.correctLabel ?? null, new Date(), userId]
               );
               const newQuestionId = insertQuestionResult.insertId;
 
@@ -1018,9 +1035,11 @@ class TestController extends GenericController<EntityTarget<Test>> {
               questionToSave = { id: newQuestionId };
             }
 
+            const reusedLink = reusedNew.get(next);
+            const answerForLink = reusedLink ? reusedLink.answer : (preparedNew.get(next)?.correctLabel ?? next.answer);
             await conn.query(
-              `INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [next.order, next.answer, next.questionGroup.id, next.active, questionToSave.id, test.id, new Date(), userId]
+              `INSERT INTO test_question (\`order\`, answer, questionGroupId, active, questionId, testId, optionsOrder, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [next.order, answerForLink, next.questionGroup.id, next.active, questionToSave.id, test.id, reusedLink?.optionsOrder ?? null, new Date(), userId]
             );
 
             continue;
@@ -1034,6 +1053,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
           // É calculado no servidor — não confiamos em nada vindo do front.
           const isShared = this.isSharedQuestion(curr);
 
+          const orderingPlan = orderingPlans.get(next);
+          if (orderingPlan) { next.answer = orderingPlan.answer; }
+
           if (this.diffsStrict(curr, next, IGNORE)) {
             // questão compartilhada: só a referência, para não sobrescrever a Question original
             const questionIdForUpdate = isShared ? curr.question.id : next.question.id;
@@ -1041,6 +1063,20 @@ class TestController extends GenericController<EntityTarget<Test>> {
             await conn.query(
               `UPDATE test_question SET \`order\` = ?, answer = ?, questionGroupId = ?, active = ?, questionId = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
               [next.order, next.answer, next.questionGroup.id, next.active, questionIdForUpdate, updatedAt, userId, next.id]
+            );
+          }
+
+          if (orderingPlan && orderingPlan.optionsOrder !== orderingPlan.previousOrder) {
+            await conn.query(
+              `UPDATE test_question SET optionsOrder = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+              [orderingPlan.optionsOrder, updatedAt, userId, curr.id]
+            );
+          }
+
+          if (orderingPlan?.correctLabel && orderingPlan.correctLabel !== (curr.question as unknown as CurrOptionsView).correctLabel) {
+            await conn.query(
+              `UPDATE question SET correctLabel = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+              [orderingPlan.correctLabel, updatedAt, userId, curr.question.id]
             );
           }
 
@@ -1697,9 +1733,77 @@ class TestController extends GenericController<EntityTarget<Test>> {
     const imagePositions = this.resolveImagePositions(question.images);
     const sent = Array.isArray(question.options) ? question.options.length > 0 : question.options != null;
     const options = sent ? this.validateQuestionOptions(question) : [];
-    if (options.length > 0) { this.assertAnswerMatchesOptions(tq.answer) }
+    if (options.length === 0) { return { options, imagePositions, correctLabel: null } }
 
-    return { options, imagePositions };
+    if (this.normalizeOptionsOrder(tq.optionsOrder) !== null) { throw new HttpError(400, "Questão nova não aceita optionsOrder: a ordem digitada é a canônica.") }
+
+    return { options, imagePositions, correctLabel: this.assertSingleLabel(tq.answer) };
+  }
+
+  private normalizeOptionsOrder(value: unknown): string | null {
+    if (value === undefined || value === null) { return null }
+    if (!isOptionsOrder(value)) { throw new HttpError(400, "optionsOrder inválido. Use uma permutação de A, B, C e D.") }
+    return value === QUESTION_OPTION_LABELS.join('') ? null : value;
+  }
+
+  private assertSingleLabel(answer: unknown): QuestionOptionLabel {
+    const normalized = String(answer ?? '').trim().toUpperCase();
+    if (!this.isOptionLabel(normalized)) { throw new HttpError(400, `Informe uma única alternativa correta (${QUESTION_OPTION_LABELS.join(', ')}).`) }
+    return normalized;
+  }
+
+  private displayAnswerFor(correctLabel: QuestionOptionLabel, optionsOrder: string | null): string {
+    if (optionsOrder === null) { return correctLabel }
+    return String.fromCharCode(65 + optionsOrder.indexOf(correctLabel));
+  }
+
+  private canonicalLabelFor(displayLabel: QuestionOptionLabel, optionsOrder: string | null): QuestionOptionLabel {
+    if (optionsOrder === null) { return displayLabel }
+    return optionsOrder.charAt(displayLabel.charCodeAt(0) - 65) as QuestionOptionLabel;
+  }
+
+  private async resolveReusedQuestion(conn: any, questionId: number, tq: { answer?: unknown, optionsOrder?: unknown }): Promise<ReusedResolution> {
+    const [ rows ] = await conn.query(
+      `SELECT q.correctLabel AS correctLabel, (SELECT COUNT(*) FROM question_option o WHERE o.questionId = q.id AND o.active = 1) AS optionsCount FROM question q WHERE q.id = ? LIMIT 1`,
+      [questionId]
+    );
+    const row = (rows as { correctLabel: string | null, optionsCount: number }[])[0];
+    if (!row) { throw new HttpError(404, "Questão não encontrada.") }
+
+    const optionsOrder = this.normalizeOptionsOrder(tq.optionsOrder);
+
+    if (Number(row.optionsCount) === 0) {
+      if (optionsOrder !== null) { throw new HttpError(400, "optionsOrder não se aplica a questão do modelo antigo.") }
+      return { answer: tq.answer, optionsOrder: null };
+    }
+
+    if (!this.isOptionLabel(row.correctLabel)) { throw new HttpError(409, "Questão sem gabarito de referência: não pode ser reaproveitada.") }
+
+    return { answer: this.displayAnswerFor(row.correctLabel, optionsOrder), optionsOrder };
+  }
+
+  private resolveExistingOrdering(curr: TestQuestionFull, next: { answer?: unknown, optionsOrder?: unknown }): OrderingPlan | null {
+    const view = curr.question as unknown as CurrOptionsView;
+    const hasOptions = Array.isArray(view.options) && view.options.length > 0;
+
+    if (!hasOptions) {
+      if (this.normalizeOptionsOrder(next.optionsOrder) !== null) { throw new HttpError(400, "optionsOrder não se aplica a questão do modelo antigo.") }
+      return null;
+    }
+
+    const previousOrder = (curr as unknown as { optionsOrder?: string | null }).optionsOrder ?? null;
+    const requested = next.optionsOrder === undefined ? previousOrder : this.normalizeOptionsOrder(next.optionsOrder);
+
+    if (this.isSharedQuestion(curr)) {
+      if (this.isOptionLabel(view.correctLabel)) {
+        return { optionsOrder: requested, previousOrder, answer: this.displayAnswerFor(view.correctLabel, requested), correctLabel: null };
+      }
+      if (requested !== previousOrder) { throw new HttpError(409, "Questão sem gabarito de referência: a ordem das alternativas não pode ser alterada.") }
+      return { optionsOrder: previousOrder, previousOrder, answer: curr.answer, correctLabel: null };
+    }
+
+    const displayLabel = this.assertSingleLabel(next.answer);
+    return { optionsOrder: requested, previousOrder, answer: displayLabel, correctLabel: this.canonicalLabelFor(displayLabel, requested) };
   }
 
   private async prepareExistingQuestionOptions(conn: any, curr: TestQuestionFull, next: any): Promise<ExistingOptionsPlan | null> {

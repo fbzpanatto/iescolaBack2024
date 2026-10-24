@@ -86,7 +86,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       if (!student) { return { status: 404, message: "Credenciais Inválidas" } }
 
-      const payload = { user: student.id, ra: `${student.ra}${student.dv}`, category: student.categoryId };
+      const payload = { student: student.id, ra: `${student.ra}${student.dv}`, category: student.categoryId };
 
       const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
       const decoded = verify(token, tokenSecret ?? '') as JwtPayload;

@@ -8,7 +8,7 @@ import { Period } from "../model/Period";
 import { AlphabeticLevel } from "../model/AlphabeticLevel";
 
 export interface Data { status: number; data?: any; message?: any }
-export interface JwtPayload { user: number; category: number; email?: string; ra?: string }
+export interface JwtPayload { user: number; student?: number; category: number; email?: string; ra?: string }
 export type UserInterface = JwtPayload
 export interface TeacherBody { name: string, email: string, register: any, birth: Date, teacherClasses: number[], teacherDisciplines: number[], classesName?: string[], disciplinesName?: string[], category: PersonCategory, teacherClassesDisciplines: qTeacherRelationShip[], school: number, observation: string }
 export interface SaveStudent { name: string, birth: Date, disabilities: number[], disabilitiesName: string[], ra: string, dv: string,state: number,rosterNumber: string,classroom: number,classroomName: string,observationOne: string,observationTwo: string }

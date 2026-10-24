@@ -276,6 +276,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getFormDataByTestCategory(req: Request, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
     try {
       let classrooms = ((await classroomController.getAllClassroomsByTestCategory(req, authUser)).data) as Array<{ id: number, name: string, school: string }>;
       classrooms = classrooms?.filter((el: any) => !OUT_CLASSROOMS.includes(el.id))

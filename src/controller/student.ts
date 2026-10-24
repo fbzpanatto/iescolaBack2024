@@ -16,6 +16,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
   async studentForm(request: Request, authUser: JwtPayload) {
 
+    if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
+
     try {
       const qUt = await this.qTeacherByUser(authUser.user)
       const masterUser = qUt.person.category.id === pc.ADMN || qUt.person.category.id === pc.SUPE || qUt.person.category.id === pc.FORM
@@ -206,6 +208,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async allStudents(req: Request<{ year: string }>, authUser: JwtPayload) {
+    if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
     try {
       const qUserTeacher = await this.qTeacherByUser(authUser.user)
       const teacherClasses = await this.qTeacherClassrooms(authUser.user)
@@ -225,6 +228,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   }
 
   async findOneStudentById(req: Request, authUser: JwtPayload) {
+
+    if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     const { params } = req
 

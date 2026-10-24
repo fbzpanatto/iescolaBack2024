@@ -4,6 +4,7 @@ import { Request } from "express";
 import { Lesson } from "../model/Lesson";
 import { JwtPayload } from "../interfaces/interfaces";
 import {PER_CAT} from "../utils/enums";
+import { resolveStudentId } from "../utils/studentToken";
 
 class LessonController extends GenericController<EntityTarget<Lesson>> {
 
@@ -102,6 +103,10 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     if (!body.name || !body.name.trim()) { return { status: 400, message: 'O nome da atividade é obrigatório.' } }
 
+    if (authUser?.category === PER_CAT.ALUN) {
+      return { status: 403, message: 'Você não tem permissão para editar esta atividade.' }
+    }
+
     try {
 
       const tUser = await this.qUser(authUser.user)
@@ -140,7 +145,8 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
       return { status: 403, message: 'Apenas alunos podem registrar a execução de uma atividade.' }
     }
 
-    const studentId = Number(authUser.user);
+    const studentId = resolveStudentId(authUser);
+    if (studentId === null) { return { status: 403, message: 'Apenas alunos podem registrar a execução de uma atividade.' } }
 
     const grade = body.grade === undefined || body.grade === null ? null : Number(body.grade);
 

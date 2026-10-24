@@ -19,6 +19,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "training", methods: allMethods },
       { entity: "token", methods: allMethods },
       { entity: "test", methods: allMethods },
+      { entity: "question", methods: allMethods },
       { entity: "year", methods: allMethods },
       { entity: "report", methods: allMethods },
       { entity: "personcategory", methods: allMethods },
@@ -38,6 +39,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "transfer", methods: onlyGET },
       { entity: "training", methods: allMethods },
       { entity: "test", methods: onlyGET },
+      { entity: "question", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
@@ -54,6 +56,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "student", methods: onlyGET },
       { entity: "transfer", methods: onlyGET },
       { entity: "test", methods: onlyGET },
+      { entity: "question", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
@@ -71,6 +74,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
       { entity: "transfer", methods: onlyGET },
       { entity: "training", methods: allMethods },
       { entity: "test", methods: onlyGET },
+      { entity: "question", methods: onlyGET },
       { entity: "year", methods: onlyGET },
       { entity: "report", methods: onlyGET },
       { entity: "personcategory", methods: onlyGET },
@@ -84,6 +88,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
+      { entity: "question", methods: allMethods },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -101,6 +106,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
+      { entity: "question", methods: allMethods },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -118,6 +124,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
+      { entity: "question", methods: allMethods },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -135,6 +142,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: allMethods },
+      { entity: "question", methods: allMethods },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },
@@ -152,6 +160,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPostPut },
+      { entity: "question", methods: getPostPut },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: getPostPut },
@@ -169,6 +178,7 @@ const arrayOfPermissions:{ category: number, permissions: { entity: string, meth
     permissions: [
       { entity: "year", methods: onlyGET },
       { entity: "test", methods: getPost },
+      { entity: "question", methods: getPost },
       { entity: "classroom", methods: getPostPut },
       { entity: "personcategory", methods: onlyGET },
       { entity: "studentquestion", methods: onlyGET },

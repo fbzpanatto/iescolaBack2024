@@ -41,6 +41,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
 
   async getStudents(req: Request, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     const testId = Number(req?.params.id)
     const classroomId = Number(req?.params.classroom);
@@ -268,6 +269,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getGroupedFullParallel(req: Request, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     const classroom = req.query.classroom ?? req.params.classroom
     const bimester = req.query.bimester ?? req.params.bimester
@@ -387,6 +389,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getGraphic(req: Request<{ id: string, classroom: string }>, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     const { id: testId, classroom: classroomId } = req.params
 
@@ -595,6 +598,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
   }
 
   async getById(req: Request<{ id: string }>, authUser: JwtPayload) {
+    if (authUser.category === PER_CAT.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
+
     const { id } = req.params
     try {
       const qUserTeacher = await this.qTeacherByUser(authUser.user)

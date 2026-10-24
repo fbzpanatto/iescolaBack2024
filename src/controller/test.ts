@@ -12,6 +12,9 @@ import {
   OUT_CLASSROOMS,
   PER_CAT as pc,
   PER_CAT,
+  QUESTION_OPTION_LABELS,
+  QUESTION_OPTIONS_COUNT,
+  QuestionOptionLabel,
   TEST_CATEGORIES_IDS as tcids
 } from "../utils/enums";
 import { EntityTarget } from "typeorm";
@@ -20,9 +23,18 @@ import { AllClassrooms, AlphaHeaders, CityHall, qReadingFluenciesHeaders, qYear,
 import { Helper } from "../utils/helpers";
 import { reportController } from "./report";
 import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
-import {QuestionImageType} from "../model/QuestionImage";
+import {QuestionImagePosition, QuestionImageType} from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
 import { connectionPool } from "../services/db";
+
+const QUESTION_TITLE_MAX_LENGTH = 5000
+const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
+
+type ValidatedQuestionOption = { label: QuestionOptionLabel, text: string, order: number }
+type QuestionOptionRow = { id: number, label: string, text: string, order: number }
+type NewQuestionInput = { answer?: unknown, question: { id?: unknown, title?: unknown, options?: unknown, images?: unknown } }
+type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[] }
+type ExistingOptionsPlan = { rows: QuestionOptionRow[], validated: ValidatedQuestionOption[] }
 
 class TestController extends GenericController<EntityTarget<Test>> {
 
@@ -737,6 +749,16 @@ class TestController extends GenericController<EntityTarget<Test>> {
       let endedAt: Date | undefined;
       if (body.endedAt && body.endedAt.length === 10) { endedAt = Helper.parseDDMMYYYYtoEndOfDayUTC(body.endedAt) }
 
+      const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
+
+      const preparedQuestions = new Map<object, PreparedNewQuestion>();
+      if (haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
+        for (const tq of body.testQuestions) {
+          const prepared = this.prepareNewQuestion(tq);
+          if (prepared) { preparedQuestions.set(tq, prepared) }
+        }
+      }
+
       const createdAt = new Date();
 
       const [ insertTestResult ]: any = await conn.query(
@@ -747,8 +769,6 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const testClassroomValues = classes.map(el => [testId, el.id]);
       await conn.query(`INSERT INTO test_classroom (testId, classroomId) VALUES ?`, [testClassroomValues]);
-
-      const haveQuestions = [ tcids.LITE_2, tcids.LITE_3, tcids.SIM_ITA, tcids.AVL_ITA ];
 
       if(haveQuestions.includes(body.category.id) && body.testQuestions?.length) {
         const testQuestionValues: any[] = [];
@@ -776,17 +796,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
               await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
             }
 
+            const prepared = preparedQuestions.get(tq);
+            await this.insertQuestionOptions(conn, newQuestionId, prepared?.options ?? [], createdAt, qUserTeacher.person.user.id);
+
             const incomingImages = question.images; // captura antes de sobrescrever "question" com o id novo
             question = { id: newQuestionId };
 
             if (Array.isArray(incomingImages) && incomingImages.length > 0) {
               const questionImageValues = [];
 
-              for (const img of incomingImages) {
+              for (const [index, img] of incomingImages.entries()) {
                 const finalKey = await moverParaQuestions(img.s3Key);
                 questionImageValues.push([
                   img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
                   img.order,
+                  prepared?.imagePositions[index] ?? QuestionImagePosition.BEFORE,
                   finalKey,
                   newQuestionId,
                   createdAt,
@@ -794,7 +818,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 ]);
               }
 
-              await conn.query(`INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
+              await conn.query(`INSERT INTO question_image (type, \`order\`, position, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
             }
           }
 
@@ -884,10 +908,32 @@ class TestController extends GenericController<EntityTarget<Test>> {
         //                              à parte por comparação de conjuntos (ver abaixo). O
         //                              array do diffsStrict é posicional, então nem serviria
         //                              pra detectar mudança de skills corretamente.
-        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills'];
+        //   options                 -> vive em question_option, sincronizada à parte por label
+        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills', 'options'];
 
         const bodyTq = req.body.testQuestions as any[]
         const dataTq: TestQuestionFull[] = await this.getTestQuestions(test.id)
+
+        // Pré-passada: toda validação de alternativas/posição roda antes de qualquer efeito no S3.
+        const preparedNew = new Map<object, PreparedNewQuestion>();
+        const optionPlans = new Map<object, ExistingOptionsPlan>();
+
+        for (const next of bodyTq) {
+          const curr = dataTq.find(el => el.id === next.id);
+
+          if (!curr) {
+            const prepared = this.prepareNewQuestion(next);
+            if (prepared) { preparedNew.set(next, prepared) }
+            continue;
+          }
+
+          const plan = await this.prepareExistingQuestionOptions(conn, curr, next);
+          if (plan) { optionPlans.set(next, plan) }
+
+          if (!this.isSharedQuestion(curr) && next.question?.imagesModified === true) {
+            this.resolveImagePositions(next.question.images);
+          }
+        }
 
         for (let next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
@@ -921,17 +967,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
                 await conn.query(`INSERT INTO question_skill (questionId, skillId, createdAt, createdByUser) VALUES ?`, [questionSkillValues]);
               }
 
+              const prepared = preparedNew.get(next);
+              await this.insertQuestionOptions(conn, newQuestionId, prepared?.options ?? [], updatedAt, userId);
+
               // captura antes de sobrescrever questionToSave com o id novo
               const incomingImages = questionToSave.images;
 
               if (Array.isArray(incomingImages) && incomingImages.length > 0) {
                 const questionImageValues = [];
 
-                for (const img of incomingImages) {
+                for (const [index, img] of incomingImages.entries()) {
                   const finalKey = await moverParaQuestions(img.s3Key);
                   questionImageValues.push([
                     img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT,
                     img.order,
+                    prepared?.imagePositions[index] ?? QuestionImagePosition.BEFORE,
                     finalKey,
                     newQuestionId,
                     new Date(),
@@ -939,7 +989,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
                   ]);
                 }
 
-                await conn.query(`INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
+                await conn.query(`INSERT INTO question_image (type, \`order\`, position, s3Key, questionId, createdAt, createdByUser) VALUES ?`, [questionImageValues]);
               }
 
               questionToSave = { id: newQuestionId };
@@ -959,7 +1009,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
           // inUse vem do getTestQuestions, já descontando a prova corrente.
           // É calculado no servidor — não confiamos em nada vindo do front.
-          const isShared = (((curr.question as any)?.inUse ?? 0) as number) >= 1;
+          const isShared = this.isSharedQuestion(curr);
 
           if (this.diffsStrict(curr, next, IGNORE)) {
             // questão compartilhada: só a referência, para não sobrescrever a Question original
@@ -1028,6 +1078,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
             }
           }
 
+          const optionsPlan = optionPlans.get(next);
+          if (optionsPlan) {
+            if (isShared) {
+              if (this.optionsDiffer(next.question.options, optionsPlan.rows)) {
+                warnings.push({ questionId: curr.question.id, message: 'Alternativas não alteradas: questão em uso em outra prova.' });
+              }
+            } else if (optionsPlan.rows.length === 0) {
+              if (next.question.options.length > 0) {
+                warnings.push({ questionId: curr.question.id, message: 'Alternativas não gravadas: questão no modelo antigo.' });
+              }
+            } else {
+              await this.syncQuestionOptions(conn, curr.question.id, optionsPlan, updatedAt, userId);
+            }
+          }
+
           // questionGroup pertence ao contexto da prova: segue editável sempre.
           if (next.questionGroup && this.diffsStrict(curr.questionGroup, next.questionGroup, IGNORE)) {
             await conn.query(
@@ -1068,8 +1133,8 @@ class TestController extends GenericController<EntityTarget<Test>> {
               if (!img.id) {
                 const finalKey = await moverParaQuestions(img.s3Key);
                 await conn.query(
-                  `INSERT INTO question_image (type, \`order\`, s3Key, questionId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?)`,
-                  [img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, img.order, finalKey, curr.question.id, new Date(), userId]
+                  `INSERT INTO question_image (type, \`order\`, position, s3Key, questionId, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                  [img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, img.order, this.resolveImagePosition(img.position), finalKey, curr.question.id, new Date(), userId]
                 );
                 continue;
               }
@@ -1077,14 +1142,17 @@ class TestController extends GenericController<EntityTarget<Test>> {
               const existing = currById.get(img.id) as any;
               if (!existing) continue; // id enviado não bate com nenhum registro atual
 
+              // front antigo não envia position: manter a atual, nunca resetar 'after' para 'before'
+              const nextPosition = img.position !== undefined ? this.resolveImagePosition(img.position) : existing.position;
+
               // s3Key nova apontando para tmp/ -> substituição de arquivo
               if (img.s3Key !== existing.s3Key && String(img.s3Key).startsWith('tmp/')) {
                 const finalKey = await moverParaQuestions(img.s3Key);
                 const oldKey = existing.s3Key;
 
                 await conn.query(
-                  `UPDATE question_image SET s3Key = ?, \`order\` = ?, type = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
-                  [finalKey, img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, updatedAt, userId, img.id]
+                  `UPDATE question_image SET s3Key = ?, \`order\` = ?, type = ?, position = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+                  [finalKey, img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, nextPosition, updatedAt, userId, img.id]
                 );
 
                 if (this.podeApagarDoS3(oldKey)) { await deletarDoS3(oldKey); }
@@ -1092,10 +1160,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
               }
 
               // só reordenação / troca de tipo, sem arquivo novo
-              if (img.order !== existing.order || img.type !== existing.type) {
+              if (img.order !== existing.order || img.type !== existing.type || nextPosition !== existing.position) {
                 await conn.query(
-                  `UPDATE question_image SET \`order\` = ?, type = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
-                  [img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, updatedAt, userId, img.id]
+                  `UPDATE question_image SET \`order\` = ?, type = ?, position = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+                  [img.order, img.type === 'main' ? QuestionImageType.MAIN : QuestionImageType.SUPPORT, nextPosition, updatedAt, userId, img.id]
                 );
               }
             }
@@ -1539,6 +1607,133 @@ class TestController extends GenericController<EntityTarget<Test>> {
     if (Array.isArray(question.skills)) { return this.validateSkillIds(conn, question.skills) }
     if (question.skill?.id != null) { return this.validateSkillIds(conn, [question.skill.id]) }
     return [];
+  }
+
+  private isOptionLabel(value: unknown): value is QuestionOptionLabel {
+    return typeof value === 'string' && (QUESTION_OPTION_LABELS as readonly string[]).includes(value);
+  }
+
+  private validateQuestionOptions(question: { title?: unknown, options?: unknown }): ValidatedQuestionOption[] {
+    const options = question.options;
+    if (!Array.isArray(options)) { throw new HttpError(400, "options deve ser um array.") }
+    if (options.length !== QUESTION_OPTIONS_COUNT) { throw new HttpError(400, `A questão deve ter exatamente ${QUESTION_OPTIONS_COUNT} alternativas.`) }
+    if (typeof question.title === 'string' && question.title.length > QUESTION_TITLE_MAX_LENGTH) {
+      throw new HttpError(400, `O título da questão deve ter no máximo ${QUESTION_TITLE_MAX_LENGTH} caracteres.`);
+    }
+
+    const labels = new Set<QuestionOptionLabel>();
+    const orders = new Set<number>();
+
+    return options.map((option: unknown): ValidatedQuestionOption => {
+      if (typeof option !== 'object' || option === null) { throw new HttpError(400, "Alternativa inválida.") }
+      const { label, text, order } = option as { label?: unknown, text?: unknown, order?: unknown };
+
+      if (!this.isOptionLabel(label)) { throw new HttpError(400, `Rótulo de alternativa inválido. Use: ${QUESTION_OPTION_LABELS.join(', ')}.`) }
+      if (labels.has(label)) { throw new HttpError(400, "Rótulos de alternativas não podem se repetir.") }
+      if (typeof order !== 'number' || !Number.isInteger(order)) { throw new HttpError(400, "A ordem da alternativa deve ser um número inteiro.") }
+      if (orders.has(order)) { throw new HttpError(400, "Ordens de alternativas não podem se repetir.") }
+      if (typeof text !== 'string') { throw new HttpError(400, "O texto da alternativa deve ser uma string.") }
+
+      const trimmed = text.trim();
+      if (trimmed.length < 1 || trimmed.length > QUESTION_OPTION_TEXT_MAX_LENGTH) {
+        throw new HttpError(400, `O texto da alternativa deve ter entre 1 e ${QUESTION_OPTION_TEXT_MAX_LENGTH} caracteres.`);
+      }
+
+      labels.add(label);
+      orders.add(order);
+      return { label, text: trimmed, order };
+    });
+  }
+
+  private resolveImagePosition(position: unknown): QuestionImagePosition {
+    if (position === undefined || position === null) { return QuestionImagePosition.BEFORE }
+    if (position === QuestionImagePosition.BEFORE || position === QuestionImagePosition.AFTER) { return position }
+    throw new HttpError(400, "Posição de imagem inválida. Use 'before' ou 'after'.");
+  }
+
+  private resolveImagePositions(images: unknown): QuestionImagePosition[] {
+    if (!Array.isArray(images)) { return [] }
+    return images.map((img: unknown) => this.resolveImagePosition((img as { position?: unknown } | null)?.position));
+  }
+
+  private assertAnswerMatchesOptions(answer: unknown): void {
+    const normalized = String(answer ?? '').trim().toUpperCase();
+    if (normalized === '') { return }
+    if ([...normalized].every(char => this.isOptionLabel(char))) { return }
+    throw new HttpError(400, `Resposta inválida para questão com alternativas. Use apenas: ${QUESTION_OPTION_LABELS.join(', ')}.`);
+  }
+
+  private isSharedQuestion(curr: TestQuestionFull): boolean {
+    return (((curr.question as any)?.inUse ?? 0) as number) >= 1;
+  }
+
+  private prepareNewQuestion(tq: NewQuestionInput): PreparedNewQuestion | null {
+    const question = tq.question;
+    if (question.id) { return null }
+
+    const imagePositions = this.resolveImagePositions(question.images);
+    const sent = Array.isArray(question.options) ? question.options.length > 0 : question.options != null;
+    const options = sent ? this.validateQuestionOptions(question) : [];
+    if (options.length > 0) { this.assertAnswerMatchesOptions(tq.answer) }
+
+    return { options, imagePositions };
+  }
+
+  private async prepareExistingQuestionOptions(conn: any, curr: TestQuestionFull, next: any): Promise<ExistingOptionsPlan | null> {
+    if (!Array.isArray(next.question?.options)) { return null }
+
+    const isShared = this.isSharedQuestion(curr);
+    const [ rowsResult ] = isShared
+      ? await conn.query(`SELECT id, label, \`text\`, \`order\` FROM question_option WHERE questionId = ? AND active = 1`, [curr.question.id])
+      : await conn.query(`SELECT id, label, \`text\`, \`order\` FROM question_option WHERE questionId = ? FOR UPDATE`, [curr.question.id]);
+    const rows = rowsResult as QuestionOptionRow[];
+
+    if (rows.length === 0) { return { rows, validated: [] } }
+
+    const validated = isShared ? [] : this.validateQuestionOptions(next.question);
+    this.assertAnswerMatchesOptions(next.answer);
+
+    return { rows, validated };
+  }
+
+  private optionsDiffer(payload: unknown[], rows: QuestionOptionRow[]): boolean {
+    const keyOf = (label: unknown, text: unknown, order: unknown): string => JSON.stringify([String(label), String(text).trim(), Number(order)]);
+    const payloadKeys = payload.map(option => {
+      const { label, text, order } = (option ?? {}) as { label?: unknown, text?: unknown, order?: unknown };
+      return keyOf(label, text, order);
+    }).sort();
+    const rowKeys = rows.map(row => keyOf(row.label, row.text, row.order)).sort();
+
+    return payloadKeys.length !== rowKeys.length || payloadKeys.some((key, index) => key !== rowKeys[index]);
+  }
+
+  private async insertQuestionOptions(conn: any, questionId: number, options: ValidatedQuestionOption[], createdAt: Date, userId: number): Promise<void> {
+    if (options.length === 0) { return }
+    const values = options.map(o => [questionId, o.label, o.text, o.order, createdAt, userId]);
+    await conn.query(`INSERT INTO question_option (questionId, label, \`text\`, \`order\`, createdAt, createdByUser) VALUES ?`, [values]);
+  }
+
+  private async syncQuestionOptions(conn: any, questionId: number, plan: ExistingOptionsPlan, now: Date, userId: number): Promise<void> {
+    const { rows, validated } = plan;
+    const rowByLabel = new Map(rows.map(row => [row.label, row]));
+    const nextLabels = new Set<string>(validated.map(o => o.label));
+
+    const idsToDelete = rows.filter(row => !nextLabels.has(row.label)).map(row => row.id);
+    if (idsToDelete.length > 0) {
+      await conn.query(`DELETE FROM question_option WHERE id IN (?)`, [idsToDelete]);
+    }
+
+    for (const option of validated) {
+      const existing = rowByLabel.get(option.label);
+      if (!existing) continue;
+      if (existing.text === option.text && existing.order === option.order) continue;
+      await conn.query(
+        `UPDATE question_option SET \`text\` = ?, \`order\` = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
+        [option.text, option.order, now, userId, existing.id]
+      );
+    }
+
+    await this.insertQuestionOptions(conn, questionId, validated.filter(o => !rowByLabel.has(o.label)), now, userId);
   }
 
   diffs = (original: any, current: any): boolean => {

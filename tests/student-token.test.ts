@@ -59,8 +59,8 @@ describe('resolveStudentId', () => {
     assert.equal(resolveStudentId(asAuth({ student: 7, category: PER_CAT.ALUN })), 7)
   })
 
-  test('falls back to user for legacy ALUN tokens', () => {
-    assert.equal(resolveStudentId(asAuth({ user: 5, category: PER_CAT.ALUN })), 5)
+  test('returns null for legacy ALUN tokens with only user', () => {
+    assert.equal(resolveStudentId(asAuth({ user: 5, category: PER_CAT.ALUN })), null)
   })
 
   test('prefers student over user', () => {

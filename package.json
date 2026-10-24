@@ -8,7 +8,7 @@
     "build": "rimraf ./public && tsc",
     "start": "NODE_ENV=production node ./public/index.js",
     "pm2": "npm run build && NODE_ENV=production pm2 start ./public/index.js -f",
-    "test": "node -r ts-node/register/transpile-only --test tests/"
+    "test": "node -r ts-node/register/transpile-only --test \"tests/**/*.test.ts\""
   },
   "keywords": [],
   "author": "",

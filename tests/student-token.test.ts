@@ -14,6 +14,8 @@ import { testController } from '../src/controller/test'
 import { classroomController } from '../src/controller/classroom'
 import { lessonController } from '../src/controller/lesson'
 import { studentTestController } from '../src/controller/studentTest'
+import { checkSchema, validationResult } from 'express-validator'
+import { SUBMIT_TEST_SCHEMA } from '../src/schemas/studentTestQuestions'
 
 type Payload = Partial<JwtPayload> & { category: number }
 type Result = { status?: number | string, data?: unknown, message?: string }
@@ -211,7 +213,7 @@ describe('studentTestController', () => {
   test('updateStudentAnswers scopes everything to the token student id', async () => {
     const executed: Executed[] = []
     stubPool(executed)
-    const filterSpy = mock.method(studentTestController, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9 }) as never)
+    const filterSpy = mock.method(studentTestController, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: false }) as never)
     const body = {
       testId: 1,
       studentId: 99,
@@ -234,6 +236,47 @@ describe('studentTestController', () => {
     assert.equal(statusUpdate.params[1], 7)
     assert.equal(bulk.params.includes(99), false)
   })
+
+  const submitBody = (token: { id: number, code: string } | null) => ({
+    testId: 1,
+    studentId: 7,
+    token,
+    questions: [{ studentQuestionId: 11, answer: 'A', testQuestionId: 1, studentId: 7, rClassroomId: null }]
+  })
+
+  const stubTest = (isTokenRequired: boolean | number | null | undefined) =>
+    mock.method(studentTestController, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: isTokenRequired }) as never)
+
+  test('accepts a null token when the test does not require one', async () => {
+    const executed: Executed[] = []
+    stubPool(executed)
+    stubTest(false)
+    const result = await studentTestController.updateStudentAnswers(submitBody(null), studentToken)
+    assert.equal(result.status, 200)
+    assert.equal(executed.some(el => el.sql.includes('test_token')), false)
+    assert.ok(executed.some(el => el.sql.includes('UPDATE student_question')))
+  })
+
+  for (const required of [null, undefined, true, 1]) {
+    test(`rejects a missing token when is_token_required is ${String(required)}`, async () => {
+      const executed: Executed[] = []
+      stubPool(executed)
+      stubTest(required)
+      const result = await studentTestController.updateStudentAnswers(submitBody(null), studentToken)
+      assert.equal(result.status, 400)
+      assert.equal(executed.length, 0)
+    })
+  }
+
+  test('consumes the token when the test requires one', async () => {
+    const executed: Executed[] = []
+    stubPool(executed)
+    stubTest(true)
+    const result = await studentTestController.updateStudentAnswers(submitBody({ id: 5, code: 'ABCDEFGHI' }), studentToken)
+    assert.equal(result.status, 200)
+    assert.ok(executed.some(el => el.sql.includes('UPDATE test_token')))
+    assert.ok(executed.some(el => el.sql.includes('UPDATE student_question')))
+  })
 })
 
 describe('lessonController.saveLessonExecution', () => {
@@ -250,5 +293,37 @@ describe('lessonController.saveLessonExecution', () => {
     const result = await lessonController.saveLessonExecution(req, asAuth({ student: 7, category: PER_CAT.ALUN })) as Result
     assert.equal(result.status, 200)
     assert.equal(upsert.mock.calls[0].arguments[0], 7)
+  })
+})
+
+describe('SUBMIT_TEST_SCHEMA token contract', () => {
+  const baseBody = { testId: 1, studentId: 7, questions: [{ studentQuestionId: 11, answer: 'A', testQuestionId: 1, studentId: 7, rClassroomId: null }] }
+
+  const isValid = async (body: object): Promise<boolean> => {
+    const req = { body }
+    for (const chain of checkSchema(SUBMIT_TEST_SCHEMA)) { await chain.run(req) }
+    return validationResult(req).isEmpty()
+  }
+
+  test('accepts a null token (test without access token)', async () => {
+    assert.equal(await isValid({ ...baseBody, token: null }), true)
+  })
+
+  test('accepts a body without the token key', async () => {
+    assert.equal(await isValid(baseBody), true)
+  })
+
+  test('accepts a token with id and code (legacy and token-required tests)', async () => {
+    assert.equal(await isValid({ ...baseBody, token: { id: 5, code: 'ABCDEFGHI' } }), true)
+  })
+
+  test('rejects a token object without id or code', async () => {
+    assert.equal(await isValid({ ...baseBody, token: {} }), false)
+    assert.equal(await isValid({ ...baseBody, token: { id: 5 } }), false)
+    assert.equal(await isValid({ ...baseBody, token: { code: 'ABCDEFGHI' } }), false)
+  })
+
+  test('still rejects a body without questions', async () => {
+    assert.equal(await isValid({ testId: 1, studentId: 7, token: null }), false)
   })
 })

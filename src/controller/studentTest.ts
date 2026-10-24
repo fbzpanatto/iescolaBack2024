@@ -129,6 +129,9 @@ class StudentTestController extends GenericController<any> {
       message = "Teste não encontrado para este aluno."
       if (!studentTest) { await conn.rollback(); return { status: 404, message } }
 
+      message = "Token de acesso obrigatório para esta prova."
+      if (Helper.hasToken(studentTest.is_token_required) && !(body.token && body.token.id)) { await conn.rollback(); return { status: 400, message } }
+
       message = "Você precisa acessar a prova antes de enviar respostas."
       if (!studentTest.studentTestStatusId) { await conn.rollback(); return { status: 400, message } }
 

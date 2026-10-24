@@ -107,18 +107,15 @@ export const SUBMIT_TEST_SCHEMA: Schema = {
     },
   },
   token: {
-    exists: {
-      errorMessage: 'Token is required',
-    }
-  },
-  'token.id': {
-    exists: {
-      errorMessage: 'Token is required',
+    custom: {
+      options: (value: unknown) => {
+        if (value === null || value === undefined) { return true }
+        const candidate = value as { id?: unknown, code?: unknown }
+        const hasId = candidate.id !== undefined && candidate.id !== null
+        const hasCode = candidate.code !== undefined && candidate.code !== null
+        if (typeof value === 'object' && hasId && hasCode) { return true }
+        throw new Error('Token is invalid');
+      },
     },
   },
-  'token.code': {
-    exists: {
-      errorMessage: 'Token is required',
-    },
-  }
 };

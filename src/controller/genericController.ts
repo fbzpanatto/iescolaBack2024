@@ -5689,6 +5689,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
         WHERE tt.categoryId = 6
           AND tt.active = 1
           AND tt.hideAnswers = 0
+          AND (tt.is_token_required IS NULL OR tt.is_token_required = 1)
           AND YEAR(tt.createdAt) = ?
         ORDER BY tc.classroomId;
       `;
@@ -5718,6 +5719,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
           AND tt.categoryId = 6
           AND tt.active = 1
           AND tt.hideAnswers = 0
+          AND (tt.is_token_required IS NULL OR tt.is_token_required = 1)
           AND YEAR(tt.createdAt) = ?
           AND tcd.disciplineId = tt.disciplineId
           AND tt.disciplineId = d.id

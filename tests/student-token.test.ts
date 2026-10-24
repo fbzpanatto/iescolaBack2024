@@ -21,7 +21,6 @@ type Executed = { sql: string, params: unknown[] }
 
 const asAuth = (payload: Payload): JwtPayload => payload as JwtPayload
 const asReq = (value: object): Request => value as unknown as Request
-const asLooseReq = asReq
 
 const ADMIN_TEACHER_ID = 2
 const staffToken = asAuth({ user: ADMIN_TEACHER_ID, category: PER_CAT.PROF })
@@ -107,32 +106,32 @@ type Handler = { name: string, call: (auth: JwtPayload) => Promise<Result>, reac
 const handlers: Handler[] = [
   {
     name: 'studentForm',
-    call: auth => stController.studentForm(asLooseReq({ query: {}, params: {} }), auth) as Promise<Result>,
+    call: auth => stController.studentForm(asReq({ query: {}, params: {} }), auth) as Promise<Result>,
     reachesLookup: spies => spies.qTeacherByUser.mock.callCount()
   },
   {
     name: 'allStudents',
-    call: auth => stController.allStudents(asLooseReq({ query: {}, params: { year: '2025' } }) as Request<{ year: string }>, auth) as Promise<Result>,
+    call: auth => stController.allStudents(asReq({ query: {}, params: { year: '2025' } }) as Request<{ year: string }>, auth) as Promise<Result>,
     reachesLookup: spies => spies.qTeacherByUser.mock.callCount() + spies.qTeacherClassrooms.mock.callCount()
   },
   {
     name: 'findOneStudentById',
-    call: auth => stController.findOneStudentById(asLooseReq({ query: {}, params: { id: '1' } }), auth) as Promise<Result>,
+    call: auth => stController.findOneStudentById(asReq({ query: {}, params: { id: '1' } }), auth) as Promise<Result>,
     reachesLookup: spies => spies.qTeacherByUser.mock.callCount() + spies.qTeacherClassrooms.mock.callCount()
   },
   {
     name: 'getAllInactivates',
-    call: auth => stController.getAllInactivates(asLooseReq({ query: {}, params: { year: '2025' } }), auth) as Promise<Result>,
+    call: auth => stController.getAllInactivates(asReq({ query: {}, params: { year: '2025' } }), auth) as Promise<Result>,
     reachesLookup: spies => spies.qCurrentYear.mock.callCount()
   },
   {
     name: 'getFormDataByTestCategory',
-    call: auth => testController.getFormDataByTestCategory(asLooseReq({ query: {}, params: {} }), auth) as Promise<Result>,
+    call: auth => testController.getFormDataByTestCategory(asReq({ query: {}, params: {} }), auth) as Promise<Result>,
     reachesLookup: (_spies, classroomSpy) => classroomSpy.mock.callCount()
   },
   {
     name: 'updateLesson',
-    call: auth => lessonController.updateLesson(asLooseReq({ params: { id: '1' }, body: { name: 'aula' } }), auth) as Promise<Result>,
+    call: auth => lessonController.updateLesson(asReq({ params: { id: '1' }, body: { name: 'aula' } }), auth) as Promise<Result>,
     reachesLookup: (spies, _classroomSpy, updateSpy) => spies.qUser.mock.callCount() + updateSpy.mock.callCount()
   }
 ]
@@ -142,6 +141,8 @@ const setup = () => {
   mock.method(stController, 'studentsClassroomsNewImplementation', async () => [] as never)
   mock.method(stController, 'qStudentFullDetail', async () => null as never)
   mock.method(stController, 'qStates', async () => [] as never)
+  mock.method(stController, 'qDisabilities', async () => [] as never)
+  mock.method(stController, 'qAllTClassTx', async () => [] as never)
   const classroomSpy = mock.method(classroomController, 'getAllClassroomsByTestCategory', async () => ({ status: 200, data: [] }) as never)
   const updateSpy = mock.method(lessonController, 'updateLessonById', async () => ({ id: 1 }) as never)
   return { spies, classroomSpy, updateSpy }

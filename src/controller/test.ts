@@ -253,10 +253,21 @@ class TestController extends GenericController<EntityTarget<Test>> {
     catch (error: any) { console.log('error', error); return { status: 500, message: error.message } }
   }
 
-  async getFormData(_: Request) {
+  private isRestrictedCreator(authUser: JwtPayload): boolean {
+    return authUser.category === PER_CAT.SUPE || authUser.category === PER_CAT.FORM
+  }
+
+  private isCategoryAllowedForRestricted(categoryId: number | string | undefined): boolean {
+    return [tcids.SIM_ITA, tcids.AVL_ITA].includes(Number(categoryId))
+  }
+
+  async getFormData(_: Request, authUser: JwtPayload) {
     try {
       const { disciplines, bimesters, testCategories, questionGroup } = await this.qTestFormData()
-      return { status: 200, data: { disciplines, bimesters, testCategories, questionGroup } };
+      const allowedCategories = this.isRestrictedCreator(authUser)
+        ? (testCategories as Array<{ id: number }>).filter((el) => this.isCategoryAllowedForRestricted(el.id))
+        : testCategories
+      return { status: 200, data: { disciplines, bimesters, testCategories: allowedCategories, questionGroup } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
@@ -681,6 +692,10 @@ class TestController extends GenericController<EntityTarget<Test>> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
+      if (this.isRestrictedCreator(authUser) && !this.isCategoryAllowedForRestricted(body.category?.id)) {
+        throw new HttpError(403, 'Seu perfil só pode criar avaliações das categorias Simulado e Avaliação ITA.');
+      }
+
       const qUserTeacher = await this.qTeacherByUser(authUser.user);
 
       if([PER_CAT.MONI, PER_CAT.SECR, PER_CAT.PROF, PER_CAT.COOR, PER_CAT.VICE, PER_CAT.DIRE].includes(qUserTeacher.person.category.id)) {
@@ -876,6 +891,9 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const [ testRows ] = await conn.query(`SELECT id, personId, disciplineId, categoryId FROM test WHERE id = ? LIMIT 1`, [Number(id)]);
       const test = (testRows as any[])[0];
       if (!test) throw new HttpError(404, "Teste não encontrado")
+      if (this.isRestrictedCreator(authUser) && !this.isCategoryAllowedForRestricted(test.categoryId)) {
+        throw new HttpError(403, 'Seu perfil só pode editar avaliações das categorias Simulado e Avaliação ITA.');
+      }
       if (uTeacher.person.id !== test.personId && !masterUser) {
         throw new HttpError(403, "Você não tem permissão para editar esse teste.")
       }

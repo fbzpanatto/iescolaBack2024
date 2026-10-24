@@ -11,7 +11,7 @@ const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_TEST, BODY_VALIDATION_TEST]
 export const TestRouter = Router();
 
 TestRouter.get('/form', havePermission, async (req: Request, res: any) => {
-  const response = await controller.getFormData(req); return res.status(response.status).json(response)
+  const response = await controller.getFormData(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.get('/form/test-category/:testCategory', havePermission, async (req: Request, res: any) => {

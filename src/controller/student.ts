@@ -31,7 +31,9 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
-  async getAllInactivates(request: Request) {
+  async getAllInactivates(request: Request, authUser: JwtPayload) {
+
+    if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     const limit = !isNaN(parseInt(request.query.limit as string)) ? parseInt(request.query.limit as string) : 100;
     const offset = !isNaN(parseInt(request.query.offset as string)) ? parseInt(request.query.offset as string) : 0;

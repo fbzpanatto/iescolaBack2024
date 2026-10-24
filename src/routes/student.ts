@@ -13,7 +13,7 @@ StudentRouter.get("/form", havePermission, async (req: Request, res: any) => {
 })
 
 StudentRouter.get("/inactive/:year", YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
-  const response = await controller.getAllInactivates(req); return res.status(response.status as number).json(response)
+  const response = await controller.getAllInactivates(req, (req as any).user); return res.status(response.status as number).json(response)
 })
 
 StudentRouter.get("/:year/all", YEAR_NAME_PARAM, havePermission, async (req: Request<{ year: string }>, res: any) => {

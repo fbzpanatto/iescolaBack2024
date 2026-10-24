@@ -124,7 +124,7 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(Number(body.studentId), Number(body.testId));
+      const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(authStudentId, Number(body.testId));
 
       message = "Teste não encontrado para este aluno."
       if (!studentTest) { await conn.rollback(); return { status: 404, message } }
@@ -196,7 +196,7 @@ class StudentTestController extends GenericController<any> {
         questionIds.push(item.studentQuestionId);
       }
 
-      const finalParams = [...answerParams, ...classroomParams, authStudentId, ...questionIds];
+      const finalParams = [...answerParams, ...classroomParams, authStudentId, ...questionIds, authStudentId];
 
       const bulkUpdateQuery = `
         UPDATE student_question
@@ -205,7 +205,7 @@ class StudentTestController extends GenericController<any> {
           rClassroomId = CASE id ${caseClassroomClauses.join(' ')} END,
           updatedAt = NOW(),
           updatedByUser = ?
-        WHERE id IN (${questionIds.map(() => '?').join(',')})
+        WHERE id IN (${questionIds.map(() => '?').join(',')}) AND studentId = ?
       `;
 
       await conn.execute(bulkUpdateQuery, finalParams);

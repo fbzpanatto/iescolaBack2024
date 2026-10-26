@@ -3,7 +3,7 @@ import { Test } from "../model/Test";
 import { TestQuestion } from "../model/TestQuestion";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { StudentFormatter } from "../utils/formatters/student.formatter";
 
 class StudentTestRepository {
 
@@ -175,7 +175,7 @@ class StudentTestRepository {
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.studentQuestions(test, rows as Array<{[key:string]:any}>)
+      return StudentFormatter.studentQuestions(test, rows as Array<{[key:string]:any}>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

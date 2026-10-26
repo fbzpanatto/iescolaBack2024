@@ -2,7 +2,7 @@ import { TeacherParam, Training, TrainingResult } from "../interfaces/interfaces
 import { ResultSetHeader } from "mysql2/promise";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { TrainingFormatter } from "../utils/formatters/training.formatter";
 
 class TrainingRepository {
 
@@ -146,7 +146,7 @@ class TrainingRepository {
           referencedTraining.classroom
         ]);
 
-        return Helper.trainingsWithSchedules(queryResult as any[]);
+        return TrainingFormatter.trainingsWithSchedules(queryResult as any[]);
       }
 
       query = `
@@ -181,7 +181,7 @@ class TrainingRepository {
         referencedTraining.disciplineId
       ]);
 
-      return Helper.trainingsWithSchedules(queryResult as any[]);
+      return TrainingFormatter.trainingsWithSchedules(queryResult as any[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -379,7 +379,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
       `
 
       const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
-      return Helper.formatTrainings(queryResult as Array<any>)
+      return TrainingFormatter.formatTrainings(queryResult as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -414,7 +414,7 @@ INNER JOIN year AS y ON tr.yearId = y.id
 
       if (rows.length === 0) { return null }
 
-      return Helper.oneTraining(rows as Array<any>)
+      return TrainingFormatter.oneTraining(rows as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

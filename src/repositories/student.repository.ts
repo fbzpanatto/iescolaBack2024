@@ -1,7 +1,7 @@
 import { InactiveNewClassroom, qStudentClassroomFormated, qUserTeacher, qYear, StudentClassroomFnOptions, StudentClassroomReturn } from "../interfaces/interfaces";
 import { CLASSROOM_CATEGORIES, IS_OWNER } from "../utils/enums";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { StudentFormatter } from "../utils/formatters/student.formatter";
 
 class StudentRepository {
 
@@ -54,7 +54,7 @@ class StudentRepository {
 
       const [queryResult] = await conn.query(query, studentIds);
 
-      return Helper.studentDisabilities(queryResult as Array<any>, arr);
+      return StudentFormatter.studentDisabilities(queryResult as Array<any>, arr);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -428,7 +428,7 @@ class StudentRepository {
       `
 
       const [ queryResult ] = await conn.query(query, [classroomId, yearId])
-      return  Helper.studentClassroom(queryResult as Array<qStudentClassroomFormated>)
+      return  StudentFormatter.studentClassroom(queryResult as Array<qStudentClassroomFormated>)
 
     }
     catch (error) { console.error(error); throw error }

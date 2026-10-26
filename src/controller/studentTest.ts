@@ -10,6 +10,7 @@ import { testQuestionRepository } from "../repositories/test-question.repository
 import { studentTestStatusRepository } from "../repositories/student-test-status.repository";
 import { studentTestRepository } from "../repositories/student-test.repository";
 import { testTokenRepository } from "../repositories/test-token.repository";
+import { TestFormatter } from "../utils/formatters/test.formatter";
 
 class StudentTestController extends GenericController<any> {
 
@@ -42,7 +43,7 @@ class StudentTestController extends GenericController<any> {
       const stuTestInfo = await studentTestRepository.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
-      const hasToken = Helper.hasToken(stuTestInfo.is_token_required);
+      const hasToken = TestFormatter.hasToken(stuTestInfo.is_token_required);
       let qToken: { id: number, code: string } | null = null;
 
       if (hasToken) {
@@ -136,7 +137,7 @@ class StudentTestController extends GenericController<any> {
       if (!studentTest) { await conn.rollback(); return { status: 404, message } }
 
       message = "Token de acesso obrigatório para esta prova."
-      if (Helper.hasToken(studentTest.is_token_required) && !(body.token && body.token.id)) { await conn.rollback(); return { status: 400, message } }
+      if (TestFormatter.hasToken(studentTest.is_token_required) && !(body.token && body.token.id)) { await conn.rollback(); return { status: 400, message } }
 
       message = "Você precisa acessar a prova antes de enviar respostas."
       if (!studentTest.studentTestStatusId) { await conn.rollback(); return { status: 400, message } }

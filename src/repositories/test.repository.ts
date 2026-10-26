@@ -2,7 +2,7 @@ import { qTest, qTestClassroom, qTestByIdRow, qTestPreviewScope } from "../inter
 import { Test } from "../model/Test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { TestFormatter } from "../utils/formatters/test.formatter";
 
 class TestRepository {
 
@@ -53,7 +53,7 @@ class TestRepository {
         ORDER BY c.id ASC
       `
       const [ queryResult ] = await conn.query(query, [testId])
-      return Helper.testByIdFull(queryResult as qTestByIdRow[])
+      return TestFormatter.testByIdFull(queryResult as qTestByIdRow[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

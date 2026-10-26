@@ -1,5 +1,5 @@
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { StudentFormatter } from "../utils/formatters/student.formatter";
 
 class StudentMergeRepository {
 
@@ -116,7 +116,7 @@ class StudentMergeRepository {
   `;
 
       const [rows] = await conn.query(query, params);
-      return Helper.formatDuplicatedStudent((rows as any[]));
+      return StudentFormatter.formatDuplicatedStudent((rows as any[]));
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release(); } }

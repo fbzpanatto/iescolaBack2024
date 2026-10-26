@@ -3,6 +3,10 @@ import { testController as controller } from "../controller/test"
 import { VALIDATE_TEST, BODY_VALIDATION_TEST, ID_PARAM, CLASSROOM_ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
 import { JwtPayload } from "../interfaces/interfaces";
+import { testUpdateController } from "../controller/testUpdate";
+import { testCreateController } from "../controller/testCreate";
+import { testGraphicController } from "../controller/testGraphic";
+import { testQueryController } from "../controller/testQuery";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]
 const CHECK_PARAMS = [ID_PARAM, YEAR_NAME_PARAM, CLASSROOM_ID_PARAM]
@@ -19,11 +23,11 @@ TestRouter.get('/form/test-category/:testCategory', havePermission, async (req: 
 });
 
 TestRouter.get('/:year/all', YEAR_NAME_PARAM, havePermission, async (req: Request<{ year: string }>, res: any) => {
-  const response = await controller.findAllByYear(req, (req as any).user); return res.status(response.status).json(response)
+  const response = await testQueryController.findAllByYear(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.get('/:id/preview', ID_PARAM, havePermission, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
-  const response = await controller.getPreview(req, (req as Request<{ id: string }> & { user: JwtPayload }).user); res.status(response.status).json(response)
+  const response = await testQueryController.getPreview(req, (req as Request<{ id: string }> & { user: JwtPayload }).user); res.status(response.status).json(response)
 });
 
 TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (req: Request, res: any) => {
@@ -31,22 +35,22 @@ TestRouter.get('/:id/:year/:classroom', ...CHECK_PARAMS, havePermission, async (
 });
 
 TestRouter.get('/:id/classroom/:classroom/graphic', ...CHECK_ID_CLASS, havePermission, async (req: Request<{ id: string, classroom: string }>, res: any) => {
-  const response = await controller.getGraphic(req, (req as any).user); return res.status(response.status).json(response)
+  const response = await testGraphicController.getGraphic(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.get('/:id/classroom/:classroom/grouped', ...CHECK_ID_CLASS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.getGroupedFullParallel(req, (req as any).user); return res.status(response.status).json(response)
+  const response = await testGraphicController.getGroupedFullParallel(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request<{ id: string }>, res: any) => {
-  const response = await controller.getById(req, (req as any).user); return res.status(response.status).json(response)
+  const response = await testQueryController.getById(req, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.post('/', havePermission, async (req: Request, res: any) => {
-  const response = await controller.saveTest(req.body, (req as any).user); return res.status(response.status).json(response)
+  const response = await testCreateController.saveTest(req.body, (req as any).user); return res.status(response.status).json(response)
 });
 
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: number | string }>, res: any) => {
-  const response = await controller.updateTest(req.params.id, req, (req as any).user); return res.status(response.status as number).json(response)
+  const response = await testUpdateController.updateTest(req.params.id, req, (req as any).user); return res.status(response.status as number).json(response)
 });
 

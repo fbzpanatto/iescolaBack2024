@@ -2,7 +2,8 @@ import { qClassroom, qClassrooms } from "../interfaces/interfaces";
 import { Classroom } from "../model/Classroom";
 import { CLASSROOM_CATEGORIES, OUT_CLASSROOMS } from "../utils/enums";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { StudentFormatter } from "../utils/formatters/student.formatter";
+import { UserFormatter } from "../utils/formatters/user.formatter";
 
 class ClassroomRepository {
 
@@ -36,7 +37,7 @@ class ClassroomRepository {
         `
       const [ queryResult ] = await conn.query(query, [id])
 
-      return Helper.studentsClassrooms((queryResult as Array<{
+      return StudentFormatter.studentsClassrooms((queryResult as Array<{
         id: number,
         name: string,
         shortName: string,
@@ -71,7 +72,7 @@ class ClassroomRepository {
 
       const [ queryResult ] = await conn.query(query, [classroomId])
 
-      return Helper.classroom((queryResult as qClassroom[])[0])
+      return UserFormatter.classroom((queryResult as qClassroom[])[0])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

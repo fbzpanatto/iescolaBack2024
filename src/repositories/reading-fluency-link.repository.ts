@@ -2,7 +2,7 @@ import { ObjectLiteral } from "typeorm";
 import { qReadingFluenciesHeaders } from "../interfaces/interfaces";
 import { Test } from "../model/Test";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { ReadingFluencyFormatter } from "../utils/formatters/reading-fluency.formatter";
 
 class ReadingFluencyLinkRepository {
 
@@ -113,7 +113,7 @@ class ReadingFluencyLinkRepository {
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.readingFluency(rows as Array<{[key:string]:any}>);
+      return ReadingFluencyFormatter.readingFluency(rows as Array<{[key:string]:any}>);
     }
     catch (error) { console.error(error); throw error; }
     finally { if (conn) { conn.release(); } }
@@ -269,7 +269,7 @@ class ReadingFluencyLinkRepository {
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.readingFluencyStudents(rows as Array<{[key:string]:any}>, test);
+      return ReadingFluencyFormatter.readingFluencyStudents(rows as Array<{[key:string]:any}>, test);
     }
     catch (error) { console.error(error); throw error; }
     finally { if (conn) { conn.release(); } }

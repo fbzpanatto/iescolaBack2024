@@ -3,8 +3,6 @@ import { EntityTarget } from "typeorm";
 import { Test } from "../model/Test";
 import { TestQuestion } from "../model/TestQuestion";
 import { Request } from "express";
-import { Helper } from "../utils/helpers";
-import { testController } from "./test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
@@ -19,6 +17,11 @@ import { testQuestionRepository } from "../repositories/test-question.repository
 import { readingFluencyRepository } from "../repositories/reading-fluency.repository";
 import { alphabeticRepository } from "../repositories/alphabetic.repository";
 import { alphabeticReportRepository } from "../repositories/alphabetic-report.repository";
+import { testTotalsService } from "../services/test-totals.service";
+import { TestFormatter } from "../utils/formatters/test.formatter";
+import { TestReportFormatter } from "../utils/formatters/test-report.formatter";
+import { ReadingFluencyFormatter } from "../utils/formatters/reading-fluency.formatter";
+import { StudentFormatter } from "../utils/formatters/student.formatter";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -176,7 +179,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
             totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
           }
 
-          element.totals = testController.aggregateResult(element, testController.alphabeticTotalizators(school.classrooms, headers))
+          element.totals = testTotalsService.aggregateResult(element, testTotalsService.alphabeticTotalizators(school.classrooms, headers))
           return element
         }).sort((a: any, b: any) => a.shortName.localeCompare(b.shortName))
 
@@ -189,9 +192,9 @@ class ReportController extends GenericController<EntityTarget<Test>> {
           totals: headers.map((h: any) => ({ ...h, bimesterCounter: 0 }))
         }
 
-        cityHall.totals = testController.aggregateResult(
+        cityHall.totals = testTotalsService.aggregateResult(
           cityHall,
-          testController.alphabeticTotalizators(preResult.flatMap((school: any) => school.classrooms), headers)
+          testTotalsService.alphabeticTotalizators(preResult.flatMap((school: any) => school.classrooms), headers)
         )
 
         const schools = [...mappedSchools, cityHall]
@@ -216,7 +219,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.READ_2):
       case(TEST_CATEGORIES_IDS.READ_3): {
 
-        let formatedTest = Helper.testFormater(qTest)
+        let formatedTest = TestFormatter.testFormater(qTest)
 
         const qYear = await yearRepository.qYearByName(yearName)
 
@@ -226,7 +229,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const headers = await readingFluencyRepository.qReadingFluencyHeaders(examIds)
 
-        const fluencyHeaders = Helper.readingFluencyHeaders(headers)
+        const fluencyHeaders = ReadingFluencyFormatter.readingFluencyHeaders(headers)
 
         let localSchools = await schoolRepository.qSchools(Number(testId))
 
@@ -236,7 +239,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
           for(let classroom of school.classrooms) {
 
-            classroom.studentsClassrooms = Helper.duplicatedStudents(await studentRepository.qStudentClassrooms(classroom.id, qYear.id)).filter((el:any) => !el.ignore)
+            classroom.studentsClassrooms = StudentFormatter.duplicatedStudents(await studentRepository.qStudentClassrooms(classroom.id, qYear.id)).filter((el:any) => !el.ignore)
 
             for(let studentClassroom of classroom.studentsClassrooms) {
 
@@ -309,12 +312,12 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
         const questionGroups = await testQuestionRepository.qTestQuestionsGroupsOnReport(Number(testId))
-        const pResult = Helper.testGraph((await testRepository.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
+        const pResult = TestReportFormatter.testGraph((await testRepository.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
         // NOVO: escolas/turmas vinculadas à prova que nunca tiveram acesso
         const notAccessed = await schoolRepository.qTestSchools(testId)
 
-        data = Helper.schoolDataStructure(pResult, Helper.testFormater(qTest), questionGroups, qTestQuestions, notAccessed)
+        data = TestReportFormatter.schoolDataStructure(pResult, TestFormatter.testFormater(qTest), questionGroups, qTestQuestions, notAccessed)
 
         break
       }

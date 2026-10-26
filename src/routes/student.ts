@@ -2,6 +2,8 @@ import { Request, Router } from "express";
 import { stController as controller } from "../controller/student";
 import { BODY_VALIDATION_STUDENT_USER, BODY_VALIDATION_USER_FIRST_LEVEL, ID_PARAM, VALIDATE_USER, VALIDATE_USER_FIRST_LEVEL, YEAR_NAME_PARAM } from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
+import { studentCreateController } from "../controller/studentCreate";
+import { studentUpdateController } from "../controller/studentUpdate";
 
 const CREATE_VALIDATORS = [VALIDATE_USER, BODY_VALIDATION_STUDENT_USER];
 const UPDATE_VALIDATORS = [ID_PARAM, VALIDATE_USER, BODY_VALIDATION_STUDENT_USER];
@@ -29,7 +31,7 @@ StudentRouter.post("/inactive/list", havePermission, async (req: Request, res: a
 })
 
 StudentRouter.post("/", ...CREATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.saveWithAuth(req.body, (req as any).user); return res.status(response.status).json(response)
+  const response = await studentCreateController.saveWithAuth(req.body, (req as any).user); return res.status(response.status).json(response)
 })
 
 StudentRouter.put("/:id/first-level", ID_PARAM, VALIDATE_USER_FIRST_LEVEL, BODY_VALIDATION_USER_FIRST_LEVEL, havePermission, async (req: Request, res: any) => {
@@ -37,5 +39,5 @@ StudentRouter.put("/:id/first-level", ID_PARAM, VALIDATE_USER_FIRST_LEVEL, BODY_
 })
 
 StudentRouter.put("/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: number | string }>, res: any) => {
-  const response = await controller.updateIdWithAuth(req.params.id, req.body, (req as any).user); return res.status(response.status).json(response)
+  const response = await studentUpdateController.updateIdWithAuth(req.params.id, req.body, (req as any).user); return res.status(response.status).json(response)
 })

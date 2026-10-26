@@ -2,10 +2,10 @@ import test, { describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { Helper } from '../src/utils/helpers'
 import { TEST_CATEGORIES_IDS as tcids } from '../src/utils/enums'
 import { CATEGORIES, SCORED, captureAll, runGraphEndpoint, runStudentsEndpoint } from './capture'
 import { REAL_CASE, SCENARIOS, StudentSpec } from './fixtures'
+import { TestReportFormatter } from '../src/utils/formatters/test-report.formatter'
 
 type Obj = Record<string, any>
 const baseline: Record<string, Obj> = JSON.parse(readFileSync(join(__dirname, '__snapshots__', 'baseline.json'), 'utf8'))
@@ -55,21 +55,21 @@ describe('paridade entre tela A (students) e tela B (graphic) em AVL/SIM', () =>
 
 describe('Helper: funções puras', () => {
   test('isScoredTestCategory cobre só AVL_ITA e SIM_ITA', () => {
-    const scored = Object.values(tcids).filter(id => Helper.isScoredTestCategory(id))
+    const scored = Object.values(tcids).filter(id => TestReportFormatter.isScoredTestCategory(id))
     assert.deepEqual(scored.sort(), [tcids.SIM_ITA, tcids.AVL_ITA].sort())
   })
   test('scoreRate usa floor com 2 casas', () => {
-    assert.equal(Helper.scoreRate(115, 128), 89.84)
-    assert.equal(Helper.scoreRate(15, 16), 93.75)
-    assert.equal(Helper.scoreRate(99, 100), 99)
-    assert.equal(Helper.scoreRate(1, 3), 33.33)
+    assert.equal(TestReportFormatter.scoreRate(115, 128), 89.84)
+    assert.equal(TestReportFormatter.scoreRate(15, 16), 93.75)
+    assert.equal(TestReportFormatter.scoreRate(99, 100), 99)
+    assert.equal(TestReportFormatter.scoreRate(1, 3), 33.33)
   })
   test('isUnassignedEmptyCell', () => {
-    assert.equal(Helper.isUnassignedEmptyCell(undefined), true)
-    assert.equal(Helper.isUnassignedEmptyCell({ answer: '', rClassroom: null }), true)
-    assert.equal(Helper.isUnassignedEmptyCell({ answer: ' ', rClassroom: null }), true)
-    assert.equal(Helper.isUnassignedEmptyCell({ answer: '', rClassroom: { id: 101 } }), false)
-    assert.equal(Helper.isUnassignedEmptyCell({ answer: 'A', rClassroom: null }), false)
+    assert.equal(TestReportFormatter.isUnassignedEmptyCell(undefined), true)
+    assert.equal(TestReportFormatter.isUnassignedEmptyCell({ answer: '', rClassroom: null }), true)
+    assert.equal(TestReportFormatter.isUnassignedEmptyCell({ answer: ' ', rClassroom: null }), true)
+    assert.equal(TestReportFormatter.isUnassignedEmptyCell({ answer: '', rClassroom: { id: 101 } }), false)
+    assert.equal(TestReportFormatter.isUnassignedEmptyCell({ answer: 'A', rClassroom: null }), false)
   })
 })
 

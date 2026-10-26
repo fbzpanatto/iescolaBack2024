@@ -1,4 +1,4 @@
-import { qPendingTransfers, qTransferStatus, qUserTeacher } from "../interfaces/interfaces";
+import { qPendingTransfers, qUserTeacher } from "../interfaces/interfaces";
 import { Transfer } from "../model/Transfer";
 import { PER_CAT, TRANSFER_STATUS } from "../utils/enums";
 import { connectionPool } from "../services/db";

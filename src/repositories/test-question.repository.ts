@@ -1,6 +1,6 @@
 import { qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages } from "../interfaces/interfaces";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { TestFormatter } from "../utils/formatters/test.formatter";
 
 class TestQuestionRepository {
 
@@ -39,7 +39,7 @@ class TestQuestionRepository {
 
       const [ queryResult ] = await conn.query(query, [testIds]);
 
-      return Helper.testQuestionsFormMultipleTests(queryResult as Array<any>)
+      return TestFormatter.testQuestionsFormMultipleTests(queryResult as Array<any>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -78,7 +78,7 @@ class TestQuestionRepository {
       `
 
       const [ queryResult ] = await conn.query(query, [testId])
-      return Helper.testQuestions(queryResult as qTestQuestions[])
+      return TestFormatter.testQuestions(queryResult as qTestQuestions[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -129,7 +129,7 @@ class TestQuestionRepository {
         `
 
       const [ queryResult ] = await conn.query(query, [testId])
-      return Helper.testQuestionsWithTitle(queryResult as qTestQuestionsWithImages[])
+      return TestFormatter.testQuestionsWithTitle(queryResult as qTestQuestionsWithImages[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -198,7 +198,7 @@ class TestQuestionRepository {
         ORDER BY qg.id, tq.order
       `
       const [ queryResult ] = await conn.query(query, [testId, testId])
-      return Helper.testQuestionsFull(queryResult as qTestQuestionsFull[])
+      return TestFormatter.testQuestionsFull(queryResult as qTestQuestionsFull[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -264,7 +264,7 @@ class TestQuestionRepository {
       `
 
       const [ queryResult ] = await conn.query(query, [disciplineId])
-      return Helper.allQuestions(queryResult as any[], withOptions)
+      return TestFormatter.allQuestions(queryResult as any[], withOptions)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

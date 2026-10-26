@@ -2,6 +2,7 @@ import { Request } from "express";
 import { CLASSROOM_CATEGORIES, TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { Helper } from "../utils/helpers";
+import { TestFormatter } from "../utils/formatters/test.formatter";
 
 class TestListingRepository {
 
@@ -130,7 +131,7 @@ class TestListingRepository {
   `;
 
       const [dataRows] = await conn.query(dataQuery, [testIds]);
-      return Helper.mapTestRowsToEntity(dataRows as any[]);
+      return TestFormatter.mapTestRowsToEntity(dataRows as any[]);
 
     }
     catch (error) { console.error("Error in listTestsSql:", error); throw error }

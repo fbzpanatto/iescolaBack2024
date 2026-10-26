@@ -1,6 +1,6 @@
 import { Test } from "../model/Test";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { AlphabeticFormatter } from "../utils/formatters/alphabetic.formatter";
 
 class AlphabeticReportRepository {
 
@@ -69,7 +69,7 @@ class AlphabeticReportRepository {
 
         const [ queryResult ] = await conn.query(query, [test.discipline.id, test.category.id, year, studentClassroomId, year, classroomId])
 
-        return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
+        return AlphabeticFormatter.alphaStuWQuestions(queryResult as {[key:string]:any}[])
       }
 
       let query = `
@@ -127,7 +127,7 @@ class AlphabeticReportRepository {
 
       const [ queryResult ] = await conn.query(query, [test.discipline.id, test.category.id, year, year, classroomId])
 
-      return Helper.alphaStuWQuestions(queryResult as {[key:string]:any}[])
+      return AlphabeticFormatter.alphaStuWQuestions(queryResult as {[key:string]:any}[])
 
     }
     catch (error) { console.error(error); throw error }
@@ -311,7 +311,7 @@ class AlphabeticReportRepository {
 
       const [rows] = await conn.query(query, params);
 
-      return Helper.alphaQuestions(rows, hasQuestions)
+      return AlphabeticFormatter.alphaQuestions(rows, hasQuestions)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -2,8 +2,8 @@ import { qTeacherClassrooms, qTeacherDisciplines, qUser, TeacherBody } from "../
 import { Teacher } from "../model/Teacher";
 import { PER_CAT } from "../utils/enums";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
 import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { UserFormatter } from "../utils/formatters/user.formatter";
 
 class TeacherRepository {
 
@@ -168,7 +168,7 @@ class TeacherRepository {
       const [ queryResult ] = await conn.query(query, [userId])
       const data = (queryResult as any[])[0]
 
-      return Helper.userTeacher(data)
+      return UserFormatter.userTeacher(data)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -203,7 +203,7 @@ class TeacherRepository {
 
       const [ queryResult ] = await conn.query(query, [personSearch]);
 
-      return Helper.superUsers(queryResult as { [key: string]: any }[]);
+      return UserFormatter.superUsers(queryResult as { [key: string]: any }[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -238,7 +238,7 @@ class TeacherRepository {
 
       const [queryResult] = await conn.query(query, [classroomsIds, personSearch]);
 
-      return Helper.teacher(queryResult as { [key: string]: any }[])
+      return UserFormatter.teacher(queryResult as { [key: string]: any }[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -272,7 +272,7 @@ class TeacherRepository {
 
       const [queryResult] = await conn.query(query, [classroomsIds, categoryId, personSearch]);
 
-      return Helper.teacher(queryResult as { [key: string]: any }[])
+      return UserFormatter.teacher(queryResult as { [key: string]: any }[])
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -4,9 +4,9 @@ import { Year } from "../model/Year";
 import { Request } from "express";
 import { PER_CAT, TRANSFER_STATUS } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
-import { Helper } from "../utils/helpers";
 import { yearRepository } from "../repositories/year.repository";
 import { teacherRepository } from "../repositories/teacher.repository";
+import { UserFormatter } from "../utils/formatters/user.formatter";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() {
@@ -17,7 +17,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     const search = request?.query.search as string
     try {
       const rows = await yearRepository.qYearsWithPeriods(search)
-      return { status: 200, data: Helper.years(rows) };
+      return { status: 200, data: UserFormatter.years(rows) };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 

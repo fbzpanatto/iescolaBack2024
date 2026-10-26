@@ -2,7 +2,8 @@ import { qAlphabeticLevels, qAlphaTests, qYear } from "../interfaces/interfaces"
 import { Test } from "../model/Test";
 import { TestQuestion } from "../model/TestQuestion";
 import { connectionPool } from "../services/db";
-import { Helper } from "../utils/helpers";
+import { TestFormatter } from "../utils/formatters/test.formatter";
+import { AlphabeticFormatter } from "../utils/formatters/alphabetic.formatter";
 
 class AlphabeticRepository {
 
@@ -158,7 +159,7 @@ class AlphabeticRepository {
 
       const [[qYearResult], [qAlphaLevelsResult]] = await Promise.all([conn.query(qYear, [yearName]), conn.query(qAlphabeticLevels, [])]);
 
-      let year = Helper.alphabeticYearHeader(qYearResult as qYear[]);
+      let year = AlphabeticFormatter.alphabeticYearHeader(qYearResult as qYear[]);
       const alphabeticLevels = qAlphaLevelsResult as qAlphabeticLevels[];
 
       return year.periods.flatMap(period => ({ ...period.bimester, levels: alphabeticLevels }));
@@ -292,7 +293,7 @@ class AlphabeticRepository {
     `;
 
       const [ queryResult ] = await conn.query(query, [categoryId, disciplineId, yearName]);
-      return Helper.alphabeticTests(queryResult as qAlphaTests[]);
+      return TestFormatter.alphabeticTests(queryResult as qAlphaTests[]);
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

@@ -1,5 +1,4 @@
 import { testController } from '../src/controller/test'
-import { Helper } from '../src/utils/helpers'
 import { TEST_CATEGORIES_IDS as tcids } from '../src/utils/enums'
 import { CLASSROOM_ID, SCHOOL_ID, SCENARIOS, TEST_QUESTIONS, TEST_ID, TEST_ROW, buildGraphRows, buildStudentClassrooms, StudentSpec } from './fixtures'
 import { testRepository } from '../src/repositories/test.repository'
@@ -12,6 +11,8 @@ import { studentTestRepository } from '../src/repositories/student-test.reposito
 import { readingFluencyRepository } from '../src/repositories/reading-fluency.repository'
 import { readingFluencyLinkRepository } from '../src/repositories/reading-fluency-link.repository'
 import { studentRepository } from '../src/repositories/student.repository'
+import { TestFormatter } from '../src/utils/formatters/test.formatter'
+import { TestReportFormatter } from '../src/utils/formatters/test-report.formatter'
 
 type Json = unknown
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
@@ -80,9 +81,9 @@ const READING_STUDENTS = (students: StudentSpec[]) => students.map((s, i) => ({
 
 // ---- Tela B: Helper.testGraph -> Helper.classroomDataStructure (puro) ----
 export function runGraphEndpoint(categoryId: number, students: StudentSpec[], questions: Questions = TEST_QUESTIONS): Json {
-  const pResult = Helper.testGraph(buildGraphRows(students, questions as typeof TEST_QUESTIONS))
-  const test = Helper.testFormater(TEST_ROW(categoryId) as any)
-  return asApi(Helper.classroomDataStructure(pResult, test, clone(QUESTION_GROUPS), clone(questions), SCHOOL_ID, '3'))
+  const pResult = TestReportFormatter.testGraph(buildGraphRows(students, questions as typeof TEST_QUESTIONS))
+  const test = TestFormatter.testFormater(TEST_ROW(categoryId) as any)
+  return asApi(TestReportFormatter.classroomDataStructure(pResult, test, clone(QUESTION_GROUPS), clone(questions), SCHOOL_ID, '3'))
 }
 
 export const CATEGORIES: Record<string, number> = {

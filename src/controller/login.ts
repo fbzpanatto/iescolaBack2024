@@ -7,12 +7,12 @@ import { generatePassword } from "../utils/generatePassword";
 import { PER_CAT as pc } from "../utils/enums";
 import { TRANSFER_STATUS as ts } from "../utils/enums";
 import { qPendingTransfers } from "../interfaces/interfaces";
-import { Helper } from "../utils/helpers";
 import { sanitizeBirthDate, sanitizeStudentRa } from "../utils/studentLoginSanitizer";
 import bcrypt from 'bcrypt';
 import { yearRepository } from "../repositories/year.repository";
 import { authRepository } from "../repositories/auth.repository";
 import { transferRepository } from "../repositories/transfer.repository";
+import { UserFormatter } from "../utils/formatters/user.formatter";
 
 const tokenSecret = process.env.SECRET;
 
@@ -36,7 +36,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       if (!condition) { return { status: 401, message: "Credenciais Inválidas" } }
 
-      const user = Helper.userResponse(row);
+      const user = UserFormatter.userResponse(row);
 
       const payload = { user: user.id, email: user.email, category: user.person.category.id };
 

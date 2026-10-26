@@ -3,6 +3,8 @@ import { EntityTarget } from "typeorm";
 import { Discipline } from "../model/Discipline";
 import { Request } from "express";
 import { JwtPayload } from "../interfaces/interfaces";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
 
 class DisciplineController extends GenericController<EntityTarget<Discipline>> {
 
@@ -13,9 +15,9 @@ class DisciplineController extends GenericController<EntityTarget<Discipline>> {
   async getAllDisciplines(req: Request, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
-      const teacherDisciplines = await this.qTeacherDisciplines(authUser.user);
-      const result = await this.qGetAllDisciplines(qUserTeacher, teacherDisciplines)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
+      const teacherDisciplines = await teacherRepository.qTeacherDisciplines(authUser.user);
+      const result = await catalogRepository.qGetAllDisciplines(qUserTeacher, teacherDisciplines)
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }

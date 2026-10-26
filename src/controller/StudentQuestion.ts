@@ -9,6 +9,9 @@ import { UserInterface, JwtPayload } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { connectionPool } from "../services/db";
 import { yearRepository } from "../repositories/year.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { studentTestStatusRepository } from "../repositories/student-test-status.repository";
+import { alphabeticRepository } from "../repositories/alphabetic.repository";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -24,7 +27,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
       const userId = qUserTeacher.person.user.id;
 
       const cY = await yearRepository.qCurrentYear();
@@ -125,12 +128,12 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
       if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
       const userId = qUserTeacher.person.user.id
       const now = new Date()
       const levelId = body.examLevel?.id ?? null
 
-      const result = await this.qUpsertAlphabetic(
+      const result = await alphabeticRepository.qUpsertAlphabetic(
         body.testCategory.id, body.year, body.examBimester.id,
         body.student.id, body.studentClassroom.id, levelId, body.classroom.id, userId
       )
@@ -159,7 +162,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       if (!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' } }
       if (parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
-      const updatedQuestion = await this.qUpdateAndValidateAnswer(Number(body.id), body.answer, body.classroom.id, body.studentClassroom.id, authUser.user);
+      const updatedQuestion = await studentTestStatusRepository.qUpdateAndValidateAnswer(Number(body.id), body.answer, body.classroom.id, body.studentClassroom.id, authUser.user);
       if (!updatedQuestion) { return { status: 403, message: 'A atualização não foi permitida devido a uma regra de negócio. (Ex: matrícula encerrada, teste inativo, etc)' } }
 
       const mappedRes = { ...updatedQuestion, score: updatedQuestion.correctAnswer.includes(updatedQuestion.answer.trim().toUpperCase()) ? 1 : 0 };
@@ -172,9 +175,9 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
 
   async updateTestStatus(id: number | string, body: ObjectLiteral, authUser: JwtPayload) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
-      const register = await this.qUpdateTestStatus(Number(body.id), Number(id), Number(body.test.id), body.observation, body.active, qUserTeacher.person.user.id)
+      const register = await studentTestStatusRepository.qUpdateTestStatus(Number(body.id), Number(id), Number(body.test.id), body.observation, body.active, qUserTeacher.person.user.id)
       if(!register) { return { status: 404, message: 'Registro não encontrado' } }
 
       const data = {}; return { status: 200, data }
@@ -186,18 +189,18 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     try {
       if(!body.test.id) { return { status: 404, message: 'Avalição ainda não disponível' } }
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
       const userId = qUserTeacher.person.user.id
       const now = new Date()
 
       if(body.id) {
         delete body.rClassroom;
-        await this.qUpdateAlphaStatus(body.id, body.observation, body.student.id, body.test.id, userId)
+        await alphabeticRepository.qUpdateAlphaStatus(body.id, body.observation, body.student.id, body.test.id, userId)
         const data = { ...body, updatedAt: now, updatedByUser: userId }
         return { status: 200, data }
       }
 
-      const newId = await this.qInsertAlphaStatus(body.observation, body.student.id, body.test.id, body.rClassroom?.id ?? null, userId)
+      const newId = await alphabeticRepository.qInsertAlphaStatus(body.observation, body.student.id, body.test.id, body.rClassroom?.id ?? null, userId)
       const data = { ...body, id: newId, createdAt: now, createdByUser: userId }
       return { status: 200, data }
     }

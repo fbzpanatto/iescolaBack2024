@@ -17,6 +17,14 @@ import { studentTestController } from '../src/controller/studentTest'
 import { checkSchema, validationResult } from 'express-validator'
 import { SUBMIT_TEST_SCHEMA } from '../src/schemas/studentTestQuestions'
 import { yearRepository } from '../src/repositories/year.repository'
+import { catalogRepository } from '../src/repositories/catalog.repository'
+import { authRepository } from '../src/repositories/auth.repository'
+import { teacherRepository } from '../src/repositories/teacher.repository'
+import { teacherClassDisciplineRepository } from '../src/repositories/teacher-class-discipline.repository'
+import { studentRepository } from '../src/repositories/student.repository'
+import { studentTestStatusRepository } from '../src/repositories/student-test-status.repository'
+import { studentTestRepository } from '../src/repositories/student-test.repository'
+import { lessonRepository } from '../src/repositories/lesson.repository'
 
 type Payload = Partial<JwtPayload> & { category: number }
 type Result = { status?: number | string, data?: unknown, message?: string }
@@ -33,9 +41,9 @@ const legacyCollidingToken = asAuth({ user: ADMIN_TEACHER_ID, category: PER_CAT.
 const teacherRow = { id: ADMIN_TEACHER_ID, userId: ADMIN_TEACHER_ID, categoryId: PER_CAT.ADMN, person: { category: { id: PER_CAT.ADMN } } }
 
 const stubTeacherLookups = () => ({
-  qTeacherByUser: mock.method(stController, 'qTeacherByUser', async () => teacherRow as never),
-  qTeacherClassrooms: mock.method(stController, 'qTeacherClassrooms', async () => { throw new Error('stop') }),
-  qUser: mock.method(lessonController, 'qUser', async () => teacherRow as never),
+  qTeacherByUser: mock.method(teacherRepository, 'qTeacherByUser', async () => teacherRow as never),
+  qTeacherClassrooms: mock.method(teacherRepository, 'qTeacherClassrooms', async () => { throw new Error('stop') }),
+  qUser: mock.method(teacherRepository, 'qUser', async () => teacherRow as never),
   qCurrentYear: mock.method(yearRepository, 'qCurrentYear', async () => null as never)
 })
 
@@ -87,7 +95,7 @@ describe('resolveStudentId', () => {
 
 describe('studentLogin', () => {
   test('signs token with student and no user', async () => {
-    mock.method(loginCtrl, 'qStudentByRa', async () => ({ id: 7, ra: '123456', dv: '7', name: 'ALUNO', categoryId: PER_CAT.ALUN }) as never)
+    mock.method(authRepository, 'qStudentByRa', async () => ({ id: 7, ra: '123456', dv: '7', name: 'ALUNO', categoryId: PER_CAT.ALUN }) as never)
     const req = asReq({ body: { ra: '1234567', birthDate: '2010-01-01' } })
     const response = await loginCtrl.studentLogin(req) as { status: number, data: { token: string, expiresIn: number, role: number, person: string, studentId: number } }
     assert.equal(response.status, 200)
@@ -141,13 +149,13 @@ const handlers: Handler[] = [
 
 const setup = () => {
   const spies = stubTeacherLookups()
-  mock.method(stController, 'studentsClassroomsNewImplementation', async () => [] as never)
-  mock.method(stController, 'qStudentFullDetail', async () => null as never)
-  mock.method(stController, 'qStates', async () => [] as never)
-  mock.method(stController, 'qDisabilities', async () => [] as never)
-  mock.method(stController, 'qAllTClassTx', async () => [] as never)
+  mock.method(studentRepository, 'studentsClassroomsNewImplementation', async () => [] as never)
+  mock.method(studentRepository, 'qStudentFullDetail', async () => null as never)
+  mock.method(catalogRepository, 'qStates', async () => [] as never)
+  mock.method(catalogRepository, 'qDisabilities', async () => [] as never)
+  mock.method(teacherClassDisciplineRepository, 'qAllTClassTx', async () => [] as never)
   const classroomSpy = mock.method(classroomController, 'getAllClassroomsByTestCategory', async () => ({ status: 200, data: [] }) as never)
-  const updateSpy = mock.method(lessonController, 'updateLessonById', async () => ({ id: 1 }) as never)
+  const updateSpy = mock.method(lessonRepository, 'updateLessonById', async () => ({ id: 1 }) as never)
   return { spies, classroomSpy, updateSpy }
 }
 
@@ -194,8 +202,8 @@ describe('studentTestController', () => {
   })
 
   test('allFilteredStudentTest uses the token student id', async () => {
-    const updateSpy = mock.method(studentTestController, 'updateAllStudentTestStatus', async () => undefined as never)
-    const listSpy = mock.method(studentTestController, 'qTestByStudentId', async () => [] as never)
+    const updateSpy = mock.method(studentTestStatusRepository, 'updateAllStudentTestStatus', async () => undefined as never)
+    const listSpy = mock.method(studentTestRepository, 'qTestByStudentId', async () => [] as never)
     const result = await studentTestController.allFilteredStudentTest({}, { year: 2025 }, {}, studentToken)
     assert.equal(result.status, 200)
     assert.equal(updateSpy.mock.calls[0].arguments[0], 7)
@@ -204,8 +212,8 @@ describe('studentTestController', () => {
 
   test('getTest uses the token student id', async () => {
     mock.method(yearRepository, 'qCurrentYear', async () => ({ name: 2025 }) as never)
-    mock.method(studentTestController, 'updateAllStudentTestStatus', async () => undefined as never)
-    const testSpy = mock.method(studentTestController, 'qFilteredTestByStudentId', async () => null as never)
+    mock.method(studentTestStatusRepository, 'updateAllStudentTestStatus', async () => undefined as never)
+    const testSpy = mock.method(studentTestRepository, 'qFilteredTestByStudentId', async () => null as never)
     const result = await studentTestController.getTest({}, { id: 1 }, query, studentToken)
     assert.equal(result.status, 404)
     assert.equal(testSpy.mock.calls[0].arguments[0], 7)
@@ -214,7 +222,7 @@ describe('studentTestController', () => {
   test('updateStudentAnswers scopes everything to the token student id', async () => {
     const executed: Executed[] = []
     stubPool(executed)
-    const filterSpy = mock.method(studentTestController, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: false }) as never)
+    const filterSpy = mock.method(studentTestRepository, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: false }) as never)
     const body = {
       testId: 1,
       studentId: 99,
@@ -246,7 +254,7 @@ describe('studentTestController', () => {
   })
 
   const stubTest = (isTokenRequired: boolean | number | null | undefined) =>
-    mock.method(studentTestController, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: isTokenRequired }) as never)
+    mock.method(studentTestRepository, 'qFilteredTestByStudentId', async () => ({ studentTestStatusId: 3, testId: 1, classroomId: 9, is_token_required: isTokenRequired }) as never)
 
   test('accepts a null token when the test does not require one', async () => {
     const executed: Executed[] = []
@@ -289,8 +297,8 @@ describe('lessonController.saveLessonExecution', () => {
   })
 
   test('uses the token student id', async () => {
-    mock.method(lessonController, 'qGetLessonById', async () => ({ id: 1 }) as never)
-    const upsert = mock.method(lessonController, 'upsertStudentLesson', async () => ({ ok: true }) as never)
+    mock.method(lessonRepository, 'qGetLessonById', async () => ({ id: 1 }) as never)
+    const upsert = mock.method(lessonRepository, 'upsertStudentLesson', async () => ({ ok: true }) as never)
     const result = await lessonController.saveLessonExecution(req, asAuth({ student: 7, category: PER_CAT.ALUN })) as Result
     assert.equal(result.status, 200)
     assert.equal(upsert.mock.calls[0].arguments[0], 7)

@@ -5,6 +5,9 @@ import { Lesson } from "../model/Lesson";
 import { JwtPayload } from "../interfaces/interfaces";
 import {PER_CAT} from "../utils/enums";
 import { resolveStudentId } from "../utils/studentToken";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { lessonRepository } from "../repositories/lesson.repository";
 
 class LessonController extends GenericController<EntityTarget<Lesson>> {
 
@@ -13,7 +16,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
   async getFormData(_: Request) {
     try {
 
-      const disciplines = await this.qDisciplines();
+      const disciplines = await catalogRepository.qDisciplines();
 
       return { status: 200, data: { disciplines } };
     }
@@ -32,7 +35,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      let result = await this.qGetAllLessons(
+      let result = await lessonRepository.qGetAllLessons(
         pSearch,
         pDisciplineId,
         pClassroomNumber,
@@ -56,7 +59,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      const lesson = await this.qGetLessonById(lessonId);
+      const lesson = await lessonRepository.qGetLessonById(lessonId);
 
       if (!lesson) { return { status: 404, message: 'Atividade não encontrada.' } }
 
@@ -78,10 +81,10 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      const tUser = await this.qUser(authUser.user)
+      const tUser = await teacherRepository.qUser(authUser.user)
 
       // Nome sempre gravado em maiúsculas.
-      let lesson = await this.createLesson(
+      let lesson = await lessonRepository.createLesson(
         body.name.toUpperCase(),
         body.disciplineId,
         body.classroomNumber,
@@ -109,7 +112,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
     try {
 
-      const tUser = await this.qUser(authUser.user)
+      const tUser = await teacherRepository.qUser(authUser.user)
 
       // O aluno também tem PUT liberado na entidade "lesson" (usado no registro de
       // execução), então a edição da atividade precisa ser travada aqui pela categoria.
@@ -119,7 +122,7 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
       // Nome sempre gravado em maiúsculas. Disciplina e série não são editáveis:
       // alterá-las exigiria renumerar as aulas da sequência.
-      const lesson = await this.updateLessonById(
+      const lesson = await lessonRepository.updateLessonById(
         lessonId,
         body.name.toUpperCase(),
         body.s3Key ?? null,
@@ -156,11 +159,11 @@ class LessonController extends GenericController<EntityTarget<Lesson>> {
 
       // Confere a atividade antes de gravar: sem isso, um id inexistente
       // estouraria como erro de foreign key (500) em vez de um 404 claro.
-      const lesson = await this.qGetLessonById(lessonId);
+      const lesson = await lessonRepository.qGetLessonById(lessonId);
 
       if (!lesson) { return { status: 404, message: 'Atividade não encontrada.' } }
 
-      const result = await this.upsertStudentLesson(studentId, lessonId, grade);
+      const result = await lessonRepository.upsertStudentLesson(studentId, lessonId, grade);
 
       return { status: 200, data: result };
     }

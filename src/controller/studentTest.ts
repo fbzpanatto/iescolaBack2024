@@ -5,6 +5,11 @@ import { TestByStudentId, TestQuestionWithImages, UpdateStudentAnswers, JwtPaylo
 import { Helper } from "../utils/helpers";
 import { resolveStudentId } from "../utils/studentToken";
 import { yearRepository } from "../repositories/year.repository";
+import { testRepository } from "../repositories/test.repository";
+import { testQuestionRepository } from "../repositories/test-question.repository";
+import { studentTestStatusRepository } from "../repositories/student-test-status.repository";
+import { studentTestRepository } from "../repositories/student-test.repository";
+import { testTokenRepository } from "../repositories/test-token.repository";
 
 class StudentTestController extends GenericController<any> {
 
@@ -32,9 +37,9 @@ class StudentTestController extends GenericController<any> {
 
       // Migra vínculos órfãos presos a matrículas antigas (aluno transferido de sala).
       // Necessário aqui porque a prova pode ser acessada por link direto, sem passar pela listagem.
-      await this.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
+      await studentTestStatusRepository.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
 
-      const stuTestInfo = await this.qFilteredTestByStudentId(Number(studentId), Number(testId));
+      const stuTestInfo = await studentTestRepository.qFilteredTestByStudentId(Number(studentId), Number(testId));
       if (!stuTestInfo) { return { status: 404, message: "Teste não disponível para este aluno." } }
 
       const hasToken = Helper.hasToken(stuTestInfo.is_token_required);
@@ -43,19 +48,19 @@ class StudentTestController extends GenericController<any> {
       if (hasToken) {
         if (!token || token.length !== 9) { return { status: 200, data: { requires_token: true } } }
 
-        const validToken = await this.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
+        const validToken = await testTokenRepository.getTokenByCode(token, stuTestInfo.classroomId, stuTestInfo.testId)
         if (!validToken) { return { status: 403, message: 'Token inválido, expirado ou pertencente a uma sala diferente da sua matrícula atual.' } }
 
         qToken = { id: validToken.id, code: validToken.code }
       }
 
-      const qTest = await this.qTestByIdAndYear(testId, String(year));
+      const qTest = await testRepository.qTestByIdAndYear(testId, String(year));
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
-      const qTqs = await this.qTestQuestionsWithTitle(testId) as TestQuestionWithImages[];
+      const qTqs = await testQuestionRepository.qTestQuestionsWithTitle(testId) as TestQuestionWithImages[];
       if (!qTqs || qTqs.length === 0) { return { status: 400, message: "Esta prova ainda não possui questões." } }
 
-      let studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
+      let studentQuestions = await studentTestRepository.qStudentTestQuestions(Number(testId), Number(studentId));
 
       if (!studentQuestions || studentQuestions.length === 0) {
         conn = await connectionPool.getConnection();
@@ -90,7 +95,7 @@ class StudentTestController extends GenericController<any> {
 
           await conn.commit();
 
-          studentQuestions = await this.qStudentTestQuestions(Number(testId), Number(studentId));
+          studentQuestions = await studentTestRepository.qStudentTestQuestions(Number(testId), Number(studentId));
         }
         catch (error) { if (conn) await conn.rollback(); throw error }
         finally { if (conn) conn.release() }
@@ -125,7 +130,7 @@ class StudentTestController extends GenericController<any> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const studentTest = await this.qFilteredTestByStudentId<TestByStudentId>(authStudentId, Number(body.testId));
+      const studentTest = await studentTestRepository.qFilteredTestByStudentId<TestByStudentId>(authStudentId, Number(body.testId));
 
       message = "Teste não encontrado para este aluno."
       if (!studentTest) { await conn.rollback(); return { status: 404, message } }
@@ -237,9 +242,9 @@ class StudentTestController extends GenericController<any> {
 
       // Migra vínculos órfãos (aluno transferido de sala) para a matrícula ativa,
       // desde que não haja respostas gravadas. Mesma regra do fluxo do professor.
-      await this.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
+      await studentTestStatusRepository.updateAllStudentTestStatus(Number(studentId), String(year), Number(studentId));
 
-      let result = await this.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
+      let result = await studentTestRepository.qTestByStudentId<TestByStudentId>(studentId, year, search, limit, offset)
 
       return { status: 200, data: result }
     }

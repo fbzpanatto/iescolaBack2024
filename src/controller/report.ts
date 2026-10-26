@@ -9,6 +9,16 @@ import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { yearRepository } from "../repositories/year.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { schoolRepository } from "../repositories/school.repository";
+import { classroomRepository } from "../repositories/classroom.repository";
+import { studentRepository } from "../repositories/student.repository";
+import { testRepository } from "../repositories/test.repository";
+import { testListingRepository } from "../repositories/test-listing.repository";
+import { testQuestionRepository } from "../repositories/test-question.repository";
+import { readingFluencyRepository } from "../repositories/reading-fluency.repository";
+import { alphabeticRepository } from "../repositories/alphabetic.repository";
+import { alphabeticReportRepository } from "../repositories/alphabetic-report.repository";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -28,15 +38,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
   async reportFindAll(req: Request, authUser: JwtPayload) {
     try {
-      const teacher = await this.qTeacherByUser(authUser.user);
-      const teacherClasses = await this.qTeacherClassrooms(authUser.user);
+      const teacher = await teacherRepository.qTeacherByUser(authUser.user);
+      const teacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user);
 
       const MASTER_CATEGORIES = [PER_CAT.ADMN, PER_CAT.SUPE, PER_CAT.FORM, PER_CAT.SUPE_EI];
       const masterUser = MASTER_CATEGORIES.includes(teacher.person.category.id);
 
       const isSupeEI = teacher.person.category.id === PER_CAT.SUPE_EI;
 
-      const data = await this.listTestsSql(req, isSupeEI, masterUser, teacherClasses);
+      const data = await testListingRepository.listTestsSql(req, isSupeEI, masterUser, teacherClasses);
       return { status: 200, data };
     }
     catch (error: any) {
@@ -48,7 +58,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
   async listAggregatedTests(classroom: number | string, bimester: number | string, year: number | string) {
     try {
       if(!classroom || !bimester) { return { status: 400, message: "Parâmetros inválidos. É necessário informar o ID da turma e do bimestre." } }
-      let data = await this.qAggregateTest(String(year), Number(classroom as string), Number(bimester as string))
+      let data = await testRepository.qAggregateTest(String(year), Number(classroom as string), Number(bimester as string))
       return { status: 200, data };
     }
     catch (error: any) { console.log('getAggregate', error); return { status: 500, message: error.message } }
@@ -115,7 +125,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     let data;
 
-    const qTest = await this.qTestByIdAndYear(Number(testId), yearName)
+    const qTest = await testRepository.qTestByIdAndYear(Number(testId), yearName)
     if (!qTest) return { status: 404, message: "Teste não encontrado" };
 
     switch (qTest?.test_category_id) {
@@ -127,16 +137,16 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         if(!qTest?.year_id) return { status: 404, message: "Ano não encontrado." }
 
-        let headers = await this.qAlphabeticHeaders(yearName) as any[]
+        let headers = await alphabeticRepository.qAlphabeticHeaders(yearName) as any[]
 
-        const tests = await this.qAlphabeticTests(qTest.test_category_id, qTest.discipline_id, qTest.year_name) as any[]
+        const tests = await alphabeticRepository.qAlphabeticTests(qTest.test_category_id, qTest.discipline_id, qTest.year_name) as any[]
 
         let testQuestionsIds: number[] = []
 
         if((qTest.test_category_id != TEST_CATEGORIES_IDS.LITE_1 && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF && qTest.test_category_id != TEST_CATEGORIES_IDS.EDU_INF_PART) && tests.length > 0) {
 
           const testIds = tests.map(test => test.id);
-          const questionsMap = await this.qTestQuestionsForMultipleTests(testIds);
+          const questionsMap = await testQuestionRepository.qTestQuestionsForMultipleTests(testIds);
 
           for (const test of tests) {
             const questions = questionsMap.get(test.id) || [];
@@ -155,7 +165,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let serieFilter = `${ qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF || qTest?.test_category_id === TEST_CATEGORIES_IDS.EDU_INF_PART ? 0 : qTest?.test_category_id }%`;
 
-        let preResult = await testController.alphaQuestions(serieFilter, qTest.year_name, qTest, testQuestionsIds)
+        let preResult = await alphabeticReportRepository.alphaQuestions(serieFilter, qTest.year_name, qTest, testQuestionsIds)
 
         let mappedSchools = preResult.map((school: any) => {
           const element = {
@@ -214,23 +224,23 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         const examIds = TEST_CATEGORIES_IDS.PRO_TXT === qTest?.test_category_id ? EXAMS_IDS_PRODUCTION : EXAMS_IDS_READING
 
-        const headers = await this.qReadingFluencyHeaders(examIds)
+        const headers = await readingFluencyRepository.qReadingFluencyHeaders(examIds)
 
         const fluencyHeaders = Helper.readingFluencyHeaders(headers)
 
-        let localSchools = await this.qSchools(Number(testId))
+        let localSchools = await schoolRepository.qSchools(Number(testId))
 
         for(let school of localSchools) {
 
-          school.classrooms = await this.qClassroomsByTestId(school.id, Number(testId))
+          school.classrooms = await classroomRepository.qClassroomsByTestId(school.id, Number(testId))
 
           for(let classroom of school.classrooms) {
 
-            classroom.studentsClassrooms = Helper.duplicatedStudents(await this.qStudentClassrooms(classroom.id, qYear.id)).filter((el:any) => !el.ignore)
+            classroom.studentsClassrooms = Helper.duplicatedStudents(await studentRepository.qStudentClassrooms(classroom.id, qYear.id)).filter((el:any) => !el.ignore)
 
             for(let studentClassroom of classroom.studentsClassrooms) {
 
-              studentClassroom.student.readingFluency = await this.qReadingFluency(Number(testId), studentClassroom.student.id)
+              studentClassroom.student.readingFluency = await readingFluencyRepository.qReadingFluency(Number(testId), studentClassroom.student.id)
 
             }
           }
@@ -294,15 +304,15 @@ class ReportController extends GenericController<EntityTarget<Test>> {
         const year = await yearRepository.qYearByName(yearName)
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
-        const qTestQuestions = await this.qTestQuestions(testId) as unknown as TestQuestion[]
+        const qTestQuestions = await testQuestionRepository.qTestQuestions(testId) as unknown as TestQuestion[]
         if (!qTestQuestions) return { status: 404, message: "Questões não encontradas" }
 
         const testQuestionsIds = qTestQuestions.map(testQuestion => testQuestion.id)
-        const questionGroups = await this.qTestQuestionsGroupsOnReport(Number(testId))
-        const pResult = Helper.testGraph((await this.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
+        const questionGroups = await testQuestionRepository.qTestQuestionsGroupsOnReport(Number(testId))
+        const pResult = Helper.testGraph((await testRepository.qGraphTest(testId, testQuestionsIds, year)) as Array<any>);
 
         // NOVO: escolas/turmas vinculadas à prova que nunca tiveram acesso
-        const notAccessed = await this.qTestSchools(testId)
+        const notAccessed = await schoolRepository.qTestSchools(testId)
 
         data = Helper.schoolDataStructure(pResult, Helper.testFormater(qTest), questionGroups, qTestQuestions, notAccessed)
 

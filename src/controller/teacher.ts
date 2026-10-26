@@ -12,6 +12,11 @@ import { credentialsEmail } from "../services/email";
 import { generatePassword } from "../utils/generatePassword";
 import { connectionPool } from "../services/db";
 import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { teacherClassDisciplineRepository } from "../repositories/teacher-class-discipline.repository";
+import { classroomRepository } from "../repositories/classroom.repository";
+import { transferRepository } from "../repositories/transfer.repository";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -24,8 +29,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       let disciplines = (await discController.getAllDisciplines(req, authUser)).data;
       let classrooms = (await classroomController.getAllClassrooms(req, authUser)).data;
       let personCategories = (await pCatCtrl.findAllPerCat(req, authUser)).data;
-      let schools = await this.qAllSchools();
-      let contracts = await this.qContracts();
+      let schools = await catalogRepository.qAllSchools();
+      let contracts = await catalogRepository.qContracts();
 
       classrooms = classrooms?.filter(classroom => !OUT_CLASSROOMS.includes(classroom.id))
 
@@ -39,24 +44,24 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
     const option = Number(request?.query.option);
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
-      const qTeacherClasses = await this.qTeacherClassrooms(authUser.user);
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
+      const qTeacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user);
       let response: {}[] = [];
 
       if([pc.ADMN].includes(qUserTeacher.person.category.id)) {
-        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search, true) } : { status: 200, data: [] };
+        return option === 1 ? { status: 200, data: await teacherRepository.qAllTeachersForSuperUser(search, true) } : { status: 200, data: [] };
       }
 
       if([pc.SUPE_EI, pc.SUPE, pc.FORM].includes(qUserTeacher.person.category.id)) {
-        return option === 1 ? { status: 200, data: await this.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
+        return option === 1 ? { status: 200, data: await teacherRepository.qAllTeachersForSuperUser(search) } : { status: 200, data: [] };
       }
 
       if(option === 1) {
-        response = await this.qTeacherThatBelongs(qTeacherClasses.classrooms, search);
+        response = await teacherRepository.qTeacherThatBelongs(qTeacherClasses.classrooms, search);
       }
 
       if(option === 2) {
-        response = await this.qTeacherThatNotBelongs(qTeacherClasses.classrooms, pc.PROF, search);
+        response = await teacherRepository.qTeacherThatNotBelongs(qTeacherClasses.classrooms, pc.PROF, search);
       }
 
       return { status: 200, data: response };
@@ -67,14 +72,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async findOneTeacher(id: string | number, request: Request<{ id: string | number }>, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
-      const qUserTeacherClasses = await this.qTeacherClassrooms(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
+      const qUserTeacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user)
 
       const cannotChange = [pc.MONI, pc.PROF];
 
       if ( qUserTeacher.id !== Number(id) && cannotChange.includes(qUserTeacher.person.category.id) ) { return { status: 403, message: "Você não tem permissão para visualizar este registro." } }
 
-      const qTeacher = await this.qTeacherRelationship(id)
+      const qTeacher = await teacherClassDisciplineRepository.qTeacherRelationship(id)
       if (!qTeacher.id) { return { status: 404, message: "Dado não encontrado" } }
       const qTeacherClassrooms = qTeacher.teacherClassesDisciplines.map(el => el.classroomId)
 
@@ -90,8 +95,8 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async getRequestedStudentTransfers(req: Request, authUser: JwtPayload) {
     try {
-      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
-      const count = await this.qPendingTransferCountByClassrooms(teacherClasses.classrooms, TRANSFER_STATUS.PENDING)
+      const teacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user)
+      const count = await transferRepository.qPendingTransferCountByClassrooms(teacherClasses.classrooms, TRANSFER_STATUS.PENDING)
 
       return { status: 200, data: count }
     }
@@ -101,7 +106,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async updateTeacher(id: string, body: TeacherBody, authUser: UserInterface) {
     let conn;
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
@@ -203,13 +208,13 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
   async updateTeacherSingleRel(id: string, body: { teacher: {  id: number }, classroom: { id: number }, discipline: { id: number }}, authUser: UserInterface) {
     try {
       const [qUserTeacher, classroom, discipline, teacher] = await Promise.all([
-        this.qTeacherByUser(authUser.user),
-        this.qClassroom(body.classroom.id),
-        this.qDiscipline(body.discipline.id),
-        this.qTeacher(body.teacher.id)
+        teacherRepository.qTeacherByUser(authUser.user),
+        classroomRepository.qClassroom(body.classroom.id),
+        catalogRepository.qDiscipline(body.discipline.id),
+        teacherRepository.qTeacher(body.teacher.id)
       ])
 
-      if(qUserTeacher && classroom && discipline && teacher) { await this.qSingleRel(body.teacher.id, body.classroom.id, body.discipline.id) }
+      if(qUserTeacher && classroom && discipline && teacher) { await teacherClassDisciplineRepository.qSingleRel(body.teacher.id, body.classroom.id, body.discipline.id) }
 
       return { status: 200, data: { message: 'done.' } }
     }
@@ -241,7 +246,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       await conn.query(`UPDATE person SET categoryId = ? WHERE id = ?`, [targetCategory, teacher.person.id]);
       await conn.query(`UPDATE teacher SET schoolId = ? WHERE id = ?`, [Number(body.school), teacher.id]);
 
-      await this.qEndAllTeacherRelations(teacher.id);
+      await teacherClassDisciplineRepository.qEndAllTeacherRelations(teacher.id);
 
       const [ disciplineRows ] = await conn.query(`SELECT id FROM discipline`);
       const [ classroomRows ] = await conn.query(`SELECT id FROM classroom WHERE schoolId = ?`, [Number(body.school)]);
@@ -267,7 +272,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       teacher.person.category = { id: targetCategory };
       await conn.query(`UPDATE person SET categoryId = ? WHERE id = ?`, [targetCategory, teacher.person.id]);
 
-      await this.qEndAllTeacherRelations(teacher.id);
+      await teacherClassDisciplineRepository.qEndAllTeacherRelations(teacher.id);
 
       await this.updateTeacherClassesAndDisciplines(teacher, conn, body);
     }
@@ -291,7 +296,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
     if (isBecomingMaster || isDemotingToTeacher) { return await this.changeTeacherMasterSchool(body, teacher, conn) }
 
-    const qDbRelationShip = (await this.qTeacherRelationship(teacher.id)).teacherClassesDisciplines;
+    const qDbRelationShip = (await teacherClassDisciplineRepository.qTeacherRelationship(teacher.id)).teacherClassesDisciplines;
 
     const toEnd: number[] = [];
     const toReactivate: { id: number, contractId: number | null }[] = [];
@@ -377,14 +382,14 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
   async saveTeacher(body: TeacherBody, authUser: UserInterface) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       const canChangeErr = "Você não tem permissão para criar uma pessoa com esta categoria."
       if (!this.canChange(qUserTeacher.person.category.id, body.category.id)) { return { status: 403, message: canChangeErr }}
 
       const { username, passwordObject, email } = await this.generateUser(body);
 
-      const result = await this.qCreateTeacher(body, qUserTeacher.person.user.id, username, email, passwordObject.hashedPassword);
+      const result = await teacherRepository.qCreateTeacher(body, qUserTeacher.person.user.id, username, email, passwordObject.hashedPassword);
 
       if (result.outcome === 'register_exists') { return { status: 409, message: "Já existe um registro com este número de matrícula." } }
       if (result.outcome === 'email_exists') { return { status: 409, message: "Já existe um registro com este email." } }

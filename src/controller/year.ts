@@ -6,6 +6,7 @@ import { PER_CAT, TRANSFER_STATUS } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { yearRepository } from "../repositories/year.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() {
@@ -22,7 +23,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
   async saveWithAuth(body: any, authUser: JwtPayload) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
       const canCreate = [PER_CAT.ADMN]
       if (!canCreate.includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para criar um ano letivo. Solicite a um Administrador do sistema.' }}
 
@@ -42,7 +43,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
 
   async updateIdWithAuth(id: any, body: any, authUser: JwtPayload) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       const result = await yearRepository.qUpdateYear(Number(id), body, qUserTeacher.id, TRANSFER_STATUS.PENDING, TRANSFER_STATUS.ACCEPTED)
 

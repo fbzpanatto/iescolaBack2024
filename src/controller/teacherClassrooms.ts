@@ -5,6 +5,8 @@ import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { JwtPayload } from "../interfaces/interfaces";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { teacherClassDisciplineRepository } from "../repositories/teacher-class-discipline.repository";
 
 class TeacherClassroomsController extends GenericController<EntityTarget<Classroom>> {
 
@@ -13,11 +15,11 @@ class TeacherClassroomsController extends GenericController<EntityTarget<Classro
   async getAllTClass(request: Request, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.SUPE_EI || qUserTeacher.person.category.id === PER_CAT.FORM
 
-      const classrooms = await this.qAllTClass(masterUser, qUserTeacher.id)
+      const classrooms = await teacherClassDisciplineRepository.qAllTClass(masterUser, qUserTeacher.id)
 
       return { status: 200, data: classrooms };
     }

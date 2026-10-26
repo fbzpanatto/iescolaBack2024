@@ -4,6 +4,8 @@ import { PersonCategory } from "../model/PersonCategory";
 import { Request } from "express";
 import { EXCLUDED_CATEGORIES_BY_ROLE, PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
 
 class PersonCategoryController extends GenericController<EntityTarget<PersonCategory>> {
   constructor() {
@@ -13,7 +15,7 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
   async findAllPerCat(req: Request, authUser: JwtPayload) {
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
 
       if (!qUserTeacher) { return { status: 404, message: "Usuário não encontrado" } }
 
@@ -22,7 +24,7 @@ class PersonCategoryController extends GenericController<EntityTarget<PersonCate
 
       const excludeIds = EXCLUDED_CATEGORIES_BY_ROLE[userCategoryId] || [PER_CAT.ALUN];
 
-      const result = await this.findPersonCategories(excludeIds);
+      const result = await catalogRepository.findPersonCategories(excludeIds);
 
       return { status: 200, data: result };
     }

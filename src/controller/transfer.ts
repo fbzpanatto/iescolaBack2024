@@ -5,6 +5,8 @@ import { Request } from "express";
 import { JwtPayload } from "../interfaces/interfaces";
 import {connectionPool} from "../services/db";
 import {format} from "mysql2";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { transferRepository } from "../repositories/transfer.repository";
 
 class TransferController extends GenericController<EntityTarget<Transfer>> {
 
@@ -162,8 +164,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   async saveWithAuth(body: DeepPartial<ObjectLiteral>, authUser: JwtPayload, options: SaveOptions | undefined) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
-      const result = await this.qCreateTransfer(body as any, qUserTeacher)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
+      const result = await transferRepository.qCreateTransfer(body as any, qUserTeacher)
 
       if (result.outcome === 'pending_exists') { return { status: 400, message: 'Já existe uma solicitação pendente para este aluno' } }
       if (result.outcome === 'not_found') { return { status: 404, message: 'Registro não encontrado' } }
@@ -176,8 +178,8 @@ class TransferController extends GenericController<EntityTarget<Transfer>> {
 
   async updateIdWithAuth(transferId: number | string, body: ObjectLiteral, authUser: JwtPayload) {
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
-      const result = await this.qUpdateTransfer(Number(transferId), body as any, qUserTeacher)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
+      const result = await transferRepository.qUpdateTransfer(Number(transferId), body as any, qUserTeacher)
 
       if (result.outcome === 'not_found') { return { status: 404, message: 'Transferência já processada ou não localizada. Atualize sua página.' } }
       if (result.outcome === 'forbidden_cancel') { return { status: 403, message: 'Você não pode modificar uma solicitação de transferência feita por outra pessoa.' } }

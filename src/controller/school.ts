@@ -2,6 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { School } from "../model/School";
 import { Request } from "express";
+import { schoolRepository } from "../repositories/school.repository";
 
 class SchoolController extends GenericController<EntityTarget<School>> {
   constructor() { super(School) }
@@ -12,7 +13,7 @@ class SchoolController extends GenericController<EntityTarget<School>> {
     const { search } = req.query
 
     try {
-      const sortedResult = await this.qGetAllSchools(year, (search as string | undefined) ?? '')
+      const sortedResult = await schoolRepository.qGetAllSchools(year, (search as string | undefined) ?? '')
 
       return { status: 200, data: sortedResult };
     } catch (error: any) { return { status: 500, message: error.message } }

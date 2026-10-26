@@ -5,6 +5,8 @@ import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { yearRepository } from "../repositories/year.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { historyRepository } from "../repositories/history.repository";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -19,22 +21,22 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
       const qYear = await yearRepository.qYearByName(year as string)
 
-      const el = await this.qTeacherByUser(authUser.user)
-      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
+      const el = await teacherRepository.qTeacherByUser(authUser.user)
+      const teacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user)
       const masterTeacher = el.person.category.id === PER_CAT.ADMN || el.person.category.id === PER_CAT.SUPE || el.person.category.id === PER_CAT.FORM
 
       const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
       const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
-      const result = await this.qCurrentTeacherStudents(qYear.id, teacherClasses.classrooms, (student as string), masterTeacher, limit, offset)
+      const result = await historyRepository.qCurrentTeacherStudents(qYear.id, teacherClasses.classrooms, (student as string), masterTeacher, limit, offset)
 
       const studentIds = result.map((el) => el.studentId)
 
       if(!studentIds.length) { return { status: 200, data: [] } }
 
       const [studentTests, studentAlpha] = await Promise.all([
-        this.qStudentTestsByYear(studentIds, qYear.id),
-        this.qStudentAlphabeticByYear(studentIds, qYear.id)
+        historyRepository.qStudentTestsByYear(studentIds, qYear.id),
+        historyRepository.qStudentAlphabeticByYear(studentIds, qYear.id)
       ]);
 
       return { status: 200, data: [...studentAlpha, ...studentTests] };

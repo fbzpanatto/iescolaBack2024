@@ -6,6 +6,9 @@ import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { TestToken } from "../model/Token";
 import { yearRepository } from "../repositories/year.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { testListingRepository } from "../repositories/test-listing.repository";
+import { testTokenRepository } from "../repositories/test-token.repository";
 
 class TokenController extends GenericController<EntityTarget<TestToken>> {
 
@@ -15,7 +18,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
     try {
 
-      const tUser = await this.qUser(authUser.user)
+      const tUser = await teacherRepository.qUser(authUser.user)
 
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
                          tUser?.categoryId === PER_CAT.SUPE ||
@@ -27,7 +30,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
       const activeYearValue = currentYear.name;
 
-      let result = await this.testByClassroomAndTeacher(tUser.teacherId, activeYearValue, masterUser)
+      let result = await testListingRepository.testByClassroomAndTeacher(tUser.teacherId, activeYearValue, masterUser)
 
       return { status: 200, data: result };
     }
@@ -46,7 +49,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
     try {
       // 1. Resgata os dados do usuário que está fazendo a requisição
-      const tUser = await this.qUser(authUser.user);
+      const tUser = await teacherRepository.qUser(authUser.user);
 
       // 2. Define se ele é um "super usuário" (Admin, Supervisor, etc)
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
@@ -54,7 +57,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
         tUser?.categoryId === PER_CAT.FORM;
 
       // 3. Passa o ID do professor e o status de masterUser para a querie
-      let result = await this.qGetAllTokens(
+      let result = await testTokenRepository.qGetAllTokens(
         pSearch,
         pBimesterId,
         pDisciplineId,
@@ -76,11 +79,11 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
 
     try {
 
-      const tUser = await this.qUser(authUser.user)
+      const tUser = await teacherRepository.qUser(authUser.user)
 
       const sqlDateTime = Helper.generateDateTime()
 
-      let testToken = await this.createTestToken({
+      let testToken = await testTokenRepository.createTestToken({
         teacherId: tUser.teacherId,
         leftUses: body.leftUses,
         classroomId: body.classroomId,

@@ -5,6 +5,9 @@ import { Request } from "express";
 import { connectionPool } from "../services/db";
 import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { testQuestionRepository } from "../repositories/test-question.repository";
 
 class QuestionController extends GenericController<EntityTarget<Question>> {
   constructor() {
@@ -34,7 +37,7 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
     let conn;
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       const masterUser = qUserTeacher.person.category.id === PER_CAT.ADMN || qUserTeacher.person.category.id === PER_CAT.SUPE || qUserTeacher.person.category.id === PER_CAT.FORM;
 
@@ -50,15 +53,15 @@ class QuestionController extends GenericController<EntityTarget<Question>> {
 
   async questionForm(_: Request) {
     try {
-      const classroomCategories = await this.qClassroomCategories()
-      const groups = await this.qQuestionGroups()
+      const classroomCategories = await catalogRepository.qClassroomCategories()
+      const groups = await catalogRepository.qQuestionGroups()
       return { status: 200, data: { classroomCategories, groups } };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
 
   async allQuestions(req: Request) {
     try {
-      const questions = await this.qAllQuestions(Number(req.query.discipline), req.query.withOptions === '1');
+      const questions = await testQuestionRepository.qAllQuestions(Number(req.query.discipline), req.query.withOptions === '1');
       return { status: 200, data: questions };
     } catch (error: any) { return { status: 500, message: error.message } }
   }

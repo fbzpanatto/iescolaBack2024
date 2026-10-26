@@ -11,6 +11,11 @@ import { Helper, HttpError } from "../utils/helpers";
 import getTimeZone from "../utils/getTimeZone";
 import { toSqlUtcDateTime } from "../utils/sqlDateTime";
 import { yearRepository } from "../repositories/year.repository";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { teacherClassDisciplineRepository } from "../repositories/teacher-class-discipline.repository";
+import { classroomRepository } from "../repositories/classroom.repository";
+import { studentRepository } from "../repositories/student.repository";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -21,12 +26,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
 
     try {
-      const qUt = await this.qTeacherByUser(authUser.user)
+      const qUt = await teacherRepository.qTeacherByUser(authUser.user)
       const masterUser = qUt.person.category.id === pc.ADMN || qUt.person.category.id === pc.SUPE || qUt.person.category.id === pc.FORM
 
-      const states = await this.qStates()
-      const disabilities = await this.qDisabilities()
-      const teacherClassrooms = await this.qAllTClassTx(masterUser, qUt.id)
+      const states = await catalogRepository.qStates()
+      const disabilities = await catalogRepository.qDisabilities()
+      const teacherClassrooms = await teacherClassDisciplineRepository.qAllTClassTx(masterUser, qUt.id)
 
       return { status: 200, data: { disabilities, states, teacherClassrooms } };
 
@@ -58,7 +63,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`}
       }
 
-      const rows = await this.qGetAllInactivates(search, request.params.year, currentYear.id, lastYearDB.id, limit, offset)
+      const rows = await studentRepository.qGetAllInactivates(search, request.params.year, currentYear.id, lastYearDB.id, limit, offset)
 
       const preResult = Helper.inactivesMappedResult(rows)
 
@@ -78,7 +83,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       if (!lastYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo anterior.');
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
 
       const everyGraduate = body.list.every((item: any) =>
         item.newClassroom.name === 'FORMANDO' &&
@@ -89,7 +94,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       // ==========================================
       // FLUXO DE FORMANDOS (Mantido intacto)
       // ==========================================
-      if (everyGraduate && body.list.length > 0) { await this.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB }); return { status: 200, data: {} } }
+      if (everyGraduate && body.list.length > 0) { await studentRepository.graduateStudentsBatchSQL({ list: body.list, user: qUserTeacher, year: lastYearDB }); return { status: 200, data: {} } }
 
       // =========================================
       // FLUXO REGULAR EM LOTE (Transação Única)
@@ -214,8 +219,8 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async allStudents(req: Request<{ year: string }>, authUser: JwtPayload) {
     if (authUser.category === pc.ALUN) { return { status: 403, message: "Você não tem permissão para acessar este recurso." } }
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
-      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
+      const teacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user)
       const masterTeacher = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.SUPE_EI || qUserTeacher.person.category.id === pc.FORM
       const isSuperEI = qUserTeacher.person.category.id === pc.SUPE_EI
 
@@ -224,7 +229,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const options = { search: req.query.search as string, year: req.params.year, teacherClasses, owner: req.query.owner as string }
 
-      const studentsClassrooms = await this.studentsClassroomsNewImplementation(options, masterTeacher, isSuperEI, limit, offset);
+      const studentsClassrooms = await studentRepository.studentsClassroomsNewImplementation(options, masterTeacher, isSuperEI, limit, offset);
 
       return { status: 200, data: studentsClassrooms }
     }
@@ -238,13 +243,13 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const { params } = req
 
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       const masterUser = qUserTeacher.person.category.id === pc.ADMN || qUserTeacher.person.category.id === pc.SUPE || qUserTeacher.person.category.id === pc.FORM
 
-      const teacherClasses = await this.qTeacherClassrooms(authUser.user)
+      const teacherClasses = await teacherRepository.qTeacherClassrooms(authUser.user)
 
-      const preStudent = await this.qStudentFullDetail(Number(params.id))
+      const preStudent = await studentRepository.qStudentFullDetail(Number(params.id))
 
       if (!preStudent) { return { status: 404, message: "Registro não encontrado" } }
 
@@ -265,11 +270,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user);
-      const tClasses = await this.qTeacherClassrooms(authUser.user);
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user);
+      const tClasses = await teacherRepository.qTeacherClassrooms(authUser.user);
       const qCurrentYear = await yearRepository.qCurrentYear();
-      const state = await this.qState(body.state) as State;
-      const classroom = await this.qClassroom(body.classroom);
+      const state = await catalogRepository.qState(body.state) as State;
+      const classroom = await classroomRepository.qClassroom(body.classroom);
 
       const safeBirthDate = (body.birth as any).split('T')[0];
 
@@ -507,11 +512,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async setFirstLevel(body: any, authUser: UserInterface) {
     try {
 
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       if([pc.MONI, pc.SECR].includes(qUserTeacher.person.category.id)) { return { status: 403, message: 'Você não tem permissão para modificar este registro.' } }
 
-      await this.qSetFirstLevel(Number(body.student.id), Number(body.level.id), authUser.user)
+      await studentRepository.qSetFirstLevel(Number(body.student.id), Number(body.level.id), authUser.user)
       return { status: 200, data: { message: 'done' } };
     }
     catch (error: any) { return { status: 500, message: error.message } }
@@ -520,7 +525,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async updateIdWithAuth(studentId: number | string, body: any, authUser: UserInterface) {
     let conn;
     try {
-      const qUserTeacher = await this.qTeacherByUser(authUser.user)
+      const qUserTeacher = await teacherRepository.qTeacherByUser(authUser.user)
 
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
@@ -661,7 +666,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       await conn.commit();
 
-      const fullDetail = await this.qStudentFullDetail(Number(studentId));
+      const fullDetail = await studentRepository.qStudentFullDetail(Number(studentId));
       const result = Helper.studentDetail(fullDetail);
 
       return { status: 200, data: result };

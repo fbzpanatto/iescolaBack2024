@@ -2,6 +2,16 @@ import { testController } from '../src/controller/test'
 import { Helper } from '../src/utils/helpers'
 import { TEST_CATEGORIES_IDS as tcids } from '../src/utils/enums'
 import { CLASSROOM_ID, SCHOOL_ID, SCENARIOS, TEST_QUESTIONS, TEST_ID, TEST_ROW, buildGraphRows, buildStudentClassrooms, StudentSpec } from './fixtures'
+import { testRepository } from '../src/repositories/test.repository'
+import { teacherRepository } from '../src/repositories/teacher.repository'
+import { classroomRepository } from '../src/repositories/classroom.repository'
+import { alphabeticRepository } from '../src/repositories/alphabetic.repository'
+import { studentTestStatusRepository } from '../src/repositories/student-test-status.repository'
+import { testQuestionRepository } from '../src/repositories/test-question.repository'
+import { studentTestRepository } from '../src/repositories/student-test.repository'
+import { readingFluencyRepository } from '../src/repositories/reading-fluency.repository'
+import { readingFluencyLinkRepository } from '../src/repositories/reading-fluency-link.repository'
+import { studentRepository } from '../src/repositories/student.repository'
 
 type Json = unknown
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
@@ -39,13 +49,18 @@ export async function runStudentsEndpoint(categoryId: number, students: StudentS
     getReadingFluencyStudentsSql: async () => clone(READING_STUDENTS(students)),
     qStudentDisabilities: async (x: unknown) => x,
   }
-  const originals: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(stubs)) { originals[k] = c[k]; c[k] = v }
+  const owners: any[] = [c, testRepository, teacherRepository, classroomRepository, alphabeticRepository, studentTestStatusRepository, testQuestionRepository, studentTestRepository, readingFluencyRepository, readingFluencyLinkRepository, studentRepository]
+  const originals: [any, string, unknown][] = []
+  for (const [k, v] of Object.entries(stubs)) {
+    const owner = owners.find(o => typeof o[k] === 'function')
+    if (!owner) { throw new Error(`stub sem dono: ${k}`) }
+    originals.push([owner, k, owner[k]]); owner[k] = v
+  }
   try {
     const req = { params: { id: TEST_ID, classroom: CLASSROOM_ID, year: '2025' }, query: {} } as any
     const res = await c.getStudents(req, { user: 1 })
     return asApi(res)
-  } finally { for (const [k, v] of Object.entries(originals)) { c[k] = v } }
+  } finally { for (const [owner, k, v] of originals) { owner[k] = v } }
 }
 
 const READING_HEADERS = [

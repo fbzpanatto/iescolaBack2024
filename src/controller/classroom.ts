@@ -4,6 +4,9 @@ import { Classroom } from "../model/Classroom";
 import { Request } from "express";
 import { qUserTeacher, TeacherBody, JwtPayload } from "../interfaces/interfaces";
 import { OUT_CLASSROOMS, PER_CAT as pc } from "../utils/enums";
+import { catalogRepository } from "../repositories/catalog.repository";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { classroomRepository } from "../repositories/classroom.repository";
 
 class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
@@ -17,8 +20,8 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
   async classroomForm(_: Request) {
     try {
-      const categories = await this.qClassroomCategories(true)
-      const shifts = await this.qClassroomShift()
+      const categories = await catalogRepository.qClassroomCategories(true)
+      const shifts = await catalogRepository.qClassroomShift()
       return { status: 200, data: { shifts, categories } };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
@@ -27,7 +30,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   async getClassroom(req: Request) {
 
     try {
-      const result = await this.qGetClassroomFullData(Number(req.params.id))
+      const result = await classroomRepository.qGetClassroomFullData(Number(req.params.id))
 
       return { status: 200, data: result };
     }
@@ -40,9 +43,9 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
     const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
     try {
-      const teacher = await this.qTeacherByUser(authUser.user);
+      const teacher = await teacherRepository.qTeacherByUser(authUser.user);
 
-      const tClasses = await this.qTeacherClassrooms(authUser.user);
+      const tClasses = await teacherRepository.qTeacherClassrooms(authUser.user);
 
       const active = req.query.active === 'true'
 
@@ -52,7 +55,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
       const allClassrooms = includeOthers ? [...tClasses.classrooms]: [...tClasses.classrooms, ...(OUT_CLASSROOMS)]
 
-      const result = await this.getTeacherClassrooms(isSuperEI, this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
+      const result = await classroomRepository.getTeacherClassrooms(isSuperEI, this.isMasterUser(teacher), allClassrooms, search, limit, offset, active) as Array<Classroom>
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
@@ -61,11 +64,11 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
   async getAllClassroomsByTestCategory(req: Request, authUser: JwtPayload) {
     const { testCategory } = req.params;
     try {
-      const teacher = await this.qTeacherByUser(authUser.user);
-      const tClasses = await this.qTeacherClassrooms(authUser.user);
+      const teacher = await teacherRepository.qTeacherByUser(authUser.user);
+      const tClasses = await teacherRepository.qTeacherClassrooms(authUser.user);
       const allClassrooms = [...tClasses.classrooms, ...OUT_CLASSROOMS];
-      const { startClassroomNumber: start, endClassroomNumber: end } = await this.qTestCategory(Number(testCategory))
-      const result = await this.getTeacherClassroomsByTestCategory(this.isMasterUser(teacher), allClassrooms, start, end)
+      const { startClassroomNumber: start, endClassroomNumber: end } = await catalogRepository.qTestCategory(Number(testCategory))
+      const result = await classroomRepository.getTeacherClassroomsByTestCategory(this.isMasterUser(teacher), allClassrooms, start, end)
       return { status: 200, data: result };
     }
     catch (error: any) { console.error(error); return { status: 500, message: error.message } }
@@ -78,10 +81,10 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
       const classroomId = body.id;
       const userId = authUser.user;
 
-      await this.qUpdateClassroom(classroomId, body.nickname, body.shift);
+      await classroomRepository.qUpdateClassroom(classroomId, body.nickname, body.shift);
 
       if (body.studentsChanges && body.studentsChanges.length > 0) {
-        await this.qUpdateStudentRosters(body.studentsChanges, userId);
+        await classroomRepository.qUpdateStudentRosters(body.studentsChanges, userId);
       }
 
       return { status: 200, data: { message: "Sala e alunos atualizados com sucesso." } };

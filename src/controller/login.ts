@@ -11,6 +11,8 @@ import { Helper } from "../utils/helpers";
 import { sanitizeBirthDate, sanitizeStudentRa } from "../utils/studentLoginSanitizer";
 import bcrypt from 'bcrypt';
 import { yearRepository } from "../repositories/year.repository";
+import { authRepository } from "../repositories/auth.repository";
+import { transferRepository } from "../repositories/transfer.repository";
 
 const tokenSecret = process.env.SECRET;
 
@@ -26,7 +28,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
     try {
 
-      const row = await this.qLogin(email);
+      const row = await authRepository.qLogin(email);
 
       if (!row) { return { status: 401, message: "Credenciais Inválidas" } }
 
@@ -52,12 +54,12 @@ class LoginController extends GenericController<EntityTarget<User>> {
         // login segue normalmente, só sem essa informação extra.
         if (currentYear) {
           if(user.person.category.id === pc.ADMN) {
-            const allPendingTransfers = await this.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
+            const allPendingTransfers = await transferRepository.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
             return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
           }
 
           if(user.person.teacher?.school?.id) {
-            const pendingTransfers = await this.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
+            const pendingTransfers = await transferRepository.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
             return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
           }
         }
@@ -83,7 +85,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
       const ra = fullRa.slice(0, -1);
       const dv = fullRa.slice(-1);
 
-      const student = await this.qStudentByRa(ra, dv, birthDate)
+      const student = await authRepository.qStudentByRa(ra, dv, birthDate)
 
       if (!student) { return { status: 404, message: "Credenciais Inválidas" } }
 
@@ -115,7 +117,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       // 2, 3 e 4. Busca usuário, valida token de reset (INTEGRAÇÃO DE SEGURANÇA) e atualiza senha
       // + invalida o token (uso único) — tudo em uma única transação
-      const result = await this.qResetPassword(frontDecoded.email, frontToken, hashedPassword);
+      const result = await authRepository.qResetPassword(frontDecoded.email, frontToken, hashedPassword);
 
       if (result.outcome === 'user_not_found') { return { status: 401, message: "Usuário não encontrado" } }
 

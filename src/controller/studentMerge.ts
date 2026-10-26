@@ -5,6 +5,8 @@ import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 
 import { JwtPayload } from "../interfaces/interfaces";
+import { teacherRepository } from "../repositories/teacher.repository";
+import { studentMergeRepository } from "../repositories/student-merge.repository";
 
 class StudentMergeController extends GenericController<EntityTarget<Student>> {
 
@@ -21,13 +23,13 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
       const pLimit = !isNaN(parseInt(limit as string)) ? parseInt(limit as string) : 100;
       const pOffset = !isNaN(parseInt(offset as string)) ? parseInt(offset as string) : 0;
 
-      const tUser = await this.qUser(authUser?.user);
+      const tUser = await teacherRepository.qUser(authUser?.user);
 
       const masterUser = tUser?.categoryId === PER_CAT.ADMN ||
         tUser?.categoryId === PER_CAT.SUPE ||
         tUser?.categoryId === PER_CAT.FORM;
 
-      const duplicatedStudents = await this.getDuplicatedStudents(masterUser, pLimit, pOffset, pSearch);
+      const duplicatedStudents = await studentMergeRepository.getDuplicatedStudents(masterUser, pLimit, pOffset, pSearch);
 
       return { status: 200, data: duplicatedStudents }
 
@@ -39,7 +41,7 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
 
       const { wrongId, rightId, ra, dv, birth } = body;
 
-      const processMerge = await this.mergeDuplicatedStudent({ wrongId, rightId, ra, dv, birth });
+      const processMerge = await studentMergeRepository.mergeDuplicatedStudent({ wrongId, rightId, ra, dv, birth });
 
       return { status: 200, data: processMerge.message }
 

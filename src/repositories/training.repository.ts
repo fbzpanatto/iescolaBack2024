@@ -233,7 +233,10 @@ class TrainingRepository {
       const buckets: Record<ContractVariant, TeacherParam[]> = { PEBI: [], SPECIFIC: [], PEBII: [] };
       const variantByTeacher = new Map<TeacherParam, ContractVariant>();
 
+      const inactive: TeacherParam[] = [];
+
       for (const teacher of teachers) {
+        if (teacher.active === false) { inactive.push(teacher); continue }
         const variant = resolveVariant(teacher);
         buckets[variant].push(teacher);
         variantByTeacher.set(teacher, variant);
@@ -310,8 +313,44 @@ INNER JOIN year AS y ON tr.yearId = y.id
         });
       }
 
+      const inactiveRowsByTeacher = new Map<number, ContractRow[]>();
+
+      if (inactive.length > 0) {
+        const inactiveQuery = `
+          SELECT tcd.id, tcd.teacherId, tcd.contractId, s.id AS schoolId, CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroomNumber
+          FROM teacher_class_discipline AS tcd
+                   INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                   INNER JOIN school AS s ON c.schoolId = s.id
+          WHERE
+              tcd.teacherId IN (?) AND
+              s.id IN (?) AND
+              c.categoryId IN (1, 3) AND
+              tcd.disciplineId NOT IN (6, 7, 8, 9)
+          ORDER BY tcd.id DESC
+        `
+
+        const [inactiveResult] = await db.query<ContractRow[]>(inactiveQuery, [
+          [...new Set(inactive.map(t => t.id))],
+          [...new Set(inactive.map(t => t.schoolId))]
+        ]);
+
+        for (const row of inactiveResult) {
+          const teacherRows = inactiveRowsByTeacher.get(row.teacherId);
+          if (teacherRows) { teacherRows.push(row); continue }
+          inactiveRowsByTeacher.set(row.teacherId, [row]);
+        }
+      }
+
+      const findInactiveContractRow = (teacher: TeacherParam): ContractRow | undefined =>
+        (inactiveRowsByTeacher.get(teacher.id) ?? []).find(row =>
+          Number(row.schoolId) === Number(teacher.schoolId) &&
+          Number(row.classroomNumber) === resolvePebiClassroom(teacher)
+        );
+
       for (const teacher of teachers) {
-        const row = findContractRow(teacher, variantByTeacher.get(teacher) as ContractVariant);
+        const row = teacher.active === false ?
+          findInactiveContractRow(teacher) :
+          findContractRow(teacher, variantByTeacher.get(teacher) as ContractVariant);
         teacher.contract = row?.contractId ?? null;
       }
 

@@ -51,7 +51,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const allTrainings = await trainingRepository.qAllReferencedTrainings(refTraining);
       const trainingIds = allTrainings.map(t => t.id);
 
-      const preTeachers = await teacherClassDisciplineRepository.qTeachersByCategory(refTraining, cYear.id === refTraining.yearId, refTrainingYear.name, teacher);
+      const preTeachers = await teacherClassDisciplineRepository.qTeachersByCategory(refTraining, cYear.id === refTraining.yearId, refTrainingYear.name, teacher, trainingIds);
       const allReferencedTeachers = await trainingRepository.qTeacherTrainings(preTeachers, trainingIds, refTraining.categoryId, cYear.id === refTraining.yearId, refTrainingYear.name);
 
       const contracts = await catalogRepository.qContracts();

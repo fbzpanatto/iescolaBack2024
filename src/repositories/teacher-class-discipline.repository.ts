@@ -225,7 +225,7 @@ class TeacherClassDisciplineRepository {
     finally { if (conn) { conn.release() } }
   }
 
-  async qTeachersByCategory(referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher) {
+  async qTeachersByCategory(referencedTraining: Training, isCurrentYear: boolean, referencedTrainingYear: string, teacher: qUserTeacher, trainingIds: number[] = []) {
     let conn;
     try {
       conn = await connectionPool.getConnection()
@@ -304,7 +304,69 @@ class TeacherClassDisciplineRepository {
         allTeachers.sort((a, b) => a.shortName.localeCompare(b.shortName));
       }
 
-      return allTeachers;
+      type TeacherCategoryRow = typeof allTeachers[number];
+
+      const activeTeachers = allTeachers.map(row => ({ ...row, active: true }));
+
+      const shouldIncludeInactive = referencedTraining.categoryId === 1 &&
+        isCurrentYear &&
+        trainingIds.length > 0 &&
+        referencedTraining.classroom !== null &&
+        referencedTraining.classroom !== undefined;
+
+      if (!shouldIncludeInactive) return activeTeachers;
+
+      const inactiveQuery = `
+        SELECT
+            t.id,
+            p.name,
+            CASE WHEN cc.id IN (1, 3) THEN 'POLIVALENTE' ELSE d.name END AS discipline,
+            CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroom,
+            s.id AS schoolId,
+            s.shortName,
+            NULL AS disciplineId,
+            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool
+        FROM teacher_class_discipline AS tcd
+                 INNER JOIN discipline AS d ON tcd.disciplineId = d.id
+                 INNER JOIN teacher AS t ON tcd.teacherId = t.id
+                 INNER JOIN person AS p ON t.personId = p.id
+                 INNER JOIN person_category AS pc ON p.categoryId = pc.id
+                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                 INNER JOIN classroom_category AS cc ON c.categoryId = cc.id
+                 INNER JOIN school AS s ON c.schoolId = s.id
+        WHERE
+            ${ shouldFilterByTeacher ? 'tcd.teacherId = ? AND' : '' }
+            pc.id = 8 AND
+            t.id IN (SELECT tt.teacherId FROM training_teacher AS tt WHERE tt.trainingId IN (?)) AND
+            c.categoryId IN (1, 3) AND
+            CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
+            d.id NOT IN (6, 7, 8, 9)
+        ORDER BY tcd.id DESC
+      `;
+
+      const inactiveParams = [
+        ...(shouldFilterByTeacher ? [teacher.id] : []),
+        trainingIds,
+        referencedTraining.classroom
+      ];
+
+      const [inactiveResult] = await conn.query(inactiveQuery, inactiveParams);
+
+      const activeIds = new Set(activeTeachers.map(row => row.id));
+      const firstRowByTeacher = new Map<number, TeacherCategoryRow>();
+
+      for (const row of inactiveResult as TeacherCategoryRow[]) {
+        if (activeIds.has(row.id) || firstRowByTeacher.has(row.id)) continue;
+        firstRowByTeacher.set(row.id, row);
+      }
+
+      const inactiveTeachers = [...firstRowByTeacher.values()]
+        .filter(row => !shouldFilterBySchool || Number(row.schoolId) === Number(teacher.school.id))
+        .map(row => ({ ...row, active: false }));
+
+      if (inactiveTeachers.length === 0) return activeTeachers;
+
+      return [...activeTeachers, ...inactiveTeachers].sort((a, b) => a.shortName.localeCompare(b.shortName));
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

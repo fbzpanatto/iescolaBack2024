@@ -8,6 +8,7 @@ import { Classroom } from "../model/Classroom";
 import { UserInterface, JwtPayload } from "../interfaces/interfaces";
 import { StudentClassroom } from "../model/StudentClassroom";
 import { connectionPool } from "../services/db";
+import { yearRepository } from "../repositories/year.repository";
 
 class StudentQuestionController extends GenericController<EntityTarget<StudentQuestion>> {
 
@@ -26,7 +27,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
       const qUserTeacher = await this.qTeacherByUser(authUser.user);
       const userId = qUserTeacher.person.user.id;
 
-      const cY = await this.qCurrentYear();
+      const cY = await yearRepository.qCurrentYear();
       if (!cY) { await conn.rollback(); return { status: 400, message: 'Ano não encontrado' } }
       if (parseInt(cY.name) !== parseInt(year as string)) { await conn.rollback(); return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' }}
 
@@ -120,7 +121,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { year } = query
 
     try {
-      const cY = await this.qCurrentYear()
+      const cY = await yearRepository.qCurrentYear()
       if(!cY) { return { status: 400, message: 'Ano não encontrado' }}
       if(parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 
@@ -154,7 +155,7 @@ class StudentQuestionController extends GenericController<EntityTarget<StudentQu
     const { year } = req.query;
 
     try {
-      const cY = await this.qCurrentYear();
+      const cY = await yearRepository.qCurrentYear();
       if (!cY) { return { status: 400, message: 'Ano não encontrado ou ano encerrado.' } }
       if (parseInt(cY.name) != parseInt(year as string)) { return { status: 400, message: 'Não é permitido alterar o gabarito de anos anteriores.' } }
 

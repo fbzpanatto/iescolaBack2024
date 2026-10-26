@@ -58,6 +58,8 @@ import {TestCategory} from "../model/TestCategory";
 import {State} from "../model/State";
 import {Disability} from "../model/Disability";
 import {deletarDoS3, moverParaLessons} from "../services/s3.service";
+import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { yearRepository } from "../repositories/year.repository";
 
 // Config usada pelo GenericController para atender findAllWhere/findOneByWhere/findOneById/save/updateId
 // via mysql2 puro (sem CONN de transação TypeORM). `selectColumns` replica exatamente a projeção
@@ -80,15 +82,6 @@ export class GenericController<T> {
   private requireTableConfig(): GenericTableConfig {
     if (!this.tableConfig) { throw new Error(`GenericController: tableConfig não configurado para ${String(this.entity)}`) }
     return this.tableConfig
-  }
-
-  // Formata um Date/ISO-string como literal "YYYY-MM-DD HH:MM:SS" usando os componentes UTC,
-  // ignorando o `timezone` do pool (que só se aplica a parâmetros Date passados ao mysql2 e
-  // deslocaria a gravação, divergindo do valor cru que o TypeORM sempre gravou).
-  protected toSqlUtcDateTime(value: Date | string | null | undefined): string | null {
-    if (value === null || value === undefined || value === '') { return null }
-    const date = value instanceof Date ? value : new Date(value)
-    return date.toISOString().slice(0, 19).replace('T', ' ')
   }
 
   // Corrige, apenas na forma devolvida ao cliente, os tipos que o SELECT cru do mysql2 não preserva:
@@ -1644,137 +1637,6 @@ export class GenericController<T> {
     finally { if (conn) { conn.release() } }
   }
 
-  async qCurrentYear() {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query =
-
-        `
-        SELECT *
-        FROM year
-        WHERE year.endedAt IS NULL AND year.active = 1
-      `
-
-      const [ queryResult ] = await conn.query(query)
-      return (queryResult as qYear[])[0]
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  // Índices esperados: year(name)
-  async qYearsWithPeriods(search: string) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query = `
-        SELECT
-            y.id AS year_id, y.name AS year_name, y.active AS year_active, y.createdAt AS year_createdAt, y.endedAt AS year_endedAt,
-            p.id AS period_id,
-            b.id AS bimester_id, b.name AS bimester_name, b.testName AS bimester_testName
-        FROM year AS y
-        LEFT JOIN period AS p ON p.yearId = y.id
-        LEFT JOIN bimester AS b ON p.bimesterId = b.id
-        WHERE y.name LIKE ?
-        ORDER BY y.name DESC, b.id ASC
-      `
-      const [ queryResult ] = await conn.query(query, [`%${search}%`])
-      return queryResult as any[]
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  // Índices esperados: year(name) [unique], bimester(id), period(yearId, bimesterId)
-  async qCreateYear(name: string, createdAt: Date, endedAt: Date | null, active: boolean) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      const [ dupRows ] = await conn.query(`SELECT id, name FROM year WHERE name = ? LIMIT 1`, [name]);
-      if ((dupRows as any[])[0]) { await conn.commit(); return { outcome: 'duplicate' as const } }
-
-      const [ activeRows ] = await conn.query(`SELECT id, name FROM year WHERE active = 1 AND endedAt IS NULL LIMIT 1 FOR UPDATE`);
-      const currentYear = (activeRows as any[])[0];
-      if (currentYear && active) { await conn.commit(); return { outcome: 'active_year_exists' as const, name: currentYear.name } }
-
-      const [ maxRows ] = await conn.query(`SELECT MAX(CAST(name AS UNSIGNED)) AS maxYearName FROM year`);
-      const newName = (Number((maxRows as any[])[0].maxYearName) + 1).toString();
-
-      const [ yearResult ]: any = await conn.query(
-        `INSERT INTO year (name, active, createdAt, endedAt) VALUES (?, ?, ?, ?)`,
-        [newName, true, this.toSqlUtcDateTime(createdAt), this.toSqlUtcDateTime(endedAt)]
-      );
-      const yearId = yearResult.insertId;
-
-      const [ bimesters ] = await conn.query(`SELECT id FROM bimester`);
-      for (const b of (bimesters as any[])) {
-        await conn.query(`INSERT INTO period (yearId, bimesterId) VALUES (?, ?)`, [yearId, b.id]);
-      }
-
-      await conn.commit();
-      return { outcome: 'created' as const, id: yearId, name: newName };
-    }
-    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  // Índices esperados: year(name) [unique], student_classroom(yearId, endedAt), transfer(yearId, statusId)
-  async qUpdateYear(id: number, body: { name: string, active: boolean, createdAt: Date | string, endedAt: Date | string | null }, receiverTeacherId: number, pendingStatusId: number, acceptedStatusId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      const [ yearRows ] = await conn.query(`SELECT id, name, active, createdAt, endedAt FROM year WHERE id = ? LIMIT 1 FOR UPDATE`, [id]);
-      const yearToUpdate = (yearRows as any[])[0];
-      if (!yearToUpdate) { await conn.commit(); return { outcome: 'not_found' as const } }
-
-      const [ dupRows ] = await conn.query(`SELECT id, name FROM year WHERE name = ? AND id != ? LIMIT 1`, [body.name, id]);
-      if ((dupRows as any[])[0]) { await conn.commit(); return { outcome: 'duplicate' as const } }
-
-      const [ activeRows ] = await conn.query(`SELECT id, name FROM year WHERE active = 1 AND endedAt IS NULL LIMIT 1 FOR UPDATE`);
-      const currentYear = (activeRows as any[])[0];
-      if (currentYear && body.active) { await conn.commit(); return { outcome: 'active_conflict' as const, name: currentYear.name } }
-
-      const merged = { ...yearToUpdate, ...body };
-
-      if (!merged.active && (merged.endedAt === '' || merged.endedAt === null)) {
-        await conn.commit();
-        return { outcome: 'ended_at_required' as const };
-      }
-
-      if (!merged.active && merged.endedAt) {
-        const cascadeNow = this.toSqlUtcDateTime(new Date());
-
-        await conn.query(`UPDATE student_classroom SET endedAt = ? WHERE yearId = ? AND endedAt IS NULL`, [cascadeNow, id]);
-
-        const [ pendingTransfers ] = await conn.query(`SELECT id FROM transfer WHERE yearId = ? AND statusId = ?`, [id, pendingStatusId]);
-        for (const t of (pendingTransfers as any[])) {
-          await conn.query(
-            `UPDATE transfer SET statusId = ?, endedAt = ?, receiverId = ? WHERE id = ?`,
-            [acceptedStatusId, cascadeNow, receiverTeacherId, t.id]
-          );
-        }
-      }
-
-      await conn.query(
-        `UPDATE year SET name = ?, active = ?, createdAt = ?, endedAt = ? WHERE id = ?`,
-        [merged.name, merged.active, this.toSqlUtcDateTime(merged.createdAt), this.toSqlUtcDateTime(merged.endedAt), id]
-      );
-      await conn.commit();
-
-      if (typeof merged.createdAt === 'string') { merged.createdAt = new Date(merged.createdAt) }
-      if (typeof merged.endedAt === 'string' && merged.endedAt !== '') { merged.endedAt = new Date(merged.endedAt) }
-
-      return { outcome: 'updated' as const, data: merged };
-    }
-    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
   async qFilteredTestByStudentId<T>(studentId: number, testId: number) {
     let conn;
     try {
@@ -2018,7 +1880,7 @@ export class GenericController<T> {
       const personName = body.name.toUpperCase().trim();
       const [ personResult ]: any = await conn.query(
         `INSERT INTO person (name, birth, categoryId) VALUES (?, ?, ?)`,
-        [personName, this.toSqlUtcDateTime(body.birth), category.id]
+        [personName, toSqlUtcDateTime(body.birth), category.id]
       );
       const personId = personResult.insertId;
 
@@ -2027,7 +1889,7 @@ export class GenericController<T> {
 
       const [ teacherResult ]: any = await conn.query(
         `INSERT INTO teacher (email, register, observation, schoolId, createdByUser, createdAt, personId) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [body.email, body.register, body.observation, schoolId, createdByUserId, this.toSqlUtcDateTime(createdAt), personId]
+        [body.email, body.register, body.observation, schoolId, createdByUserId, toSqlUtcDateTime(createdAt), personId]
       );
       const teacherId = teacherResult.insertId;
 
@@ -2045,14 +1907,14 @@ export class GenericController<T> {
 
         for (const discipline of disciplineRows as any[]) {
           for (const classroom of classroomRows as any[]) {
-            relationValues.push([teacherId, classroom.id, discipline.id, this.toSqlUtcDateTime(new Date()), null]);
+            relationValues.push([teacherId, classroom.id, discipline.id, toSqlUtcDateTime(new Date()), null]);
           }
         }
       }
       else if (body.category.id === PER_CAT.PROF) {
         for (const rel of body.teacherClassesDisciplines) {
           const contractId = (rel.contract === 1 || rel.contract === 2) ? rel.contract : null;
-          relationValues.push([teacherId, rel.classroomId, rel.disciplineId, this.toSqlUtcDateTime(new Date()), contractId]);
+          relationValues.push([teacherId, rel.classroomId, rel.disciplineId, toSqlUtcDateTime(new Date()), contractId]);
         }
       }
 
@@ -2177,7 +2039,7 @@ export class GenericController<T> {
         if (student) { await transferEmail(row.user_email, student.person_name, newClass.shortName, qUserTeacher.person.name, newClass.school_shortName) }
       }
 
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
       const status = await this.qTransferStatus(TRANSFER_STATUS.PENDING);
 
       const [ insertResult ]: any = await conn.query(
@@ -2185,8 +2047,8 @@ export class GenericController<T> {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           body.student.id,
-          this.toSqlUtcDateTime(body.startedAt),
-          this.toSqlUtcDateTime(body.endedAt),
+          toSqlUtcDateTime(body.startedAt),
+          toSqlUtcDateTime(body.endedAt),
           qUserTeacher.id,
           body.classroom.id,
           currentYear.id,
@@ -2254,7 +2116,7 @@ export class GenericController<T> {
       if (body.cancel) {
         await conn.query(
           `UPDATE transfer SET statusId = ?, endedAt = ?, receiverId = ?, updatedByUser = ? WHERE id = ?`,
-          [TRANSFER_STATUS.CANCELED, this.toSqlUtcDateTime(new Date()), qUserTeacher.id, qUserTeacher.person.user.id, transferId]
+          [TRANSFER_STATUS.CANCELED, toSqlUtcDateTime(new Date()), qUserTeacher.id, qUserTeacher.person.user.id, transferId]
         );
         await conn.commit();
         return { outcome: 'canceled' as const };
@@ -2263,7 +2125,7 @@ export class GenericController<T> {
       if (body.reject) {
         await conn.query(
           `UPDATE transfer SET statusId = ?, endedAt = ?, receiverId = ?, updatedByUser = ? WHERE id = ?`,
-          [TRANSFER_STATUS.REFUSED, this.toSqlUtcDateTime(new Date()), qUserTeacher.id, qUserTeacher.person.user.id, transferId]
+          [TRANSFER_STATUS.REFUSED, toSqlUtcDateTime(new Date()), qUserTeacher.id, qUserTeacher.person.user.id, transferId]
         );
         await conn.commit();
         return { outcome: 'rejected' as const };
@@ -2277,7 +2139,7 @@ export class GenericController<T> {
         const stClass = (stClassRows as any[])[0];
         if (!stClass) { await conn.commit(); return { outcome: 'student_classroom_not_found' as const } }
 
-        const currentYear = await this.qCurrentYear();
+        const currentYear = await yearRepository.qCurrentYear();
 
         const [ lastRosterRows ] = await conn.query(
           `SELECT rosterNumber FROM student_classroom WHERE yearId = ? AND classroomId = ? ORDER BY rosterNumber DESC LIMIT 1 FOR UPDATE`,
@@ -2288,17 +2150,17 @@ export class GenericController<T> {
         const startedAt = new Date();
         const [ insertResult ]: any = await conn.query(
           `INSERT INTO student_classroom (studentId, classroomId, startedAt, rosterNumber, createdByUser, yearId) VALUES (?, ?, ?, ?, ?, ?)`,
-          [body.student?.id, currTransfer.requestedClassroomId, this.toSqlUtcDateTime(startedAt), last, qUserTeacher.person.user.id, currentYear.id]
+          [body.student?.id, currTransfer.requestedClassroomId, toSqlUtcDateTime(startedAt), last, qUserTeacher.person.user.id, currentYear.id]
         );
 
         await conn.query(
           `UPDATE student_classroom SET endedAt = ?, updatedByUser = ? WHERE id = ?`,
-          [this.toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, stClass.id]
+          [toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, stClass.id]
         );
 
         await conn.query(
           `UPDATE transfer SET statusId = ?, endedAt = ?, receiverId = ? WHERE id = ?`,
-          [TRANSFER_STATUS.ACCEPTED, this.toSqlUtcDateTime(new Date()), qUserTeacher.id, transferId]
+          [TRANSFER_STATUS.ACCEPTED, toSqlUtcDateTime(new Date()), qUserTeacher.id, transferId]
         );
 
         await conn.commit();
@@ -3212,46 +3074,6 @@ export class GenericController<T> {
         .map(row => ({ id: Number(row.classroom_id), categoryId: Number(row.classroom_category_id) }))
 
       return { yearName: String(rows[0].year_name), classrooms }
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-  }
-
-  async qYearByName(yearName: string) {
-    if (!yearName || yearName.trim() === '') { throw new Error('Nome do ano é obrigatório') }
-
-    let year: qYear | undefined;
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      const query = `SELECT y.id, y.name FROM year AS y WHERE y.name = ?`;
-      const [queryResult] = await conn.query(query, [yearName]);
-
-      year = (queryResult as qYear[])[0];
-    }
-    catch (error) { console.error(error); throw error }
-    finally { if (conn) { conn.release() } }
-
-    if (!year) { year = await this.qCurrentYear() }
-
-    return year;
-  }
-
-  async qYearById(yearId: number | string) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      const query =
-
-        `
-        SELECT y.id, y.name
-        FROM year AS y
-        WHERE y.id = ?
-      `
-
-      const [ queryResult ] = await conn.query(query, [yearId])
-      return (queryResult as qYear[])[0]
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

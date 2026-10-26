@@ -4,6 +4,7 @@ import { GenericController } from "./genericController";
 import { TestByStudentId, TestQuestionWithImages, UpdateStudentAnswers, JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { resolveStudentId } from "../utils/studentToken";
+import { yearRepository } from "../repositories/year.repository";
 
 class StudentTestController extends GenericController<any> {
 
@@ -26,7 +27,7 @@ class StudentTestController extends GenericController<any> {
       const testId = params.id;
 
       // Ano letivo resolvido antes do gate — necessário para a faxina de vínculo abaixo.
-      const currYear = await this.qCurrentYear();
+      const currYear = await yearRepository.qCurrentYear();
       const year = !isNaN(parseInt(query.year as string)) ? parseInt(query.year as string) : currYear.name;
 
       // Migra vínculos órfãos presos a matrículas antigas (aluno transferido de sala).

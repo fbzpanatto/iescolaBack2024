@@ -10,6 +10,7 @@ import { qPendingTransfers } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { sanitizeBirthDate, sanitizeStudentRa } from "../utils/studentLoginSanitizer";
 import bcrypt from 'bcrypt';
+import { yearRepository } from "../repositories/year.repository";
 
 const tokenSecret = process.env.SECRET;
 
@@ -44,7 +45,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       if(this.categories.includes(user.person.category.id)) {
 
-        const currentYear = await this.qCurrentYear();
+        const currentYear = await yearRepository.qCurrentYear();
 
         // Sem ano letivo ativo (ex: ano acabou de ser encerrado e nenhum outro
         // criado ainda) não há em que ano buscar transferências pendentes -

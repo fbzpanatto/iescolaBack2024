@@ -4,6 +4,7 @@ import { Test } from "../model/Test";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
+import { yearRepository } from "../repositories/year.repository";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -16,7 +17,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
     try {
 
-      const qYear = await this.qYearByName(year as string)
+      const qYear = await yearRepository.qYearByName(year as string)
 
       const el = await this.qTeacherByUser(authUser.user)
       const teacherClasses = await this.qTeacherClassrooms(authUser.user)

@@ -16,6 +16,7 @@ import { lessonController } from '../src/controller/lesson'
 import { studentTestController } from '../src/controller/studentTest'
 import { checkSchema, validationResult } from 'express-validator'
 import { SUBMIT_TEST_SCHEMA } from '../src/schemas/studentTestQuestions'
+import { yearRepository } from '../src/repositories/year.repository'
 
 type Payload = Partial<JwtPayload> & { category: number }
 type Result = { status?: number | string, data?: unknown, message?: string }
@@ -35,7 +36,7 @@ const stubTeacherLookups = () => ({
   qTeacherByUser: mock.method(stController, 'qTeacherByUser', async () => teacherRow as never),
   qTeacherClassrooms: mock.method(stController, 'qTeacherClassrooms', async () => { throw new Error('stop') }),
   qUser: mock.method(lessonController, 'qUser', async () => teacherRow as never),
-  qCurrentYear: mock.method(stController, 'qCurrentYear', async () => null as never)
+  qCurrentYear: mock.method(yearRepository, 'qCurrentYear', async () => null as never)
 })
 
 const fakeConnection = (executed: Executed[]) => ({
@@ -202,7 +203,7 @@ describe('studentTestController', () => {
   })
 
   test('getTest uses the token student id', async () => {
-    mock.method(studentTestController, 'qCurrentYear', async () => ({ name: 2025 }) as never)
+    mock.method(yearRepository, 'qCurrentYear', async () => ({ name: 2025 }) as never)
     mock.method(studentTestController, 'updateAllStudentTestStatus', async () => undefined as never)
     const testSpy = mock.method(studentTestController, 'qFilteredTestByStudentId', async () => null as never)
     const result = await studentTestController.getTest({}, { id: 1 }, query, studentToken)

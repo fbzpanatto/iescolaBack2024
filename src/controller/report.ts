@@ -8,6 +8,7 @@ import { testController } from "./test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { EXAMS_IDS_PRODUCTION, EXAMS_IDS_READING, PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
+import { yearRepository } from "../repositories/year.repository";
 
 class ReportController extends GenericController<EntityTarget<Test>> {
   constructor() { super(Test) }
@@ -207,7 +208,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
 
         let formatedTest = Helper.testFormater(qTest)
 
-        const qYear = await this.qYearByName(yearName)
+        const qYear = await yearRepository.qYearByName(yearName)
 
         if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
@@ -290,7 +291,7 @@ class ReportController extends GenericController<EntityTarget<Test>> {
       case(TEST_CATEGORIES_IDS.AVL_ITA):
       case(TEST_CATEGORIES_IDS.SIM_ITA): {
 
-        const year = await this.qYearByName(yearName)
+        const year = await yearRepository.qYearByName(yearName)
         if (!year) return { status: 404, message: "Ano não encontrado." }
 
         const qTestQuestions = await this.qTestQuestions(testId) as unknown as TestQuestion[]

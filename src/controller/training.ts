@@ -3,6 +3,7 @@ import { Training } from "../model/Training";
 import { EntityTarget } from "typeorm";
 import { GenericController } from "./genericController";
 import { TrainingAndSchedulesBody, UserInterface, JwtPayload } from "../interfaces/interfaces";
+import { yearRepository } from "../repositories/year.repository";
 
 class TrainingController extends GenericController<EntityTarget<Training>> {
   constructor() { super(Training) }
@@ -13,7 +14,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
 
-      const qYear = await this.qYearByName(year);
+      const qYear = await yearRepository.qYearByName(year);
 
       const trainings = await this.qTrainings(qYear.id, search as string, parseInt(peb as string), parseInt(limit as string), parseInt(offset as string));
 
@@ -36,12 +37,12 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
     try {
       const teacher = await this.qTeacherByUser(authUser.user);
-      const cYear = await this.qCurrentYear()
+      const cYear = await yearRepository.qCurrentYear()
 
       const refTraining = await this.qPresence(parseInt(reference as string));
       if (!refTraining) { return { status: 404, message: 'Training não encontrado' } }
 
-      const refTrainingYear = await this.qYearById(refTraining.yearId);
+      const refTrainingYear = await yearRepository.qYearById(refTraining.yearId);
       const allTrainings = await this.qAllReferencedTrainings(refTraining);
       const trainingIds = allTrainings.map(t => t.id);
 
@@ -73,7 +74,7 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const { classroom, discipline, category, observation, month, meeting } = body;
 
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
 
       const teacher = await this.qTeacherByUser(authUser.user);
 

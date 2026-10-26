@@ -11,6 +11,7 @@ import { pCatCtrl } from "./personCategory";
 import { credentialsEmail } from "../services/email";
 import { generatePassword } from "../utils/generatePassword";
 import { connectionPool } from "../services/db";
+import { toSqlUtcDateTime } from "../utils/sqlDateTime";
 
 class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
@@ -156,7 +157,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       await conn.query(
         `UPDATE person SET name = ?, birth = ? WHERE id = ?`,
-        [body.name, this.toSqlUtcDateTime(body.birth), teacher.person.id]
+        [body.name, toSqlUtcDateTime(body.birth), teacher.person.id]
       );
 
       teacher.updatedAt = new Date();
@@ -164,7 +165,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
 
       await conn.query(
         `UPDATE teacher SET register = ?, observation = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`,
-        [body.register, body.observation, this.toSqlUtcDateTime(teacher.updatedAt), teacher.updatedByUser, teacher.id]
+        [body.register, body.observation, toSqlUtcDateTime(teacher.updatedAt), teacher.updatedByUser, teacher.id]
       );
 
       if (teacher.person.category.id != pc.ADMN && teacher.person.category.id != pc.SUPE && teacher.person.category.id != pc.SUPE_EI && teacher.person.category.id != pc.FORM && row.schoolId === null) {
@@ -245,7 +246,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       const [ disciplineRows ] = await conn.query(`SELECT id FROM discipline`);
       const [ classroomRows ] = await conn.query(`SELECT id FROM classroom WHERE schoolId = ?`, [Number(body.school)]);
 
-      const startedAt = this.toSqlUtcDateTime(new Date());
+      const startedAt = toSqlUtcDateTime(new Date());
       const masterRelations: any[] = [];
 
       for (const discipline of disciplineRows as any[]) {
@@ -328,7 +329,7 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       }
     }
 
-    const now = this.toSqlUtcDateTime(new Date());
+    const now = toSqlUtcDateTime(new Date());
 
     if (toEnd.length > 0) {
       await conn.query(`UPDATE teacher_class_discipline SET endedAt = ? WHERE id IN (?)`, [now, toEnd]);

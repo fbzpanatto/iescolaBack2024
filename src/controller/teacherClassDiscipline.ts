@@ -2,6 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { TeacherClassDiscipline } from "../model/TeacherClassDiscipline";
 import { UserInterface } from "../interfaces/interfaces";
+import { yearRepository } from "../repositories/year.repository";
 
 class TeacherClassDisciplineController extends GenericController<EntityTarget<TeacherClassDiscipline>> {
   constructor() {
@@ -19,7 +20,7 @@ class TeacherClassDisciplineController extends GenericController<EntityTarget<Te
 
       if(![1, 2, 10].includes(teacher.person.category.id)){ return { status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' } }
 
-      const currentYear = await this.qCurrentYear()
+      const currentYear = await yearRepository.qCurrentYear()
       const isCurrentYear = currentYear.name === body.yearName
 
       if(isCurrentYear){

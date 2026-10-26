@@ -9,6 +9,8 @@ import { InactiveNewClassroom, SaveStudent, UserInterface, JwtPayload } from "..
 import { Request } from "express";
 import { Helper, HttpError } from "../utils/helpers";
 import getTimeZone from "../utils/getTimeZone";
+import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { yearRepository } from "../repositories/year.repository";
 
 class StudentController extends GenericController<EntityTarget<Student>> {
 
@@ -42,7 +44,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
     const search = `%${rawSearch.trim()}%`;
 
     try {
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
 
       if (!currentYear) {
         const message = "Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema."
@@ -50,7 +52,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       }
 
       const lastYearName = Number(currentYear.name) - 1;
-      const lastYearDB = await this.qYearByName(String(lastYearName));
+      const lastYearDB = await yearRepository.qYearByName(String(lastYearName));
 
       if (!lastYearDB) {
         return { status: 404, message: `Não existe ano letivo anterior ou posterior a ${currentYear.name}.`}
@@ -68,11 +70,11 @@ class StudentController extends GenericController<EntityTarget<Student>> {
   async setInactiveNewClassroomList(body: { list: InactiveNewClassroom[] }, authUser: UserInterface) {
 
     try {
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
       if (!currentYear) throw new HttpError(404, 'Não existe um ano letivo ativo. Entre em contato com o Administrador do sistema.');
 
       const lastYearName = Number(currentYear.name) - 1;
-      const lastYearDB = await this.qYearByName(String(lastYearName));
+      const lastYearDB = await yearRepository.qYearByName(String(lastYearName));
 
       if (!lastYearDB) throw new HttpError(404, 'Não foi possível encontrar o ano letivo anterior.');
 
@@ -265,7 +267,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       const qUserTeacher = await this.qTeacherByUser(authUser.user);
       const tClasses = await this.qTeacherClassrooms(authUser.user);
-      const qCurrentYear = await this.qCurrentYear();
+      const qCurrentYear = await yearRepository.qCurrentYear();
       const state = await this.qState(body.state) as State;
       const classroom = await this.qClassroom(body.classroom);
 
@@ -570,7 +572,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
         return { status: 403, message };
       }
 
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
 
       const [ pendingRows ] = await conn.query(
         `SELECT t.id, reqP.name AS requesterPersonName, rc.shortName AS requestedClassroomShortName, rsch.shortName AS requestedSchoolShortName
@@ -599,7 +601,7 @@ class StudentController extends GenericController<EntityTarget<Student>> {
           if (newNumber < oldNumber) { await conn.commit(); return { status: 404, message: 'Regressão de sala não é permitido.' } }
         }
 
-        const now = this.toSqlUtcDateTime(new Date());
+        const now = toSqlUtcDateTime(new Date());
 
         await conn.query(`UPDATE student_classroom SET endedAt = ?, updatedByUser = ? WHERE id = ?`, [now, qUserTeacher.person.user.id, stClass.id]);
 
@@ -629,12 +631,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
 
       await conn.query(
         `UPDATE person SET name = ?, birth = ? WHERE id = ?`,
-        [body.name.toUpperCase().trim(), this.toSqlUtcDateTime(body.birth), dbStudent.personId]
+        [body.name.toUpperCase().trim(), toSqlUtcDateTime(body.birth), dbStudent.personId]
       );
 
       await conn.query(
         `UPDATE student SET ra = ?, dv = ?, updatedAt = ?, updatedByUser = ?, observationOne = ?, observationTwo = ?, stateId = ? WHERE id = ?`,
-        [body.ra, body.dv, this.toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, body.observationOne, body.observationTwo, stateId, dbStudent.id]
+        [body.ra, body.dv, toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, body.observationOne, body.observationTwo, stateId, dbStudent.id]
       );
 
       const [ activeDisabilityRows ] = await conn.query(
@@ -649,12 +651,12 @@ class StudentController extends GenericController<EntityTarget<Student>> {
       const toEnd = activeDisabilities.filter(d => !bodyDisabilityIds.includes(d.disabilityId));
 
       if (toCreate.length > 0) {
-        const values = toCreate.map(disabilityId => [dbStudent.id, disabilityId, this.toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id]);
+        const values = toCreate.map(disabilityId => [dbStudent.id, disabilityId, toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id]);
         await conn.query(`INSERT INTO student_disability (studentId, disabilityId, startedAt, createdByUser) VALUES ?`, [values]);
       }
 
       for (const item of toEnd) {
-        await conn.query(`UPDATE student_disability SET endedAt = ?, updatedByUser = ? WHERE id = ?`, [this.toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, item.id]);
+        await conn.query(`UPDATE student_disability SET endedAt = ?, updatedByUser = ? WHERE id = ?`, [toSqlUtcDateTime(new Date()), qUserTeacher.person.user.id, item.id]);
       }
 
       await conn.commit();

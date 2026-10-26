@@ -27,6 +27,7 @@ import {deletarDoS3, moverParaQuestions} from "../services/s3.service";
 import {QuestionImagePosition, QuestionImageType} from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
 import { connectionPool } from "../services/db";
+import { yearRepository } from "../repositories/year.repository";
 
 const QUESTION_TITLE_MAX_LENGTH = 5000
 const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
@@ -301,7 +302,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
       const { classrooms } = await this.qTeacherClassrooms(authUser.user)
       if(!classrooms.includes(qClassroom.id) && !masterUser) { return { status: 403, message: "Você não tem permissão para acessar essa sala." } }
 
-      const qYear = await this.qYearByName(String(year))
+      const qYear = await yearRepository.qYearByName(String(year))
       if(!qYear) return { status: 404, message: "Ano não encontrado." }
 
       const classroomValue = `${Number(qClassroom.shortName.replace(/\D/g, ""))}`;
@@ -411,7 +412,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
     try {
 
-      const year = await this.qYearByName(String(req.query?.year))
+      const year = await yearRepository.qYearByName(String(req.query?.year))
       if(!year) return { status: 404, message: "Ano não encontrado." }
 
       const qUt = await this.qTeacherByUser(authUser.user)
@@ -536,7 +537,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       let yearName = req.params.year;
 
-      if (yearName.length != 4) { const currentYear = await this.qCurrentYear(); yearName = currentYear.name }
+      if (yearName.length != 4) { const currentYear = await yearRepository.qCurrentYear(); yearName = currentYear.name }
 
       const qUserTeacher = await this.qTeacherByUser(authUser.user);
 

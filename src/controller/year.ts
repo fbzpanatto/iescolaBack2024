@@ -5,6 +5,7 @@ import { Request } from "express";
 import { PER_CAT, TRANSFER_STATUS } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
+import { yearRepository } from "../repositories/year.repository";
 
 class YearController extends GenericController<EntityTarget<Year>> {
   constructor() {
@@ -14,7 +15,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
   override async findAllWhere(op: FindManyOptions<ObjectLiteral> | undefined, request?: Request) {
     const search = request?.query.search as string
     try {
-      const rows = await this.qYearsWithPeriods(search)
+      const rows = await yearRepository.qYearsWithPeriods(search)
       return { status: 200, data: Helper.years(rows) };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -28,7 +29,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
       const createdAt = body.createdAt ?? new Date()
       const endedAt = body.endedAt ?? null
 
-      const result = await this.qCreateYear(body.name, createdAt, endedAt, body.active)
+      const result = await yearRepository.qCreateYear(body.name, createdAt, endedAt, body.active)
 
       if (result.outcome === 'duplicate') { return { status: 404, message: `O ano ${body.name} já existe.` } }
       if (result.outcome === 'active_year_exists') { return { status: 404, message: `O ano ${result.name} está ativo. Encerre-o antes de criar um novo.` } }
@@ -43,7 +44,7 @@ class YearController extends GenericController<EntityTarget<Year>> {
     try {
       const qUserTeacher = await this.qTeacherByUser(authUser.user)
 
-      const result = await this.qUpdateYear(Number(id), body, qUserTeacher.id, TRANSFER_STATUS.PENDING, TRANSFER_STATUS.ACCEPTED)
+      const result = await yearRepository.qUpdateYear(Number(id), body, qUserTeacher.id, TRANSFER_STATUS.PENDING, TRANSFER_STATUS.ACCEPTED)
 
       if (result.outcome === 'not_found') { return { status: 404, message: 'Data not found' } }
       if (result.outcome === 'duplicate') { return { status: 400, message: `O ano ${body.name} já existe.` } }

@@ -5,6 +5,7 @@ import { Helper } from "../utils/helpers";
 import { PER_CAT } from "../utils/enums";
 import { JwtPayload } from "../interfaces/interfaces";
 import { TestToken } from "../model/Token";
+import { yearRepository } from "../repositories/year.repository";
 
 class TokenController extends GenericController<EntityTarget<TestToken>> {
 
@@ -20,7 +21,7 @@ class TokenController extends GenericController<EntityTarget<TestToken>> {
                          tUser?.categoryId === PER_CAT.SUPE ||
                          tUser?.categoryId === PER_CAT.FORM;
 
-      const currentYear = await this.qCurrentYear();
+      const currentYear = await yearRepository.qCurrentYear();
 
       if (!currentYear) { return { status: 404, message: 'Nenhum ano letivo ativo foi encontrado no sistema.' } }
 

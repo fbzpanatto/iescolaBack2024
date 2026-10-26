@@ -2,6 +2,7 @@ import { ObjectLiteral } from "typeorm";
 import { qReadingFluenciesHeaders } from "../interfaces/interfaces";
 import { Test } from "../model/Test";
 import { connectionPool } from "../services/db";
+import { withTransaction } from "../services/dbTransaction";
 import { ReadingFluencyFormatter } from "../utils/formatters/reading-fluency.formatter";
 
 class ReadingFluencyLinkRepository {
@@ -276,13 +277,9 @@ class ReadingFluencyLinkRepository {
   }
 
   async linkReadingSql(headers: qReadingFluenciesHeaders[], studentClassrooms: ObjectLiteral[], test: Test, userId: number, classroomId: number, yearName: string) {
-    let conn;
+    return withTransaction(async (conn) => {
 
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
-
-      if (studentClassrooms.length === 0) { await conn.commit(); return }
+      if (studentClassrooms.length === 0) { return }
 
       const studentIds = studentClassrooms.map(row => row?.student?.id ?? row?.student_id);
 
@@ -427,10 +424,7 @@ class ReadingFluencyLinkRepository {
         );
       }
 
-      await conn.commit();
-    }
-    catch (error) { if (conn) { await conn.rollback() } throw error }
-    finally { if (conn) { conn.release() } }
+    })
   }
 }
 

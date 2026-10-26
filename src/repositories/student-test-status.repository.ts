@@ -2,124 +2,119 @@ import { Test } from "../model/Test";
 import { TestQuestion } from "../model/TestQuestion";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
+import { withTransaction } from "../services/dbTransaction";
 
 class StudentTestStatusRepository {
 
   async unifiedTestQuestLinkSql(createStatus: boolean, stuClassrooms: any[], test: Test, testQuestions: TestQuestion[], userId: number): Promise<string[] | void> {
-    let conn;
     try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
+      return await withTransaction(async (conn) => {
 
-      if (!stuClassrooms || stuClassrooms.length === 0) { await conn.commit(); return }
+        if (!stuClassrooms || stuClassrooms.length === 0) { return }
 
-      const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
-      const studentClassroomIds = stuClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
-      const testQuestionIds = testQuestions.map(tq => tq.id);
+        const studentIds = stuClassrooms.map(sC => sC.student?.id ?? sC.student_id).filter(id => id);
+        const studentClassroomIds = stuClassrooms.map(sC => sC.student_classroom_id ?? sC.id).filter(id => id);
+        const testQuestionIds = testQuestions.map(tq => tq.id);
 
-      if (studentIds.length === 0 || testQuestionIds.length === 0) { await conn.commit(); return }
+        if (studentIds.length === 0 || testQuestionIds.length === 0) { return }
 
-      let existingStatusScIds = new Set<number>();
-      let studentsWhoCompletedTest = new Set<number>();
+        let existingStatusScIds = new Set<number>();
+        let studentsWhoCompletedTest = new Set<number>();
 
-      const [testRows]: [any[], any] = await conn.query(`SELECT id, active, endedAt FROM test WHERE id = ?`, [test.id]);
-      const currentTest = testRows[0];
-      const isTestActive = currentTest.active === 1 && (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
+        const [testRows]: [any[], any] = await conn.query(`SELECT id, active, endedAt FROM test WHERE id = ?`, [test.id]);
+        const currentTest = testRows[0];
+        const isTestActive = currentTest.active === 1 && (currentTest.endedAt && new Date() <= new Date(currentTest.endedAt));
 
-      if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
-        const [completedTestRows]: [any[], any] = await conn.query(
-          `
-        SELECT DISTINCT sc.studentId
-        FROM student_test_status sts
-        INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
-        WHERE sts.testId = ? 
-          AND sc.studentId IN (?)
-          AND sts.active = 0
-        `,
-          [test.id, studentIds]
-        );
-        studentsWhoCompletedTest = new Set(completedTestRows.map((row: any) => row.studentId));
-      }
-
-      const [existingStatusesRows]: [any[], any] = await conn.query(
-        `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?) FOR UPDATE`,
-        [test.id, studentClassroomIds]
-      );
-      existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
-
-      const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?) FOR UPDATE`
-      const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
-      const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
-
-      const statusesToSave: any[] = [];
-      const questionsToSave: any[] = [];
-
-      for (const sC of stuClassrooms) {
-        const studentId = sC.student?.id ?? sC.student_id;
-        const studentClassroomId = sC.student_classroom_id ?? sC.id;
-
-        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) { continue }
-
-        if ((test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) && (sC.endedAt != null || existingStatusScIds.has(studentClassroomId))) { continue }
-
-        // ✅ NOVA VERIFICAÇÃO: Só cria registros se teste ativo OU aluno já tem vínculo
-        const shouldCreateRecords = isTestActive || existingStatusScIds.has(studentClassroomId);
-
-        // ✅ Só cria student_test_status se teste ativo OU aluno já tinha
-        if (createStatus && !existingStatusScIds.has(studentClassroomId) && shouldCreateRecords) {
-          statusesToSave.push([true, test.id, studentClassroomId, '', userId]);
-          existingStatusScIds.add(studentClassroomId);
+        if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) {
+          const [completedTestRows]: [any[], any] = await conn.query(
+            `
+          SELECT DISTINCT sc.studentId
+          FROM student_test_status sts
+          INNER JOIN student_classroom sc ON sts.studentClassroomId = sc.id
+          WHERE sts.testId = ? 
+            AND sc.studentId IN (?)
+            AND sts.active = 0
+          `,
+            [test.id, studentIds]
+          );
+          studentsWhoCompletedTest = new Set(completedTestRows.map((row: any) => row.studentId));
         }
 
-        // ✅ Só cria student_question se teste ativo OU aluno já tinha vínculo
-        if (shouldCreateRecords) {
-          for (const tQ of testQuestions) {
-            const uniqueKey = `${studentId}-${tQ.id}`;
-            if (!questionKeys.has(uniqueKey)) { questionsToSave.push(['', tQ.id, studentId, userId]); questionKeys.add(uniqueKey) }
+        const [existingStatusesRows]: [any[], any] = await conn.query(
+          `SELECT studentClassroomId FROM student_test_status WHERE testId = ? AND studentClassroomId IN (?) FOR UPDATE`,
+          [test.id, studentClassroomIds]
+        );
+        existingStatusScIds = new Set(existingStatusesRows.map((row: any) => row.studentClassroomId));
+
+        const eQuery = `SELECT studentId, testQuestionId FROM student_question WHERE studentId IN (?) AND testQuestionId IN (?) FOR UPDATE`
+        const [questionsRows]: [any[], any] = await conn.query(eQuery, [studentIds, testQuestionIds]);
+        const questionKeys = new Set(questionsRows.map((row: any) => `${row.studentId}-${row.testQuestionId}`));
+
+        const statusesToSave: any[] = [];
+        const questionsToSave: any[] = [];
+
+        for (const sC of stuClassrooms) {
+          const studentId = sC.student?.id ?? sC.student_id;
+          const studentClassroomId = sC.student_classroom_id ?? sC.id;
+
+          if (test.category.id === TEST_CATEGORIES_IDS.SIM_ITA && studentsWhoCompletedTest.has(studentId)) { continue }
+
+          if ((test.category.id === TEST_CATEGORIES_IDS.SIM_ITA) && (sC.endedAt != null || existingStatusScIds.has(studentClassroomId))) { continue }
+
+          // ✅ NOVA VERIFICAÇÃO: Só cria registros se teste ativo OU aluno já tem vínculo
+          const shouldCreateRecords = isTestActive || existingStatusScIds.has(studentClassroomId);
+
+          // ✅ Só cria student_test_status se teste ativo OU aluno já tinha
+          if (createStatus && !existingStatusScIds.has(studentClassroomId) && shouldCreateRecords) {
+            statusesToSave.push([true, test.id, studentClassroomId, '', userId]);
+            existingStatusScIds.add(studentClassroomId);
+          }
+
+          // ✅ Só cria student_question se teste ativo OU aluno já tinha vínculo
+          if (shouldCreateRecords) {
+            for (const tQ of testQuestions) {
+              const uniqueKey = `${studentId}-${tQ.id}`;
+              if (!questionKeys.has(uniqueKey)) { questionsToSave.push(['', tQ.id, studentId, userId]); questionKeys.add(uniqueKey) }
+            }
           }
         }
-      }
 
-      if (statusesToSave.length > 0) {
-        const statusPlaceholders = statusesToSave.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
-        const statusQuery =
-          `
-            INSERT INTO student_test_status
-            (active, testId, studentClassroomId, observation, createdAt, createdByUser)
-            VALUES ${statusPlaceholders}
-            ON DUPLICATE KEY UPDATE
-              updatedAt = NOW(),
-              updatedByUser = VALUES(createdByUser)
-          `;
-        const statusFlatValues = statusesToSave.flat();
-        await conn.query(statusQuery, statusFlatValues);
-      }
+        if (statusesToSave.length > 0) {
+          const statusPlaceholders = statusesToSave.map(() => '(?, ?, ?, ?, NOW(), ?)').join(', ');
+          const statusQuery =
+            `
+              INSERT INTO student_test_status
+              (active, testId, studentClassroomId, observation, createdAt, createdByUser)
+              VALUES ${statusPlaceholders}
+              ON DUPLICATE KEY UPDATE
+                updatedAt = NOW(),
+                updatedByUser = VALUES(createdByUser)
+            `;
+          const statusFlatValues = statusesToSave.flat();
+          await conn.query(statusQuery, statusFlatValues);
+        }
 
-      if (questionsToSave.length > 0) {
-        const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
-        const questionQuery = `
-        INSERT INTO student_question 
-        (answer, testQuestionId, studentId, createdAt, createdByUser)
-        VALUES ${questionPlaceholders}
-        ON DUPLICATE KEY UPDATE
-          updatedAt = NOW(),
-          updatedByUser = VALUES(createdByUser)
-      `;
-        const questionFlatValues = questionsToSave.flat();
-        await conn.query(questionQuery, questionFlatValues);
-      }
+        if (questionsToSave.length > 0) {
+          const questionPlaceholders = questionsToSave.map(() => '(?, ?, ?, NOW(), ?)').join(', ');
+          const questionQuery = `
+          INSERT INTO student_question 
+          (answer, testQuestionId, studentId, createdAt, createdByUser)
+          VALUES ${questionPlaceholders}
+          ON DUPLICATE KEY UPDATE
+            updatedAt = NOW(),
+            updatedByUser = VALUES(createdByUser)
+        `;
+          const questionFlatValues = questionsToSave.flat();
+          await conn.query(questionQuery, questionFlatValues);
+        }
 
-      await conn.commit();
+      })
     }
-    catch (error) { if(conn){ await conn.rollback() } console.error(error); throw error; }
-    finally { if (conn) { conn.release() } }
+    catch (error) { console.error(error); throw error }
   }
 
   async findAndDeleteStatusAndQuestions(testId: number, classroomId: number) {
-    let conn;
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
+    return withTransaction(async (conn) => {
       const query =
         `
           SELECT sts.id AS studentTestStatusId, sts.studentClassroomId AS studentClassroomId, sts.testId AS testId, sc_current.rosterNumber AS rosterNumber, sc_current.studentId AS studentId
@@ -139,7 +134,7 @@ class StudentTestStatusRepository {
         `
       const [results] = await conn.query(query, [classroomId, testId, testId]) as [{ studentTestStatusId: number, studentClassroomId: number, testId: number, rosterNumber: number, studentId: number }[], any];
 
-      if (results.length === 0) { await conn.commit(); return }
+      if (results.length === 0) { return }
 
       const query2 = `DELETE FROM student_test_status WHERE id IN (?);`
       const query3 = `DELETE sq FROM student_question AS sq INNER JOIN test_question AS tq ON sq.testQuestionId = tq.id WHERE sq.studentId IN (?) AND tq.testId = ?;`
@@ -147,10 +142,7 @@ class StudentTestStatusRepository {
       await conn.query(query2, [results.map(row => row.studentTestStatusId)]);
       await conn.query(query3, [results.map(row => row.studentId), testId]);
 
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
+    })
   }
 
   /**
@@ -162,11 +154,7 @@ class StudentTestStatusRepository {
    * (ex: a checagem de has_any_answers) devem ser refletidas nos DOIS métodos.
    */
   async updateStudentTestStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
+    return withTransaction(async (conn) => {
 
       const query = `
       SELECT
@@ -228,10 +216,7 @@ class StudentTestStatusRepository {
         }
       }
 
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
+    })
   }
 
   // Índices esperados: student_test_status(id, studentClassroomId, testId) [unique composto]

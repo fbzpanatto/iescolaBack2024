@@ -1,79 +1,72 @@
 import { qReadingFluenciesHeaders } from "../interfaces/interfaces";
 import { connectionPool } from "../services/db";
+import { withTransaction } from "../services/dbTransaction";
 
 class ReadingFluencyRepository {
 
   async findAndDeleteStatusAndReadingFluency(testId: number, classroomId: number) {
-
-    let conn;
     try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
+      return await withTransaction(async (conn) => {
 
-      const query = `
-    SELECT 
-      sts.id AS studentTestStatusId,
-      sts.studentClassroomId AS studentClassroomId,
-      sts.testId AS testId,
-      sc_current.rosterNumber AS rosterNumber,
-      sc_current.studentId AS studentId
-    FROM student_test_status sts
-    INNER JOIN student_classroom sc_current 
-      ON sts.studentClassroomId = sc_current.id 
-      AND sc_current.classroomId = ? 
-      AND sc_current.endedAt IS NOT NULL
-    INNER JOIN student_classroom sc_active 
-      ON sc_current.studentId = sc_active.studentId 
-      AND sc_active.endedAt IS NULL
-    INNER JOIN test tt 
-      ON sts.testId = tt.id 
-      AND tt.id = ?
-    WHERE sts.studentClassroomId != sc_active.id 
-      AND sc_active.classroomId IN (1216, 1217, 1218, 1509)
-      AND (
-        -- Não tem nenhum reading_fluency OU
-        NOT EXISTS (
-          SELECT 1 
-          FROM reading_fluency rf
-          WHERE rf.studentId = sc_current.studentId 
-            AND rf.testId = ?
+        const query = `
+      SELECT 
+        sts.id AS studentTestStatusId,
+        sts.studentClassroomId AS studentClassroomId,
+        sts.testId AS testId,
+        sc_current.rosterNumber AS rosterNumber,
+        sc_current.studentId AS studentId
+      FROM student_test_status sts
+      INNER JOIN student_classroom sc_current 
+        ON sts.studentClassroomId = sc_current.id 
+        AND sc_current.classroomId = ? 
+        AND sc_current.endedAt IS NOT NULL
+      INNER JOIN student_classroom sc_active 
+        ON sc_current.studentId = sc_active.studentId 
+        AND sc_active.endedAt IS NULL
+      INNER JOIN test tt 
+        ON sts.testId = tt.id 
+        AND tt.id = ?
+      WHERE sts.studentClassroomId != sc_active.id 
+        AND sc_active.classroomId IN (1216, 1217, 1218, 1509)
+        AND (
+          -- Não tem nenhum reading_fluency OU
+          NOT EXISTS (
+            SELECT 1 
+            FROM reading_fluency rf
+            WHERE rf.studentId = sc_current.studentId 
+              AND rf.testId = ?
+          )
+          OR
+          -- Tem reading_fluency mas TODOS os registros estão limpos (nulos)
+          NOT EXISTS (
+            SELECT 1 
+            FROM reading_fluency rf
+            WHERE rf.studentId = sc_current.studentId 
+              AND rf.testId = ?
+              AND (
+                rf.rClassroomId IS NOT NULL 
+                OR rf.readingFluencyExamId IS NOT NULL 
+                OR rf.readingFluencyLevelId IS NOT NULL
+              )
+          )
         )
-        OR
-        -- Tem reading_fluency mas TODOS os registros estão limpos (nulos)
-        NOT EXISTS (
-          SELECT 1 
-          FROM reading_fluency rf
-          WHERE rf.studentId = sc_current.studentId 
-            AND rf.testId = ?
-            AND (
-              rf.rClassroomId IS NOT NULL 
-              OR rf.readingFluencyExamId IS NOT NULL 
-              OR rf.readingFluencyLevelId IS NOT NULL
-            )
-        )
-      )
-    ORDER BY sc_current.rosterNumber ASC
-    FOR UPDATE
-  `;
+      ORDER BY sc_current.rosterNumber ASC
+      FOR UPDATE
+    `;
 
-      const [results] = await conn.query(query, [classroomId, testId, testId, testId]) as [{ studentTestStatusId: number, studentClassroomId: number, testId: number, rosterNumber: number, studentId: number }[], any];
+        const [results] = await conn.query(query, [classroomId, testId, testId, testId]) as [{ studentTestStatusId: number, studentClassroomId: number, testId: number, rosterNumber: number, studentId: number }[], any];
 
-      if (results.length === 0) { await conn.commit(); return }
+        if (results.length === 0) { return }
 
-      const query2 = `DELETE FROM student_test_status WHERE id IN (?);`;
-      const query3 = `DELETE FROM reading_fluency WHERE studentId IN (?) AND testId = ?;`;
+        const query2 = `DELETE FROM student_test_status WHERE id IN (?);`;
+        const query3 = `DELETE FROM reading_fluency WHERE studentId IN (?) AND testId = ?;`;
 
-      await conn.query(query2, [results.map(row => row.studentTestStatusId)]);
-      await conn.query(query3, [results.map(row => row.studentId), testId]);
+        await conn.query(query2, [results.map(row => row.studentTestStatusId)]);
+        await conn.query(query3, [results.map(row => row.studentId), testId]);
 
-      await conn.commit();
+      })
     }
-    catch (error) {
-      if (conn) await conn.rollback();
-      console.error('Erro ao limpar status e fluência:', error);
-      throw error;
-    }
-    finally { if (conn) conn.release() }
+    catch (error) { console.error('Erro ao limpar status e fluência:', error); throw error }
   }
 
   // Equivalente à parte de student_classroom/reading_fluency do antigo
@@ -134,11 +127,7 @@ class ReadingFluencyRepository {
   }
 
   async updateReadingFluencyStatus(testId: number, classroomId: number, yearName: string, userId: number): Promise<void> {
-    let conn;
-
-    try {
-      conn = await connectionPool.getConnection();
-      await conn.beginTransaction();
+    return withTransaction(async (conn) => {
 
       const query = `
       SELECT
@@ -187,10 +176,7 @@ class ReadingFluencyRepository {
         }
       }
 
-      await conn.commit();
-    }
-    catch (error) { if (conn) await conn.rollback(); throw error }
-    finally { if (conn) conn.release() }
+    })
   }
 
   async qReadingFluencyHeaders(examIds: number[]) {

@@ -4,8 +4,9 @@ dotenv.config();
 import "./interfaces/express";
 import express, { Application, Router, Response } from "express";
 import helmet from "helmet";
-import cors from "cors";
 import authorization from "./middleware/authorization";
+import { corsMiddleware } from "./middleware/cors";
+import { assertRequiredEnv } from "./utils/env";
 
 import { Schedulers } from "./utils/schedulers";
 
@@ -42,11 +43,13 @@ import { UploadRouter } from "./routes/upload";
 import { StudentTestRouter } from "./routes/studentTest";
 import { StudentMergeRouter } from "./routes/studentMerge";
 
+assertRequiredEnv();
+
 const app: Application = express();
 const route = Router();
 const PORT = process.env.SERVER_PORT;
 
-app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }) );
+app.use(corsMiddleware());
 
 app.use(helmet());
 app.use(express.json({ limit: '2mb' }));

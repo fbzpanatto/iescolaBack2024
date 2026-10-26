@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { loginCtrl as controller } from "../controller/login";
 import { sendResponse } from "../utils/sendResponse";
+import { loginLimiter } from "../middleware/rateLimit";
 
 export const LoginRouter = Router();
 
@@ -8,7 +9,7 @@ LoginRouter.post('/student', async (req: Request, res: Response) => {
   const response = await controller.studentLogin(req); return sendResponse(res, response)
 })
 
-LoginRouter.post('/', async (req: Request, res: Response) => {
+LoginRouter.post('/', loginLimiter, async (req: Request, res: Response) => {
   const response = await controller.login(req); return sendResponse(res, response)
 })
 

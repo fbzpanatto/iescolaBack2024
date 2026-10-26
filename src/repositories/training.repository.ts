@@ -1,5 +1,5 @@
 import { TeacherParam, Training, TrainingResult } from "../interfaces/interfaces";
-import { ResultSetHeader } from "mysql2/promise";
+import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { TrainingTeacherStatus } from "../model/TrainingTeacherStatus";
 import { connectionPool } from "../services/db";
 import { TrainingFormatter } from "../utils/formatters/training.formatter";
@@ -188,143 +188,160 @@ class TrainingRepository {
   }
 
   async qTeacherTrainings(teachers: TeacherParam[], trainingIds: number[], categoryId: number, isCurrentYear: boolean, referencedTrainingYear: string ) {
+    if (teachers.length === 0) return teachers;
+
     let conn;
     try {
       conn = await connectionPool.getConnection()
-      const query = `
-        SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
-        FROM training_teacher AS tt
-        WHERE tt.trainingId IN (?) AND tt.teacherId = ?
-    `
+      const db = conn;
 
-      // Query para PEBI (categoryId = 1) - comportamento original
-      const contractQueryPEBI = `
-        SELECT tcd.id, tcd.teacherId, tcd.contractId
-        FROM teacher_class_discipline AS tcd
-                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
-                 INNER JOIN school AS s ON c.schoolId = s.id
-            ${!isCurrentYear ? `
-INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
-INNER JOIN training AS tr ON tt.trainingId = tr.id
-INNER JOIN year AS y ON tr.yearId = y.id
-` : ''}
-        WHERE
-            tcd.teacherId = ? AND
-            s.id = ? AND
-            CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
-            c.categoryId IN (1, 3) AND
-            tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
-            ${isCurrentYear
-        ? 'tcd.endedAt IS NULL'
-        : 'y.name = ?'
+      type ContractVariant = 'PEBI' | 'SPECIFIC' | 'PEBII';
+
+      interface ContractRow extends RowDataPacket {
+        id: number
+        teacherId: number
+        contractId: number | null
+        disciplineId: number | null
+        schoolId: number
+        classroomNumber?: number | null
       }
-        LIMIT 1
-    `
 
-      // Query para PEBII (categoryId = 2) - comportamento original
-      const contractQueryPEBII = `
-        SELECT tcd.id, tcd.teacherId, tcd.contractId
-        FROM teacher_class_discipline AS tcd
-                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
-                 INNER JOIN school AS s ON c.schoolId = s.id
-            ${!isCurrentYear ? `
-INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
-INNER JOIN training AS tr ON tt.trainingId = tr.id
-INNER JOIN year AS y ON tr.yearId = y.id
-` : ''}
-        WHERE
-            tcd.teacherId = ? AND
-            s.id = ? AND
-            c.categoryId = 2 AND
-            tcd.disciplineId = COALESCE(?, tcd.disciplineId) AND
-            ${isCurrentYear
-        ? 'tcd.endedAt IS NULL'
-        : 'y.name = ?'
+      interface TrainingTeacherRow extends RowDataPacket {
+        id: number
+        teacherId: number
+        trainingId: number
+        statusId: number | string
+        observation: string | null
       }
-        LIMIT 1
-    `
 
-      // Query para disciplinas específicas em PEBI (nova)
-      const contractQuerySpecificInPEBI = `
-        SELECT tcd.id, tcd.teacherId, tcd.contractId
-        FROM teacher_class_discipline AS tcd
-                 INNER JOIN classroom AS c ON tcd.classroomId = c.id
-                 INNER JOIN school AS s ON c.schoolId = s.id
-            ${!isCurrentYear ? `
-INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
-INNER JOIN training AS tr ON tt.trainingId = tr.id
-INNER JOIN year AS y ON tr.yearId = y.id
-` : ''}
-        WHERE
-            tcd.teacherId = ? AND
-            s.id = ? AND
-            c.categoryId IN (1, 3) AND
-            tcd.disciplineId = ? AND
-            ${isCurrentYear
-        ? 'tcd.endedAt IS NULL'
-        : 'y.name = ?'
-      }
-        LIMIT 1
-    `
+      const resolveVariant = (teacher: TeacherParam): ContractVariant => {
+        if ([1, 3].includes(categoryId)) return 'PEBI';
 
-      // Busca contratos
-      for(let teacher of teachers) {
-        let queryParams: any[];
-        let contractQuery: string;
-
-        // Detecta se é um professor de disciplina específica lecionando em PEBI
         const isSpecificDisciplineInPEBI = teacher.disciplineId !== null &&
           teacher.disciplineId !== undefined &&
           [6, 7, 8].includes(teacher.disciplineId) &&
           typeof teacher.classroom === 'string' &&
           teacher.classroom.split(',').some(c => parseInt(c.trim()) >= 1 && parseInt(c.trim()) <= 5);
 
-        if ([1,3].includes(categoryId)) {
-          // PEBI - usa classroom específico
-          const classroom = typeof teacher.classroom === 'string' ?
-            parseInt(teacher.classroom.split(',')[0].trim()) :
-            teacher.classroom;
-
-          queryParams = [
-            teacher.id,
-            teacher.schoolId,
-            classroom,
-            teacher.disciplineId,
-            ...(isCurrentYear ? [] : [referencedTrainingYear])
-          ];
-          contractQuery = contractQueryPEBI;
-
-        } else if (isSpecificDisciplineInPEBI) {
-          // Professor de disciplina específica que leciona em PEBI mas aparece em busca PEBII
-          queryParams = [
-            teacher.id,
-            teacher.schoolId,
-            teacher.disciplineId,
-            ...(isCurrentYear ? [] : [referencedTrainingYear])
-          ];
-          contractQuery = contractQuerySpecificInPEBI;
-
-        } else {
-          // PEBII - comportamento original
-          queryParams = [
-            teacher.id,
-            teacher.schoolId,
-            teacher.disciplineId,
-            ...(isCurrentYear ? [] : [referencedTrainingYear])
-          ];
-          contractQuery = contractQueryPEBII;
-        }
-
-        const [queryResult] = await conn.query(contractQuery, queryParams);
-        const result = (queryResult as Array<{ id: number, teacherId: number, contractId: number | null }>)[0];
-
-        teacher.contract = result ? result.contractId : null;
+        return isSpecificDisciplineInPEBI ? 'SPECIFIC' : 'PEBII';
       }
 
-      // Busca treinamentos dos professores
-      for(let teacher of teachers) {
-        const [queryResult] = await conn.query(query, [trainingIds, teacher.id]);
-        teacher.trainingTeachers = queryResult as Array<{ id: number, teacherId: number, trainingId: number, statusId: number | string, observation: string | null }>;
+      const resolvePebiClassroom = (teacher: TeacherParam): number | undefined => typeof teacher.classroom === 'string' ?
+        parseInt(teacher.classroom.split(',')[0].trim()) :
+        teacher.classroom;
+
+      const buckets: Record<ContractVariant, TeacherParam[]> = { PEBI: [], SPECIFIC: [], PEBII: [] };
+      const variantByTeacher = new Map<TeacherParam, ContractVariant>();
+
+      for (const teacher of teachers) {
+        const variant = resolveVariant(teacher);
+        buckets[variant].push(teacher);
+        variantByTeacher.set(teacher, variant);
+      }
+
+      const fetchContractRows = async (variant: ContractVariant, bucket: TeacherParam[]): Promise<Map<number, ContractRow[]>> => {
+        const rowsByTeacher = new Map<number, ContractRow[]>();
+        if (bucket.length === 0) return rowsByTeacher;
+
+        const teacherIds = [...new Set(bucket.map(t => t.id))];
+        const schoolIds = [...new Set(bucket.map(t => t.schoolId))];
+
+        const categoryFilter = variant === 'PEBII' ? 'c.categoryId = 2' : 'c.categoryId IN (1, 3)';
+        const classroomSelect = variant === 'PEBI' ? ', CAST(LEFT(c.shortName, 1) AS UNSIGNED) AS classroomNumber' : '';
+
+        const contractQuery = `
+          SELECT DISTINCT tcd.id, tcd.teacherId, tcd.contractId, tcd.disciplineId, s.id AS schoolId${classroomSelect}
+          FROM teacher_class_discipline AS tcd
+                   INNER JOIN classroom AS c ON tcd.classroomId = c.id
+                   INNER JOIN school AS s ON c.schoolId = s.id
+              ${!isCurrentYear ? `
+INNER JOIN training_teacher AS tt ON tt.teacherId = tcd.teacherId
+INNER JOIN training AS tr ON tt.trainingId = tr.id
+INNER JOIN year AS y ON tr.yearId = y.id
+` : ''}
+          WHERE
+              tcd.teacherId IN (?) AND
+              s.id IN (?) AND
+              ${categoryFilter} AND
+              ${isCurrentYear
+          ? 'tcd.endedAt IS NULL'
+          : 'y.name = ?'
+        }
+          ORDER BY tcd.id ASC
+        `
+
+        const [queryResult] = await db.query<ContractRow[]>(contractQuery, [
+          teacherIds,
+          schoolIds,
+          ...(isCurrentYear ? [] : [referencedTrainingYear])
+        ]);
+
+        for (const row of queryResult) {
+          const teacherRows = rowsByTeacher.get(row.teacherId);
+          if (teacherRows) { teacherRows.push(row); continue }
+          rowsByTeacher.set(row.teacherId, [row]);
+        }
+
+        return rowsByTeacher;
+      }
+
+      const rowsByVariant: Record<ContractVariant, Map<number, ContractRow[]>> = {
+        PEBI: await fetchContractRows('PEBI', buckets.PEBI),
+        SPECIFIC: await fetchContractRows('SPECIFIC', buckets.SPECIFIC),
+        PEBII: await fetchContractRows('PEBII', buckets.PEBII)
+      };
+
+      const matchesCoalescedDiscipline = (row: ContractRow, teacher: TeacherParam): boolean =>
+        row.disciplineId !== null &&
+        (teacher.disciplineId === null || teacher.disciplineId === undefined || Number(row.disciplineId) === Number(teacher.disciplineId));
+
+      const findContractRow = (teacher: TeacherParam, variant: ContractVariant): ContractRow | undefined => {
+        const candidates = rowsByVariant[variant].get(teacher.id) ?? [];
+
+        return candidates.find(row => {
+          if (Number(row.schoolId) !== Number(teacher.schoolId)) return false;
+          if (variant === 'PEBI') {
+            return Number(row.classroomNumber) === resolvePebiClassroom(teacher) && matchesCoalescedDiscipline(row, teacher);
+          }
+          if (variant === 'SPECIFIC') {
+            return row.disciplineId !== null && Number(row.disciplineId) === Number(teacher.disciplineId);
+          }
+          return matchesCoalescedDiscipline(row, teacher);
+        });
+      }
+
+      for (const teacher of teachers) {
+        const row = findContractRow(teacher, variantByTeacher.get(teacher) as ContractVariant);
+        teacher.contract = row?.contractId ?? null;
+      }
+
+      if (trainingIds.length === 0) {
+        for (const teacher of teachers) { teacher.trainingTeachers = [] }
+        return teachers;
+      }
+
+      const trainingTeacherQuery = `
+        SELECT tt.id, tt.teacherId, tt.trainingId, tt.statusId, tt.observation
+        FROM training_teacher AS tt
+        WHERE tt.teacherId IN (?) AND tt.trainingId IN (?)
+        ORDER BY tt.id ASC
+      `
+
+      const [trainingTeacherRows] = await db.query<TrainingTeacherRow[]>(trainingTeacherQuery, [
+        [...new Set(teachers.map(t => t.id))],
+        trainingIds
+      ]);
+
+      const trainingTeachersByTeacher = new Map<number, TrainingTeacherRow[]>();
+
+      for (const row of trainingTeacherRows) {
+        const teacherRows = trainingTeachersByTeacher.get(row.teacherId);
+        if (teacherRows) { teacherRows.push(row); continue }
+        trainingTeachersByTeacher.set(row.teacherId, [row]);
+      }
+
+      for (const teacher of teachers) {
+        teacher.trainingTeachers = trainingTeachersByTeacher.get(teacher.id) ?? [];
       }
 
       return teachers;

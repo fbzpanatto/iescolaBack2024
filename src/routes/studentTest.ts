@@ -1,4 +1,4 @@
-import { Request, Router } from "express";
+import { Request, Router, Response } from "express";
 import { BODY_STUDENT_TEST_QUESTIONS, STUDENT_CLASSROOM_ID_REF, TEST_TOKEN, VALIDATE_STUDENT_TEST_QUESTIONS, YEAR_NAME_PARAM } from "../middleware/validators";
 import { studentTestController as controller } from "../controller/studentTest";
 import { checkDatetime } from "../middleware/brazilianUTCheck";
@@ -8,14 +8,14 @@ const UPDATE_VALIDATORS = [VALIDATE_STUDENT_TEST_QUESTIONS, BODY_STUDENT_TEST_QU
 
 export const StudentTestRouter = Router()
 
-StudentTestRouter.get("/test/:id", checkDatetime, [YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID_REF, TEST_TOKEN], havePermission, async (req: Request, res: any) => {
-  const response = await controller.getTest(req.body, req.params, req.query, (req as any).user); return res.status(response.status as number).json(response)
+StudentTestRouter.get("/test/:id", checkDatetime, [YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID_REF, TEST_TOKEN], havePermission, async (req: Request, res: Response) => {
+  const response = await controller.getTest(req.body, req.params, req.query, req.user); return res.status(response.status as number).json(response)
 })
 
-StudentTestRouter.get("/:year", YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) => {
-  const response = await controller.allFilteredStudentTest(req.body, req.params, req.query, (req as any).user); return res.status(response.status as number).json(response)
+StudentTestRouter.get("/:year", YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.allFilteredStudentTest(req.body, req.params, req.query, req.user); return res.status(response.status as number).json(response)
 })
 
-StudentTestRouter.put("/test/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: any) => {
-  const response = await controller.updateStudentAnswers(req.body, (req as any).user); return res.status(response.status as number).json(response)
+StudentTestRouter.put("/test/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
+  const response = await controller.updateStudentAnswers(req.body, req.user); return res.status(response.status as number).json(response)
 })

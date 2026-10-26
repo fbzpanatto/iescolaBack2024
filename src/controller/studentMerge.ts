@@ -4,7 +4,6 @@ import { Student } from "../model/Student";
 import { Request } from "express";
 import { PER_CAT } from "../utils/enums";
 
-import { JwtPayload } from "../interfaces/interfaces";
 import { teacherRepository } from "../repositories/teacher.repository";
 import { studentMergeRepository } from "../repositories/student-merge.repository";
 
@@ -15,7 +14,7 @@ class StudentMergeController extends GenericController<EntityTarget<Student>> {
   async getAllStudentsToMerge(request: Request) {
 
     const { search, limit, offset } = request.query;
-    const authUser = (request as any).user as JwtPayload;
+    const authUser = request.user;
 
     try {
 

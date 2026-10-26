@@ -1,4 +1,4 @@
-import { Router, Request } from "express";
+import { Router, Request, Response } from "express";
 import { Data } from "../interfaces/interfaces"
 import { reportController as controller } from "../controller/report";
 import havePermission from "../middleware/havePermission";
@@ -6,7 +6,7 @@ import { ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
 
 export const ReportRouter = Router();
 
-ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, res: any) => {
+ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, res: Response) => {
 
   const classroom = req.query.classroom ?? req.params.classroom
   const bimester = req.query.bimester ?? req.params.bimester
@@ -16,19 +16,19 @@ ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, r
   return res.status(data.status).json(data);
 })
 
-ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermission, async (req: Request<{ classroom: string, year: string, bimester: string }>, res: any) => {
+ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermission, async (req: Request<{ classroom: string, year: string, bimester: string }>, res: Response) => {
   const data: Data = await controller.aggregatedTestResultFullParallel(req);
   return res.status(data.status).json(data);
 })
 
-ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: any) =>
-  { const data: Data = await controller.reportFindAll(req, (req as any).user); return res.status(data.status).json(data) }
+ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) =>
+  { const data: Data = await controller.reportFindAll(req, req.user); return res.status(data.status).json(data) }
 )
 
-ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: any) =>
+ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: Response) =>
   { const data: Data = await controller.getReport(req); return res.status(data.status).json(data) }
 )
 
-ReportRouter.get('/:id/:year/avg', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: any) =>
+ReportRouter.get('/:id/:year/avg', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: Response) =>
   { const data: Data = await controller.getSchoolAvg(req); return res.status(data.status).json(data) }
 )

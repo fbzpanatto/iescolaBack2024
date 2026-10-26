@@ -1,4 +1,4 @@
-import { Request, Router } from "express";
+import { Request, Router, Response } from "express";
 import { dataSourceController } from "../controller/initialConfigs";
 import { Year } from "../model/Year";
 import { Bimester } from "../model/Bimester";
@@ -93,7 +93,7 @@ async function createAdminPerson() {
   await createAdminUser(result)
 }
 
-InitialConfigsRouter.get('/', async (req: Request, res: any) => {
+InitialConfigsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const personCategorySource = new dataSourceController(PersonCategory).entity
     const bimesterSource = new dataSourceController(Bimester).entity

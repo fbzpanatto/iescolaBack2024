@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express, { Application, Router } from "express";
+import "./interfaces/express";
+import express, { Application, Router, Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import authorization from "./middleware/authorization";
@@ -85,7 +86,7 @@ route.use("/year", authorization, YearRouter);
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);
 
-route.get("/", (_, res: any) => { return res.json({ message: "OK" }) });
+route.get("/", (_, res: Response) => { return res.json({ message: "OK" }) });
 
 app.use(route);
 

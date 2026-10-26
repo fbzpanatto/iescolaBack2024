@@ -1,21 +1,21 @@
-import { Router, Request } from "express";
+import { Router, Request, Response } from "express";
 import { skillController as controller } from "../controller/skill";
 import { ID_PARAM } from "../middleware/validators";
 
 export const SkillRouter = Router();
 
-SkillRouter.get('/', async (req: Request, res: any) => {
+SkillRouter.get('/', async (req: Request, res: Response) => {
   const response = await controller.findAllWhere({}, req); return res.status(response.status).json(response)
 })
 
-SkillRouter.get('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => {
+SkillRouter.get('/:id', ID_PARAM, async (req: Request<{ id: string }>, res: Response) => {
   const response = await controller.findOneById(req.params?.id, req); return res.status(response.status).json(response)
 })
 
-SkillRouter.post('/', async (req: Request, res: any) => {
+SkillRouter.post('/', async (req: Request, res: Response) => {
   const response = await controller.save(req.body, {}); return res.status(response.status).json(response)
 });
 
-SkillRouter.put('/:id', ID_PARAM, async (req: Request<{ id: number | string }>, res: any) => {
+SkillRouter.put('/:id', ID_PARAM, async (req: Request<{ id: string }>, res: Response) => {
   const response = await controller.updateId(req.params?.id, req.body); return res.status(response.status).json(response)
 })

@@ -15,7 +15,8 @@
 - Request typing: `src/interfaces/express.ts` augments `Express.Request` with `user: JwtPayload` (imported at the top of `src/index.ts`); use `req.user`, never `(req as any).user`.
 - Formatters: `src/utils/formatters/<domain>.formatter.ts` (static classes, e.g. `TestFormatter`, `TestReportFormatter`, `StudentFormatter`).
 - Generic helpers: `src/utils/helpers.ts` (`Helper` date/code utilities and `HttpError`); `src/utils/sqlDateTime.ts` (`toSqlUtcDateTime`).
-- Middlewares: `src/middleware/`.
+- Middlewares: `src/middleware/` (`authorization.ts`, `havePermission.ts`, `cors.ts` with the single allowed origin derived from `FRONT_URL` / `FRONT_URL_DEV`, `rateLimit.ts` with the per-email limiters on `POST /login` and `POST /reset-password`).
+- Environment validation: `src/utils/env.ts` (`assertRequiredEnv()` runs in `src/index.ts` before `listen` and exits with code 1 listing missing variable names).
 - Schemas/Validation: `src/schemas/`.
 - Models (TypeORM): `src/model/`.
 
@@ -33,4 +34,6 @@
 - New write methods use `withTransaction`; its callback must be idempotent (it is re-executed on retry).
 - New queries go into the matching domain repository; new response shaping goes into the matching formatter. Keep files under ~500 lines by splitting per domain or use case.
 - The response payload is a contract with the frontend (`iescolaFront2024`, `src/app/shared/services/fetch-data.service.ts`): keep status codes, body keys and key order identical unless a change is explicitly agreed.
+- A new required environment variable must be added to `src/utils/env.ts` and defined in production before deploying, or the server refuses to start.
+- `POST /login/student` must stay without rate limiting.
 - Tests stub data access on the repository singletons (e.g. `mock.method(yearRepository, 'qCurrentYear', ...)`), not on controller instances.

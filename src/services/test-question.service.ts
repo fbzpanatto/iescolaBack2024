@@ -3,6 +3,7 @@ import { TestQuestionFull } from "../interfaces/interfaces";
 import { QuestionImagePosition } from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
 import { testQuestionRepository } from "../repositories/test-question.repository";
+import { canonicalLabelsFor, displayLabelsFor, MAX_CORRECT_LABELS, normalizeCorrectLabels } from "../utils/correctLabels";
 
 const QUESTION_TITLE_MAX_LENGTH = 5000
 const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
@@ -10,10 +11,10 @@ const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
 type ValidatedQuestionOption = { label: QuestionOptionLabel, text: string, order: number }
 type QuestionOptionRow = { id: number, label: string, text: string, order: number }
 type NewQuestionInput = { answer?: unknown, optionsOrder?: unknown, question: { id?: unknown, title?: unknown, options?: unknown, images?: unknown } }
-export type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[], correctLabel: QuestionOptionLabel | null }
+export type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[], correctLabel: string | null }
 export type ReusedResolution = { answer: unknown, optionsOrder: string | null }
 export type CurrOptionsView = { options?: unknown[], correctLabel?: string | null }
-export type OrderingPlan = { optionsOrder: string | null, previousOrder: string | null, answer: unknown, correctLabel: QuestionOptionLabel | null }
+export type OrderingPlan = { optionsOrder: string | null, previousOrder: string | null, answer: unknown, correctLabel: string | null }
 export type ExistingOptionsPlan = { rows: QuestionOptionRow[], validated: ValidatedQuestionOption[] }
 
 class TestQuestionService {
@@ -127,7 +128,7 @@ class TestQuestionService {
 
     if (this.normalizeOptionsOrder(tq.optionsOrder) !== null) { throw new HttpError(400, "Questão nova não aceita optionsOrder: a ordem digitada é a canônica.") }
 
-    return { options, imagePositions, correctLabel: this.assertSingleLabel(tq.answer) };
+    return { options, imagePositions, correctLabel: this.assertCorrectLabels(tq.answer) };
   }
 
   private normalizeOptionsOrder(value: unknown): string | null {
@@ -136,20 +137,10 @@ class TestQuestionService {
     return value === QUESTION_OPTION_LABELS.join('') ? null : value;
   }
 
-  private assertSingleLabel(answer: unknown): QuestionOptionLabel {
-    const normalized = String(answer ?? '').trim().toUpperCase();
-    if (!this.isOptionLabel(normalized)) { throw new HttpError(400, `Informe uma única alternativa correta (${QUESTION_OPTION_LABELS.join(', ')}).`) }
+  private assertCorrectLabels(answer: unknown): string {
+    const normalized = normalizeCorrectLabels(answer);
+    if (normalized === null) { throw new HttpError(400, `Informe de 1 a ${MAX_CORRECT_LABELS} alternativas corretas distintas (${QUESTION_OPTION_LABELS.join(', ')}).`) }
     return normalized;
-  }
-
-  private displayAnswerFor(correctLabel: QuestionOptionLabel, optionsOrder: string | null): string {
-    if (optionsOrder === null) { return correctLabel }
-    return String.fromCharCode(65 + optionsOrder.indexOf(correctLabel));
-  }
-
-  private canonicalLabelFor(displayLabel: QuestionOptionLabel, optionsOrder: string | null): QuestionOptionLabel {
-    if (optionsOrder === null) { return displayLabel }
-    return optionsOrder.charAt(displayLabel.charCodeAt(0) - 65) as QuestionOptionLabel;
   }
 
   async resolveReusedQuestion(conn: any, questionId: number, tq: { answer?: unknown, optionsOrder?: unknown }): Promise<ReusedResolution> {
@@ -167,9 +158,10 @@ class TestQuestionService {
       return { answer: tq.answer, optionsOrder: null };
     }
 
-    if (!this.isOptionLabel(row.correctLabel)) { throw new HttpError(409, "Questão sem gabarito de referência: não pode ser reaproveitada.") }
+    const referenceLabels = normalizeCorrectLabels(row.correctLabel);
+    if (referenceLabels === null) { throw new HttpError(409, "Questão sem gabarito de referência: não pode ser reaproveitada.") }
 
-    return { answer: this.displayAnswerFor(row.correctLabel, optionsOrder), optionsOrder };
+    return { answer: displayLabelsFor(referenceLabels, optionsOrder), optionsOrder };
   }
 
   resolveExistingOrdering(curr: TestQuestionFull, next: { answer?: unknown, optionsOrder?: unknown }): OrderingPlan | null {
@@ -185,15 +177,16 @@ class TestQuestionService {
     const requested = next.optionsOrder === undefined ? previousOrder : this.normalizeOptionsOrder(next.optionsOrder);
 
     if (this.isSharedQuestion(curr)) {
-      if (this.isOptionLabel(view.correctLabel)) {
-        return { optionsOrder: requested, previousOrder, answer: this.displayAnswerFor(view.correctLabel, requested), correctLabel: null };
+      const sharedLabels = normalizeCorrectLabels(view.correctLabel);
+      if (sharedLabels !== null) {
+        return { optionsOrder: requested, previousOrder, answer: displayLabelsFor(sharedLabels, requested), correctLabel: null };
       }
       if (requested !== previousOrder) { throw new HttpError(409, "Questão sem gabarito de referência: a ordem das alternativas não pode ser alterada.") }
       return { optionsOrder: previousOrder, previousOrder, answer: curr.answer, correctLabel: null };
     }
 
-    const displayLabel = this.assertSingleLabel(next.answer);
-    return { optionsOrder: requested, previousOrder, answer: displayLabel, correctLabel: this.canonicalLabelFor(displayLabel, requested) };
+    const displayLabels = this.assertCorrectLabels(next.answer);
+    return { optionsOrder: requested, previousOrder, answer: displayLabels, correctLabel: canonicalLabelsFor(displayLabels, requested) };
   }
 
   async prepareExistingQuestionOptions(conn: any, curr: TestQuestionFull, next: any): Promise<ExistingOptionsPlan | null> {

@@ -5,8 +5,8 @@ Refactoring backlog identified after the structural reorganization (repositories
 ## Recommended order
 
 1. ~~Items 1 and 2 together~~ — done (see below).
-2. ~~Items 3 and 4~~ — done (see below). **Next: item 5.**
-3. RBAC, built on top of typed routes and centralized error handling.
+2. ~~Items 3 and 4~~ — done (see below).
+3. ~~Item 5~~ — done (see below). **Next: item 6 (RBAC)**, built on top of typed routes and centralized error handling.
 4. Remaining items as ongoing cleanup.
 
 ---
@@ -69,13 +69,23 @@ Refactoring backlog identified after the structural reorganization (repositories
 - Verified by compiling before and after: the emitted JavaScript is byte-identical except for the `require` of the empty `interfaces/express` module.
 - Note: `req.user` is typed as always present, including on `/login` and `/reset-password`, which never read it. If stricter typing is wanted, make it optional and use a dedicated authenticated request type.
 
-## 5. Security quick wins — NEXT
+## 5. Security quick wins — DONE
 
-- CORS uses `origin: "*"` together with `credentials: true` (`src/index.ts`). The combination is invalid per spec and effectively leaves the API open to any origin. Replace with an explicit allowlist.
-- No rate limiting on `/login` and `/reset-password`.
-- The server boots even when `SECRET` is missing (`authorization.ts` falls back to `''`). Validate required environment variables at startup and fail fast.
+**Done:**
+- CORS (`src/middleware/cors.ts`): `origin: "*"` + `credentials: true` replaced by a single allowed origin derived from the existing variables, with no new env var. It is the origin of `FRONT_URL` (`https://escola.app`), or of `FRONT_URL_DEV` (`http://localhost:4200`) when `NODE_ENV=development`, the same rule `email.ts` uses. `credentials` was dropped: the frontend sends the JWT in the `Authorization` header (stored in localStorage) and uses no cookies or `withCredentials`.
+- Rate limiting (`src/middleware/rateLimit.ts`, `express-rate-limit`, in-memory store), keyed by the normalized email, not by IP, so it needs no proxy configuration:
+  - `POST /login` (staff): 10 failed attempts per email per 15 min. Successful logins and 5xx responses are not counted.
+  - `POST /reset-password`: 5 requests per email per hour.
+  - Blocked requests get `429 { status, message }` plus `Retry-After` and `RateLimit` headers. The window starts at the first counted request and clears on server restart.
+  - `POST /login/student` and `POST /login/renew-password` are deliberately NOT limited (students often mistype; renew already requires the emailed token).
+- Fail-fast (`src/utils/env.ts`, `assertRequiredEnv()` called in `src/index.ts` before `listen`): the server exits with code 1 listing only the names of missing variables (never values).
+  - Required: `SECRET`, `SERVER_PORT`, `DB_HOST`, `DB_USER`, `DB_NAME` (non-empty), `DB_PASS` (defined, may be empty), and `FRONT_URL` (`FRONT_URL_DEV` in development), which must be a valid URL because CORS depends on it.
+  - Warning only: `EMAIL`, `EMAIL_PASS`, `RESET_URL` / `RESET_URL_DEV`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`.
+- Verified by `tests/security.test.ts` (11 tests), old vs new boot comparison with ts-node in development and production modes (26 requests: identical status and body except the expected CORS headers and 429s), and a local end-to-end run against the real local database (CORS headers, 10×401 then 429 on login, student login never limited, 5×404 then 429 on reset, fail-fast exit codes).
 
-**Inputs needed before implementing:** the frontend production origin(s) and the development origin (e.g. `http://localhost:4200`). Check how the frontend sends the token (`auth.interceptor.ts`): if it uses the `Authorization` header and no cookies, `credentials: true` is not needed. Before adding fail-fast validation, confirm which environment variables production actually defines (`SECRET`, `DB_*`, `SERVER_PORT`, email and S3 keys), so the server does not refuse to start in production.
+**Pending:**
+- Frontend: `FetchDataService.errorHandler` has no `case 429`, so a blocked login or reset shows no dialog. Adding a case that opens the dialog with `message` is a one-line change in `iescolaFront2024`.
+- The in-memory store is per process. If the API ever runs in pm2 cluster mode or serverless, move to a shared store.
 
 ## 6. RBAC (role-based access control)
 
@@ -118,6 +128,9 @@ Validation is split between express-validator, class-validator and manual checks
 - Mixed Portuguese/English identifiers: `podeApagarDoS3`, `deletarDoS3`, `moverParaQuestions`, `moverParaLessons`.
 - Remaining `SELECT *` queries (e.g. `qCurrentYear`, `qStates`), kept for now by decision since they return few rows.
 - Pre-existing unused imports (`StudentClassroom` in `StudentQuestion.ts`, `TeacherBody` in `classroom.ts`, `Bimester` in `studentDisabilities.ts`, `FindManyOptions` in `transfer.ts`, `Schema` in `validators.ts`).
+- `SIGTERM` / `SIGINT` handlers in `src/index.ts` only call `Schedulers.shutdown()` and never close the server or exit, so the process ignores `kill` and only stops with `kill -9`. Close the HTTP server and exit after the scheduler shutdown.
+- `DB_PORT` is only read by the TypeORM `data-source.ts`, which is never initialized; the mysql2 pool (`src/services/db.ts`) ignores it and always uses 3306.
+- 8 high-severity `npm audit` findings pre-date item 5 (body-parser, qs, proxy-addr, nodemailer, mysql2, pm2 chain). Review them in a dedicated dependency-upgrade task, not with `npm audit fix --force`.
 
 ## 11. Tests
 

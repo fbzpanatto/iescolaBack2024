@@ -5,7 +5,6 @@ import { Discipline } from "./Discipline";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { QuestionImage } from "./QuestionImage";
 import { QuestionOption } from "./QuestionOption";
-import { QuestionOptionLabel } from "../utils/enums";
 
 @Entity()
 export class Question {
@@ -35,7 +34,7 @@ export class Question {
   options: QuestionOption[]
 
   @Column({ type: 'varchar', length: 2, nullable: true })
-  correctLabel: QuestionOptionLabel | null
+  correctLabel: string | null
 
   @ManyToOne(() => Person, person => person.tests, { nullable: true })
   person: Person

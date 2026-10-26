@@ -337,7 +337,7 @@ class TeacherClassDisciplineRepository {
         WHERE
             ${ shouldFilterByTeacher ? 'tcd.teacherId = ? AND' : '' }
             pc.id = 8 AND
-            t.id IN (SELECT tt.teacherId FROM training_teacher AS tt WHERE tt.trainingId IN (?)) AND
+            t.id IN (SELECT tt.teacherId FROM training_teacher AS tt WHERE tt.trainingId IN (?) AND tt.statusId IS NOT NULL) AND
             c.categoryId IN (1, 3) AND
             CAST(LEFT(c.shortName, 1) AS UNSIGNED) = ? AND
             d.id NOT IN (6, 7, 8, 9)

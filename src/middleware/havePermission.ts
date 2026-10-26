@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 
 import permissions from '../utils/permissions'
+import { INTERNAL_ERROR_MESSAGE } from '../utils/sendResponse'
 
 export default (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -10,5 +11,5 @@ export default (req: Request, res: Response, next: NextFunction) => {
     const condition = permissions(user.category, entity, method)
     if(!condition) { return res.status(403).json({ status: 403, message: 'Você não tem permissão para acessar ou modificar este recurso.' })}
     next()
-  } catch (error: any) { return res.status(500).json({ message: error.message })}
+  } catch (error: unknown) { console.error(error); return res.status(500).json({ message: INTERNAL_ERROR_MESSAGE })}
 }

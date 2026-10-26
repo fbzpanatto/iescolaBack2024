@@ -5,7 +5,7 @@ Refactoring backlog identified after the structural reorganization (repositories
 ## Recommended order
 
 1. ~~Items 1 and 2 together~~ — done (see below).
-2. Items 3, 4 and 5 (cheap, reduce exposure).
+2. ~~Items 3 and 4~~ — done (see below). **Next: item 5.**
 3. RBAC, built on top of typed routes and centralized error handling.
 4. Remaining items as ongoing cleanup.
 
@@ -45,24 +45,37 @@ Refactoring backlog identified after the structural reorganization (repositories
 - **Pending:** migrate the remaining ~140 `getConnection()` / `release()` blocks gradually, one domain at a time, with the same trace-equivalence check. `qLinkAlphabetic` and `updateAllStudentTestStatus` keep their own retry loops for now and are candidates for `withTransaction`.
 - **Pending:** let repository methods accept an optional `conn` so multi-step write operations can share one transaction when that becomes necessary.
 
-## 3. Centralized error handling and error message leakage
+## 3. Centralized error handling and error message leakage — DONE (route level), controller refactor pending
 
-- Controllers return `{ status, message: error.message }` in 91 places, exposing raw MySQL error text to the client.
-- Every route repeats `res.status(response.status).json(response)`.
+**Done:**
+- Added `src/utils/sendResponse.ts`. All 131 route handlers that repeated `res.status(response.status).json(response)` now call `sendResponse(res, response)`.
+  - Non-500 responses are sent unchanged.
+  - 500 responses that carry a `message` keep the same status, the same keys in the same order, and get `message: 'Erro interno do servidor.'`; the original message is logged with `console.error`.
+- `havePermission` no longer returns `error.message` on 500 (same `{ message }` body shape, generic text, original logged).
+- Frontend contract verified: `FetchDataService.errorHandler` always shows its own generic text on 500 and never displays `error.message`; components only test `response.error` for truthiness, and `inactives.component.ts` reads `error.status === 500` from the body, which is preserved. All 10 deep table components under `components/test/**/tables/` delegate to `utils.service.ts` and only log errors to the browser console.
+- Verified by running all 132 route handlers old vs new against 8 response scenarios: 925 identical cases; in the 131 raw-500 cases only the `message` text changed. Plus `tests/send-response.test.ts`.
 
-**Fix:** Express 5 already forwards async errors natively. Throw `HttpError` (already exists in `src/utils/helpers.ts`) and add a single error middleware. Controllers get smaller and internal details stop leaking.
+**Pending (not 1:1, deliberately deferred):**
+- Global Express error middleware: it would turn unhandled exceptions from Express's default HTML 500 into JSON, which changes behavior (e.g. `inactives.component.ts` would start seeing `status: 500`).
+- Replacing the ~90 `return { status: 500, ... }` controller catches with `throw new HttpError(...)`.
+- `catch (error: any)` in `authorization.ts` and in controllers.
 
-## 4. Typing of `req.user`
+## 4. Typing of `req.user` — DONE
 
-- 56 occurrences of `(req as any).user` in `src/routes/` alone.
+- Added `src/interfaces/express.ts` (augments `Express.Request` with `user: JwtPayload`), imported at the top of `src/index.ts` so `ts-node` type-checking (`npm run dev`) also sees it.
+- Replaced every `(req as any).user` / `(request as any).user` with `req.user`, and every `res: any` in routes, middlewares and `index.ts` with `res: Response`.
+- `authorization.ts` casts the verified token to `JwtPayload`.
+- Route param types `Request<{ id: number | string }>` corrected to `Request<{ id: string }>` (Express params are always strings).
+- Verified by compiling before and after: the emitted JavaScript is byte-identical except for the `require` of the empty `interfaces/express` module.
+- Note: `req.user` is typed as always present, including on `/login` and `/reset-password`, which never read it. If stricter typing is wanted, make it optional and use a dedicated authenticated request type.
 
-**Fix:** augment `Express.Request` with `user: JwtPayload` via declaration merging. Removes this `any` across the whole project at low cost.
-
-## 5. Security quick wins
+## 5. Security quick wins — NEXT
 
 - CORS uses `origin: "*"` together with `credentials: true` (`src/index.ts`). The combination is invalid per spec and effectively leaves the API open to any origin. Replace with an explicit allowlist.
 - No rate limiting on `/login` and `/reset-password`.
 - The server boots even when `SECRET` is missing (`authorization.ts` falls back to `''`). Validate required environment variables at startup and fail fast.
+
+**Inputs needed before implementing:** the frontend production origin(s) and the development origin (e.g. `http://localhost:4200`). Check how the frontend sends the token (`auth.interceptor.ts`): if it uses the `Authorization` header and no cookies, `credentials: true` is not needed. Before adding fail-fast validation, confirm which environment variables production actually defines (`SECRET`, `DB_*`, `SERVER_PORT`, email and S3 keys), so the server does not refuse to start in production.
 
 ## 6. RBAC (role-based access control)
 

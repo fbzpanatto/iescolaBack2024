@@ -3,19 +3,20 @@ import { BODY_STUDENT_TEST_QUESTIONS, STUDENT_CLASSROOM_ID_REF, TEST_TOKEN, VALI
 import { studentTestController as controller } from "../controller/studentTest";
 import { checkDatetime } from "../middleware/brazilianUTCheck";
 import havePermission from "../middleware/havePermission";
+import { sendResponse } from "../utils/sendResponse";
 
 const UPDATE_VALIDATORS = [VALIDATE_STUDENT_TEST_QUESTIONS, BODY_STUDENT_TEST_QUESTIONS]
 
 export const StudentTestRouter = Router()
 
 StudentTestRouter.get("/test/:id", checkDatetime, [YEAR_NAME_PARAM, STUDENT_CLASSROOM_ID_REF, TEST_TOKEN], havePermission, async (req: Request, res: Response) => {
-  const response = await controller.getTest(req.body, req.params, req.query, req.user); return res.status(response.status as number).json(response)
+  const response = await controller.getTest(req.body, req.params, req.query, req.user); return sendResponse(res, response)
 })
 
 StudentTestRouter.get("/:year", YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.allFilteredStudentTest(req.body, req.params, req.query, req.user); return res.status(response.status as number).json(response)
+  const response = await controller.allFilteredStudentTest(req.body, req.params, req.query, req.user); return sendResponse(res, response)
 })
 
 StudentTestRouter.put("/test/:id", ...UPDATE_VALIDATORS, havePermission, async (req: Request, res: Response) => {
-  const response = await controller.updateStudentAnswers(req.body, req.user); return res.status(response.status as number).json(response)
+  const response = await controller.updateStudentAnswers(req.body, req.user); return sendResponse(res, response)
 })

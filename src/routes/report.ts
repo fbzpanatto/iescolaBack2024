@@ -3,6 +3,7 @@ import { Data } from "../interfaces/interfaces"
 import { reportController as controller } from "../controller/report";
 import havePermission from "../middleware/havePermission";
 import { ID_PARAM, YEAR_NAME_PARAM } from "../middleware/validators";
+import { sendResponse } from "../utils/sendResponse";
 
 export const ReportRouter = Router();
 
@@ -13,22 +14,22 @@ ReportRouter.get('/aggregate/find/:year', havePermission, async (req: Request, r
   const year = req.query.year ?? req.params.year
 
   const data: Data = await controller.listAggregatedTests(Number(classroom), Number(bimester), String(year));
-  return res.status(data.status).json(data);
+  return sendResponse(res, data);
 })
 
 ReportRouter.get('/aggregate/:category/:classroom/:bimester/:year', havePermission, async (req: Request<{ classroom: string, year: string, bimester: string }>, res: Response) => {
   const data: Data = await controller.aggregatedTestResultFullParallel(req);
-  return res.status(data.status).json(data);
+  return sendResponse(res, data);
 })
 
 ReportRouter.get('/:year', YEAR_NAME_PARAM, havePermission, async (req: Request, res: Response) =>
-  { const data: Data = await controller.reportFindAll(req, req.user); return res.status(data.status).json(data) }
+  { const data: Data = await controller.reportFindAll(req, req.user); return sendResponse(res, data) }
 )
 
 ReportRouter.get('/:id/:year', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: Response) =>
-  { const data: Data = await controller.getReport(req); return res.status(data.status).json(data) }
+  { const data: Data = await controller.getReport(req); return sendResponse(res, data) }
 )
 
 ReportRouter.get('/:id/:year/avg', [ ID_PARAM, YEAR_NAME_PARAM ], havePermission, async (req: Request<{ id: string, year: string }>, res: Response) =>
-  { const data: Data = await controller.getSchoolAvg(req); return res.status(data.status).json(data) }
+  { const data: Data = await controller.getSchoolAvg(req); return sendResponse(res, data) }
 )

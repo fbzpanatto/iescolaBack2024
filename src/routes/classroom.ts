@@ -2,15 +2,16 @@ import { Router, Request, Response } from "express";
 import { classroomController as controller } from "../controller/classroom";
 import { ID_PARAM, REQUEST_CLASSROOM_QUERY} from "../middleware/validators";
 import havePermission from "../middleware/havePermission";
+import { sendResponse } from "../utils/sendResponse";
 
 export const ClassroomRouter = Router();
 
-ClassroomRouter.get('/form', havePermission, async (req: Request, res: Response) => { const response = await controller.classroomForm(req); return res.status(response.status).json(response)})
+ClassroomRouter.get('/form', havePermission, async (req: Request, res: Response) => { const response = await controller.classroomForm(req); return sendResponse(res, response)})
 
-ClassroomRouter.get('/', havePermission, REQUEST_CLASSROOM_QUERY, async (req: Request, res: Response) => { const response = await controller.getAllClassrooms(req, req.user); return res.status(response.status).json(response)})
+ClassroomRouter.get('/', havePermission, REQUEST_CLASSROOM_QUERY, async (req: Request, res: Response) => { const response = await controller.getAllClassrooms(req, req.user); return sendResponse(res, response)})
 
-ClassroomRouter.get('/:id', havePermission, ID_PARAM, async (req: Request, res: Response) => { const response = await controller.getClassroom(req); return res.status(response.status).json(response)})
+ClassroomRouter.get('/:id', havePermission, ID_PARAM, async (req: Request, res: Response) => { const response = await controller.getClassroom(req); return sendResponse(res, response)})
 
-ClassroomRouter.post('/', havePermission, async (req: Request, res: Response) => { const response = await controller.save(req.body, {}); return res.status(response.status).json(response)})
+ClassroomRouter.post('/', havePermission, async (req: Request, res: Response) => { const response = await controller.save(req.body, {}); return sendResponse(res, response)})
 
-ClassroomRouter.put('/:id', havePermission, ID_PARAM, async (req: Request, res: Response) => { const response = await controller.putClassroomAndStudents(req, req.user); return res.status(response.status).json(response)})
+ClassroomRouter.put('/:id', havePermission, ID_PARAM, async (req: Request, res: Response) => { const response = await controller.putClassroomAndStudents(req, req.user); return sendResponse(res, response)})

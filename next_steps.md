@@ -4,14 +4,14 @@ Refactoring backlog identified after the structural reorganization (repositories
 
 ## Recommended order
 
-1. Items 1 and 2 together (they remove the data-integrity risk).
+1. ~~Items 1 and 2 together~~ — done (see below).
 2. Items 3, 4 and 5 (cheap, reduce exposure).
 3. RBAC, built on top of typed routes and centralized error handling.
 4. Remaining items as ongoing cleanup.
 
 ---
 
-## 1. GET endpoints that write to the database (real risk)
+## 1. GET endpoints that write to the database — DONE (retry), write-time sync deferred
 
 `GET /test/:id/:year/:classroom` (`testController.getStudents`) performs writes:
 
@@ -21,17 +21,29 @@ Refactoring backlog identified after the structural reorganization (repositories
 | `studentTestStatusRepository.findAndDeleteStatusAndQuestions` | 2 DELETE, 1 UPDATE |
 | `readingFluencyLinkRepository.linkReadingSql` | 1 DELETE, 2 INSERT, 4 UPDATE |
 | `studentTestStatusRepository.updateStudentTestStatus` | 1 DELETE, 3 UPDATE |
+| `readingFluencyRepository.findAndDeleteStatusAndReadingFluency` | 2 DELETE |
+| `readingFluencyRepository.updateReadingFluencyStatus` | UPDATE |
+| `alphabeticRepository.qLinkAlphabetic` | INSERT IGNORE, INSERT ... ON DUPLICATE KEY UPDATE |
 
-Each call acquires its own connection, with no shared transaction. Two teachers opening the same screen at the same time can produce interleaved writes.
+**Corrected analysis.** The original concern ("no shared transaction, interleaved writes") was overstated. Each step already runs in its own transaction, locks the rows it changes with `FOR UPDATE`, and writes with idempotent upserts (`ON DUPLICATE KEY UPDATE` / `INSERT IGNORE`). A step interrupted halfway is repaired on the next screen load. The remaining real risk was a deadlock (1213) or lock wait timeout (1205) surfacing as a 500 on a flow that is just "open the screen" — the same failure `qLinkAlphabetic` had in the past and fixed with a deterministic lock order plus retry.
 
-**Fix:** move the synchronization to write time (when a test is assigned to a classroom or a student is enrolled), or at minimum run all of it in a single idempotent transaction.
+**Done:**
+- The six scored-test and reading-fluency sync steps now run through `withTransaction` (item 2), which retries on 1213/1205 up to 3 attempts with a 50 ms × attempt backoff — the policy `qLinkAlphabetic` and `updateAllStudentTestStatus` already used.
+- SQL, statement order, parameters and logs are unchanged. Verified by a side-by-side trace comparison of the old and new code (25 scenarios: identical SQL, parameters, begin/commit/rollback/release sequence, logs and return values) plus `tests/db-transaction.test.ts`.
+- The response payload of `getStudents` is unchanged, so the frontend contract (`FetchDataService.getOne('test', ...)`) is preserved.
 
-## 2. Connection and transaction management
+**Deferred (not 1:1):**
+- Merging all sync steps into a single transaction: holds locks longer and can create new deadlocks; only worth it with load testing against MySQL 8.
+- Moving the synchronization to write time (test assigned to a classroom, student enrolled or transferred): removes writes from GET, but changes *when* the rows appear and touches many write paths. Treat as a separate, behavior-changing task.
 
-- 143 repeated `connectionPool.getConnection()` / `conn.release()` blocks.
-- Every repository method opens its own connection, so multi-step operations cannot share a transaction.
+## 2. Connection and transaction management — DONE (helpers), gradual migration pending
 
-**Fix:** introduce `withConnection(fn)` and `withTransaction(fn)` helpers, and let repository methods accept an optional `conn` parameter.
+- Added `src/services/dbTransaction.ts`:
+  - `withTransaction(fn)`: acquires a connection, runs `fn` inside begin/commit, rolls back and releases on error, retries on 1213/1205. `fn` must be idempotent and must not mutate its inputs, because it is re-executed from scratch on retry.
+  - `withConnection(fn)`: acquires and always releases a connection, for read-only methods.
+- Applied so far to the six sync methods listed in item 1.
+- **Pending:** migrate the remaining ~140 `getConnection()` / `release()` blocks gradually, one domain at a time, with the same trace-equivalence check. `qLinkAlphabetic` and `updateAllStudentTestStatus` keep their own retry loops for now and are candidates for `withTransaction`.
+- **Pending:** let repository methods accept an optional `conn` so multi-step write operations can share one transaction when that becomes necessary.
 
 ## 3. Centralized error handling and error message leakage
 

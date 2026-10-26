@@ -94,7 +94,7 @@ class TrainingRepository {
     try {
       conn = await connectionPool.getConnection()
       const query = `
-        SELECT *
+        SELECT t.id, t.classroom, t.observation, t.createdByUser, t.updatedByUser, t.categoryId, t.monthReferenceId, t.meetingId, t.yearId, t.disciplineId
         FROM training AS t
         WHERE t.id = ?
     `;
@@ -408,6 +408,16 @@ INNER JOIN year AS y ON tr.yearId = y.id
     let conn;
     try {
       conn = await connectionPool.getConnection()
+
+      const term = search?.trim() ?? '';
+      const likeTerm = `%${term.replace(/[\\%_]/g, '\\$&')}%`;
+      const searchClause = term
+        ? 'AND (tm.name LIKE ? OR tsc.name LIKE ? OR d.name LIKE ? OR p.name LIKE ? OR t.observation LIKE ?)'
+        : '';
+      const orderBy = peb === 2
+        ? 'd.name, t.monthReferenceId, t.meetingId, t.id'
+        : 't.classroom, t.monthReferenceId, t.meetingId, t.id';
+
       const query =
         `
           SELECT
@@ -428,13 +438,15 @@ INNER JOIN year AS y ON tr.yearId = y.id
                    INNER JOIN user AS u ON t.createdByUser = u.id
                    INNER JOIN person AS p ON u.personId = p.id
                    LEFT JOIN discipline AS d ON t.disciplineId = d.id
-          WHERE t.yearId = ? AND t.categoryId = ?
+          WHERE t.yearId = ? AND t.categoryId = ? ${searchClause}
           GROUP BY t.id, tm.name, t.classroom, t.observation, d.name, cc.name, y.name, p.name
+          ORDER BY ${orderBy}
           LIMIT ?
           OFFSET ?
       `
 
-      const [ queryResult ] = await conn.query(query, [yearId, peb, limit, offset])
+      const params = [yearId, peb, ...(term ? Array(5).fill(likeTerm) : []), limit, offset];
+      const [ queryResult ] = await conn.query(query, params)
       return TrainingFormatter.formatTrainings(queryResult as Array<any>)
     }
     catch (error) { console.error(error); throw error }

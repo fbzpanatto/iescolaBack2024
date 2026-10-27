@@ -180,7 +180,8 @@ class TeacherClassDisciplineRepository {
             s.id AS schoolId,
             s.shortName,
             d.id AS disciplineId,
-            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool
+            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool,
+            ${isCurrentYear ? "DATE_FORMAT(MIN(tcd.startedAt), '%Y-%m-%d')" : 'NULL'} AS startedAt
         FROM teacher_class_discipline AS tcd
                  INNER JOIN discipline AS d ON tcd.disciplineId = d.id
                  INNER JOIN teacher AS t ON tcd.teacherId = t.id
@@ -219,7 +220,7 @@ class TeacherClassDisciplineRepository {
 
       const [queryResult] = await conn.query(query, queryParams);
 
-      return queryResult as Array<{ id: number, name: string, discipline: string, classroom: string, schoolId: number, shortName: string, disciplineId: number, isHeadquarterSchool: number }>;
+      return queryResult as Array<{ id: number, name: string, discipline: string, classroom: string, schoolId: number, shortName: string, disciplineId: number, isHeadquarterSchool: number, startedAt: string | null }>;
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
@@ -246,7 +247,8 @@ class TeacherClassDisciplineRepository {
             s.id AS schoolId,
             s.shortName,
             ${referencedTraining.categoryId === 2 ? 'd.id AS disciplineId' : 'NULL AS disciplineId'},
-            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool
+            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool,
+            ${isCurrentYear ? "DATE_FORMAT(MIN(tcd.startedAt), '%Y-%m-%d')" : 'NULL'} AS startedAt
         FROM teacher_class_discipline AS tcd
                  INNER JOIN discipline AS d ON tcd.disciplineId = d.id
                  INNER JOIN teacher AS t ON tcd.teacherId = t.id
@@ -289,7 +291,7 @@ class TeacherClassDisciplineRepository {
       ];
 
       const [mainResult] = await conn.query(mainQuery, mainQueryParams);
-      let allTeachers = mainResult as Array<{ id: number, name: string, discipline: string, classroom: number | string, schoolId: number, shortName: string, disciplineId?: number | null, isHeadquarterSchool: number }>;
+      let allTeachers = mainResult as Array<{ id: number, name: string, discipline: string, classroom: number | string, schoolId: number, shortName: string, disciplineId?: number | null, isHeadquarterSchool: number, startedAt: string | null }>;
 
       if (referencedTraining.categoryId === 2) {
         const specificTeachers = await this.qSpecificDisciplinesInPEBI(referencedTraining, isCurrentYear, referencedTrainingYear, teacher);
@@ -325,7 +327,8 @@ class TeacherClassDisciplineRepository {
             s.id AS schoolId,
             s.shortName,
             NULL AS disciplineId,
-            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool
+            CASE WHEN s.id = t.schoolId THEN 1 ELSE 0 END AS isHeadquarterSchool,
+            NULL AS startedAt
         FROM teacher_class_discipline AS tcd
                  INNER JOIN discipline AS d ON tcd.disciplineId = d.id
                  INNER JOIN teacher AS t ON tcd.teacherId = t.id

@@ -117,6 +117,7 @@ class TrainingRepository {
           SELECT
               t.id,
               t.classroom,
+              t.observation AS observation,
               cc.id AS categoryId,
               cc.name AS categoryName,
               y.id AS yearId,
@@ -152,6 +153,7 @@ class TrainingRepository {
       query = `
         SELECT
             t.id,
+            t.observation AS observation,
             cc.id AS categoryId,
             cc.name AS categoryName,
             y.id AS yearId,

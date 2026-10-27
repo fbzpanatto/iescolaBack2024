@@ -10,6 +10,7 @@ export class TrainingFormatter {
         training = {
           id: row.id,
           classroom: row.classroom ?? null,
+          observation: row.observation ?? null,
           category: {
             id: row.categoryId,
             name: row.categoryName

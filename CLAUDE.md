@@ -20,6 +20,10 @@
 - Schemas/Validation: `src/schemas/`.
 - Models (TypeORM): `src/model/`.
 
+## Folder Structure
+@STRUCTURE.md
+- Read the structure above before creating, moving or splitting files; place new code where its table says.
+
 ## Commands
 - Dev: `npm run dev`
 - Build: `npm run build`

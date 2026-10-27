@@ -118,6 +118,8 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
       const existingTraining = await trainingRepository.qOneTraining(body.trainingId);
       if (!existingTraining) { return { status: 404, message: 'Formação não encontrada' } }
 
+      if (await teacherClassDisciplineRepository.qIsMeetingBeforeTeacherLink(body.teacherId, body.trainingId)) { return { status: 400, message: 'Encontro anterior ao vínculo do professor' } }
+
       const teacher = await teacherRepository.qTeacherByUser(authUser.user);
 
       await trainingRepository.qUpsertTrainingTeacher(body.teacherId, body.trainingId, body.statusId, teacher.person.user.id );
@@ -132,6 +134,8 @@ class TrainingController extends GenericController<EntityTarget<Training>> {
 
       const existingTraining = await trainingRepository.qOneTraining(body.trainingId);
       if (!existingTraining) { return { status: 404, message: 'Training não encontrado' } }
+
+      if (await teacherClassDisciplineRepository.qIsMeetingBeforeTeacherLink(body.teacherId, body.trainingId)) { return { status: 400, message: 'Encontro anterior ao vínculo do professor' } }
 
       const teacher = await teacherRepository.qTeacherByUser(authUser.user);
 

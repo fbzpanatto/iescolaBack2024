@@ -1,6 +1,8 @@
 import { qTeacherRelationShip, qUserTeacher, Training } from "../interfaces/interfaces";
 import { OUT_CLASSROOMS } from "../utils/enums";
 import { connectionPool } from "../services/db";
+import { parseMeetingDate } from "../utils/meetingDate";
+import { RowDataPacket } from "mysql2/promise";
 
 class TeacherClassDisciplineRepository {
 
@@ -221,6 +223,45 @@ class TeacherClassDisciplineRepository {
       const [queryResult] = await conn.query(query, queryParams);
 
       return queryResult as Array<{ id: number, name: string, discipline: string, classroom: string, schoolId: number, shortName: string, disciplineId: number, isHeadquarterSchool: number, startedAt: string | null }>;
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qIsMeetingBeforeTeacherLink(teacherId: number, trainingId: number): Promise<boolean> {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT
+            tr.observation AS observation,
+            (
+              SELECT DATE_FORMAT(MIN(tcd.startedAt), '%Y-%m-%d')
+              FROM teacher_class_discipline AS tcd
+                       INNER JOIN classroom AS c ON tcd.classroomId = c.id
+              WHERE tcd.teacherId = ?
+                AND tcd.endedAt IS NULL
+                AND c.categoryId = tr.categoryId
+                AND (tr.categoryId <> 2 OR tr.disciplineId IS NULL OR tcd.disciplineId = tr.disciplineId)
+            ) AS linkStart,
+            EXISTS (
+              SELECT 1
+              FROM training_teacher AS tt
+              WHERE tt.teacherId = ? AND tt.trainingId = tr.id AND tt.statusId IS NOT NULL
+            ) AS hasStatus
+        FROM training AS tr
+                 INNER JOIN year AS y ON tr.yearId = y.id AND y.endedAt IS NULL AND y.active = 1
+        WHERE tr.id = ?
+      `;
+
+      const [rows] = await conn.query<RowDataPacket[]>(query, [teacherId, teacherId, trainingId]);
+      if (rows.length === 0) { return false }
+
+      const { observation, linkStart, hasStatus } = rows[0];
+      const meetingDate = parseMeetingDate(observation);
+      if (!meetingDate || !linkStart || Number(hasStatus) === 1) { return false }
+
+      return meetingDate < linkStart;
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

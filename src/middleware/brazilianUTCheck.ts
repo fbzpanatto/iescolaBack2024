@@ -18,7 +18,7 @@ export function checkDatetime (req: Request, res: Response, next: NextFunction) 
   const formatter = new Intl.DateTimeFormat('en-US', options);
   const parts = formatter.formatToParts(now);
 
-  // Helper simples para extrair valores
+  // Helper simples para extrair valores.
   const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value;
 
   const weekdayName = getPart('weekday'); // Ex: "Sat" ou "Sun"

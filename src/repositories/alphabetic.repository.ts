@@ -14,7 +14,7 @@ class AlphabeticRepository {
   // concorrentes gravando nas mesmas linhas de aluno. Com duas abas/dois professores
   // abrindo a mesma turma antes do seeding existir, as transações pegavam os locks em
   // ordens diferentes e o MySQL matava uma com ER_LOCK_DEADLOCK (1213) — que subia como
-  // 500 pro usuário, num fluxo que é só "abrir a tela".
+  // 500 pro usuário, num fluxo que é só "abrir a tela"
   //
   // Duas defesas, que resolvem coisas diferentes:
   //  - uma transação e um INSERT por tabela, com os valores ORDENADOS de forma

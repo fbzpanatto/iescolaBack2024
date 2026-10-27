@@ -138,3 +138,17 @@ With data access isolated in repositories, controllers can be tested with reposi
 
 - Start with critical flows: login, `saveTest` / `updateTest`, transfers, `updateStudentAnswers`.
 - Run `npx tsc --noEmit` and `npm test` automatically on every push (CI).
+
+## 12. Training (formações) presence screen — DONE
+
+**Done:**
+- `qTeacherTrainings` no longer runs N+1 queries (batched by variant); `qPresence` selects explicit columns; list pagination has a deterministic `ORDER BY` and `search` covers month, meeting, discipline, creator and `observation` (LIKE wildcards escaped).
+- Presence payload (`GET /training/presence`): `allReferencedTrainings[].observation` (meeting reference date, `DD/MM/YYYY`) and `allReferencedTeachers[].startedAt` (`MIN(teacher_class_discipline.startedAt)`, current year only, else `null`).
+- PEBI (category 1): teachers with an ended relation (`endedAt` set) stay listed in the current year when they have any recorded status; the frontend shows them locked and grayed out. They count in the footer percentage only on meetings where they have a status.
+- Footer `% PRESENÇA`: per meeting, denominator = teachers with any status marked, numerator = PRESENTE.
+- Write guard: `PUT /training/teacher-presence/status/:id` and `.../observation/:id` return `400 "Encontro anterior ao vínculo do professor"` when the meeting date (`training.observation`, `DD/MM/YYYY`) is before the teacher's link start. Current year only; skipped when the teacher already has a status on that meeting, when the observation is not a valid date, or when no active relation exists. Implemented in `teacherClassDisciplineRepository.qIsMeetingBeforeTeacherLink` and `src/utils/meetingDate.ts`.
+
+**Known approximations / pending:**
+- The server-side link start is `MIN(startedAt)` over the teacher's active relations in the same classroom category (and discipline for PEBII). The frontend uses the value computed per listed row; for teachers with several relations in different schools the two can differ.
+- The reference date lives in the free-text `training.observation`. A dedicated `DATE` column would remove the parsing on both sides.
+- Frontend: `TeacherListComponent` now resets the shared radio/history selection on entry (stale `RadioComponent.subject` made Quadro Escolar request `option=2` after using "Disciplinas" in Formações). Other screens that use `RadioComponent` without rendering it may have the same stale-state issue.

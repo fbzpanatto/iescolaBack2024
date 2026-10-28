@@ -3,7 +3,7 @@ import { Test } from "../model/Test";
 import { Request } from "express";
 import { PER_CAT, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
 import { EntityTarget } from "typeorm";
-import { TestQuestionFull, JwtPayload } from "../interfaces/interfaces";
+import { TestQuestionFull, JwtPayload, QuestionBlockJson } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
 import { deletarDoS3, moverParaQuestions } from "../services/s3.service";
 import { QuestionImagePosition, QuestionImageType } from "../model/QuestionImage";
@@ -11,7 +11,7 @@ import { HttpError } from "../utils/helpers";
 import { connectionPool } from "../services/db";
 import { teacherRepository } from "../repositories/teacher.repository";
 import { testRepository } from "../repositories/test.repository";
-import { testQuestionService, PreparedNewQuestion, ReusedResolution, CurrOptionsView, OrderingPlan, ExistingOptionsPlan } from "../services/test-question.service";
+import { testQuestionService, PreparedNewQuestion, ReusedResolution, CurrOptionsView, OrderingPlan, ExistingOptionsPlan, ValidatedBlock } from "../services/test-question.service";
 import { testAccessService } from "../services/test-access.service";
 
 class TestUpdateController extends GenericController<EntityTarget<Test>> {
@@ -78,7 +78,7 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
         //   options                 -> vive em question_option, sincronizada à parte por label
         //   optionsOrder / correctLabel -> derivados e gravados explicitamente (nunca pelo diff):
         //                              o servidor calcula a resposta a partir do gabarito canônico
-        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills', 'options', 'optionsOrder', 'correctLabel'];
+        const IGNORE = ['questionImages', 'inUse', 'images', 'imagesModified', 'skills', 'options', 'optionsOrder', 'correctLabel', 'blocks'];
 
         const bodyTq = req.body.testQuestions as any[]
         const dataTq: TestQuestionFull[] = await testQuestionService.getTestQuestions(test.id)
@@ -88,6 +88,7 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
         const optionPlans = new Map<object, ExistingOptionsPlan>();
         const reusedNew = new Map<object, ReusedResolution>();
         const orderingPlans = new Map<object, OrderingPlan>();
+        const blockPlans = new Map<object, ValidatedBlock[]>();
 
         for (const next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
@@ -97,6 +98,14 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
             if (prepared) { preparedNew.set(next, prepared) }
             else if (next.question?.id) { reusedNew.set(next, await testQuestionService.resolveReusedQuestion(conn, Number(next.question.id), next)) }
             continue;
+          }
+
+          testQuestionService.sanitizeExistingQuestionTitle(curr, next);
+
+          if (!testQuestionService.isSharedQuestion(curr)) {
+            const blocks = testQuestionService.prepareBlocks(next.question?.blocks);
+            if (blocks) { blockPlans.set(next, blocks) }
+            if ((next.question as any)?.imagesModified === true) { testQuestionService.assertAddedImageKeys((next.question as any).images) }
           }
 
           const ordering = testQuestionService.resolveExistingOrdering(curr, next);
@@ -145,6 +154,7 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
 
               const prepared = preparedNew.get(next);
               await testQuestionService.insertQuestionOptions(conn, newQuestionId, prepared?.options ?? [], updatedAt, userId);
+              await testQuestionService.insertQuestionBlocks(conn, newQuestionId, prepared?.blocks ?? [], updatedAt, userId);
 
               // captura antes de sobrescrever questionToSave com o id novo
               const incomingImages = questionToSave.images;
@@ -286,6 +296,12 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
             } else {
               await testQuestionService.syncQuestionOptions(conn, curr.question.id, optionsPlan, updatedAt, userId);
             }
+          }
+
+          const blocksPlan = blockPlans.get(next);
+          if (blocksPlan && !isShared) {
+            const currBlocks = ((curr.question as unknown as { blocks?: QuestionBlockJson[] }).blocks) ?? [];
+            await testQuestionService.syncQuestionBlocks(conn, curr.question.id, currBlocks, blocksPlan, updatedAt, userId);
           }
 
           // questionGroup pertence ao contexto da prova: segue editável sempre.

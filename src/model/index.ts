@@ -44,6 +44,7 @@ import { TokenReset } from "./TokenReset";
 import { ClassroomShift } from "./ClassroomShift";
 import { QuestionImage } from "./QuestionImage";
 import { QuestionOption } from "./QuestionOption";
+import { QuestionBlock } from "./QuestionBlock";
 import { Lesson } from "./Lesson";
 import { StudentLesson } from "./StudentLesson";
 
@@ -64,6 +65,7 @@ export const entities = [
   Question,
   QuestionImage,
   QuestionOption,
+  QuestionBlock,
   QuestionGroup,
   TestClassroom,
   Lesson,

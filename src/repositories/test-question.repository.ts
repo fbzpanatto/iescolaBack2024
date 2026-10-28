@@ -95,6 +95,11 @@ class TestQuestionRepository {
                 tq.optionsOrder AS test_question_options_order,
                 qt.id AS question_id,
                 qt.title AS question_title,
+                (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', b.id, 'type', b.type, 'order', b.order, 'content', b.content, 's3Key', b.s3Key, 'caption', b.caption))
+                    FROM question_block AS b
+                    WHERE b.questionId = qt.id AND b.active = 1
+                ) AS question_blocks,
                 qg.id AS question_group_id, qg.name AS question_group_name,
                 (
                     SELECT JSON_ARRAYAGG(JSON_OBJECT('id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'position', qi.position))
@@ -154,6 +159,11 @@ class TestQuestionRepository {
             tq.optionsOrder AS test_question_options_order,
             qt.id AS question_id,
             qt.title AS question_title,
+            (
+                    SELECT JSON_ARRAYAGG(JSON_OBJECT('id', b.id, 'type', b.type, 'order', b.order, 'content', b.content, 's3Key', b.s3Key, 'caption', b.caption))
+                    FROM question_block AS b
+                    WHERE b.questionId = qt.id AND b.active = 1
+                ) AS question_blocks,
             qt.correctLabel AS question_correct_label,
             qt.personId AS question_person_id,
             qt.disciplineId AS question_discipline_id,
@@ -233,7 +243,7 @@ class TestQuestionRepository {
           (SELECT COUNT(*) FROM test_question tq WHERE tq.questionId = q.id) AS inUse,
           (
             SELECT JSON_ARRAYAGG(JSON_OBJECT(
-              'id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'active', qi.active,
+              'id', qi.id, 'type', qi.type, 'order', qi.order, 's3Key', qi.s3Key, 'position', qi.position, 'active', qi.active,
               'createdAt', qi.createdAt, 'updatedAt', qi.updatedAt, 'createdByUser', qi.createdByUser, 'updatedByUser', qi.updatedByUser
             ))
             FROM question_image qi WHERE qi.questionId = q.id AND qi.active = 1

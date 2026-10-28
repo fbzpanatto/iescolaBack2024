@@ -151,6 +151,7 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
             }
 
             await testQuestionService.insertQuestionOptions(conn, newQuestionId, prepared?.options ?? [], createdAt, qUserTeacher.person.user.id);
+            await testQuestionService.insertQuestionBlocks(conn, newQuestionId, prepared?.blocks ?? [], createdAt, qUserTeacher.person.user.id);
 
             const incomingImages = question.images; // captura antes de sobrescrever "question" com o id novo
             question = { id: newQuestionId };

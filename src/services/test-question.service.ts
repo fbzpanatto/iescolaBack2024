@@ -4,14 +4,21 @@ import { QuestionImagePosition } from "../model/QuestionImage";
 import { HttpError } from "../utils/helpers";
 import { testQuestionRepository } from "../repositories/test-question.repository";
 import { canonicalLabelsFor, displayLabelsFor, MAX_CORRECT_LABELS, normalizeCorrectLabels } from "../utils/correctLabels";
+import { isRichTitle, sanitizeRichTitle } from "../utils/richText";
+import { prepareQuestionBlocks, ValidatedBlock } from "../utils/questionBlocks";
+import { QuestionBlockJson } from "../interfaces/interfaces";
+import { deletarDoS3, moverParaQuestions } from "./s3.service";
 
 const QUESTION_TITLE_MAX_LENGTH = 5000
+
+const isTmpKey = (key: unknown): boolean => typeof key === 'string' && key.startsWith('tmp/')
 const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
 
 type ValidatedQuestionOption = { label: QuestionOptionLabel, text: string, order: number }
 type QuestionOptionRow = { id: number, label: string, text: string, order: number }
-type NewQuestionInput = { answer?: unknown, optionsOrder?: unknown, question: { id?: unknown, title?: unknown, options?: unknown, images?: unknown } }
-export type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[], correctLabel: string | null }
+type NewQuestionInput = { answer?: unknown, optionsOrder?: unknown, question: { id?: unknown, title?: unknown, blocks?: unknown, options?: unknown, images?: unknown } }
+export type { ValidatedBlock }
+export type PreparedNewQuestion = { options: ValidatedQuestionOption[], imagePositions: QuestionImagePosition[], blocks: ValidatedBlock[], correctLabel: string | null }
 export type ReusedResolution = { answer: unknown, optionsOrder: string | null }
 export type CurrOptionsView = { options?: unknown[], correctLabel?: string | null }
 export type OrderingPlan = { optionsOrder: string | null, previousOrder: string | null, answer: unknown, correctLabel: string | null }
@@ -117,18 +124,99 @@ class TestQuestionService {
     return (((curr.question as any)?.inUse ?? 0) as number) >= 1;
   }
 
+  sanitizeQuestionTitle(question: { title?: unknown }): void {
+    if (typeof question.title !== 'string' || !isRichTitle(question.title)) { return }
+    const clean = sanitizeRichTitle(question.title);
+    if (clean === null) { throw new HttpError(400, "Formatação do enunciado inválida.") }
+    if (clean.length > QUESTION_TITLE_MAX_LENGTH) {
+      throw new HttpError(400, `O título da questão deve ter no máximo ${QUESTION_TITLE_MAX_LENGTH} caracteres.`);
+    }
+    question.title = clean;
+  }
+
+  sanitizeExistingQuestionTitle(curr: TestQuestionFull, next: { question?: { title?: unknown } }): void {
+    if (this.isSharedQuestion(curr) || !next.question) { return }
+    this.sanitizeQuestionTitle(next.question);
+  }
+
+  prepareBlocks(raw: unknown): ValidatedBlock[] | null { return prepareQuestionBlocks(raw) }
+
+  // moverParaQuestions apaga a chave de origem: uma chave questions/ numa questão nova apagaria a imagem de outra questão.
+  private assertNewQuestionUploadKeys(images: unknown, blocks: ValidatedBlock[]): void {
+    const imageKeys = Array.isArray(images) ? images.map((img: unknown) => (img as { s3Key?: unknown } | null)?.s3Key) : [];
+    if (!imageKeys.every(isTmpKey)) { throw new HttpError(400, "Imagem da questão inválida.") }
+    if (blocks.some(b => b.type === 'image' && !isTmpKey(b.s3Key))) { throw new HttpError(400, "Imagem do bloco inválida.") }
+  }
+
+  assertAddedImageKeys(images: unknown): void {
+    if (!Array.isArray(images)) { return }
+    const added = images.map((img: unknown) => img as { id?: unknown, s3Key?: unknown } | null).filter(img => !img?.id);
+    if (!added.every(img => isTmpKey(img?.s3Key))) { throw new HttpError(400, "Imagem da questão inválida.") }
+  }
+
+  async insertQuestionBlocks(conn: any, questionId: number, blocks: ValidatedBlock[], createdAt: Date, userId: number): Promise<void> {
+    if (blocks.length === 0) { return }
+    const values: (string | number | Date | null)[][] = [];
+    for (const b of blocks) {
+      const s3Key = b.type === 'image' && b.s3Key ? await moverParaQuestions(b.s3Key) : null;
+      values.push([questionId, b.type, b.order, b.content, s3Key, b.caption, createdAt, userId]);
+    }
+    await conn.query(`INSERT INTO question_block (questionId, type, \`order\`, content, s3Key, caption, createdAt, createdByUser) VALUES ?`, [values]);
+  }
+
+  async syncQuestionBlocks(conn: any, questionId: number, current: QuestionBlockJson[], next: ValidatedBlock[], now: Date, userId: number): Promise<void> {
+    const currentById = new Map(current.map(b => [b.id, b]));
+    const keptIds = new Set(next.filter(b => b.id !== null && currentById.has(b.id)).map(b => b.id as number));
+
+    for (const old of current) {
+      if (keptIds.has(old.id)) { continue }
+      if (old.type === 'image' && old.s3Key && this.podeApagarDoS3(old.s3Key)) { await deletarDoS3(old.s3Key) }
+      await conn.query(`DELETE FROM question_block WHERE id = ?`, [old.id]);
+    }
+
+    const fresh: ValidatedBlock[] = [];
+    for (const b of next) {
+      const existing = b.id !== null ? currentById.get(b.id) : undefined;
+      if (!existing) { fresh.push(b); continue }
+      if (existing.type !== b.type) { throw new HttpError(400, "O tipo de um bloco existente não pode ser alterado.") }
+
+      if (b.type === 'text') {
+        if (existing.order === b.order && existing.content === b.content) { continue }
+        await conn.query(`UPDATE question_block SET \`order\` = ?, content = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`, [b.order, b.content, now, userId, existing.id]);
+        continue;
+      }
+
+      const replaced = b.s3Key !== existing.s3Key;
+      if (replaced && !String(b.s3Key).startsWith('tmp/')) { throw new HttpError(400, "Imagem do bloco inválida.") }
+      if (!replaced && existing.order === b.order && (existing.caption ?? null) === b.caption) { continue }
+
+      const finalKey = replaced ? await moverParaQuestions(b.s3Key as string) : existing.s3Key;
+      await conn.query(`UPDATE question_block SET \`order\` = ?, s3Key = ?, caption = ?, updatedAt = ?, updatedByUser = ? WHERE id = ?`, [b.order, finalKey, b.caption, now, userId, existing.id]);
+      if (replaced && existing.s3Key && this.podeApagarDoS3(existing.s3Key)) { await deletarDoS3(existing.s3Key) }
+    }
+
+    for (const b of fresh) {
+      if (b.type === 'image' && !String(b.s3Key).startsWith('tmp/')) { throw new HttpError(400, "Imagem do bloco inválida.") }
+    }
+    await this.insertQuestionBlocks(conn, questionId, fresh, now, userId);
+  }
+
   prepareNewQuestion(tq: NewQuestionInput): PreparedNewQuestion | null {
     const question = tq.question;
     if (question.id) { return null }
 
+    this.sanitizeQuestionTitle(question);
+
     const imagePositions = this.resolveImagePositions(question.images);
+    const blocks = this.prepareBlocks(question.blocks) ?? [];
+    this.assertNewQuestionUploadKeys(question.images, blocks);
     const sent = Array.isArray(question.options) ? question.options.length > 0 : question.options != null;
     const options = sent ? this.validateQuestionOptions(question) : [];
-    if (options.length === 0) { return { options, imagePositions, correctLabel: null } }
+    if (options.length === 0) { return { options, imagePositions, blocks, correctLabel: null } }
 
     if (this.normalizeOptionsOrder(tq.optionsOrder) !== null) { throw new HttpError(400, "Questão nova não aceita optionsOrder: a ordem digitada é a canônica.") }
 
-    return { options, imagePositions, correctLabel: this.assertCorrectLabels(tq.answer) };
+    return { options, imagePositions, blocks, correctLabel: this.assertCorrectLabels(tq.answer) };
   }
 
   private normalizeOptionsOrder(value: unknown): string | null {

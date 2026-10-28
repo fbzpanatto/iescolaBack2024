@@ -5,6 +5,7 @@ import { Discipline } from "./Discipline";
 import { ClassroomCategory } from "./ClassroomCategory";
 import { QuestionImage } from "./QuestionImage";
 import { QuestionOption } from "./QuestionOption";
+import { QuestionBlock } from "./QuestionBlock";
 
 @Entity()
 export class Question {
@@ -32,6 +33,9 @@ export class Question {
 
   @OneToMany(() => QuestionOption, option => option.question, { cascade: true })
   options: QuestionOption[]
+
+  @OneToMany(() => QuestionBlock, block => block.question, { cascade: true })
+  blocks: QuestionBlock[]
 
   @Column({ type: 'varchar', length: 2, nullable: true })
   correctLabel: string | null

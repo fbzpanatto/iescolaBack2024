@@ -1,5 +1,5 @@
 import { Test } from "../../model/Test";
-import { qAlphaTests, qTest, qTestByIdRow, qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages, QuestionImageJson, QuestionOptionJson, TestQuestionFull } from "../../interfaces/interfaces";
+import { qAlphaTests, qTest, qTestByIdRow, qTestQuestions, qTestQuestionsFull, qTestQuestionsWithImages, QuestionBlockJson, QuestionImageJson, QuestionOptionJson, TestQuestionFull } from "../../interfaces/interfaces";
 import { isOptionsOrder, QUESTION_OPTIONS_COUNT, QUESTION_OPTION_LABELS } from "../enums";
 import { Helper } from "../helpers";
 
@@ -81,6 +81,7 @@ export class TestFormatter {
       question: {
         id: el.question_id,
         title: el.question_title,
+        blocks: this.parseQuestionBlocks(el.question_blocks),
         images: this.parseQuestionImages(el.question_images),
         skill: this.firstSkillRefDesc(this.parseSkills(el.question_skills)),
         skills: this.parseSkills(el.question_skills),
@@ -103,6 +104,7 @@ export class TestFormatter {
       question: {
         id: el.question_id,
         title: el.question_title,
+        blocks: this.parseQuestionBlocks(el.question_blocks),
         correctLabel: el.question_correct_label ?? null,
         person: el.question_person_id != null ? { id: el.question_person_id } : null,
         discipline: el.question_discipline_id != null ? { id: el.question_discipline_id, name: el.question_discipline_name as string } : null,
@@ -115,6 +117,12 @@ export class TestFormatter {
       },
       questionGroup: { id: el.question_group_id, name: el.question_group_name }
     }))
+  }
+
+  private static parseQuestionBlocks(value: unknown): QuestionBlockJson[] {
+    if (!value) return [];
+    const blocks = typeof value === 'string' ? JSON.parse(value) as QuestionBlockJson[] : value as QuestionBlockJson[];
+    return [...blocks].sort((a, b) => a.order - b.order);
   }
 
   private static parseQuestionImages(value: unknown): QuestionImageJson[] {

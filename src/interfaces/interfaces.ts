@@ -64,6 +64,15 @@ export interface QuestionImageJson {
   position: 'before' | 'after'
 }
 
+export interface QuestionBlockJson {
+  id: number
+  type: 'text' | 'image'
+  order: number
+  content: string | null
+  s3Key: string | null
+  caption: string | null
+}
+
 export interface QuestionOptionJson {
   id: number
   label: string
@@ -80,6 +89,7 @@ export interface qTestQuestionsWithImages {
   question_id: number
   question_images: string | null
   question_title?: string
+  question_blocks: string | null
   question_group_id: number
   question_group_name: string
   skill_id?: number
@@ -97,6 +107,7 @@ export interface TestQuestionWithImages {
   question: {
     id: number
     title?: string
+    blocks: QuestionBlockJson[]
     images: QuestionImageJson[]
     skill: { reference?: string, description?: string }
     skills: Array<{ id: number, reference: string, description: string }>
@@ -120,6 +131,7 @@ export interface qTestQuestionsFull {
   test_question_options_order: string | null
   question_id: number
   question_title: string
+  question_blocks: string | null
   question_correct_label: string | null
   question_person_id: number | null
   question_discipline_id: number | null
@@ -186,6 +198,7 @@ export interface TestQuestionFull {
   question: {
     id: number
     title: string
+    blocks: QuestionBlockJson[]
     correctLabel: string | null
     person: { id: number } | null
     discipline: { id: number, name: string } | null

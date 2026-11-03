@@ -42,7 +42,7 @@ Refactoring backlog identified after the structural reorganization (repositories
   - `withTransaction(fn)`: acquires a connection, runs `fn` inside begin/commit, rolls back and releases on error, retries on 1213/1205. `fn` must be idempotent and must not mutate its inputs, because it is re-executed from scratch on retry.
   - `withConnection(fn)`: acquires and always releases a connection, for read-only methods.
 - Applied so far to the six sync methods listed in item 1.
-- **Pending:** migrate the remaining ~140 `getConnection()` / `release()` blocks gradually, one domain at a time, with the same trace-equivalence check. `qLinkAlphabetic` and `updateAllStudentTestStatus` keep their own retry loops for now and are candidates for `withTransaction`.
+- **Pending:** migrate the remaining `getConnection()` / `release()` blocks gradually, one domain at a time, with the same trace-equivalence check. `qLinkAlphabetic` and `updateAllStudentTestStatus` keep their own retry loops for now and are candidates for `withTransaction`.
 - **Pending:** let repository methods accept an optional `conn` so multi-step write operations can share one transaction when that becomes necessary.
 
 ## 3. Centralized error handling and error message leakage — DONE (route level), controller refactor pending
@@ -92,14 +92,14 @@ Refactoring backlog identified after the structural reorganization (repositories
 Today there are two mixed permission layers:
 
 1. **`havePermission` + `src/utils/permissions.ts`:** a hardcoded matrix of category × entity × HTTP verb. The entity is derived from the URL string (`req.baseUrl.split('/')[1]...`), so renaming a route silently changes its permission, and it cannot distinguish two endpoints that share the same verb within the same entity.
-2. **53 `PER_CAT.*` checks spread across 20 controllers:** some are pure permission gates (e.g. "students cannot access"), others are data-scope rules (`testAccessService.isRestrictedCreator`, a teacher's classrooms).
+2. **`PER_CAT.*` checks spread across controllers and services:** some are pure permission gates (e.g. "students cannot access"), others are data-scope rules (`testAccessService.isRestrictedCreator`, a teacher's classrooms).
 
 **Proposed design:**
 
 - Tables: `role`, `permission` (codes such as `test:update`, `report:read`), `role_permission`, `user_role`. Initially map each `person_category` to a role so login does not change.
 - Each route declares the action it requires, e.g. `requirePermission('test:update')`, replacing the URL-based entity inference.
 - Permissions cached in memory: loaded at boot and invalidated on change, so there is no query per request.
-- Split the 53 checks: pure permission gates become database records; data-scope rules become testable policy functions in code (e.g. `canAccessClassroom(user, classroomId)`). Data scoping does not belong in the database.
+- Split these checks: pure permission gates become database records; data-scope rules become testable policy functions in code (e.g. `canAccessClassroom(user, classroomId)`). Data scoping does not belong in the database.
 
 ## 7. Finish TypeORM removal
 

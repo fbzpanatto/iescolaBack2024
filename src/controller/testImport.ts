@@ -17,7 +17,7 @@ class TestImportController {
 
       const parsed = parseAnswerKey(isPdf ? await pdfTextService.extractItems(body) : docxToTextItems(body));
 
-      const references = parsed.blocks.flatMap(block => block.questions.flatMap(question => [question.reference, ...question.extraSkills.map(skill => skill.reference)]));
+      const references = parsed.blocks.flatMap(block => block.questions.flatMap(question => [question.reference, ...question.extraSkills.map(skill => skill.reference)])).filter(Boolean);
       const [ skills, disciplines ] = await Promise.all([ testQuestionRepository.qSkillsByReferences(references), catalogRepository.qDisciplines() ]);
 
       const skillIdByReference = new Map(skills.map(skill => [skill.reference, skill.id]));

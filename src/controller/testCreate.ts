@@ -123,8 +123,8 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
       }
 
       const [ insertTestResult ]: any = await conn.query(
-        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, createdAt, qUserTeacher.person.user.id]
+        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, active, hideAnswers, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, Boolean(body.active ?? true), Boolean(body.hideAnswers ?? false), createdAt, qUserTeacher.person.user.id]
       );
       const testId = insertTestResult.insertId;
 

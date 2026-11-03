@@ -8,12 +8,13 @@ import { PER_CAT, TEST_CATEGORIES_IDS } from '../src/utils/enums'
 import { TestBodySave } from '../src/interfaces/interfaces'
 
 interface Call { sql: string, params: unknown[] }
-interface FakeOptions { skillsInDb?: Record<string, number>, failOn?: RegExp }
+interface FakeOptions { skillsInDb?: Record<string, number>, racedSkills?: Record<string, number>, failOn?: RegExp }
 
 const authUser = { user: 9, category: PER_CAT.ADMN }
 
 const fakeConnection = (calls: Call[], events: string[], options: FakeOptions = {}) => {
   const skills = new Map<string, number>(Object.entries(options.skillsInDb ?? {}))
+  const raced = new Map<string, number>(Object.entries(options.racedSkills ?? {}))
   let nextSkillId = 900
   let nextQuestionId = 600
   return {
@@ -29,9 +30,11 @@ const fakeConnection = (calls: Call[], events: string[], options: FakeOptions = 
       if (/FROM classroom AS c/.test(sql)) { return [[{ id: 10, shortName: '7A' }]] }
       if (/SELECT id, reference FROM skill WHERE reference IN/.test(sql)) {
         const wanted = params[0] as string[]
+        if (/FOR UPDATE/.test(sql)) { raced.forEach((id, reference) => skills.set(reference, id)); raced.clear() }
         return [wanted.filter(reference => skills.has(reference)).map(reference => ({ id: skills.get(reference), reference }))]
       }
       if (/INSERT INTO skill/.test(sql)) {
+        if (raced.size > 0) { throw Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }) }
         for (const row of params[0] as unknown[][]) { skills.set(row[0] as string, nextSkillId++) }
         return [{ insertId: 900 }]
       }
@@ -91,6 +94,26 @@ describe('saveTest with new skills (AVL_ITA)', () => {
     const links = callsTo(calls, /INSERT INTO question_skill/).map(call => (call.params[0] as unknown[][]).map(value => value[1]))
     assert.deepEqual(links, [[50, 900], [50]])
     assert.ok(calls.findIndex(call => /INSERT INTO skill/.test(call.sql)) < calls.findIndex(call => /INSERT INTO question \(/.test(call.sql)))
+  })
+
+  test('a concurrent save of the same new skill is re-read with FOR UPDATE and linked, not failed', async () => {
+    const { calls, events } = setup({ racedSkills: { F07HI13A: 77 } })
+    const payload = body([testQuestion(1, { skills: [], newSkillReferences: ['F07HI13A'] })], { newSkills: [{ reference: 'F07HI13A', description: 'Caracterizar' }] })
+
+    const result = await testCreateController.saveTest(payload, authUser)
+
+    assert.equal(result.status, 201)
+    assert.deepEqual(events, ['begin', 'commit', 'release'])
+    assert.equal(callsTo(calls, /INSERT INTO skill/).length, 1)
+    assert.equal(callsTo(calls, /FOR UPDATE/).length, 1)
+    assert.deepEqual(callsTo(calls, /INSERT INTO question_skill/).map(call => (call.params[0] as unknown[][]).map(value => value[1])), [[77]])
+  })
+
+  test('an insert error other than a duplicate key is not swallowed', async () => {
+    const { events } = setup({ failOn: /INSERT INTO skill/ })
+    const result = await testCreateController.saveTest(body([testQuestion(1, { skills: [], newSkillReferences: ['X1'] })], { newSkills: [{ reference: 'X1', description: 'd' }] }), authUser)
+    assert.equal(result.status, 500)
+    assert.ok(events.includes('rollback'))
   })
 
   test('an existing reference is neither inserted nor updated and is still linked', async () => {

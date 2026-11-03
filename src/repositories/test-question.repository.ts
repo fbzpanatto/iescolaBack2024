@@ -334,6 +334,20 @@ class TestQuestionRepository {
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
+
+  // Índice esperado: skill(reference) [UNIQUE idx_skill_reference, utf8mb4_bin: comparação exata]
+  async qSkillsByReferences(references: string[]) {
+    const uniqueReferences = [...new Set(references)];
+    if (uniqueReferences.length === 0) { return [] }
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const [ queryResult ] = await conn.query(`SELECT id, reference, description FROM skill WHERE reference IN (?)`, [uniqueReferences]);
+      return queryResult as Array<{ id: number, reference: string, description: string }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 }
 
 export const testQuestionRepository = new TestQuestionRepository()

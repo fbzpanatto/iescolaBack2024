@@ -8,6 +8,7 @@ import { isRichTitle, sanitizeRichTitle } from "../utils/richText";
 import { prepareQuestionBlocks, ValidatedBlock } from "../utils/questionBlocks";
 import { QuestionBlockJson } from "../interfaces/interfaces";
 import { deletarDoS3, moverParaQuestions } from "./s3.service";
+import { NewSkillsPlan } from "../utils/newSkills";
 
 const QUESTION_TITLE_MAX_LENGTH = 5000
 
@@ -60,10 +61,35 @@ class TestQuestionService {
   // Habilidades de uma questão NOVA. skills (number[]) tem precedência, inclusive []. Sem skills,
   // o formato antigo question.skill.id (aba antiga do navegador) cria um único vínculo; sem
   // nenhum dos dois, a questão nasce sem habilidade (estado legítimo).
-  async resolveNewQuestionSkills(conn: any, question: any): Promise<{ id: number, reference: string, description: string }[]> {
-    if (Array.isArray(question.skills)) { return this.validateSkillIds(conn, question.skills) }
-    if (question.skill?.id != null) { return this.validateSkillIds(conn, [question.skill.id]) }
-    return [];
+  async resolveNewQuestionSkills(conn: any, question: any, extraSkillIds: number[] = []): Promise<{ id: number, reference: string, description: string }[]> {
+    if (Array.isArray(question.skills)) { return this.validateSkillIds(conn, [...question.skills, ...extraSkillIds]) }
+    if (question.skill?.id != null) { return this.validateSkillIds(conn, [question.skill.id, ...extraSkillIds]) }
+    return this.validateSkillIds(conn, extraSkillIds);
+  }
+
+  // Cria só as habilidades que ainda não existem (nunca altera as existentes). Uma corrida entre dois
+  // salvamentos cai no índice único idx_skill_reference e a transação inteira sofre rollback.
+  async createMissingSkills(conn: any, plan: NewSkillsPlan, disciplineId: number, createdAt: Date, userId: number): Promise<Map<string, number>> {
+    const idByReference = new Map<string, number>();
+    if (plan.referenced.length === 0) { return idByReference }
+
+    const select = async (references: string[]): Promise<void> => {
+      const [ rows ] = await conn.query(`SELECT id, reference FROM skill WHERE reference IN (?)`, [references]);
+      for (const row of rows as { id: number, reference: string }[]) { idByReference.set(row.reference, row.id) }
+    };
+
+    await select(plan.referenced);
+
+    const missing = plan.toCreate.filter(skill => !idByReference.has(skill.reference));
+    if (missing.length > 0) {
+      const values = missing.map(s => [s.reference, s.description, createdAt, userId, s.classroomCategoryId, disciplineId]);
+      await conn.query(`INSERT INTO skill (reference, description, createdAt, createdByUser, classroomCategoryId, disciplineId) VALUES ?`, [values]);
+      await select(missing.map(s => s.reference));
+    }
+
+    const unresolved = plan.referenced.find(reference => !idByReference.has(reference));
+    if (unresolved !== undefined) { throw new HttpError(400, `Habilidade ${unresolved} não informada.`) }
+    return idByReference;
   }
 
   private isOptionLabel(value: unknown): value is QuestionOptionLabel {

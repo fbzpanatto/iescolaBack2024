@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseAnswerKey, PdfTextItem } from '../src/utils/answerKeyParser'
 import { HttpError } from '../src/utils/helpers'
+import { docxToTextItems } from '../src/utils/docxTextItems'
 
 const loadItems = (year: number): PdfTextItem[] => JSON.parse(readFileSync(join(__dirname, 'answer-key', `items-${year}.json`), 'utf8'))
 
@@ -106,5 +107,23 @@ describe('parseAnswerKey rejections', () => {
   test('year is null when the header has no grade', () => {
     const items = loadItems(7).filter(item => item.str !== '7° ANO')
     assert.equal(parseAnswerKey(items).year, null)
+  })
+})
+
+describe('parseAnswerKey: tabela Item/Gabarito sem habilidades', () => {
+  const docx = readFileSync(join(__dirname, 'answer-key', 'simulado-5-items.docx'))
+  const parsed = parseAnswerKey(docxToTextItems(docx))
+
+  test('lê ano, disciplinas e os dois pares de colunas', () => {
+    assert.equal(parsed.year, 5)
+    assert.deepEqual(parsed.blocks.map(block => block.disciplineName), ['LÍNGUA PORTUGUESA', 'MATEMÁTICA'])
+    for (const block of parsed.blocks) { assert.deepEqual(block.questions.map(question => question.number), Array.from({ length: 24 }, (_, i) => i + 1)) }
+  })
+
+  test('questões saem sem habilidade', () => {
+    const [first] = parsed.blocks[0].questions
+    assert.deepEqual(first, { number: 1, answer: 'C', reference: '', description: '', extraSkills: [] })
+    assert.equal(parsed.blocks[0].questions[12].answer, 'C')
+    assert.equal(parsed.blocks[1].questions[12].answer, 'B')
   })
 })

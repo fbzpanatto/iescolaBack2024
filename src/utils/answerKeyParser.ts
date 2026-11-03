@@ -21,6 +21,7 @@ const REFERENCE_CODE = '[A-Za-z]{1,6}\\d[A-Za-z0-9]{0,24}'
 const REFERENCE_START = new RegExp(`^(?:\\(\\s*(${REFERENCE_CODE})\\s*\\)\\s*(?:[-–—]\\s*)?|(${REFERENCE_CODE})\\s+[-–—]\\s*)(.*)$`)
 const YEAR_PATTERN = /(\d{1,2})\s*[°ºo]\s*ANO/i
 const HEADER_WORDS = ['QUESTAO', 'GABARITO', 'HABILIDADE']
+const ITEM_HEADER_WORDS = ['ITEM', 'GABARITO']
 
 export const stripAccents = (text: string): string => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
 const squash = (text: string): string => text.replace(/\s+/g, ' ').trim()
@@ -51,6 +52,11 @@ const buildRows = (items: PdfTextItem[]): Row[] => {
 const isHeaderRow = (row: Row): boolean => {
   const words = row.items.map(item => stripAccents(squash(item.str)))
   return HEADER_WORDS.every(word => words.includes(word))
+}
+
+const isItemHeaderRow = (row: Row): boolean => {
+  const words = row.items.map(item => stripAccents(squash(item.str)))
+  return ITEM_HEADER_WORDS.every(word => words.includes(word)) && !words.includes('HABILIDADE')
 }
 
 const columnsOf = (header: Row): Columns => {
@@ -143,9 +149,31 @@ const parseTable = (disciplineName: string, rows: Row[], columns: Columns): Pars
   })
 }
 
+// Modelo sem habilidades: tabela "Item | Gabarito" repetida lado a lado. Cada linha traz pares número/letra em sequência;
+// a questão sai com reference vazia (sem habilidade), o mesmo contrato do modelo com habilidades.
+const parseItemTable = (disciplineName: string, rows: Row[]): ParsedAnswerKeyQuestion[] => {
+  const questions: ParsedAnswerKeyQuestion[] = []
+  const seen = new Set<number>()
+  for (const row of rows) {
+    const tokens = row.items.map(item => squash(item.str)).filter(Boolean)
+    if (tokens.length % 2 !== 0) { throw invalid(disciplineName, `a linha "${tokens.join(' ')}" não tem pares de item e gabarito.`) }
+    for (let index = 0; index < tokens.length; index += 2) {
+      const [numberText, answerText] = [tokens[index], tokens[index + 1]]
+      if (!/^\d{1,3}$/.test(numberText)) { throw invalid(disciplineName, `"${numberText}" não é um número de item válido.`) }
+      if (!/^[A-Da-d]$/.test(answerText)) { throw invalid(disciplineName, `a resposta do item ${Number(numberText)} deve ser A, B, C ou D.`) }
+      const number = Number(numberText)
+      if (seen.has(number)) { throw invalid(disciplineName, `o item ${number} está duplicado.`) }
+      seen.add(number)
+      questions.push({ number, answer: answerText.toUpperCase() as ParsedAnswerKeyQuestion['answer'], reference: '', description: '', extraSkills: [] })
+    }
+  }
+  if (questions.length === 0) { throw invalid(disciplineName, 'nenhum item encontrado.') }
+  return questions.sort((a, b) => a.number - b.number)
+}
+
 export function parseAnswerKey(items: PdfTextItem[]): ParsedAnswerKey {
   const rows = buildRows(items)
-  const headerIndexes = rows.map((row, index) => isHeaderRow(row) ? index : -1).filter(index => index >= 0)
+  const headerIndexes = rows.map((row, index) => isHeaderRow(row) || isItemHeaderRow(row) ? index : -1).filter(index => index >= 0)
   if (headerIndexes.length === 0) { throw new HttpError(400, 'Não foi possível encontrar a tabela de gabarito no PDF.') }
 
   const year = detectYear(rows.slice(0, headerIndexes[0]))
@@ -158,7 +186,9 @@ export function parseAnswerKey(items: PdfTextItem[]): ParsedAnswerKey {
     const disciplineName = joinItems(titleRow.items)
     const nextHeader = headerIndexes[position + 1]
     const end = nextHeader === undefined ? rows.length : nextHeader - 1
-    return { disciplineName, questions: parseTable(disciplineName, rows.slice(headerIndex + 1, end), columnsOf(rows[headerIndex])) }
+    const body = rows.slice(headerIndex + 1, end)
+    const questions = isItemHeaderRow(rows[headerIndex]) ? parseItemTable(disciplineName, body) : parseTable(disciplineName, body, columnsOf(rows[headerIndex]))
+    return { disciplineName, questions }
   })
 
   return { year, blocks }

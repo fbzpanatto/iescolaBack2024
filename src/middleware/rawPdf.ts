@@ -1,8 +1,9 @@
 import express, { NextFunction, Request, Response } from "express";
 
+export const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 export const MAX_PDF_BYTES = 10 * 1024 * 1024
 
-const parseRawPdf = express.raw({ type: 'application/pdf', limit: MAX_PDF_BYTES })
+const parseRawPdf = express.raw({ type: ['application/pdf', DOCX_TYPE], limit: MAX_PDF_BYTES })
 
 export default (req: Request, res: Response, next: NextFunction): void => {
   parseRawPdf(req, res, (error?: unknown) => {

@@ -18,6 +18,9 @@ let baseUrl = ''
 
 const samplePdf = readFileSync(join(__dirname, 'answer-key', 'answer-key-7.pdf'))
 
+const sampleDocx = readFileSync(join(__dirname, 'answer-key', 'answer-key-7.docx'))
+const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
 const send = async (body: Uint8Array, contentType = 'application/pdf'): Promise<{ status: number, body: Json }> => {
   const res = await fetch(`${baseUrl}/test/import-answer-key`, { method: 'POST', headers: { 'Content-Type': contentType }, body })
   return { status: res.status, body: await res.json() as Json }
@@ -40,19 +43,19 @@ describe('POST /test/import-answer-key validation', () => {
   test('rejects an empty body', async () => {
     const reply = await send(new Uint8Array(0))
     assert.equal(reply.status, 400)
-    assert.equal(reply.body.message, 'Envie um arquivo PDF.')
+    assert.equal(reply.body.message, 'Envie um arquivo PDF ou DOCX.')
   })
 
   test('rejects a body that is not a PDF', async () => {
     const reply = await send(new TextEncoder().encode('{"not":"a pdf"}'))
     assert.equal(reply.status, 400)
-    assert.equal(reply.body.message, 'O arquivo enviado não é um PDF válido.')
+    assert.equal(reply.body.message, 'O arquivo enviado não é um PDF ou DOCX válido.')
   })
 
   test('rejects another content type', async () => {
     const reply = await send(samplePdf, 'text/plain')
     assert.equal(reply.status, 400)
-    assert.equal(reply.body.message, 'Envie um arquivo PDF.')
+    assert.equal(reply.body.message, 'Envie um arquivo PDF ou DOCX.')
   })
 
   test('rejects a body above 10 MB with a JSON 400', async () => {
@@ -96,5 +99,22 @@ describe('POST /test/import-answer-key with the 7th grade sample', () => {
     mock.method(catalogRepository, 'qDisciplines', async () => [{ id: 5, name: 'Ciencias' }] as never)
     const reply = await send(samplePdf)
     assert.deepEqual(reply.body.data.blocks.map((block: Json) => block.disciplineId), [null, null, 5])
+  })
+})
+
+describe('POST /test/import-answer-key with a DOCX', () => {
+  test('returns the same blocks as the PDF of the same sample', async () => {
+    mock.method(testQuestionRepository, 'qSkillsByReferences', async () => [])
+    mock.method(catalogRepository, 'qDisciplines', async () => [] as never)
+    const fromPdf = await send(samplePdf)
+    const fromDocx = await send(sampleDocx, DOCX_TYPE)
+    assert.equal(fromDocx.status, 200)
+    assert.deepEqual(fromDocx.body.data, fromPdf.body.data)
+  })
+
+  test('rejects a file that starts like a zip but is not a Word document', async () => {
+    const reply = await send(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]), DOCX_TYPE)
+    assert.equal(reply.status, 400)
+    assert.equal(reply.body.message, 'Não foi possível ler o documento do Word.')
   })
 })

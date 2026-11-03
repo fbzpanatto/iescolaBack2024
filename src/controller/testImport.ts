@@ -3,6 +3,7 @@ import { pdfTextService } from "../services/pdf-text.service";
 import { parseAnswerKey, stripAccents } from "../utils/answerKeyParser";
 import { testQuestionRepository } from "../repositories/test-question.repository";
 import { catalogRepository } from "../repositories/catalog.repository";
+import { DOCX_MAGIC, docxToTextItems } from "../utils/docxTextItems";
 
 const PDF_MAGIC = '%PDF-'
 
@@ -10,10 +11,11 @@ class TestImportController {
 
   async importAnswerKey(body: unknown) {
     try {
-      if (!Buffer.isBuffer(body) || body.length === 0) { throw new HttpError(400, 'Envie um arquivo PDF.') }
-      if (body.subarray(0, PDF_MAGIC.length).toString('latin1') !== PDF_MAGIC) { throw new HttpError(400, 'O arquivo enviado não é um PDF válido.') }
+      if (!Buffer.isBuffer(body) || body.length === 0) { throw new HttpError(400, 'Envie um arquivo PDF ou DOCX.') }
+      const isPdf = body.subarray(0, PDF_MAGIC.length).toString('latin1') === PDF_MAGIC
+      if (!isPdf && !body.subarray(0, DOCX_MAGIC.length).equals(DOCX_MAGIC)) { throw new HttpError(400, 'O arquivo enviado não é um PDF ou DOCX válido.') }
 
-      const parsed = parseAnswerKey(await pdfTextService.extractItems(body));
+      const parsed = parseAnswerKey(isPdf ? await pdfTextService.extractItems(body) : docxToTextItems(body));
 
       const references = parsed.blocks.flatMap(block => block.questions.flatMap(question => [question.reference, ...question.extraSkills.map(skill => skill.reference)]));
       const [ skills, disciplines ] = await Promise.all([ testQuestionRepository.qSkillsByReferences(references), catalogRepository.qDisciplines() ]);

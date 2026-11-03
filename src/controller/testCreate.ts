@@ -11,6 +11,7 @@ import { connectionPool } from "../services/db";
 import { teacherRepository } from "../repositories/teacher.repository";
 import { testQuestionService, PreparedNewQuestion, ReusedResolution } from "../services/test-question.service";
 import { testAccessService } from "../services/test-access.service";
+import { planNewSkills } from "../utils/newSkills";
 
 class TestCreateController extends GenericController<EntityTarget<Test>> {
 
@@ -114,6 +115,13 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
 
       const createdAt = new Date();
 
+      const skillIdByReference = new Map<string, number>();
+      if (Number(body.category.id) === tcids.AVL_ITA && body.testQuestions?.length) {
+        const newSkillsPlan = planNewSkills(body.newSkills, body.testQuestions);
+        const created = await testQuestionService.createMissingSkills(conn, newSkillsPlan, body.discipline.id, createdAt, qUserTeacher.person.user.id);
+        created.forEach((id, reference) => skillIdByReference.set(reference, id));
+      }
+
       const [ insertTestResult ]: any = await conn.query(
         `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, createdAt, qUserTeacher.person.user.id]
@@ -136,7 +144,8 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
             // skills: number[] é a fonte de verdade. Formato antigo (question.skill: {id}, sem
             // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
             // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
-            const validatedSkills = await testQuestionService.resolveNewQuestionSkills(conn, question);
+            const extraSkillIds = (question.newSkillReferences ?? []).map((reference: string) => skillIdByReference.get(reference.trim())).filter((id: number | undefined): id is number => id !== undefined);
+            const validatedSkills = await testQuestionService.resolveNewQuestionSkills(conn, question, extraSkillIds);
             const prepared = preparedQuestions.get(tq);
 
             const [ insertQuestionResult ]: any = await conn.query(

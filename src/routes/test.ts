@@ -6,6 +6,8 @@ import { testUpdateController } from "../controller/testUpdate";
 import { testCreateController } from "../controller/testCreate";
 import { testGraphicController } from "../controller/testGraphic";
 import { testQueryController } from "../controller/testQuery";
+import { testImportController } from "../controller/testImport";
+import rawPdf from "../middleware/rawPdf";
 import { sendResponse } from "../utils/sendResponse";
 
 const CHECK_ID_CLASS = [ID_PARAM, CLASSROOM_ID_PARAM]
@@ -48,6 +50,10 @@ TestRouter.get('/:id', ID_PARAM, havePermission, async (req: Request<{ id: strin
 
 TestRouter.post('/', havePermission, async (req: Request, res: Response) => {
   const response = await testCreateController.saveTest(req.body, req.user); return sendResponse(res, response)
+});
+
+TestRouter.post('/import-answer-key', havePermission, rawPdf, async (req: Request, res: Response) => {
+  const response = await testImportController.importAnswerKey(req.body); return sendResponse(res, response)
 });
 
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: string }>, res: Response) => {

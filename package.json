@@ -46,6 +46,7 @@
     "mysql2": "^3.18.2",
     "node-schedule": "^2.1.1",
     "nodemailer": "^8.0.1",
+    "pdfjs-dist": "6.5.438",
     "typeorm": "^0.3.28"
   }
 }

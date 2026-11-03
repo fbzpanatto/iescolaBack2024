@@ -11,6 +11,7 @@ import { deletarDoS3, moverParaQuestions } from "./s3.service";
 import { NewSkillsPlan } from "../utils/newSkills";
 
 const QUESTION_TITLE_MAX_LENGTH = 5000
+const MAX_SKILL_INSERT_ATTEMPTS = 3
 
 const isTmpKey = (key: unknown): boolean => typeof key === 'string' && key.startsWith('tmp/')
 const QUESTION_OPTION_TEXT_MAX_LENGTH = 1000
@@ -67,24 +68,33 @@ class TestQuestionService {
     return this.validateSkillIds(conn, extraSkillIds);
   }
 
-  // Cria só as habilidades que ainda não existem (nunca altera as existentes). Uma corrida entre dois
-  // salvamentos cai no índice único idx_skill_reference e a transação inteira sofre rollback.
+  // Cria só as habilidades que ainda não existem (nunca altera as existentes). Se outro salvamento criar a mesma
+  // referência antes (ER_DUP_ENTRY), a releitura é com FOR UPDATE: sob REPEATABLE READ uma leitura comum não enxerga a linha
+  // recém-commitada. O INSERT em lote é tudo-ou-nada, por isso só reinsere o que ainda falta.
   async createMissingSkills(conn: any, plan: NewSkillsPlan, disciplineId: number, createdAt: Date, userId: number): Promise<Map<string, number>> {
     const idByReference = new Map<string, number>();
     if (plan.referenced.length === 0) { return idByReference }
 
-    const select = async (references: string[]): Promise<void> => {
-      const [ rows ] = await conn.query(`SELECT id, reference FROM skill WHERE reference IN (?)`, [references]);
+    const select = async (references: string[], lock = false): Promise<void> => {
+      const [ rows ] = await conn.query(`SELECT id, reference FROM skill WHERE reference IN (?)${lock ? ' FOR UPDATE' : ''}`, [references]);
       for (const row of rows as { id: number, reference: string }[]) { idByReference.set(row.reference, row.id) }
     };
 
     await select(plan.referenced);
 
-    const missing = plan.toCreate.filter(skill => !idByReference.has(skill.reference));
-    if (missing.length > 0) {
-      const values = missing.map(s => [s.reference, s.description, createdAt, userId, s.classroomCategoryId, disciplineId]);
-      await conn.query(`INSERT INTO skill (reference, description, createdAt, createdByUser, classroomCategoryId, disciplineId) VALUES ?`, [values]);
-      await select(missing.map(s => s.reference));
+    let pending = plan.toCreate.filter(skill => !idByReference.has(skill.reference));
+    for (let attempt = 0; pending.length > 0; attempt++) {
+      try {
+        const values = pending.map(s => [s.reference, s.description, createdAt, userId, s.classroomCategoryId, disciplineId]);
+        await conn.query(`INSERT INTO skill (reference, description, createdAt, createdByUser, classroomCategoryId, disciplineId) VALUES ?`, [values]);
+        await select(pending.map(s => s.reference), true);
+        break;
+      }
+      catch (error: any) {
+        if (error?.code !== 'ER_DUP_ENTRY' || attempt >= MAX_SKILL_INSERT_ATTEMPTS) { throw error }
+        await select(pending.map(s => s.reference), true);
+        pending = pending.filter(skill => !idByReference.has(skill.reference));
+      }
     }
 
     const unresolved = plan.referenced.find(reference => !idByReference.has(reference));

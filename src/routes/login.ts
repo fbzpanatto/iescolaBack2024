@@ -9,6 +9,10 @@ LoginRouter.post('/student', async (req: Request, res: Response) => {
   const response = await controller.studentLogin(req); return sendResponse(res, response)
 })
 
+LoginRouter.post('/refresh', async (req: Request, res: Response) => {
+  const response = await controller.refresh(req); return sendResponse(res, response)
+})
+
 LoginRouter.post('/', loginLimiter, async (req: Request, res: Response) => {
   const response = await controller.login(req); return sendResponse(res, response)
 })

@@ -2,7 +2,7 @@ import { GenericController } from "./genericController";
 import { EntityTarget } from "typeorm";
 import { User } from "../model/User";
 import { Request } from "express";
-import { sign, verify, JwtPayload, decode } from 'jsonwebtoken';
+import { verify, JwtPayload } from 'jsonwebtoken';
 import { generatePassword } from "../utils/generatePassword";
 import { PER_CAT as pc } from "../utils/enums";
 import { TRANSFER_STATUS as ts } from "../utils/enums";
@@ -13,10 +13,11 @@ import { yearRepository } from "../repositories/year.repository";
 import { authRepository } from "../repositories/auth.repository";
 import { transferRepository } from "../repositories/transfer.repository";
 import { UserFormatter } from "../utils/formatters/user.formatter";
+import { issueSession, SessionPayload, signAccessToken, verifyRefreshToken, ACCESS_TOKEN_TTL } from "../utils/sessionToken";
 
 const tokenSecret = process.env.SECRET;
 
-interface Response { status: number, data: { token: string, expiresIn: number | undefined, role: any, person: string, pendingTransfers?: qPendingTransfers[] } }
+interface Response { status: number, data: { token: string, expiresIn: number | undefined, role: any, person: string, pendingTransfers?: qPendingTransfers[], refreshToken: string } }
 
 class LoginController extends GenericController<EntityTarget<User>> {
   constructor() { super(User) }
@@ -40,10 +41,8 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       const payload = { user: user.id, email: user.email, category: user.person.category.id };
 
-      const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 });
-      const decoded = decode(token) as JwtPayload;
-      const expiresIn = decoded.exp;
-      const role = decoded.category;
+      const session = issueSession(payload);
+      const role = payload.category;
 
       if(this.categories.includes(user.person.category.id)) {
 
@@ -55,16 +54,16 @@ class LoginController extends GenericController<EntityTarget<User>> {
         if (currentYear) {
           if(user.person.category.id === pc.ADMN) {
             const allPendingTransfers = await transferRepository.qAllPendingTransferBySchool(currentYear.id, ts.PENDING);
-            return this.loginResponse(token, expiresIn, role, user, allPendingTransfers);
+            return this.loginResponse(session, role, user, allPendingTransfers);
           }
 
           if(user.person.teacher?.school?.id) {
             const pendingTransfers = await transferRepository.qPendingTransferBySchool(currentYear.id, ts.PENDING, user.person.teacher.school.id);
-            return this.loginResponse(token, expiresIn, role, user, pendingTransfers);
+            return this.loginResponse(session, role, user, pendingTransfers);
           }
         }
       }
-      return this.loginResponse(token, expiresIn, role, user);
+      return this.loginResponse(session, role, user);
     }
     catch (error: any) { return { status: 500, message: error.message } }
   }
@@ -91,12 +90,10 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       const payload = { student: student.id, ra: `${student.ra}${student.dv}`, category: student.categoryId };
 
-      const token = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
-      const decoded = verify(token, tokenSecret ?? '') as JwtPayload;
-      const expiresIn = decoded.exp;
-      const role = decoded.category;
+      const { token, expiresIn, refreshToken } = issueSession(payload)
+      const role = payload.category;
 
-      return { status: 200, data: { token, expiresIn, role, person: student.name, studentId: student.id } }
+      return { status: 200, data: { token, expiresIn, role, person: student.name, studentId: student.id, refreshToken } }
 
     }
     catch (error: any) { return { status: 500, message: error.message } }
@@ -127,14 +124,10 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       // 5. Gera a nova sessão para logar o usuário automaticamente
       const payload = { user: result.userId, email: result.email, category: result.categoryId };
-      const backendToken = sign(payload, tokenSecret ?? '', { expiresIn: 10800 })
+      const { token: backendToken, expiresIn, refreshToken } = issueSession(payload)
+      const role = payload.category;
 
-      // Otimização de performance: decode em vez de verify
-      const decoded = decode(backendToken) as JwtPayload;
-      const expiresIn = decoded.exp;
-      const role = decoded.category;
-
-      return { status: 200, data: { token: backendToken, expiresIn, role, person: result.personName } };
+      return { status: 200, data: { token: backendToken, expiresIn, role, person: result.personName, refreshToken } };
     }
     catch (error: any) {
       console.error(error);
@@ -145,9 +138,38 @@ class LoginController extends GenericController<EntityTarget<User>> {
     }
   }
 
-  loginResponse(token: string, expiresIn: number | undefined, role: any, user: User, pendingTransfers?: any[]): Response {
-    if(pendingTransfers && pendingTransfers.length > 0) { return { status: 200, data: { token, expiresIn, role, person: user.person.name, pendingTransfers } } }
-    return { status: 200, data: { token, expiresIn, role, person: user.person.name } }
+  async refresh(req: Request) {
+    const expired = { status: 401, message: 'Sua sessão expirou. Faça o login novamente.' }
+
+    try {
+      const decoded = verifyRefreshToken(req.body?.refreshToken);
+      if (!decoded) { return expired }
+
+      let payload: SessionPayload;
+      if ('student' in decoded) {
+        const row = await authRepository.qStudentSession(decoded.student);
+        if (!row) { return expired }
+        payload = { student: row.studentId, ra: `${row.ra}${row.dv}`, category: row.categoryId };
+      }
+      else {
+        const row = await authRepository.qUserSession(decoded.user);
+        if (!row) { return expired }
+        payload = { user: row.userId, email: row.email, category: row.categoryId };
+      }
+
+      // O access token nunca vive além do refresh: 12h após o login é o teto da sessão.
+      const remaining = decoded.exp - Math.floor(Date.now() / 1000);
+      const { token, expiresIn } = signAccessToken(payload, Math.min(ACCESS_TOKEN_TTL, remaining));
+
+      return { status: 200, data: { token, expiresIn } };
+    }
+    catch (error: any) { return { status: 500, message: error.message } }
+  }
+
+  loginResponse(session: { token: string, expiresIn: number, refreshToken: string }, role: any, user: User, pendingTransfers?: any[]): Response {
+    const { token, expiresIn, refreshToken } = session
+    if(pendingTransfers && pendingTransfers.length > 0) { return { status: 200, data: { token, expiresIn, role, person: user.person.name, pendingTransfers, refreshToken } } }
+    return { status: 200, data: { token, expiresIn, role, person: user.person.name, refreshToken } }
   }
 
   get categories() { return [pc.ADMN, pc.DIRE, pc.VICE, pc.COOR, pc.SECR] }

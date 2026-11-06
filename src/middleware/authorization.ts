@@ -1,6 +1,7 @@
 import {NextFunction, Request, Response} from "express";
 import jwt from 'jsonwebtoken';
 import { JwtPayload } from "../interfaces/interfaces";
+import { REFRESH_TYPE } from "../utils/sessionToken";
 
 const tokenSecret = process.env.SECRET;
 
@@ -11,7 +12,9 @@ export default (req: Request, res: Response, next: NextFunction) => {
     if(!authHeader) { return res.status(401).json({ message: 'Credenciais Inválidas' }) }
     const token = authHeader.split(' ')[1];
 
-    req.user = jwt.verify(token, tokenSecret ?? '') as JwtPayload
+    const payload = jwt.verify(token, tokenSecret ?? '') as JwtPayload & { typ?: string }
+    if (payload.typ === REFRESH_TYPE) { return res.status(401).json({ message: 'Credenciais Inválidas' }) }
+    req.user = payload
 
     next()
   }

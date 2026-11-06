@@ -23,6 +23,40 @@ class AuthRepository {
     finally { if (conn) { conn.release() } }
   }
 
+  async qUserSession(userId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT u.id AS userId, u.email, p.categoryId
+        FROM user AS u
+        INNER JOIN person AS p ON u.personId = p.id
+        WHERE u.id = ?
+      `;
+      const [ rows ] = await conn.query(query, [userId]);
+      return (rows as { userId: number, email: string, categoryId: number }[])[0];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
+  async qStudentSession(studentId: number) {
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const query = `
+        SELECT s.id AS studentId, s.ra, s.dv, p.categoryId
+        FROM student AS s
+        INNER JOIN person AS p ON s.personId = p.id
+        WHERE s.id = ?
+      `;
+      const [ rows ] = await conn.query(query, [studentId]);
+      return (rows as { studentId: number, ra: string, dv: string, categoryId: number }[])[0];
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qLogin(email: string) {
     let conn;
     try {

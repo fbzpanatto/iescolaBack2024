@@ -121,7 +121,7 @@ request
 - `enums.ts`: ids and constants (`TEST_CATEGORIES_IDS`, `PER_CAT`, `TRANSFER_STATUS`, option labels, ...).
 - `permissions.ts`: permission table by person category, entity and method.
 - `env.ts`: `assertRequiredEnv()`; a new required variable must be added here and defined in production before deploying.
-- `helpers.ts` (`Helper` date/code utilities, `HttpError`), `sqlDateTime.ts` (`toSqlUtcDateTime`), `sendResponse.ts`, `schedulers.ts` (`node-schedule` jobs, e.g. closing expired tests), `answerKeys.ts`, `correctLabels.ts`, `generatePassword.ts`, `studentLoginSanitizer.ts`, `studentToken.ts`, `meetingDate.ts`, `bodyValidations.ts`, `getTimeZone.ts`.
+- `helpers.ts` (`Helper` date/code utilities, `HttpError`), `sqlDateTime.ts` (`toSqlUtcDateTime`), `sendResponse.ts`, `schedulers.ts` (`node-schedule` jobs, e.g. closing expired tests), `answerKeys.ts`, `correctLabels.ts`, `newSkills.ts` (validates `newSkills` and plans which questions may receive them; see `iescolaFront2024/FORMS.md`, "Inline skill creation"), `generatePassword.ts`, `studentLoginSanitizer.ts`, `studentToken.ts`, `meetingDate.ts`, `bodyValidations.ts`, `getTimeZone.ts`.
 
 ### `interfaces/`
 

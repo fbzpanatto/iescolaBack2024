@@ -1,7 +1,8 @@
 import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
 import { Request } from "express";
-import { PER_CAT, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import { PER_CAT, SCORED_TEST_CATEGORIES_IDS, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import { newSkillIdsOf, planNewSkills } from "../utils/newSkills";
 import { EntityTarget } from "typeorm";
 import { TestQuestionFull, JwtPayload, QuestionBlockJson } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
@@ -119,6 +120,18 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
           }
         }
 
+        // Shared questions (in use by another test) and reused links never get skills, new or not.
+        const skillIdByReference = new Map<string, number>();
+        if (SCORED_TEST_CATEGORIES_IDS.includes(Number(test.categoryId))) {
+          const canLink = (tq: any): boolean => {
+            const curr = dataTq.find(el => el.id === tq.id);
+            return curr ? !testQuestionService.isSharedQuestion(curr) : !tq.question?.id;
+          };
+          const newSkillsPlan = planNewSkills(req.body.newSkills, bodyTq, canLink);
+          const created = await testQuestionService.createMissingSkills(conn, newSkillsPlan, Number(test.disciplineId), updatedAt, userId);
+          created.forEach((skillId, reference) => skillIdByReference.set(reference, skillId));
+        }
+
         for (let next of bodyTq) {
           const curr = dataTq.find(el => el.id === next.id);
 
@@ -138,7 +151,7 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
               // skills: number[] é a fonte de verdade. Formato antigo (question.skill: {id}, sem
               // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
               // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
-              const validatedSkills = await testQuestionService.resolveNewQuestionSkills(conn, questionToSave);
+              const validatedSkills = await testQuestionService.resolveNewQuestionSkills(conn, questionToSave, newSkillIdsOf(questionToSave, skillIdByReference));
 
               const preparedForInsert = preparedNew.get(next);
               const [ insertQuestionResult ]: any = await conn.query(
@@ -249,7 +262,7 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
           // mesma trava que já protegia título/categoria/skill único.
           // ------------------------------------------------------------------
           if (!isShared && hasNewSkillsFormat) {
-            const validatedSkills = await testQuestionService.validateSkillIds(conn, nextSkills);
+            const validatedSkills = await testQuestionService.validateSkillIds(conn, [...nextSkills, ...newSkillIdsOf(next.question, skillIdByReference)]);
 
             const [ currSkillRows ] = await conn.query(`SELECT skillId FROM question_skill WHERE questionId = ?`, [curr.question.id]);
             const currIds = new Set((currSkillRows as any[]).map(r => r.skillId as number));

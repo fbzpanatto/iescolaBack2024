@@ -160,6 +160,17 @@ describe('saveTest with new skills (AVL_ITA)', () => {
     assert.deepEqual(events, ['begin', 'rollback', 'release'])
   })
 
+  test('SIM_ITA also creates and links new skills', async () => {
+    const { calls } = setup()
+    const payload = body([testQuestion(1, { skills: [], newSkillReferences: ['N1'] })], { newSkills: [{ reference: 'N1', description: 'd' }], has_token: false }, TEST_CATEGORIES_IDS.SIM_ITA)
+
+    const result = await testCreateController.saveTest(payload, authUser)
+
+    assert.equal(result.status, 201)
+    assert.equal(callsTo(calls, /INSERT INTO skill/).length, 1)
+    assert.equal(callsTo(calls, /INSERT INTO question_skill/).length, 1)
+  })
+
   test('other categories ignore newSkills and newSkillReferences', async () => {
     const { calls } = setup()
     const payload = body([testQuestion(1, { newSkillReferences: ['N1'] })], { newSkills: [{ reference: 'N1', description: 'd' }] }, TEST_CATEGORIES_IDS.LITE_2)
@@ -183,6 +194,12 @@ describe('planNewSkills', () => {
   test('rejects blank, oversized and malformed entries', () => {
     const invalid = [[{ reference: ' ', description: 'd' }], [{ reference: 'A'.repeat(256), description: 'd' }], [{ reference: 'A1', description: ' ' }], 'x', [null]]
     for (const newSkills of invalid) { assert.throws(() => planNewSkills(newSkills, []), /HttpError|./) }
+  })
+
+  test('canLink decides which questions may receive new skills', () => {
+    const rows = [{ id: 1, question: { id: 4, newSkillReferences: ['A1'], classroomCategory: { id: 2 } } }]
+    assert.deepEqual(planNewSkills([{ reference: 'A1', description: 'd' }], rows, () => true).toCreate, [{ reference: 'A1', description: 'd', classroomCategoryId: 2 }])
+    assert.deepEqual(planNewSkills([{ reference: 'A1', description: 'd' }], rows, () => false), { toCreate: [], referenced: [] })
   })
 
   test('ignores reused questions and absent fields', () => {

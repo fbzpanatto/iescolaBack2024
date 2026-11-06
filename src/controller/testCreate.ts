@@ -1,6 +1,6 @@
 import { GenericController } from "./genericController";
 import { Test } from "../model/Test";
-import { PER_CAT, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
+import { PER_CAT, SCORED_TEST_CATEGORIES_IDS, TEST_CATEGORIES_IDS as tcids } from "../utils/enums";
 import { EntityTarget } from "typeorm";
 import { TestBodySave, JwtPayload } from "../interfaces/interfaces";
 import { Helper } from "../utils/helpers";
@@ -11,7 +11,7 @@ import { connectionPool } from "../services/db";
 import { teacherRepository } from "../repositories/teacher.repository";
 import { testQuestionService, PreparedNewQuestion, ReusedResolution } from "../services/test-question.service";
 import { testAccessService } from "../services/test-access.service";
-import { planNewSkills } from "../utils/newSkills";
+import { newSkillIdsOf, planNewSkills } from "../utils/newSkills";
 
 class TestCreateController extends GenericController<EntityTarget<Test>> {
 
@@ -116,7 +116,7 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
       const createdAt = new Date();
 
       const skillIdByReference = new Map<string, number>();
-      if (Number(body.category.id) === tcids.AVL_ITA && body.testQuestions?.length) {
+      if (SCORED_TEST_CATEGORIES_IDS.includes(Number(body.category.id)) && body.testQuestions?.length) {
         const newSkillsPlan = planNewSkills(body.newSkills, body.testQuestions);
         const created = await testQuestionService.createMissingSkills(conn, newSkillsPlan, body.discipline.id, createdAt, qUserTeacher.person.user.id);
         created.forEach((id, reference) => skillIdByReference.set(reference, id));
@@ -144,7 +144,7 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
             // skills: number[] é a fonte de verdade. Formato antigo (question.skill: {id}, sem
             // skills — aba antiga do navegador) vira um único vínculo. question.skillId não é
             // mais gravada (Deploy 1 da Fase 5). Ver skill question-skill-nn.
-            const extraSkillIds = (question.newSkillReferences ?? []).map((reference: string) => skillIdByReference.get(reference.trim())).filter((id: number | undefined): id is number => id !== undefined);
+            const extraSkillIds = newSkillIdsOf(question, skillIdByReference);
             const validatedSkills = await testQuestionService.resolveNewQuestionSkills(conn, question, extraSkillIds);
             const prepared = preparedQuestions.get(tq);
 

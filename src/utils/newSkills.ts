@@ -32,13 +32,13 @@ const referencesOf = (question: NewSkillQuestionInput['question']): string[] => 
   return [...new Set((references as string[]).map(ref => ref.trim()))];
 }
 
-export function planNewSkills(newSkills: unknown, testQuestions: NewSkillQuestionInput[]): NewSkillsPlan {
+export function planNewSkills<T extends NewSkillQuestionInput>(newSkills: unknown, testQuestions: T[], canLink: (tq: T) => boolean = (tq) => !tq.question?.id): NewSkillsPlan {
   const descriptionByReference = validateNewSkillInputs(newSkills);
   const toCreate = new Map<string, NewSkillPlan>();
   const referenced = new Set<string>();
 
   for (const tq of testQuestions) {
-    if (tq.question?.id) { continue }
+    if (!canLink(tq)) { continue }
     for (const reference of referencesOf(tq.question)) {
       referenced.add(reference);
       const description = descriptionByReference.get(reference);
@@ -50,4 +50,10 @@ export function planNewSkills(newSkills: unknown, testQuestions: NewSkillQuestio
   }
 
   return { toCreate: [...toCreate.values()], referenced: [...referenced] };
+}
+
+export function newSkillIdsOf(question: { newSkillReferences?: unknown } | undefined, idByReference: Map<string, number>): number[] {
+  const references = question?.newSkillReferences;
+  if (!Array.isArray(references)) { return [] }
+  return references.filter((ref): ref is string => typeof ref === 'string').map(ref => idByReference.get(ref.trim())).filter((id): id is number => id !== undefined);
 }

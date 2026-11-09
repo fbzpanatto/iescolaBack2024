@@ -18,6 +18,13 @@ class SchoolController extends GenericController<EntityTarget<School>> {
       return { status: 200, data: sortedResult };
     } catch (error: any) { return { status: 500, message: error.message } }
   }
+
+  async getActiveStudentsByCategory(req: Request<{ year: string }>) {
+    try {
+      const data = await schoolRepository.qActiveStudentsByCategory(req.params.year)
+      return { status: 200, data };
+    } catch (error: any) { return { status: 500, message: error.message } }
+  }
 }
 
 export const schoolController = new SchoolController();

@@ -8,3 +8,7 @@ export const SchoolRouter = Router();
 SchoolRouter.get('/:year', YEAR_NAME_PARAM, async (req: Request<{ year: string }>, res: Response) => {
   const response = await controller.getAllSchools(req); return sendResponse(res, response)
 })
+
+SchoolRouter.get('/:year/categories', YEAR_NAME_PARAM, async (req: Request<{ year: string }>, res: Response) => {
+  const response = await controller.getActiveStudentsByCategory(req); return sendResponse(res, response)
+})

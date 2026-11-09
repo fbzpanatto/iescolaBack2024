@@ -181,7 +181,7 @@ class ClassroomRepository {
     finally { if (conn) { conn.release() } }
   }
 
-  async getTeacherClassrooms(isSuperEI: boolean, masterUser: boolean, allClassrooms: number[], search: string, limit: number, offset: number, active: boolean) {
+  async getTeacherClassrooms(isSuperEI: boolean, masterUser: boolean, allClassrooms: number[], search: string, limit: number | null, offset: number, active: boolean) {
     let conn;
     try {
       conn = await connectionPool.getConnection();
@@ -259,10 +259,10 @@ class ClassroomRepository {
         }
       }
 
-      query += ` ORDER BY school.shortName ASC, classroom.shortName ASC`;
+      query += ` ORDER BY school.shortName ASC, classroom.shortName ASC, classroom.id ASC`;
 
-      // ALTERAÇÃO AQUI: Só aplica paginação se NÃO for masterUser
-      if (!masterUser) {
+      // inactives omits limit and needs the full list
+      if (limit !== null) {
         query += ` LIMIT ? OFFSET ?`;
         params.push(Number(limit), Number(offset));
       }

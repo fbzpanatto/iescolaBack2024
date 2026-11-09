@@ -39,7 +39,7 @@ class ClassroomController extends GenericController<EntityTarget<Classroom>> {
 
   async getAllClassrooms(req: Request, authUser: JwtPayload) {
     const search = (req?.query.search as string) ?? "";
-    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : 100
+    const limit =  !isNaN(parseInt(req.query.limit as string)) ? parseInt(req.query.limit as string) : null
     const offset =  !isNaN(parseInt(req.query.offset as string)) ? parseInt(req.query.offset as string) : 0
 
     try {

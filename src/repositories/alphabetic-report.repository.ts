@@ -140,7 +140,9 @@ class AlphabeticReportRepository {
     try {
       conn = await connectionPool.getConnection();
       const hasQuestions = !!testQuestionsIds.length;
-      const testQuestionsPlaceholders = hasQuestions && testQuestionsIds.length > 0
+      // Per classroom the single join stays: its row order is what the classroom tab shows.
+      const joinQuestions = hasQuestions && !!classroomId;
+      const testQuestionsPlaceholders = joinQuestions && testQuestionsIds.length > 0
         ? testQuestionsIds.map(() => '?').join(',')
         : '';
 
@@ -200,7 +202,7 @@ class AlphabeticReportRepository {
       d.name AS disability_name,
       d.official AS disability_official`;
 
-      if (hasQuestions) {
+      if (joinQuestions) {
         query += `,
       -- StudentQuestion
       sq.id AS studentQuestion_id,
@@ -240,7 +242,7 @@ class AlphabeticReportRepository {
     LEFT JOIN student_disability sd ON sd.studentId = st.id AND sd.endedAt IS NULL
     LEFT JOIN disability d ON sd.disabilityId = d.id`;
 
-      if (hasQuestions) {
+      if (joinQuestions) {
         query += `
     LEFT JOIN student_question sq ON sq.studentId = st.id
     LEFT JOIN classroom sqrc ON sq.rClassroomId = sqrc.id
@@ -262,7 +264,7 @@ class AlphabeticReportRepository {
     AND aty.name = ?
     AND scy.name = ?`;
 
-      if (hasQuestions) {
+      if (joinQuestions) {
         query += `
     AND (sc.startedAt < ? OR a.id IS NOT NULL OR sq.id IS NOT NULL)
     AND tc.id = ?
@@ -279,12 +281,12 @@ class AlphabeticReportRepository {
       query += `
     ORDER BY sc.rosterNumber ASC, c.shortName ASC, s.shortName ASC`;
 
-      if (hasQuestions) {
+      if (joinQuestions) {
         query += `, bim.id ASC, tq.order ASC`;
       }
 
       const params: any[] = [];
-      if (hasQuestions && testQuestionsIds.length > 0) {
+      if (joinQuestions && testQuestionsIds.length > 0) {
         params.push(...testQuestionsIds);
       }
 
@@ -298,7 +300,7 @@ class AlphabeticReportRepository {
         test.createdAt
       );
 
-      if (hasQuestions) {
+      if (joinQuestions) {
         params.push(
           test.category?.id ?? test.test_category_id,
           test.discipline?.id ?? test.discipline_id,
@@ -309,9 +311,70 @@ class AlphabeticReportRepository {
       if (classroomId) params.push(classroomId);
       if (studentClassroomId) params.push(studentClassroomId);
 
-      const [rows] = await conn.query(query, params);
+      const [rows] = await conn.query(query, params) as [any[], unknown];
 
-      return AlphabeticFormatter.alphaQuestions(rows, hasQuestions)
+      if (!hasQuestions || joinQuestions || !rows.length) return AlphabeticFormatter.alphaQuestions(rows, hasQuestions)
+
+      // Answers come in a second query: joining them above multiplied every alphabetic row by every answer of the student.
+      const studentIds = [...new Set(rows.map(row => row.student_id))];
+
+      const questionsQuery = `
+    SELECT
+      sq.studentId AS student_id,
+      sq.id AS studentQuestion_id,
+      sq.answer AS studentQuestion_answer,
+      sqrc.id AS studentQuestion_rClassroom_id,
+      tq.id AS testQuestion_id,
+      tq.order AS testQuestion_order,
+      tq.answer AS testQuestion_answer,
+      tq.active AS testQuestion_active,
+      t.id AS test_id,
+      t.name AS test_name,
+      per.id AS period_id,
+      bim.id AS bimester_id,
+      bim.name AS bimester_name,
+      py.id AS period_year_id,
+      py.name AS period_year_name
+    FROM student_question sq
+    INNER JOIN test_question tq ON sq.testQuestionId = tq.id AND tq.id IN (${testQuestionsIds.map(() => '?').join(',')})
+    LEFT JOIN classroom sqrc ON sq.rClassroomId = sqrc.id
+    LEFT JOIN test t ON tq.testId = t.id
+    LEFT JOIN test_category tc ON t.categoryId = tc.id
+    LEFT JOIN discipline td ON t.disciplineId = td.id
+    LEFT JOIN period per ON t.periodId = per.id
+    LEFT JOIN bimester bim ON per.bimesterId = bim.id
+    LEFT JOIN year py ON per.yearId = py.id
+    WHERE sq.studentId IN (${studentIds.map(() => '?').join(',')})
+    AND tc.id = ?
+    AND td.id = ?
+    AND py.name = ?
+    ORDER BY bim.id ASC, tq.order ASC`;
+
+      const [questionRows] = await conn.query(questionsQuery, [
+        ...testQuestionsIds,
+        ...studentIds,
+        test.category?.id ?? test.test_category_id,
+        test.discipline?.id ?? test.discipline_id,
+        yearName
+      ]) as [any[], unknown];
+
+      const questionsByStudent = new Map<number, any[]>();
+      for (const q of questionRows) {
+        if (!questionsByStudent.has(q.student_id)) questionsByStudent.set(q.student_id, []);
+        questionsByStudent.get(q.student_id)!.push(q);
+      }
+
+      // Students without answers drop out, as the joined query's WHERE on the answer's test did.
+      const seen = new Set<number>();
+      const merged = rows.flatMap(row => {
+        const questions = questionsByStudent.get(row.student_id);
+        if (!questions) return [];
+        if (seen.has(row.studentClassroom_id)) return [row];
+        seen.add(row.studentClassroom_id);
+        return questions.map(q => ({ ...row, ...q }));
+      });
+
+      return AlphabeticFormatter.alphaQuestions(merged, hasQuestions)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

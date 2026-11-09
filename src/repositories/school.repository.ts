@@ -58,6 +58,36 @@ class SchoolRepository {
     finally { if (conn) { conn.release() } }
   }
 
+  async qActiveStudentsByCategory(year: string) {
+
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+
+      const sqlQuery = `
+        SELECT cc.id, cc.name, COUNT(*) AS activeStudents, COUNT(DISTINCT c.id) AS classrooms
+        FROM student_classroom sc
+        INNER JOIN year y ON y.id = sc.yearId
+        INNER JOIN classroom c ON c.id = sc.classroomId
+        INNER JOIN classroom_category cc ON cc.id = c.categoryId
+        WHERE y.name = ? AND sc.endedAt IS NULL
+        GROUP BY cc.id, cc.name
+        ORDER BY cc.id
+        `;
+
+      const [ queryResult ] = await conn.query(sqlQuery, [year]);
+
+      return (queryResult as any[]).map(row => ({
+        id: row.id,
+        name: row.name,
+        activeStudents: Number(row.activeStudents),
+        classrooms: Number(row.classrooms)
+      }));
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
+
   async qSchools(testId: number) {
     let conn;
     try{

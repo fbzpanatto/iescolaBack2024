@@ -258,15 +258,22 @@ class TestRepository {
         AND c.id NOT IN (1216, 1217, 1218, 1509)
         AND sc.yearId = ?
         AND p.yearId = ?
-      ORDER BY 
-        s.shortName ASC,
-        c.id ASC,
-        qg.id ASC,
-        tq.order ASC
     `;
 
       const params = [...testQuestionsIds, testId, year.id, year.id];
-      const [rows] = await conn.query(query, params);
+      const [rows] = await conn.query(query, params) as [any[], unknown];
+
+      // Same order as ORDER BY s.shortName, c.id, qg.id, tq.order (NULLs first), sorted here because
+      // MySQL's filesort of these wide rows cost about as much as the query. shortName is utf8mb4_bin,
+      // so a plain string comparison matches MySQL.
+      const byText = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+      const byNumber = (a: number | null, b: number | null) => a === b ? 0 : a === null ? -1 : b === null ? 1 : a - b;
+      rows.sort((a, b) =>
+        byText(a.school_shortName, b.school_shortName) ||
+        byNumber(a.classroom_id, b.classroom_id) ||
+        byNumber(a.questionGroup_id, b.questionGroup_id) ||
+        byNumber(a.testQuestion_order, b.testQuestion_order)
+      );
       return rows;
     }
     catch (error) { console.error(error); throw error }

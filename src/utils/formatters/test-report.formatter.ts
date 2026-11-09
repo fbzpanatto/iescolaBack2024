@@ -96,7 +96,10 @@ export class TestReportFormatter {
 
     const firstElement = cityHall.totals[0]?.tPercent ?? 0
 
-    const answersLetters = Array.from(answersLettersMap.entries()).map(([letter, questions]) => ({
+    // Fixed order (A..Z, VAZIO last): first-seen order depended on how MySQL broke ties between students.
+    const answersLetters = Array.from(answersLettersMap.entries())
+      .sort(([a], [b]) => Number(a === 'VAZIO') - Number(b === 'VAZIO') || a.localeCompare(b))
+      .map(([letter, questions]) => ({
       letter,
       questions: Array.from(questions.values()).map(q => ({ ...q, percentage: firstElement > 0 ? Math.floor((q.occurrences / firstElement) * 10000) / 100 : 0 }))
     }))

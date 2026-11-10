@@ -2,6 +2,7 @@ import { qTest, qTestClassroom, qTestByIdRow, qTestPreviewScope } from "../inter
 import { Test } from "../model/Test";
 import { TEST_CATEGORIES_IDS } from "../utils/enums";
 import { connectionPool } from "../services/db";
+import { withTransaction } from "../services/dbTransaction";
 import { TestFormatter } from "../utils/formatters/test.formatter";
 
 class TestRepository {
@@ -147,7 +148,7 @@ class TestRepository {
       const query =
 
         `
-        SELECT t.id, t.name, t.active, t.hideAnswers, t.createdAt,
+        SELECT t.id, t.name, t.active, t.hideAnswers, t.approved, t.createdAt,
                pr.id AS period_id, 
                bm.id AS bimester_id, bm.name AS bimester_name, bm.testName AS bimester_testName, 
                yr.id AS year_id, yr.name AS year_name, yr.active AS year_active,
@@ -278,6 +279,23 @@ class TestRepository {
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
+  }
+
+  async qSetApproval(testId: number, approved: boolean, userId: number): Promise<boolean> {
+    return withTransaction(async (conn) => {
+      const [ rows ] = await conn.query(`SELECT id FROM test WHERE id = ? AND approved = 0 FOR UPDATE`, [testId])
+      if (!(rows as { id: number }[])[0]) { return false }
+
+      if (approved) {
+        await conn.query(`UPDATE test SET approved = 1, updatedAt = NOW(), updatedByUser = ? WHERE id = ?`, [userId, testId])
+        return true
+      }
+
+      // Recusada: a prova continua em test, mas sem salas some da listagem.
+      await conn.query(`DELETE FROM test_classroom WHERE testId = ?`, [testId])
+      await conn.query(`UPDATE test SET updatedAt = NOW(), updatedByUser = ? WHERE id = ?`, [userId, testId])
+      return true
+    })
   }
 }
 

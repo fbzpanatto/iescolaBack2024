@@ -56,6 +56,10 @@ TestRouter.post('/import-answer-key', havePermission, rawPdf, async (req: Reques
   const response = await testImportController.importAnswerKey(req.body); return sendResponse(res, response)
 });
 
+TestRouter.put('/:id/approval', ID_PARAM, havePermission, async (req: Request<{ id: string }>, res: Response) => {
+  const response = await testUpdateController.setApproval(req.params.id, req.body, req.user); return sendResponse(res, response)
+});
+
 TestRouter.put('/:id', ...UPDATE_VALIDATORS, havePermission, async (req: Request<{ id: string }>, res: Response) => {
   const response = await testUpdateController.updateTest(req.params.id, req, req.user); return sendResponse(res, response)
 });

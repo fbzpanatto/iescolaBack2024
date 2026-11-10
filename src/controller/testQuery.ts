@@ -77,7 +77,8 @@ class TestQueryController extends GenericController<EntityTarget<Test>> {
             },
             category: { id: row.category_id, name: row.category_name },
             discipline: { id: row.discipline_id, name: row.discipline_name },
-            classrooms: []
+            classrooms: [],
+            approved: row.test_approved === null ? null : Boolean(row.test_approved)
           });
         }
 

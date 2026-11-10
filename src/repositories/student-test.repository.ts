@@ -226,6 +226,7 @@ class StudentTestRepository {
               (sts.id IS NULL
                   AND sc.endedAt IS NULL
                   AND t.active = 1
+                  AND t.approved IS NOT FALSE
                   AND t.endedAt IS NOT NULL
                   AND NOW() <= t.endedAt
                   AND NOT EXISTS (
@@ -291,6 +292,7 @@ class StudentTestRepository {
             AND yr.name = ?
             AND t.categoryId = 6
             AND t.active = 1
+            AND t.approved IS NOT FALSE
             AND t.name LIKE ?
             AND (
               -- Teste em andamento (ainda pode ser realizado)

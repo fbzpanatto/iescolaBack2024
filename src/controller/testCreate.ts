@@ -39,6 +39,7 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
       const isSimulado = Number(body.category.id) === tcids.SIM_ITA;
       if (isSimulado && typeof body.has_token !== 'boolean') { throw new HttpError(400, "Valor inválido para o campo has_token.") }
       const isTokenRequired = isSimulado ? Boolean(body.has_token) : null;
+      const approved = testAccessService.isRestrictedCreator(authUser) ? false : null;
 
       const [ checkYearRows ] = await conn.query(`SELECT id, active FROM year WHERE id = ? LIMIT 1`, [body.year.id]);
       const checkYear = (checkYearRows as any[])[0];
@@ -123,8 +124,8 @@ class TestCreateController extends GenericController<EntityTarget<Test>> {
       }
 
       const [ insertTestResult ]: any = await conn.query(
-        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, active, hideAnswers, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, Boolean(body.active ?? true), Boolean(body.hideAnswers ?? false), createdAt, qUserTeacher.person.user.id]
+        `INSERT INTO test (name, categoryId, disciplineId, personId, periodId, endedAt, is_token_required, approved, active, hideAnswers, createdAt, createdByUser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [body.name, body.category.id, body.discipline.id, qUserTeacher.person.id, period.id, endedAt ?? null, isTokenRequired, approved, Boolean(body.active ?? true), Boolean(body.hideAnswers ?? false), createdAt, qUserTeacher.person.user.id]
       );
       const testId = insertTestResult.insertId;
 

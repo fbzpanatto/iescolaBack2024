@@ -410,6 +410,18 @@ class TestUpdateController extends GenericController<EntityTarget<Test>> {
     }
     finally { if (conn) { conn.release() } }
   }
+
+  async setApproval(id: number | string, body: { approved?: unknown }, authUser: JwtPayload) {
+    if (authUser.category !== PER_CAT.ADMN) { return { status: 403, message: 'Somente o administrador pode aprovar avaliações.' } }
+    if (typeof body?.approved !== 'boolean') { return { status: 400, message: 'Valor inválido para o campo approved.' } }
+
+    try {
+      const updated = await testRepository.qSetApproval(Number(id), body.approved, authUser.user);
+      if (!updated) { return { status: 409, message: 'Avaliação inexistente ou que não está aguardando aprovação.' } }
+      return { status: 200, data: { id: Number(id), approved: body.approved } };
+    }
+    catch (error: any) { console.error(error); return { status: 500, message: error.message } }
+  }
 }
 
 export const testUpdateController = new TestUpdateController();

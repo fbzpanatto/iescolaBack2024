@@ -35,6 +35,15 @@ export class Test {
   @Column({ type: 'boolean', nullable: true, name: 'is_token_required', default: null })
   is_token_required: boolean | null
 
+  /**
+   * Aprovação do ADMN para provas criadas por SUPE/FORM.
+   * false = aguardando aprovação (nenhum vínculo de aluno é criado)
+   * true = aprovada
+   * null = legado ou criada pelo ADMN (tratado como aprovada)
+   */
+  @Column({ type: 'boolean', nullable: true, default: null })
+  approved: boolean | null
+
   @ManyToOne(() => Discipline, discipline => discipline.tests)
   discipline: Discipline
 

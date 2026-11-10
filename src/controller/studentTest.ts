@@ -56,6 +56,7 @@ class StudentTestController extends GenericController<any> {
       }
 
       const qTest = await testRepository.qTestByIdAndYear(testId, String(year));
+      if (qTest.approved != null && !qTest.approved) { return { status: 404, message: "Teste não disponível para este aluno." } }
       if (!qTest.active) { return { status: 400, message: 'Avaliação encerrada.' } }
 
       const qTqs = await testQuestionRepository.qTestQuestionsWithTitle(testId) as TestQuestionWithImages[];

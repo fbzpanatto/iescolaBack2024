@@ -50,6 +50,7 @@ class TestController extends GenericController<EntityTarget<Test>> {
 
       const qTest = await testRepository.qTestByIdAndYear(testId, String(req?.params.year))
       if(!qTest) return { status: 404, message: "Teste não encontrado" }
+      if(qTest.approved != null && !qTest.approved) return { status: 403, message: "Esta avaliação está aguardando aprovação do administrador." }
       const test = TestFormatter.testFormater(qTest)
 
       const classroom = await classroomRepository.qClassroom(classroomId)

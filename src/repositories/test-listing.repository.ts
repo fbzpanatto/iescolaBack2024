@@ -208,6 +208,7 @@ class TestListingRepository {
           AND tt.active = 1
           AND tt.hideAnswers = 0
           AND (tt.is_token_required IS NULL OR tt.is_token_required = 1)
+          AND tt.approved IS NOT FALSE
           AND YEAR(tt.createdAt) = ?
         ORDER BY tc.classroomId;
       `;
@@ -238,6 +239,7 @@ class TestListingRepository {
           AND tt.active = 1
           AND tt.hideAnswers = 0
           AND (tt.is_token_required IS NULL OR tt.is_token_required = 1)
+          AND tt.approved IS NOT FALSE
           AND YEAR(tt.createdAt) = ?
           AND tcd.disciplineId = tt.disciplineId
           AND tt.disciplineId = d.id
@@ -295,6 +297,7 @@ class TestListingRepository {
       SELECT
           t.id AS test_id,
           t.name AS test_name,
+          t.approved AS test_approved,
           p.id AS period_id,
           tc.id AS category_id,
           tc.name AS category_name,
@@ -333,6 +336,7 @@ class TestListingRepository {
       // Bloco If/Else para separação clara de papéis
       if (!masterTeacher) {
         // Regras de Professores
+        query += ` AND t.approved IS NOT FALSE`;
         if (classrooms.length > 0) {
           const classroomPlaceholders = classrooms.map(() => '?').join(',');
           query += ` AND c.id IN (${classroomPlaceholders})`;
@@ -381,6 +385,7 @@ class TestListingRepository {
       SELECT DISTINCT
         test_id,
         test_name,
+        test_approved,
         period_id,
         category_id,
         category_name,

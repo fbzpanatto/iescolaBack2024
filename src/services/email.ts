@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
+import type { SMTPSentMessageInfo, Transporter } from "nodemailer";
 
-let INFO: SMTPTransport.SentMessageInfo;
+let INFO: SMTPSentMessageInfo;
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -33,7 +33,7 @@ const transport = {
   }
 };
 
-const TRANSPORTER: nodemailer.Transporter<SMTPTransport.SentMessageInfo> = nodemailer.createTransport(transport);
+const TRANSPORTER: Transporter<SMTPSentMessageInfo> = nodemailer.createTransport(transport);
 
 export async function transferEmail(email: string, student: string, rClassroom: string, requester: string, rSchool: string): Promise<void> {
 

@@ -42,6 +42,7 @@ import { PasswordRouter } from "./routes/password";
 import { UploadRouter } from "./routes/upload";
 import { StudentTestRouter } from "./routes/studentTest";
 import { StudentMergeRouter } from "./routes/studentMerge";
+import { ContactRouter } from "./routes/contact";
 
 assertRequiredEnv();
 
@@ -88,6 +89,7 @@ route.use("/year", authorization, YearRouter);
 
 route.use("/login", LoginRouter);
 route.use("/reset-password", PasswordRouter);
+route.use("/contact", ContactRouter);
 
 route.get("/", (_, res: Response) => { return res.json({ message: "OK" }) });
 

@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { SMTPSentMessageInfo, Transporter } from "nodemailer";
+import type { Contact } from "../controller/contact";
 
 let INFO: SMTPSentMessageInfo;
 
@@ -96,4 +97,25 @@ export async function credentialsEmail(email: string, password: string, post: bo
   console.log("Message sent POST: " + INFO.messageId);
 
   return;
+}
+const CONTACT_CC = 'fbzpanatto@gmail.com';
+
+// Plain text on purpose: the fields come from an anonymous visitor and must never be rendered as HTML.
+export async function contactEmail(contact: Contact): Promise<void> {
+  INFO = await TRANSPORTER.sendMail({
+    from: `"EscolApp - Contato" <${sender}>`,
+    to: sender,
+    cc: CONTACT_CC,
+    replyTo: contact.email,
+    subject: `EscolApp: novo contato de ${contact.name}`,
+    text: [
+      `Nome: ${contact.name}`,
+      `E-mail: ${contact.email}`,
+      `Instituição: ${contact.institution || '-'}`,
+      `Segmento: ${contact.segment || '-'}`,
+      '',
+      contact.message
+    ].join('\n'),
+  });
+  console.log("Message sent: " + INFO.messageId);
 }

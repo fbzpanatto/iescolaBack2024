@@ -33,3 +33,10 @@ export const resetPasswordLimiter: RateLimitRequestHandler = rateLimit({
   legacyHeaders: false,
   handler: tooManyAttempts
 })
+
+// Public and unauthenticated: the shared cap protects the inbox and the Gmail quota even when senders rotate the email.
+// shortcut: no per-IP limit because the app does not set "trust proxy"; add it (or a captcha) if spam appears.
+export const contactLimiter: RateLimitRequestHandler[] = [
+  rateLimit({ windowMs: ONE_HOUR, limit: 30, keyGenerator: () => 'contact', standardHeaders: 'draft-8', legacyHeaders: false, handler: tooManyAttempts }),
+  rateLimit({ windowMs: ONE_HOUR, limit: 3, keyGenerator: emailKey, standardHeaders: 'draft-8', legacyHeaders: false, handler: tooManyAttempts })
+]

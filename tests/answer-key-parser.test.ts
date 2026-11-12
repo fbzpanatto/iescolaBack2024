@@ -65,6 +65,27 @@ describe('parseAnswerKey with the real sample files', () => {
     assert.deepEqual(science9.questions[3].extraSkills.map(skill => skill.reference), ['EF09CICM11'])
     assert.deepEqual(science9.questions[0].extraSkills, [])
   })
+
+  test('accepts "COD:", "COD-" and two codes in one cell; the same skill may repeat across questions', () => {
+    const item = (str: string, column: number, row: number): PdfTextItem => ({ page: 1, str, x: column * 100, y: row * 20, width: 50 })
+    const skills = ['EF08LP11 / EF08LP13: Identificar orações', 'EF69LP55: Reconhecer variedades', 'EF08MA11- Identificar a regularidade', 'EF08MA11- Identificar a regularidade']
+    const items = [item('MATEMÁTICA', 0, 0), item('QUESTÃO', 0, 1), item('GABARITO', 1, 1), item('HABILIDADE', 2, 1),
+      ...skills.flatMap((skill, index) => [item(String(index + 1), 0, index + 2), item('A', 1, index + 2), item(skill, 2, index + 2)])]
+    const { questions } = parseAnswerKey(items).blocks[0]
+    assert.deepEqual(questions.map(q => q.reference), ['EF08LP11', 'EF69LP55', 'EF08MA11', 'EF08MA11'])
+    assert.deepEqual(questions[0].extraSkills, [{ reference: 'EF08LP13', description: 'Identificar orações' }])
+    assert.equal(questions[2].description, 'Identificar a regularidade')
+  })
+})
+
+test('a skill without a code keeps its own question, with an empty reference', () => {
+  const item = (str: string, column: number, row: number): PdfTextItem => ({ page: 1, str, x: column * 100, y: row * 20, width: 50 })
+  const skills = ['EF09MA14 - Resolver problemas', 'Trigonometria no triângulo retângulo', 'Trigonometria no triângulo retângulo', 'EF09MA15 - Descrever']
+  const items = [item('MATEMÁTICA', 0, 0), item('QUESTÃO', 0, 1), item('GABARITO', 1, 1), item('HABILIDADE', 2, 1),
+    ...skills.flatMap((skill, index) => [item(String(index + 1), 0, index + 2), item('A', 1, index + 2), item(skill, 2, index + 2)])]
+  const { questions } = parseAnswerKey(items).blocks[0]
+  assert.deepEqual(questions.map(q => q.reference), ['EF09MA14', '', '', 'EF09MA15'])
+  assert.deepEqual(questions.map(q => q.description), ['Resolver problemas', 'Trigonometria no triângulo retângulo', 'Trigonometria no triângulo retângulo', 'Descrever'])
 })
 
 describe('parseAnswerKey rejections', () => {

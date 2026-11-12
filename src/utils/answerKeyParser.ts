@@ -9,7 +9,7 @@ export interface ParsedAnswerKey { year: number | null, blocks: ParsedAnswerKeyB
 interface Row { page: number, y: number, items: PdfTextItem[] }
 interface Columns { numberMaxX: number, answerMaxX: number }
 interface Line { absY: number, x: number, text: string }
-interface Cell { reference: string, firstAbsY: number, lastAbsY: number, parts: string[] }
+interface Cell { reference: string, extraReferences: string[], firstAbsY: number, lastAbsY: number, parts: string[] }
 interface Pair { number: number, answer: string, absY: number }
 
 const ROW_TOLERANCE = 2
@@ -18,7 +18,8 @@ const COLUMN_MARGIN = 5
 const SKILL_X_TOLERANCE = 3
 const PAGE_STRIDE = 100000
 const REFERENCE_CODE = '[A-Za-z]{1,6}\\d[A-Za-z0-9]{0,24}'
-const REFERENCE_START = new RegExp(`^(?:\\(\\s*(${REFERENCE_CODE})\\s*\\)\\s*(?:[-–—]\\s*)?|(${REFERENCE_CODE})\\s+[-–—]\\s*)(.*)$`)
+// Aceita "(COD) texto", "COD - texto", "COD- texto", "COD: texto" e vários códigos na mesma célula ("COD1 / COD2: texto").
+const REFERENCE_START = new RegExp(`^(?:\\(\\s*(${REFERENCE_CODE})\\s*\\)\\s*(?:[-–—:]\\s*)?|(${REFERENCE_CODE}(?:\\s*/\\s*${REFERENCE_CODE})*)\\s*[-–—:]\\s*)(.*)$`)
 const YEAR_PATTERN = /(\d{1,2})\s*[°ºo]\s*ANO/i
 const HEADER_WORDS = ['QUESTAO', 'GABARITO', 'HABILIDADE']
 const ITEM_HEADER_WORDS = ['ITEM', 'GABARITO']
@@ -103,11 +104,21 @@ const parseTable = (disciplineName: string, rows: Row[], columns: Columns): Pars
   for (const line of lines) {
     const start = line.x <= skillStartX + SKILL_X_TOLERANCE ? REFERENCE_START.exec(line.text) : null
     if (start) {
-      cells.push({ reference: start[1] ?? start[2], firstAbsY: line.absY, lastAbsY: line.absY, parts: [start[3]] })
+      const [reference, ...extraReferences] = (start[1] ?? start[2]).split('/').map(code => code.trim())
+      cells.push({ reference, extraReferences, firstAbsY: line.absY, lastAbsY: line.absY, parts: [start[3]] })
       continue
     }
     const current = cells[cells.length - 1]
-    if (!current || line.x > skillStartX + SKILL_X_TOLERANCE) { continue }
+    if (line.x > skillStartX + SKILL_X_TOLERANCE) { continue }
+    // Habilidade sem código: a linha divide a linha da tabela com um par e a célula atual já tem o par dela.
+    // Sai com reference vazia; o import procura a habilidade pela descrição.
+    const ownsPair = pairs.some(pair => pair.absY === line.absY)
+    const currentHasPair = !!current && pairs.some(pair => pair.absY >= current.firstAbsY - PAIR_TOLERANCE && pair.absY < line.absY)
+    if (ownsPair && (!current || currentHasPair)) {
+      cells.push({ reference: '', extraReferences: [], firstAbsY: line.absY, lastAbsY: line.absY, parts: [line.text] })
+      continue
+    }
+    if (!current) { continue }
     current.parts.push(line.text)
     current.lastAbsY = line.absY
   }
@@ -118,7 +129,7 @@ const parseTable = (disciplineName: string, rows: Row[], columns: Columns): Pars
   for (const pair of pairs) {
     const owners = cells.filter(cell => pair.absY >= cell.firstAbsY - PAIR_TOLERANCE && pair.absY <= cell.lastAbsY + PAIR_TOLERANCE)
     if (owners.length !== 1) { throw invalid(disciplineName, `não foi possível associar a questão ${pair.number} a uma habilidade.`) }
-    if (pairByCell.has(owners[0])) { throw invalid(disciplineName, `a habilidade ${owners[0].reference} tem mais de um número de questão.`) }
+    if (pairByCell.has(owners[0])) { throw invalid(disciplineName, `a questão ${pair.number} está sem código de habilidade (o texto deve começar com o código, como "EF09MA14 - ...").`) }
     pairByCell.set(owners[0], pair)
   }
 
@@ -141,7 +152,7 @@ const parseTable = (disciplineName: string, rows: Row[], columns: Columns): Pars
       const center = (group[0].firstAbsY + group[group.length - 1].lastAbsY) / 2
       if (Math.abs(center - pair.absY) > PAIR_TOLERANCE) { throw invalid(disciplineName, `não foi possível associar a questão ${pair.number} às suas habilidades.`) }
     }
-    const skills = group.map(cell => ({ reference: cell.reference, description: squash(cell.parts.join(' ')) }))
+    const skills = group.flatMap(cell => [cell.reference, ...cell.extraReferences].map(reference => ({ reference, description: squash(cell.parts.join(' ')) })))
     const emptyDescription = skills.find(skill => !skill.description)
     if (emptyDescription) { throw invalid(disciplineName, `a habilidade ${emptyDescription.reference} está sem descrição.`) }
     const [primary, ...extraSkills] = skills

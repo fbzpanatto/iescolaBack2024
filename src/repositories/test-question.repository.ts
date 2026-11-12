@@ -348,6 +348,19 @@ class TestQuestionRepository {
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }
   }
+
+  async qSkillsByTexts(texts: string[]) {
+    const uniqueTexts = [...new Set(texts)];
+    if (uniqueTexts.length === 0) { return [] }
+    let conn;
+    try {
+      conn = await connectionPool.getConnection();
+      const [ queryResult ] = await conn.query(`SELECT id, reference, description FROM skill WHERE description IN (?) OR reference IN (?) ORDER BY id`, [uniqueTexts, uniqueTexts]);
+      return queryResult as Array<{ id: number, reference: string, description: string }>
+    }
+    catch (error) { console.error(error); throw error }
+    finally { if (conn) { conn.release() } }
+  }
 }
 
 export const testQuestionRepository = new TestQuestionRepository()

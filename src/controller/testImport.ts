@@ -1,11 +1,12 @@
 import { HttpError } from "../utils/helpers";
 import { pdfTextService } from "../services/pdf-text.service";
-import { parseAnswerKey, stripAccents } from "../utils/answerKeyParser";
+import { parseAnswerKey, ParsedAnswerKeyQuestion, stripAccents } from "../utils/answerKeyParser";
 import { testQuestionRepository } from "../repositories/test-question.repository";
 import { catalogRepository } from "../repositories/catalog.repository";
 import { DOCX_MAGIC, docxToTextItems } from "../utils/docxTextItems";
 
 const PDF_MAGIC = '%PDF-'
+const REFERENCE_MAX_LENGTH = 255
 
 class TestImportController {
 
@@ -18,15 +19,31 @@ class TestImportController {
       const parsed = parseAnswerKey(isPdf ? await pdfTextService.extractItems(body) : docxToTextItems(body));
 
       const references = parsed.blocks.flatMap(block => block.questions.flatMap(question => [question.reference, ...question.extraSkills.map(skill => skill.reference)])).filter(Boolean);
-      const [ skills, disciplines ] = await Promise.all([ testQuestionRepository.qSkillsByReferences(references), catalogRepository.qDisciplines() ]);
+      const codeless = parsed.blocks.flatMap(block => block.questions.filter(question => !question.reference && question.description).map(question => question.description));
+      const [ skills, textSkills, disciplines ] = await Promise.all([ testQuestionRepository.qSkillsByReferences(references), testQuestionRepository.qSkillsByTexts(codeless), catalogRepository.qDisciplines() ]);
 
       const skillIdByReference = new Map(skills.map(skill => [skill.reference, skill.id]));
       const disciplineIdByName = new Map(disciplines.map(discipline => [stripAccents(discipline.name.trim()), discipline.id]));
 
+      // Habilidade sem código: usa a já cadastrada com a mesma descrição (ou referência); sem cadastro, o texto vira a referência da nova.
+      const skillByText = new Map<string, { id: number, reference: string }>();
+      for (const skill of textSkills) {
+        for (const text of [skill.description, skill.reference]) {
+          const key = stripAccents(text.replace(/\s+/g, ' ').trim());
+          if (!skillByText.has(key)) { skillByText.set(key, skill) }
+        }
+      }
+      const withReference = (question: ParsedAnswerKeyQuestion): ParsedAnswerKeyQuestion => {
+        if (question.reference || !question.description) { return question }
+        const match = skillByText.get(stripAccents(question.description));
+        if (match) { skillIdByReference.set(match.reference, match.id) }
+        return { ...question, reference: match?.reference ?? question.description.slice(0, REFERENCE_MAX_LENGTH) };
+      }
+
       const blocks = parsed.blocks.map(block => ({
         disciplineName: block.disciplineName,
         disciplineId: disciplineIdByName.get(stripAccents(block.disciplineName)) ?? null,
-        questions: block.questions.map(question => ({
+        questions: block.questions.map(withReference).map(question => ({
           number: question.number,
           answer: question.answer,
           reference: question.reference,

@@ -260,6 +260,16 @@ export class StudentFormatter {
     }, {} as { id: number, name: string, shortName: string, nickname: string, shiftId: number, categoryId: number, school: string, students: { rosterNumber: number, student: string, birth: string, studentId: number, ra: string, studentClassroomId: number }[] })
   }
 
+  static classroomStudentDisabilities<T extends { students?: { studentId: number }[] }>(classroom: T, rows: { id: number, studentId: number, startedAt: string, endedAt: string | null, disability_id: number, disability_name: string, disability_official: boolean }[]) {
+    const byStudent = new Map<number, { id: number, startedAt: string, endedAt: string | null, disability: { id: number, name: string, official: boolean } }[]>()
+    for (const row of rows) {
+      const list = byStudent.get(row.studentId) ?? []
+      list.push({ id: row.id, startedAt: row.startedAt, endedAt: row.endedAt, disability: { id: row.disability_id, name: row.disability_name, official: !!row.disability_official } })
+      byStudent.set(row.studentId, list)
+    }
+    return { ...classroom, students: (classroom.students ?? []).map(s => ({ ...s, studentDisabilities: byStudent.get(s.studentId) ?? [] })) }
+  }
+
   static formatDuplicatedStudent(rows: any[]) {
     return rows.map((item) => ({
       aluno: item.aluno,

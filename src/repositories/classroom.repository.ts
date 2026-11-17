@@ -37,7 +37,7 @@ class ClassroomRepository {
         `
       const [ queryResult ] = await conn.query(query, [id])
 
-      return StudentFormatter.studentsClassrooms((queryResult as Array<{
+      const classroom = StudentFormatter.studentsClassrooms((queryResult as Array<{
         id: number,
         name: string,
         shortName: string,
@@ -52,6 +52,20 @@ class ClassroomRepository {
         ra: string,
         studentClassroomId: number
       }>))
+
+      const studentIds = (classroom.students ?? []).map(s => s.studentId).filter(Boolean)
+      if (!studentIds.length) { return classroom }
+
+      const [ disabilityRows ] = await conn.query(
+        `
+          SELECT sd.id, sd.studentId, sd.startedAt, sd.endedAt,
+            d.id AS disability_id, d.name AS disability_name, d.official AS disability_official
+          FROM student_disability AS sd
+            INNER JOIN disability AS d ON sd.disabilityId = d.id
+          WHERE sd.studentId IN (?) AND sd.endedAt IS NULL
+        `, [studentIds])
+
+      return StudentFormatter.classroomStudentDisabilities(classroom, disabilityRows as Array<{ id: number, studentId: number, startedAt: string, endedAt: string | null, disability_id: number, disability_name: string, disability_official: boolean }>)
     }
     catch (error) { console.error(error); throw error }
     finally { if (conn) { conn.release() } }

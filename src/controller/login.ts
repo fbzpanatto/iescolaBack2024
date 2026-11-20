@@ -118,8 +118,12 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
       if (result.outcome === 'user_not_found') { return { status: 401, message: "Usuário não encontrado" } }
 
-      if (result.outcome === 'token_invalid') {
-        return { status: 401, message: 'Este link de redefinição já foi utilizado ou revogado. Solicite um novo link.' };
+      if (result.outcome === 'token_used') {
+        return { status: 401, message: 'Este link de redefinição já foi utilizado. Se ainda não lembra a senha, solicite um novo link.' };
+      }
+
+      if (result.outcome === 'token_replaced') {
+        return { status: 401, message: 'Este link foi substituído por um mais recente. Use o último email de redefinição que você recebeu.' };
       }
 
       // 5. Gera a nova sessão para logar o usuário automaticamente

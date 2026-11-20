@@ -23,6 +23,7 @@ class PasswordController {
       FROM user u
       INNER JOIN person p ON u.personId = p.id
       WHERE u.email = ?
+      FOR UPDATE
     `;
 
       const [userRows] = await conn.query(selectQuery, [email]);
@@ -33,19 +34,22 @@ class PasswordController {
       // 1. Gera as datas com 24 horas de validade
       const sqlDateTime = Helper.generateDateTime(24);
 
-      // 2. Bloqueia se já houver token válido usando o createdAt (que representa o momento atual)
+      // 2. Token ainda válido (createdAt representa o momento atual); o FOR UPDATE no usuário serializa pedidos simultâneos
       const checkTokenQuery = `
-      SELECT expiresAt 
+      SELECT token 
       FROM token_reset 
-      WHERE userId = ? AND expiresAt > ?
+      WHERE userId = ? AND expiresAt > ? AND token IS NOT NULL
+      FOR UPDATE
     `;
 
       const [tokenRows] = await conn.query(checkTokenQuery, [uTeacher.id, sqlDateTime.createdAt]);
       const activeToken = (tokenRows as any[])[0];
 
+      // Resend the live token instead of replacing it: a new token would silently kill the link already in the inbox.
       if (activeToken) {
-        const message = "Um link de redefinição já foi enviado recentemente. Aguarde o prazo expirar para solicitar novamente, ou verifique sua caixa de entrada/spam."
-        await conn.rollback();
+        await resetPasswordEmailService(uTeacher.email, activeToken.token);
+        await conn.commit();
+        const message = "Reenviamos o link de redefinição para o email informado. Confira sua caixa de entrada e a pasta de spam.";
         return { status: 200, data: { message }};
       }
 

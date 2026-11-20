@@ -112,13 +112,12 @@ class AuthRepository {
 
       if (!userRow) { await conn.commit(); return { outcome: 'user_not_found' as const } }
 
-      const checkTokenQuery = `SELECT userId FROM token_reset WHERE userId = ? AND token = ? FOR UPDATE`;
-      const [ tokenRows ] = await conn.query(checkTokenQuery, [userRow.user_id, resetToken]);
+      const checkTokenQuery = `SELECT token FROM token_reset WHERE userId = ? FOR UPDATE`;
+      const [ tokenRows ] = await conn.query(checkTokenQuery, [userRow.user_id]);
+      const storedToken: string | null | undefined = (tokenRows as any[])[0]?.token;
 
-      if (!tokenRows || (tokenRows as any[]).length === 0) {
-        await conn.commit();
-        return { outcome: 'token_invalid' as const };
-      }
+      if (!storedToken) { await conn.commit(); return { outcome: 'token_used' as const } }
+      if (storedToken !== resetToken) { await conn.commit(); return { outcome: 'token_replaced' as const } }
 
       await conn.query(`UPDATE user SET password = ? WHERE id = ?`, [hashedPassword, userRow.user_id]);
       await conn.query(`DELETE FROM token_reset WHERE userId = ?`, [userRow.user_id]);

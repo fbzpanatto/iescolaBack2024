@@ -3,6 +3,7 @@ import { Teacher } from "../model/Teacher";
 import { PER_CAT } from "../utils/enums";
 import { connectionPool } from "../services/db";
 import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { isDuplicateUserEmail } from "../utils/helpers";
 import { UserFormatter } from "../utils/formatters/user.formatter";
 
 class TeacherRepository {
@@ -144,7 +145,11 @@ class TeacherRepository {
         }
       };
     }
-    catch (error) { if (conn) await conn.rollback(); console.error(error); throw error }
+    catch (error: any) {
+      if (conn) await conn.rollback();
+      if (isDuplicateUserEmail(error)) { return { outcome: 'email_exists' as const } }
+      console.error(error); throw error
+    }
     finally { if (conn) { conn.release() } }
   }
 

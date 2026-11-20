@@ -4,6 +4,9 @@ export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); this.name = 'HttpError'; }
 }
 
+export const isDuplicateUserEmail = (error: unknown): boolean =>
+  (error as { code?: string })?.code === 'ER_DUP_ENTRY' && String((error as { message?: string })?.message).includes('UQ_user_email')
+
 export class Helper {
 
   static generateRandomCode(length: number = 8): string {

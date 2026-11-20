@@ -12,6 +12,7 @@ import { credentialsEmail } from "../services/email";
 import { generatePassword } from "../utils/generatePassword";
 import { connectionPool } from "../services/db";
 import { toSqlUtcDateTime } from "../utils/sqlDateTime";
+import { isDuplicateUserEmail } from "../utils/helpers";
 import { catalogRepository } from "../repositories/catalog.repository";
 import { teacherRepository } from "../repositories/teacher.repository";
 import { teacherClassDisciplineRepository } from "../repositories/teacher-class-discipline.repository";
@@ -201,7 +202,11 @@ class TeacherController extends GenericController<EntityTarget<Teacher>> {
       await conn.commit();
       return result;
     }
-    catch ( error: any ) { if (conn) await conn.rollback(); console.error( error ); return { status: 500, message: error.message } }
+    catch ( error: any ) {
+      if (conn) await conn.rollback();
+      if (isDuplicateUserEmail(error)) { return { status: 409, message: "Já existe um registro com este email." } }
+      console.error( error ); return { status: 500, message: error.message }
+    }
     finally { if (conn) { conn.release() } }
   }
 

@@ -24,7 +24,7 @@ class LoginController extends GenericController<EntityTarget<User>> {
 
   async login(req: Request) {
 
-    const email = req.body.email?.toLowerCase();
+    const email = req.body.email?.trim().toLowerCase();
     const { password: frontPass } = req.body;
 
     try {

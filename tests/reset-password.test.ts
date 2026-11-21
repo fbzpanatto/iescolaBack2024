@@ -5,8 +5,12 @@ import * as email from '../src/services/email'
 import { passwordController } from '../src/controller/password'
 import { authRepository } from '../src/repositories/auth.repository'
 import { isDuplicateUserEmail } from '../src/utils/helpers'
+import { checkSchema } from 'express-validator'
+import { TEACHER_SCHEMA } from '../src/schemas/teacher'
 
 type Responder = (sql: string) => unknown[]
+
+const lastParams = new Map<string, unknown[] | undefined>()
 
 const stubPool = (respond: Responder, queries: string[]) =>
   mock.method(connectionPool, 'getConnection', async () => ({
@@ -14,7 +18,7 @@ const stubPool = (respond: Responder, queries: string[]) =>
     commit: async (): Promise<void> => {},
     rollback: async (): Promise<void> => {},
     release: (): void => {},
-    query: async (sql: string): Promise<[unknown[]]> => { queries.push(sql); return [respond(sql)] }
+    query: async (sql: string, params?: unknown[]): Promise<[unknown[]]> => { queries.push(sql); lastParams.set(sql, params); return [respond(sql)] }
   }) as never)
 
 const user = { id: 7, email: 'prof@escola.org', categoryId: 3 }
@@ -35,6 +39,16 @@ describe('requestTokenForResetPassword', () => {
     assert.deepEqual(sent.mock.calls.map(call => call.arguments), [[user.email, 'live-token']])
     assert.ok(queries[0].includes('FOR UPDATE'))
     assert.ok(!queries.some(sql => sql.includes('INSERT INTO token_reset')))
+  })
+
+  test('looks the user up by the trimmed, lowercased email', async () => {
+    const queries: string[] = []
+    mock.method(email, 'resetPasswordEmailService', async () => {})
+    stubPool(() => [], queries)
+
+    await passwordController.requestTokenForResetPassword({ body: { email: '  Prof@Escola.ORG ' } } as never)
+
+    assert.deepEqual(lastParams.get(queries[0]), ['prof@escola.org'])
   })
 
   test('creates and sends a new token when none is live', async () => {
@@ -68,5 +82,13 @@ describe('isDuplicateUserEmail', () => {
     assert.equal(isDuplicateUserEmail({ code: 'ER_DUP_ENTRY', message: "Duplicate entry 'a@b.c' for key 'user.UQ_user_email'" }), true)
     assert.equal(isDuplicateUserEmail({ code: 'ER_DUP_ENTRY', message: "Duplicate entry '7' for key 'user.REL_6aac'" }), false)
     assert.equal(isDuplicateUserEmail(new Error('boom')), false)
+  })
+})
+
+describe('TEACHER_SCHEMA email', () => {
+  test('trims and lowercases the email before it reaches the controller', async () => {
+    const req = { body: { email: '  Prof@Escola.ORG ' } }
+    await checkSchema(TEACHER_SCHEMA).run(req)
+    assert.equal(req.body.email, 'prof@escola.org')
   })
 })

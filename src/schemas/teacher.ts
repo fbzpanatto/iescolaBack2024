@@ -35,7 +35,9 @@ export const TEACHER_SCHEMA: Schema = {
   },
   email: {
     optional: true,
-    escape: true
+    escape: true,
+    trim: true,
+    toLowerCase: true
   },
   name: {
     optional: true,

@@ -16,7 +16,7 @@ class PasswordController {
       conn = await connectionPool.getConnection();
       await conn.beginTransaction();
 
-      const email = req.body.email;
+      const email = String(req.body.email ?? '').trim().toLowerCase();
 
       const selectQuery = `
       SELECT u.id, u.email, p.categoryId 

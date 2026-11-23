@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_ENV=development npx nodemon src/index.ts --watch 'src/' -e ts",
-    "build": "rimraf ./public && tsc",
+    "build": "./node_modules/.bin/rimraf ./public && tsc",
     "start": "NODE_ENV=production node ./public/index.js",
     "pm2": "npm run build && NODE_ENV=production pm2 start ./public/index.js -f",
-    "test": "node -r ts-node/register/transpile-only --test \"tests/**/*.test.ts\""
+    "test": "node -r ts-node/register/transpile-only --test \"tests/**/*.test.ts\"",
+    "publish": "npm run build && scp -r public/* ec2-user@ec2-arm64.azul.dev:/home/ec2-user/servers/node/escola.app/"
   },
   "keywords": [],
   "author": "",
@@ -38,7 +39,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.7.1",
+    "express-rate-limit": "8.7.2",
     "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
